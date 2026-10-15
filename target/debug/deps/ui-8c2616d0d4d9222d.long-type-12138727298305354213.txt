@@ -1,0 +1,1 @@
+leptos::prelude::View<leptos::html::HtmlElement<leptos::html::Table, (Class<&str>,), ((InertElement, leptos::html::HtmlElement<Tbody, (), ({closure@crates/ui/src/components/categories.rs:161:34: 161:41},)>),)>>

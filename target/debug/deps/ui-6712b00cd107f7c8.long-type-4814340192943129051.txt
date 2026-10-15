@@ -1,0 +1,4 @@
+(InertElement, leptos::html::HtmlElement<Button, (Class<&str>, On<click, {closure@crates/ui/src/components/categories.rs:43:28: 43:35}>), (&str,)>)
+(InertElement, leptos::html::HtmlElement<Button, (Class<&str>, On<click, {closure@crates/ui/src/components/categories.rs:43:28: 43:35}>), (&str,)>): leptos::prelude::Render
+((InertElement, leptos::html::HtmlElement<Button, (Class<&str>, On<click, {closure@crates/ui/src/components/categories.rs:43:28: 43:35}>), (&str,)>),)
+leptos::prelude::ElementChild<(InertElement, leptos::html::HtmlElement<Button, (Class<&str>, On<click, {closure@crates/ui/src/components/categories.rs:43:28: 43:35}>), (&str,)>)>

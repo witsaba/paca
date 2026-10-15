@@ -1,0 +1,2 @@
+fn(State<Database>, Query<ListTransactionsQuery>) -> impl Future<Output = Result<Vec<shared::Transaction>, AppError>> {list_transactions}
+fn(State<Database>, Query<ListTransactionsQuery>) -> impl Future<Output = Result<Vec<shared::Transaction>, AppError>> {list_transactions}: Handler<_, _>

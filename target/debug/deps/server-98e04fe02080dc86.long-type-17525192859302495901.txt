@@ -1,0 +1,2 @@
+fn(State<Database>, Query<ListCategoriesQuery>) -> impl Future<Output = Result<Vec<CategoryWithPath>, AppError>> {list_categories}
+fn(State<Database>, Query<ListCategoriesQuery>) -> impl Future<Output = Result<Vec<CategoryWithPath>, AppError>> {list_categories}: Handler<_, _>

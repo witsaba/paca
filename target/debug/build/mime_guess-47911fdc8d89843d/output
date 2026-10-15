@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/home/brae/workspace/paca-feature-1-incomes-outcomes/target/debug/build/mime_guess-47911fdc8d89843d/out/mime_types_generated.rs

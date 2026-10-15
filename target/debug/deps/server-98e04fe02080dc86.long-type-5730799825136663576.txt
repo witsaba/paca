@@ -1,0 +1,2 @@
+fn(State<Database>, axum::extract::Path<i64>) -> impl Future<Output = Result<shared::Transaction, AppError>> {get_transaction}
+fn(State<Database>, axum::extract::Path<i64>) -> impl Future<Output = Result<shared::Transaction, AppError>> {get_transaction}: Handler<_, _>

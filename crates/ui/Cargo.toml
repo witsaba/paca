@@ -1,0 +1,22 @@
+[package]
+name = "ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared = { path = "../shared" }
+
+# Leptos
+leptos = { workspace = true }
+leptos_meta = { workspace = true }
+leptos_router = { workspace = true }
+
+# HTTP client
+gloo-net = "0.5"
+
+# WASM targets
+getrandom = { version = "0.2", features = ["js"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }

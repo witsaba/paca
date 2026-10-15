@@ -1,0 +1,2 @@
+fn(State<Database>, {type error}) -> impl Future<Output = Result<shared::Category, AppError>> {create_category}
+fn(State<Database>, {type error}) -> impl Future<Output = Result<shared::Category, AppError>> {create_category}: Handler<_, _>

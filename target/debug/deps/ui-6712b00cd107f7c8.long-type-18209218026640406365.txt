@@ -1,0 +1,1 @@
+leptos::prelude::OnAttribute<click, {closure@crates/ui/src/components/categories.rs:107:26: 107:33}>

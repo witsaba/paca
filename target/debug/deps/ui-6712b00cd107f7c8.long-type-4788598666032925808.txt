@@ -1,0 +1,1 @@
+leptos::prelude::ForPropsBuilder<Vec<CategoryWithPath>, _, _, _, _, _, _, ((Vec<CategoryWithPath>,), (), ())>

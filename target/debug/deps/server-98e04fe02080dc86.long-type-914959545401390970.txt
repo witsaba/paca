@@ -1,0 +1,2 @@
+fn(State<Database>, {type error}) -> impl Future<Output = Result<shared::Transaction, AppError>> {create_transaction}
+fn(State<Database>, {type error}) -> impl Future<Output = Result<shared::Transaction, AppError>> {create_transaction}: Handler<_, _>

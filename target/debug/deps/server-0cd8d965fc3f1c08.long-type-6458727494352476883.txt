@@ -1,0 +1,2 @@
+fn(State<Database>, Json<CreateTransaction>) -> impl Future<Output = Result<impl IntoResponse, AppError>> {create_transaction}
+fn(State<Database>, Json<CreateTransaction>) -> impl Future<Output = Result<impl IntoResponse, AppError>> {create_transaction}: Handler<_, _>

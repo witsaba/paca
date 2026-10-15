@@ -1,0 +1,2 @@
+fn(State<Database>, axum::extract::Path<i64>, Json<UpdateTransaction>) -> impl Future<Output = Result<impl IntoResponse, AppError>> {update_transaction}
+fn(State<Database>, axum::extract::Path<i64>, Json<UpdateTransaction>) -> impl Future<Output = Result<impl IntoResponse, AppError>> {update_transaction}: Handler<_, _>

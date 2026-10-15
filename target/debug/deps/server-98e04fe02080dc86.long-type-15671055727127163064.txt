@@ -1,0 +1,2 @@
+fn(State<Database>, axum::extract::Path<i64>, {type error}) -> impl Future<Output = Result<shared::Transaction, AppError>> {update_transaction}
+fn(State<Database>, axum::extract::Path<i64>, {type error}) -> impl Future<Output = Result<shared::Transaction, AppError>> {update_transaction}: Handler<_, _>

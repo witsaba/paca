@@ -16,6 +16,9 @@ GOFMT    ?= $(shell $(GO) env GOROOT)/bin/gofmt
 BIN_DIR  ?= $(CURDIR)/bin
 COV_DIR  ?= $(CURDIR)/.coverage
 COV_FILE ?= $(CURDIR)/coverage.out
+# The coverage floor of a file of the repository, in percent. The house rule
+# of the repository is 75% per file, measured statement-weighted.
+COVERAGE_FLOOR ?= 75
 CLI_DIR  ?= apps/cli
 CLI_BIN  ?= $(BIN_DIR)/paca
 MCP_DIR  ?= apps/mcp
@@ -43,7 +46,7 @@ define in_modules
 	done
 endef
 
-.PHONY: help deps tidy build test cover race vuln lint vet fmt fmt-check all run clean
+.PHONY: help deps tidy build test cover cover-check race vuln lint vet fmt fmt-check all run clean
 
 ## help: show this list of targets
 help:
@@ -54,6 +57,7 @@ help:
 	@echo "  make build      compile every module and write the binaries to bin/"
 	@echo "  make test       run the test suite"
 	@echo "  make cover      run the test suite with coverage and report it"
+	@echo "  make cover-check run the test suite and fail when a file is below the floor"
 	@echo "  make race       run the test suite with the race detector"
 	@echo "  make vuln       scan the dependencies for known vulnerabilities"
 	@echo "  make vet        run the Go vet analyzers over every module"
@@ -98,6 +102,30 @@ cover:
 	@ls $(COV_DIR)/*.out >/dev/null 2>&1 && \
 		cat $(COV_DIR)/*.out | awk 'NR == 1 || !/^mode:/' > $(COV_FILE) || true
 	@$(GO) tool cover -func=$(COV_FILE)
+
+## cover-check: fail when a file of the repository is below the coverage floor
+cover-check: cover
+	@awk -v floor=$(COVERAGE_FLOOR) 'NR > 1 { \
+		file = $$1; \
+		sub(/:[0-9].*$$/, "", file); \
+		total[file] += $$2; \
+		if ($$3 > 0) { covered[file] += $$2 } \
+	} \
+	END { \
+		failed = 0; \
+		for (file in total) { \
+			percent = 100 * covered[file] / total[file]; \
+			if (percent + 0 < floor + 0) { \
+				printf "  %s: %.1f%% (the floor is %s%%)\n", file, percent, floor; \
+				failed = 1; \
+			} \
+		} \
+		if (failed) { \
+			print "a file of the repository is below the coverage floor"; \
+			exit 1; \
+		} \
+		printf "every file of the repository is at or above %s%% of coverage\n", floor; \
+	}' $(COV_FILE)
 
 ## race: run the test suite with the race detector
 race:

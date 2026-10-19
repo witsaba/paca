@@ -44,7 +44,10 @@ paca/
 ├── tools/           repository-wide developer tooling
 │   ├── go.mod       the pinned linter and vulnerability scanner (Go tool dependencies)
 │   └── README.md
-├── Makefile         the developer workflow: deps, build, test, cover, race, vuln, lint
+├── .github/
+│   └── workflows/
+│       └── ci.yml   the continuous integration: the quality gate, the schema verifier, the coverage floor
+├── Makefile         the developer workflow: deps, build, test, cover, cover-check, race, vuln, lint
 ├── go.work          the Go workspace tying the modules of the repository together
 └── README.md        you are here
 ```

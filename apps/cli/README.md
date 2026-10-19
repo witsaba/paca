@@ -33,6 +33,7 @@ make build                     # writes bin/paca
 make test                      # the whole workspace
 make cover                     # with coverage
 make race                      # with the race detector
+make vet                       # the Go vet analyzers, toolchain only
 ```
 
 The command behaviour is tested in

@@ -41,7 +41,7 @@ define in_modules
 	done
 endef
 
-.PHONY: help deps tidy build test cover race vuln lint fmt fmt-check all run clean
+.PHONY: help deps tidy build test cover race vuln lint vet fmt fmt-check all run clean
 
 ## help: show this list of targets
 help:
@@ -54,10 +54,11 @@ help:
 	@echo "  make cover      run the test suite with coverage and report it"
 	@echo "  make race       run the test suite with the race detector"
 	@echo "  make vuln       scan the dependencies for known vulnerabilities"
+	@echo "  make vet        run the Go vet analyzers over every module"
 	@echo "  make lint       run golangci-lint over every module"
 	@echo "  make fmt        format the Go sources"
 	@echo "  make fmt-check  fail when a Go source is not formatted"
-	@echo "  make all        the full quality gate: fmt-check, lint, build, test, race, vuln"
+	@echo "  make all        the full quality gate: fmt-check, vet, lint, build, test, race, vuln"
 	@echo "  make run        run the paca CLI (make run ARGS=\"--help\")"
 	@echo "  make clean      remove the build and coverage artifacts"
 	@echo ""
@@ -102,6 +103,15 @@ race:
 vuln:
 	$(call in_modules,$(GO) tool govulncheck ./...)
 
+## vet: run the Go vet analyzers over every module
+#
+# `go vet` is the toolchain's own analyzer. The linter also runs the govet
+# checks, so this target is not a second opinion on the same rules: it is the
+# check that needs nothing but the Go toolchain, and the fastest one in the
+# gate. It runs before the linter for that reason.
+vet:
+	$(call in_modules,$(GO) vet ./...)
+
 ## lint: run golangci-lint over every module
 lint:
 	$(call in_modules,$(GO) tool golangci-lint run ./...)
@@ -120,7 +130,7 @@ fmt-check:
 	fi
 
 ## all: the full quality gate
-all: fmt-check lint build test race vuln
+all: fmt-check vet lint build test race vuln
 
 ## run: run the paca CLI
 run:

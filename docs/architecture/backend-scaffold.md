@@ -114,14 +114,31 @@ standard for a service codebase:
 | `cover` | `go test -covermode=atomic -coverprofile` + `go tool cover -func` | the coverage of the change is known |
 | `race` | `go test -race ./...` per module | data races are reported, not guessed |
 | `vuln` | `govulncheck ./...` per module | known vulnerabilities in reachable code are caught |
+| `vet` | `go vet ./...` per module | the toolchain's own analyzers, with no third-party tool involved |
 | `lint` | `golangci-lint run` per module | the standard linter set plus the checks that matter |
 | `fmt` / `fmt-check` | `gofmt` | one formatting, enforced |
-| `all` | fmt-check, lint, build, test, race, vuln | the whole gate, in the order that fails fastest |
+| `all` | fmt-check, vet, lint, build, test, race, vuln | the whole gate, in the order that fails fastest |
 | `run` | `go run ./cmd/paca` | the application, without installing it |
 | `clean` | removes `bin/`, `coverage.out`, `.coverage/` | a clean tree |
 
 `all` is what CI runs. The order is deliberate: formatting and linting fail in
 seconds, before the slower build, test, race and vulnerability steps.
+
+**Why `vet` is a separate target when the linter already runs the govet checks.**
+It is not a second opinion on the same rules: `golangci-lint` enables `govet` in its
+standard set, and `go test` runs a vet subset on its own. The target is worth its
+place for three other reasons:
+
+- it is the check that needs **nothing but the Go toolchain** — no third-party tool
+  to download, build, or keep at a matching version, so it cannot fail because the
+  linter cannot be installed;
+- it is the **cheapest real check** in the gate (about half a second per module
+  against several seconds for the linter), which is why it runs before the linter;
+- the analysis comes from the **Go version pinned in `go.work`**, not from a linter
+  configuration that can exclude rules.
+
+A developer who wants one command gets `make all`; a developer who wants a fast
+signal on a change gets `make vet` alone.
 
 ### D5 — cobra for the command line
 

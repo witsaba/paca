@@ -191,6 +191,17 @@ Every check below was run in the worktree and observed, not assumed:
 The test for the `--help` rule was observed RED before the implementation
 (`undefined: cli.NewRootCommand`, build failure) and GREEN after it.
 
+### L5 — The `vet` target added on request
+
+The user asked whether `go vet` belonged in the Makefile. It was verified before
+answering: `golangci-lint` already enables `govet` in its standard set, and `go test`
+runs a vet subset on its own, so the target adds no new detection today. It was added
+anyway for three reasons that are not about detection: it is the check that needs
+nothing but the Go toolchain, it is the cheapest real check in the gate (about half a
+second per module), and its analysis comes from the Go version pinned in `go.work`
+rather than from a linter configuration that can exclude rules. It runs before the
+linter in `all`, and it is documented as such in the architecture note.
+
 ### L4 — Not done, by design
 
 - No database migration and no SQLite driver: S1 forbids it. The driver choice

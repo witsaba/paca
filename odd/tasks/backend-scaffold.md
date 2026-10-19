@@ -197,7 +197,7 @@ The test for the `--help` rule was observed RED before the implementation
   remains the open question in the root README.
 - No CLI subcommand beyond the header: S5 limits the surface to `--help`.
 - The branch is pushed and the pull request is opened against `main` on the user's
-  request, linking issue #4.
+  request: pull request #5, linking issue #4, labelled `type:feature`.
 - **The CI workflow is not in the pushed branch.** GitHub rejects a push that creates
   a workflow file when the token lacks the `workflow` scope, which the token of this
   environment does not carry. The workflow is authored and kept in the branch history;

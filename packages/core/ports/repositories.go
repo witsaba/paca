@@ -108,16 +108,20 @@ type MovementRepository interface {
 
 	// BalanceByAccount returns the balance of every account that holds
 	// movements, in Colombian pesos. The balance is the money in minus the
-	// money out.
+	// money out, and the sign of a kind of movement decides which side of
+	// the balance it lands on.
 	BalanceByAccount(ctx context.Context) (map[int64]int64, error)
 
 	// TotalByKind returns the total of every kind of movement over a
-	// period, in Colombian pesos. An empty period covers every movement.
+	// period, in Colombian pesos. A total follows the sign of its kind, so
+	// the total of an income is positive and the total of an expense is
+	// negative. An empty period covers every movement.
 	TotalByKind(ctx context.Context, period Period) (map[domain.MovementKind]int64, error)
 
 	// TotalByCategory returns the total of the movements of every category
-	// over a period, in Colombian pesos. An empty period covers every
-	// movement.
+	// over a period, in Colombian pesos. A total follows the sign of the
+	// kind of its movements, and the movements of a category may not share
+	// one kind. An empty period covers every movement.
 	TotalByCategory(ctx context.Context, period Period) (map[string]int64, error)
 }
 

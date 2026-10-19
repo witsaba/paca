@@ -30,6 +30,22 @@ const (
 	MovementKindLoanRecovered MovementKind = "loan_recovered"
 )
 
+// Sign returns the sign of the effect of the kind on the balance of an
+// account: 1 when the money comes in, -1 when it goes out.
+//
+// The sign is a rule of the business and not of the storage: the amount of a
+// movement is always positive, and the kind says which way the money went.
+func (k MovementKind) Sign() int {
+	switch k {
+	case MovementKindIncome, MovementKindTransferIn, MovementKindLoanReceived, MovementKindLoanRecovered:
+		return 1
+	case MovementKindExpense, MovementKindTransferOut, MovementKindLoanLent, MovementKindLoanRepayment:
+		return -1
+	default:
+		return 0
+	}
+}
+
 // Movement is a money event: the table that grows.
 //
 // The amount is always positive, so the direction of the flow is never

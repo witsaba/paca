@@ -101,3 +101,24 @@ func TestMovementKindsAreTheOnesOfTheSchema(t *testing.T) {
 		t.Errorf("the domain names %d movement kinds, want 8", len(cases))
 	}
 }
+
+// The sign of a kind is the sign of its effect on a balance: money in is
+// positive, money out is negative.
+func TestMovementKindSignIsTheSignOfItsEffect(t *testing.T) {
+	cases := map[domain.MovementKind]int{
+		domain.MovementKindIncome:        1,
+		domain.MovementKindTransferIn:    1,
+		domain.MovementKindLoanReceived:  1,
+		domain.MovementKindLoanRecovered: 1,
+		domain.MovementKindExpense:       -1,
+		domain.MovementKindTransferOut:   -1,
+		domain.MovementKindLoanLent:      -1,
+		domain.MovementKindLoanRepayment: -1,
+	}
+
+	for kind, want := range cases {
+		if got := kind.Sign(); got != want {
+			t.Errorf("the sign of %q is %d, want %d", kind, got, want)
+		}
+	}
+}

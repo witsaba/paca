@@ -1,6 +1,6 @@
 module github.com/witsaba/paca/tools
 
-go 1.26.3
+go 1.26.9
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect

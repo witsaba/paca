@@ -1,6 +1,6 @@
 module github.com/witsaba/paca/packages/core
 
-go 1.26.3
+go 1.26.9
 
 require (
 	github.com/witsaba/paca/packages/db v0.0.0

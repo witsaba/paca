@@ -29,10 +29,14 @@ paca/
 ├── odd/             ODD feature documents: specs, tasks, evidence, decision log
 │   └── tasks/
 │       ├── backend-scaffold.md  feature document: the Go backend scaffold
-│       └── database-model.md   feature document: design rationale, benchmarks, tradeoffs
+│       ├── database-model.md   feature document: design rationale, benchmarks, tradeoffs
+│       ├── mcp-server-mvp1.md  feature document: the 30-session MCP server roadmap
+│       └── mcp-s01-persistence-foundation.md  feature document: session S01
 ├── packages/
 │   ├── core/        the shared core — a Go module: domain, ports, application
-│   └── db/
+│   │   └── adapters/sqlite/     the concrete repository over the schema
+│   └── db/          the schema — a Go module that publishes the migrations
+│       ├── db.go    the published migrations (go:embed)
 │       ├── migrations/
 │       │   └── 001_initial_schema.sql   the schema — authoritative source for this document
 │       └── tools/

@@ -137,6 +137,8 @@ The implementation lands at:
 - `apps/mcp/cmd/paca-mcp/main.go` — composition root: `wire(slog, db, app) → mcp.Server`
 - `apps/mcp/internal/tools/*.go` — one file per MCP tool group (money, debt, setup, health)
 - `packages/core/adapters/sqlite/` — concrete repository over the existing schema
+- `packages/db/` — a Go module that publishes the migrations with `go:embed`, so
+  that the adapter depends on the schema instead of on a copy of it (amendment A8)
 - `packages/db/migrations/002_*.sql` — new tables introduced by this ADR (`audit_log`, `idempotency_keys`)
 - `packages/db/tools/verify_schema.sh` — extended with the same discipline as `001`
 
@@ -345,6 +347,8 @@ session that first needs it.
 | A4 | `income_vs_expenses` and `cashflow_summary` are disambiguated | pending — S19 |
 | A5 | `delete_movement` is a hard delete, with the audit log as the recovery trail | pending — S16 |
 | A6 | `add_category` and `list_categories` need a `categories` table | pending — S08 |
+| A7 | a uniqueness violation is a `validation_failed`; `duplicate_request` is reserved for the idempotency key | **applied — S01** |
+| A8 | `packages/db` becomes a Go module that publishes the migrations with `go:embed`, because `go:embed` cannot cross a module boundary | **applied — S01** |
 
 ---
 

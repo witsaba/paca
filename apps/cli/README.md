@@ -47,16 +47,23 @@ output is asserted.
 apps/cli/
 ├── cmd/paca/                     the composition root: build the command, run it, exit
 └── internal/
-    ├── adapters/cli/             the driving adapter: the cobra command tree
-    ├── application/              the use cases
-    ├── ports/                    the interfaces of both boundaries
-    └── domain/                   entities, value objects, invariants
+    └── adapters/cli/             the driving adapter: the cobra command tree
 ```
 
-The dependency rule is inward only: `cmd` → `adapters` → `application` → `ports` →
-`domain`. The domain imports nothing from the project and touches no I/O, so the rules
-of PACA behave the same in every delivery mechanism. Each package documents its own
-rule in its `doc.go`.
+The inner layers live in the shared core,
+[`packages/core`](../../packages/core/README.md), which this module requires:
+
+```
+packages/core/
+├── domain/                       entities, value objects, invariants
+├── ports/                        the interfaces of both boundaries
+└── application/                  the use cases
+```
+
+The dependency rule is inward only: `cmd` → `adapters` → `application` →
+`ports` → `domain`. The domain imports nothing from the project and touches no
+I/O, so the rules of PACA behave the same in every delivery mechanism. Each
+package documents its own rule in its `doc.go`.
 
 The reasoning behind the layout, the tool pinning, and the quality gate is recorded in
 [`docs/architecture/backend-scaffold.md`](../../docs/architecture/backend-scaffold.md).
@@ -65,6 +72,6 @@ The reasoning behind the layout, the tool pinning, and the quality gate is recor
 
 The next features attach as subcommands of the root command — `accounts`, `movements`,
 `loans`, `reports` — each in its own file under `internal/adapters/cli`, each calling
-a use case in `internal/application` through a port. The database arrives as a driven
-adapter implementing the repository ports, reading the schema in
+a use case in `packages/core/application` through a port. The database arrives as a
+driven adapter implementing the repository ports, reading the schema in
 [`packages/db`](../../packages/db/README.md).

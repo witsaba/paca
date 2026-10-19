@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/witsaba/paca/apps/cli/internal/adapters/cli"
+	"github.com/witsaba/paca/packages/core"
 )
 
 // The paca command is a header: --help is the only supported command.
@@ -61,5 +62,20 @@ func TestRootCommandRejectsAnyOtherCommand(t *testing.T) {
 
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("paca accounts succeeded, want an error: the header has no subcommands")
+	}
+}
+
+// The command presents the shared identity of PACA, taken from the core module
+// that every delivery mechanism composes.
+func TestRootCommandPresentsTheSharedProductIdentity(t *testing.T) {
+	cmd := cli.NewRootCommand()
+
+	want := core.ProductName + ", " + core.ProductDescription
+	if cmd.Short != want {
+		t.Errorf("the short description of the command is %q, want %q", cmd.Short, want)
+	}
+
+	if !strings.Contains(cmd.Long, core.ProductName) {
+		t.Errorf("the long description of the command does not name the product %q\ndescription:\n%s", core.ProductName, cmd.Long)
 	}
 }

@@ -6,8 +6,10 @@ database without reading the SQL. Every column, constraint, index, and rule desc
 taken directly from `packages/db/migrations/001_initial_schema.sql`.
 
 The application that will read and write this schema is under construction. Its command
-line entry point is [`apps/cli`](apps/cli/README.md); the decisions behind it are recorded
-in [`docs/architecture/backend-scaffold.md`](docs/architecture/backend-scaffold.md).
+line entry point is [`apps/cli`](apps/cli/README.md); the business rules both binaries
+share live in [`packages/core`](packages/core/README.md). The decisions behind them are
+recorded in [`docs/architecture/backend-scaffold.md`](docs/architecture/backend-scaffold.md)
+and [`docs/architecture/0001-mcp-agent-server.md`](docs/architecture/0001-mcp-agent-server.md).
 
 ---
 
@@ -18,7 +20,7 @@ paca/
 ├── apps/            the runnable applications
 │   ├── cli/         the paca command — a Go module, hexagonal, command header only
 │   │   ├── cmd/paca/            the composition root
-│   │   └── internal/            the hexagonal layers: domain, ports, application, adapters
+│   │   └── internal/            the driving adapter: the cobra command tree
 │   └── README.md
 ├── docs/            long-form documentation
 │   ├── architecture/
@@ -29,6 +31,7 @@ paca/
 │       ├── backend-scaffold.md  feature document: the Go backend scaffold
 │       └── database-model.md   feature document: design rationale, benchmarks, tradeoffs
 ├── packages/
+│   ├── core/        the shared core — a Go module: domain, ports, application
 │   └── db/
 │       ├── migrations/
 │       │   └── 001_initial_schema.sql   the schema — authoritative source for this document

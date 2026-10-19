@@ -10,7 +10,8 @@ Today:
 
 - [`cli/`](cli/README.md) — the `paca` command, the command line application of PACA.
   It is a Go module of the workspace (`github.com/witsaba/paca/apps/cli`) and currently
-  ships the command header only: `--help` is the only supported command.
+  ships the command header only: `--help` is the only supported command. It composes
+  the shared core in [`packages/core`](../packages/core/README.md).
 
 Conventions for this directory:
 

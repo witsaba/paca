@@ -11,7 +11,7 @@
 // I/O library, and it never touches the database, the clock, the filesystem, or
 // the network. Anything the domain needs from the outside world arrives as a
 // value that is already in memory, or through a port declared in
-// [github.com/witsaba/paca/apps/cli/internal/ports].
+// [github.com/witsaba/paca/packages/core/ports].
 //
 // The data currently stored by PACA is described in the repository README, which
 // documents the SQLite schema under packages/db. That schema is the persistence

@@ -25,8 +25,10 @@ Foundations already merged into the repository:
   inheritance with a `kind` discriminator, 57-check verifier
   ([`packages/db/tools/verify_schema.sh`](../../packages/db/tools/verify_schema.sh)).
 - **Go backend scaffold** — [`apps/cli/cmd/paca`](../../apps/cli/) with
-  hexagonal layers: `internal/domain`, `internal/ports`, `internal/application`,
-  and a `internal/adapters/sqlite` slot reserved for the SQLite repository.
+  hexagonal layers, now shared as the module
+  [`packages/core`](../../packages/core/README.md): `packages/core/domain`,
+  `packages/core/ports`, `packages/core/application`, and a
+  `packages/core/adapters/sqlite` slot reserved for the SQLite repository.
   Driver: `modernc.org/sqlite` (pure Go, no CGO).
 - **Settled decisions** in
   [`odd/tasks/deferred-decisions.md`](../../odd/tasks/deferred-decisions.md):
@@ -62,8 +64,8 @@ PRs do not re-litigate them.
 ### Option A — MCP server reusing the CLI's hexagonal services
 
 A second binary, `apps/mcp/cmd/paca-mcp`, exposes MCP tools. Each tool is a
-thin wrapper that calls `internal/application` services. The SQLite adapter
-sits in `internal/adapters/sqlite` and is shared by both binaries.
+thin wrapper that calls `packages/core/application` services. The SQLite adapter
+sits in `packages/core/adapters/sqlite` and is shared by both binaries.
 
 ### Option B — MCP server + gRPC backend
 
@@ -111,20 +113,20 @@ the architectural payoff.
                             │   in-process Go calls
                             ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│   internal/application/*   (already scaffolded in PR #5)           │
+│   packages/core/application/*  (scaffolded in PR #5, moved in S00) │
 │   RecordExpense · RecordIncome · RecordTransfer · RecordLoan · …   │
 │   GetBalance · ExpensesByCategory · OutstandingDebts · …           │
 └───────────────────────────┬────────────────────────────────────────┘
                             │   ports
                             ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│   internal/adapters/sqlite     (NEW — the adapter slot from #5)    │
+│   packages/core/adapters/sqlite (NEW — the adapter slot from #5)   │
 │   modernc.org/sqlite · migrations under packages/db/migrations/    │
 └────────────────────────────────────────────────────────────────────┘
 
         ┌──────────────────────────────────────────────┐
         │   apps/cli/cmd/paca   (existing, untouched)  │
-        │   composes the same `internal/application`   │
+        │   composes the same `packages/core/application`│
         └──────────────────────────────────────────────┘
 ```
 
@@ -134,7 +136,7 @@ The implementation lands at:
 
 - `apps/mcp/cmd/paca-mcp/main.go` — composition root: `wire(slog, db, app) → mcp.Server`
 - `apps/mcp/internal/tools/*.go` — one file per MCP tool group (money, debt, setup, health)
-- `internal/adapters/sqlite/` — concrete repository over the existing schema
+- `packages/core/adapters/sqlite/` — concrete repository over the existing schema
 - `packages/db/migrations/002_*.sql` — new tables introduced by this ADR (`audit_log`, `idempotency_keys`)
 - `packages/db/tools/verify_schema.sh` — extended with the same discipline as `001`
 
@@ -263,7 +265,7 @@ is merged — splits these into reviewable tasks with one focused test each.
 - The MCP request header `X-PACA-Actor` identifies the calling agent
   (e.g., `claude-desktop`, `cursor`, `pi`, `cli`).
 - Falls back to `agent:<tool_name>` when missing.
-- The actor propagates through `internal/application` into
+- The actor propagates through `packages/core/application` into
   `audit_log.actor` and `idempotency_keys.actor`.
 
 ### C6. Amount and currency normalization
@@ -312,7 +314,7 @@ file paths, or stack frames in `detail`.
 
 ### C10. CLI parity
 
-- The CLI composes `internal/application` services **directly**.
+- The CLI composes `packages/core/application` services **directly**.
 - The CLI does **not** call the HTTP MCP server.
 - Both binaries are independent composition roots over the same domain code.
 
@@ -326,6 +328,23 @@ file paths, or stack frames in `detail`.
   [`packages/db/tools/verify_schema.sh`](../../packages/db/tools/verify_schema.sh)
   keeps passing. New tables (`audit_log`, `idempotency_keys`) extend the
   verifier via migration `002_*.sql`.
+
+---
+
+## Amendments
+
+The feature document [`odd/tasks/mcp-server-mvp1.md`](../../odd/tasks/mcp-server-mvp1.md)
+records the amendments this ADR needs, each applied as a one-line edit in the
+session that first needs it.
+
+| Amendment | Change | Applied in |
+| --- | --- | --- |
+| A1 | the tool count is 25, not the 22 the prose and the acceptance check claim | pending — S05 |
+| A2 | the shared core moves from `apps/cli/internal/` to the module `packages/core`, because Go's `internal` rule hides `apps/cli/internal/...` from `apps/mcp` | **applied — S00** |
+| A3 | `cashflow_summary` drops `project` in MVP1 | pending — S20 |
+| A4 | `income_vs_expenses` and `cashflow_summary` are disambiguated | pending — S19 |
+| A5 | `delete_movement` is a hard delete, with the audit log as the recovery trail | pending — S16 |
+| A6 | `add_category` and `list_categories` need a `categories` table | pending — S08 |
 
 ---
 

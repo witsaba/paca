@@ -18,8 +18,8 @@ func okHandler() http.Handler {
 }
 
 // request sends a request with the given authorization header through the
-// middleware and returns the recorded response.
-func request(t *testing.T, token, header string) *http.Response {
+// middleware and returns the status of the answer and its headers.
+func request(t *testing.T, token, header string) (int, http.Header) {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
@@ -31,38 +31,45 @@ func request(t *testing.T, token, header string) *http.Response {
 	}
 	handler.ServeHTTP(recorder, req)
 
-	return recorder.Result()
+	res := recorder.Result()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			t.Errorf("the body was not closed: %v", err)
+		}
+	}()
+
+	return res.StatusCode, res.Header
 }
 
 func TestNoTokenConfiguredPassesEveryRequest(t *testing.T) {
-	res := request(t, "", "")
+	status, _ := request(t, "", "")
 
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", status, http.StatusOK)
 	}
 }
 
 func TestTheCorrectTokenIsAccepted(t *testing.T) {
-	res := request(t, "s3cret", "Bearer s3cret")
+	status, _ := request(t, "s3cret", "Bearer s3cret")
 
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", status, http.StatusOK)
 	}
 }
 
 func TestTheSchemeIsCaseInsensitive(t *testing.T) {
-	res := request(t, "s3cret", "bearer s3cret")
+	status, _ := request(t, "s3cret", "bearer s3cret")
 
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", status, http.StatusOK)
 	}
 }
 
 func TestSurroundingSpacesAreIgnored(t *testing.T) {
-	res := request(t, "s3cret", "Bearer   s3cret  ")
+	status, _ := request(t, "s3cret", "Bearer   s3cret  ")
 
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want %d", status, http.StatusOK)
 	}
 }
 
@@ -82,12 +89,12 @@ func TestARefusedRequest(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := request(t, tc.token, tc.header)
+			status, header := request(t, tc.token, tc.header)
 
-			if res.StatusCode != http.StatusUnauthorized {
-				t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusUnauthorized)
+			if status != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want %d", status, http.StatusUnauthorized)
 			}
-			if got := res.Header.Get("WWW-Authenticate"); got == "" {
+			if got := header.Get("WWW-Authenticate"); got == "" {
 				t.Error("the challenge header is missing")
 			}
 		})

@@ -46,7 +46,7 @@ func execute(args []string, stderr io.Writer) int {
 func run(ctx context.Context, args []string, stderr io.Writer) int {
 	cfg, err := config.Parse(args)
 	if err != nil {
-		fmt.Fprintf(stderr, "paca-mcp: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "paca-mcp: %v\n", err)
 		return exitCode
 	}
 

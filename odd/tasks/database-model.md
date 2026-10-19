@@ -171,10 +171,16 @@ a time instead of reading the whole feature at once.
 | 4 | `0e9ea5d` `docs(db): document the database model for the data team` | the root README | 679 |
 | 5 | `dad8205` `docs: add package and reserved-directory READMEs` | package and directory READMEs | 105 |
 | 6 | `docs(odd): record the database model feature` | this document | 391 |
+| 7 | `fix(db): satisfy shellcheck and record the deferred open decisions` | shellcheck fixes, deferred-decisions document | 99 |
 
 Slices 1 and 2 are a prerequisite for the rest: the database package does not exist until
-they land. Slices 3 to 6 are independent of each other and can be reviewed in any order
+they land. Slices 3 to 7 are independent of each other and can be reviewed in any order
 once the schema is present.
+
+Slice 7 exists because `shellcheck` is part of the pull request checks: the harness used the
+`A && B || C` idiom, which is flagged as SC2015 and is genuinely fragile, since a success
+branch that returns non-zero would also run the failure branch. It was replaced with
+explicit `if`/`else`, and the check count did not change.
 
 The root README is deliberately one commit. It is a single reference document, and
 splitting it would leave an intermediate state where the data team has half a schema
@@ -184,7 +190,8 @@ reference and no way to know which half is current.
 
 | Slice | Command | Result |
 | --- | --- | --- |
-| 2, 3, 4, 5, 6 | `bash packages/db/tools/verify_schema.sh` | 57 checks, 0 failures |
+| 2, 3, 4, 5, 6, 7 | `bash packages/db/tools/verify_schema.sh` | 57 checks, 0 failures |
+| 3, 7 | `shellcheck packages/db/tools/verify_schema.sh` | clean, exit 0 |
 
 **Rollback boundary:** reverting slice 2 removes the schema; slice 3 is the harness that
 proves it. Reverting slices 4 and 5 removes only documentation. No slice removes unrelated

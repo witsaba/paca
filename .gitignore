@@ -1,0 +1,27 @@
+# --- SQLite database artifacts -------------------------------------------
+# Local databases and their sidecar files. Never commit a database file.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# --- Build and tool output ------------------------------------------------
+node_modules/
+dist/
+build/
+target/
+*.pyc
+__pycache__/
+.venv/
+venv/
+
+# --- Editor and OS noise --------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+*.swp

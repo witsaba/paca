@@ -19,10 +19,16 @@ const (
 // Account is a place where money is held.
 //
 // The subtype of the account decides which of the subtype fields carry a
-// value: a Nequi account carries a phone and a holder, a bank account carries
-// the bank code, the account number and the account type, and a cash account
-// carries none of them. The rule belongs to the schema, which refuses the
+// value: a Nequi account carries a phone, a bank account carries the bank
+// code, the account number and the account type, and a cash account carries
+// none of them. The rule belongs to the schema, which refuses the
 // combinations that make no sense.
+//
+// The schema has a holder column, and its shape constraint requires that
+// column to be empty for every kind of account, so the domain does not model
+// it. The reference of the repository documents the column as a field of a
+// Nequi account: the constraint and the documentation disagree, and the
+// constraint is the one that is enforced.
 type Account struct {
 	// ID is the identity of the account. It is zero before the account is
 	// stored.
@@ -52,9 +58,6 @@ type Account struct {
 
 	// Phone is the phone number of a Nequi account.
 	Phone string
-
-	// Holder is the name of the holder of a Nequi account.
-	Holder string
 
 	// BankCode is the code of the bank of a bank account.
 	BankCode string

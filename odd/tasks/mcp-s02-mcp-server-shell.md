@@ -261,3 +261,10 @@ interface, not against the code:
 The independent verifier of the harness was not admitted for this change, so
 the verification above was run inline, with the focused tests and the suite
 of the repository as well.
+
+### L9 — The issue and the pull request of the session
+
+- Issue **#11** (`enhancement`): the acceptance criteria of the session, the
+  scope that is out of it and the five decisions.
+- Pull request **#12** (`type:feature`): one pull request, with the commit
+  list as the map of the review, as U5 decided.

@@ -299,6 +299,16 @@ built first and merged as a unit of five reviewable commits.
   rejects a request with a wrong or missing token; `/healthz` answers 200.
 - **Done when:** `make all` is green and the binary serves an empty MCP
   session over `httptest`.
+- **Status:** Done — branch `feat/mcp-s02-mcp-server-shell`, slices `352a93f`
+  (the feature document), `7eab10a` (the module and the configuration),
+  `1e2a962` (the bearer token), `758d6c5` (the transport and the liveness
+  endpoint) and `51567ce` (the composition root). The decisions of the session
+  are in `odd/tasks/mcp-s02-mcp-server-shell.md`: the database is migrated at
+  startup (amendment A11), the token is enforced whenever it is configured,
+  `/healthz` answers the plain text `ok`, and a non-loopback bind demands the
+  token and TLS as ADR C1 says. The Go toolchain of the workspace moved to
+  1.26.9, because the server reaches `net/http` and the advisories of
+  1.26.3 became reachable.
 
 #### S03 — Tool contract layer
 

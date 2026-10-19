@@ -306,6 +306,9 @@ file paths, or stack frames in `detail`.
 - Migration procedure documented: **stop server → apply migration → start server**.
   SQLite's write lock makes the brief window safe.
 - WAL mode and online migrations are out of scope for MVP1.
+- Amendment A11: the server also migrates the database at startup. The runner
+  applies only the migrations the file has not applied yet, so the procedure
+  above and the startup migration coexist without conflict.
 
 ### C9. Backups
 
@@ -349,6 +352,7 @@ session that first needs it.
 | A6 | `add_category` and `list_categories` need a `categories` table | pending — S08 |
 | A9 | the migrations are published by a Go module of their own, `packages/db`, because `go:embed` cannot cross a module boundary | **applied — S01** |
 | A10 | a uniqueness violation is a `validation_failed`; `duplicate_request` is reserved for the idempotency key | **applied — S01** |
+| A11 | `paca-mcp` migrates the database at startup, in addition to the documented stop → apply → start procedure of C8: the runner is idempotent, so an already migrated file is untouched and a new file is created with the schema | **applied — S02** |
 
 The roadmap numbers A7 and A8 are consequences of the ADR and not edits of it,
 so this table has no row for them.

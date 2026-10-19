@@ -98,20 +98,40 @@ the user.
 
 ---
 
+## Delivery strategy
+
+The branch carries **one work-unit commit per task** (T1–T10), the same model
+as the S00 and S01 branches: each commit is a behaviour unit with its tests
+alongside it.
+
+- **Slice boundary:** the branch is past the ~400-line house limit (1,605
+  authored changed lines over five commits). It is a stack of reviewable
+  commits, not one oversized commit, and the commit list is the map of the
+  review.
+- **Pull request:** the branch is delivered as **one pull request**, as the
+  user decided (U5). Its body carries the commit list as the review map, the
+  same convention as S01.
+- **The security slice stands alone:** the bearer token (T4) has a commit of
+  its own, so a review can take it apart without the rest of the server.
+- **Merge order:** the commits merge in order; the last one closes the
+  session. A commit is never half-merged.
+
+---
+
 ## Tasks
 
 | ID | Task | Spec | Route | Commit |
 |---|---|---|---|---|
-| T1 | Branch `feat/mcp-s02-mcp-server-shell` from an up-to-date `main` in its own worktree `paca-worktrees/mcp-server-shell`; this feature document is the first slice | R12, U5 | parent | — |
-| T2 | New module `apps/mcp` (`github.com/witsaba/paca/apps/mcp`) with the binary `apps/mcp/cmd/paca-mcp`; `go.work` gains the module and the Makefile builds `bin/paca-mcp` next to `bin/paca` | R3, R9 | parent | — |
-| T3 | Flag parsing and startup validation in `apps/mcp/internal/config`: `--bind`, `--port`, `--auth-token`, `--tls-cert`, `--tls-key`, `--db`, `--require-auth`; the defaults of R6; the refusal rules of R3 and R6 as typed errors that carry the reason, never the token | R3, R6, R7, U2, U4 | parent | — |
-| T4 | Bearer auth middleware in `apps/mcp/internal/auth`: `Authorization: Bearer <token>` checked on every MCP request, `401` on a missing or wrong token, constant-time comparison, the token never logged | R3, R7, U2 | parent (security slice, own commit) | — |
-| T5 | Liveness endpoint in `apps/mcp/internal/server`: `/healthz` answers `200` with the plain text `ok`, outside the MCP surface and outside the auth middleware | R3, R6, U3 | parent | — |
-| T6 | MCP transport in `apps/mcp/internal/server`: the `StreamableHTTPServer` of the pinned `github.com/modelcontextprotocol/go-sdk`, mounted apart from `/healthz`, with an empty session (the tools arrive in S03 and S05) | R3, R6 | parent | — |
-| T7 | The composition root `apps/mcp/cmd/paca-mcp`: open the database of `--db`, migrate it at boot (U1), build the listener (plain HTTP on loopback, TLS elsewhere), serve, and shut down cleanly on a signal; the startup log never prints the token | R3, R8, U1, U2, U4 | parent | — |
-| T8 | Integration test: the server serves an empty MCP session over `httptest` with the client SDK of the same package | R4, R5, R10 | parent | — |
-| T9 | Verification: `make all` green over the five modules, the 57-check verifier green, the CLI byte-identical to before, and every new or modified file at or above 75% coverage | R5, R10, R11 | parent | — |
-| T10 | Documentation: the roadmap entry S02 → Done with its commit hash, `## Log` gains the session entry and the decisions U1–U5, `apps/mcp/README.md` written, and the ADR amendments table updated if the session changed a decision of the ADR | R5 | parent | — |
+| T1 | Branch `feat/mcp-s02-mcp-server-shell` from an up-to-date `main` in its own worktree `paca-worktrees/mcp-server-shell`; this feature document is the first slice | R12, U5 | parent | `352a93f` |
+| T2 | New module `apps/mcp` (`github.com/witsaba/paca/apps/mcp`) with the binary `apps/mcp/cmd/paca-mcp`; `go.work` gains the module and the Makefile builds `bin/paca-mcp` next to `bin/paca` | R3, R9 | parent | `7eab10a` |
+| T3 | Flag parsing and startup validation in `apps/mcp/internal/config`: `--bind`, `--port`, `--auth-token`, `--tls-cert`, `--tls-key`, `--db`, `--require-auth`; the defaults of R6; the refusal rules of R3 and R6 as typed errors that carry the reason, never the token | R3, R6, R7, U2, U4 | parent | `7eab10a` |
+| T4 | Bearer auth middleware in `apps/mcp/internal/auth`: `Authorization: Bearer <token>` checked on every MCP request, `401` on a missing or wrong token, constant-time comparison, the token never logged | R3, R7, U2 | parent (security slice, own commit) | `1e2a962` |
+| T5 | Liveness endpoint in `apps/mcp/internal/server`: `/healthz` answers `200` with the plain text `ok`, outside the MCP surface and outside the auth middleware | R3, R6, U3 | parent | `758d6c5` |
+| T6 | MCP transport in `apps/mcp/internal/server`: the `StreamableHTTPServer` of the pinned `github.com/modelcontextprotocol/go-sdk`, mounted apart from `/healthz`, with an empty session (the tools arrive in S03 and S05) | R3, R6 | parent | `758d6c5` |
+| T7 | The composition root `apps/mcp/cmd/paca-mcp`: open the database of `--db`, migrate it at boot (U1), build the listener (plain HTTP on loopback, TLS elsewhere), serve, and shut down cleanly on a signal; the startup log never prints the token | R3, R8, U1, U2, U4 | parent | `51567ce` |
+| T8 | Integration test: the server serves an empty MCP session over `httptest` with the client SDK of the same package | R4, R5, R10 | parent | `51567ce` |
+| T9 | Verification: `make all` green over the five modules, the 57-check verifier green, the CLI byte-identical to before, and every new or modified file at or above 75% coverage | R5, R10, R11 | parent | — (no code) |
+| T10 | Documentation: the roadmap entry S02 → Done with its commit hash, `## Log` gains the session entry and the decisions U1–U5, `apps/mcp/README.md` written, and the ADR amendments table updated if the session changed a decision of the ADR | R5 | parent | — (the closing slice of the branch) |
 
 ---
 
@@ -158,3 +178,61 @@ Rendered in English; the answers arrived in Spanish.
   through a loopback address with a non-loopback `Host` header is refused with
   `403`. The default is kept — the deployment of U4 reaches the server by its
   LAN address, not through a loopback address.
+
+### L4 — Findings of the implementation (2026-10-19)
+
+- The pinned SDK builds the transport with
+  `mcp.NewStreamableHTTPHandler(getServer, opts)` (`mcp/streamable.go:194`),
+  and the client peer of the integration test is
+  `&mcp.StreamableClientTransport{Endpoint, HTTPClient}`. The server is built
+  once and shared by every request, because the handler owns the sessions.
+- The SDK applies a DNS-rebinding protection by default: a request that
+  arrives through a loopback address with a non-loopback `Host` header is
+  refused with `403`. The default is kept — the deployment of U4 reaches the
+  server by its address on the local network, not through a loopback address.
+- The composition root held 0% of coverage as it was written, because
+  `main()` cannot be called from a test. The body of the process moved into
+  `run()` and `execute()`, and the file is now covered through the behaviour
+  the binary has: a refusal, a failure and a clean stop.
+- The linter refused the first draft of the tests (`bodyclose`) and of the
+  composition root (`errcheck`). Both were fixed before the gate, and the
+  fixes are in their own commits.
+
+### L5 — The toolchain moved to 1.26.9 (evidence)
+
+- `make all` failed on the vulnerability gate. The server reaches `net/http`
+  and `crypto/x509`, so the advisories of the pinned `go1.26.3` became
+  reachable: 17 vulnerabilities of the standard library, among them
+  GO-2026-5037 (fixed in 1.26.4) and GO-2026-5026 (fixed in 1.26.6). The
+  remedy the S01 learnings recorded is a bump of the pinned `go` directive,
+  and the workspace and its five modules moved to `go 1.26.9`. After the bump
+  `govulncheck` reports no vulnerability in any module.
+- The CLI binary is **not** byte-identical after the bump, because the
+  toolchain version is embedded in the build. The behaviour is: the output of
+  `paca --help` is identical to the one of `main` before the session.
+
+### L6 — The RED evidence (mutation check)
+
+The tests were checked against three mutations of the implementation, and each
+mutation turned the suite red:
+
+| Mutation | Red test |
+| --- | --- |
+| the middleware accepts every token | `TestARefusedRequest` (4 cases) |
+| the refusal of the missing TLS material removed | `TestParseRefuses` (2 cases) and `TestRefusalNeverCarriesTheToken` |
+| the liveness body changed from `ok` to `nope` | `TestHealthzAnswersOK` |
+
+The implementation was restored after every mutation and the suite was green
+again.
+
+### L7 — The verification of the session (2026-10-19)
+
+- `make all` is green over the five modules: fmt-check, vet, lint (0 issues),
+  build, test, race and vuln (no vulnerability in any module).
+- The verifier of the schema passes 57 of 57 checks.
+- The coverage of every new file is above 75%: `main.go` 92.3%, `auth.go`
+  100%, `config.go` 100%, `healthz.go` 100%, `run.go` 85.2%, `server.go`
+  88.9%.
+- The integration test proves the done-when of the session: the binary serves
+  an empty MCP session over `httptest` with the client SDK of the same
+  package, with and without the token.

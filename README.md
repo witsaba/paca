@@ -685,15 +685,9 @@ contact kind is needed.
 
 ## Open Questions
 
-**SQLite driver (not yet decided).** The application language is Go (decided in the
-backend scaffold feature, see [`apps/cli`](../apps/cli/README.md) and
-[`docs/architecture/backend-scaffold.md`](docs/architecture/backend-scaffold.md)), but the
-SQLite driver is still open. This matters because the driver must expose SQLite version
-information so the migration runner can assert a 3.53.0+ floor before using
-`ALTER TABLE ADD CONSTRAINT`. If the driver is pre-3.53.0, the table-rebuild path must
-be used instead. The candidates are `modernc.org/sqlite` (pure Go, no cgo) and
-`mattn/go-sqlite3` (cgo, the reference binding).
+**SQLite driver — settled.** `modernc.org/sqlite` (pure Go, no CGO). Cross-compiles cleanly
+without a C toolchain, bundles a recent SQLite (above the 3.53.0 floor the schema needs for
+in-place constraint changes). Recorded in [`odd/tasks/deferred-decisions.md`](odd/tasks/deferred-decisions.md).
 
-**Single-user or multi-user.** No `user_id` column exists on any table. If the application
-grows to support multiple users, every table will need one. The migration runner will need to
-account for this when evolving the schema.
+**Single-user — settled.** PACA stays single-user, local machine. No `user_id` columns are
+added. Recorded in [`odd/tasks/deferred-decisions.md`](odd/tasks/deferred-decisions.md).

@@ -18,9 +18,7 @@ package db
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
-	"sort"
 )
 
 // migrations holds the SQL files of the schema, embedded at build time.
@@ -33,56 +31,10 @@ var migrations embed.FS
 // The files are named <number>_<name>.sql, and the number is the schema
 // version the migration produces: 001_initial_schema.sql produces version 1.
 // The returned filesystem is read-only.
+//
+// The order in which the files have to be applied belongs to the runner that
+// applies them, and not to this package: a caller that needs the order asks
+// the runner, which decides it for any filesystem, and not only for this one.
 func Migrations() fs.FS {
 	return migrations
-}
-
-// MigrationNames returns the names of the migration files, in the order they
-// have to be applied.
-//
-// The order is the numeric prefix of the name, not the lexical order of the
-// whole name, so that the tenth migration follows the ninth. The numeric
-// prefix is also the schema version each migration is expected to stamp, which
-// is what the migration runner compares against PRAGMA user_version.
-func MigrationNames() ([]string, error) {
-	entries, err := fs.ReadDir(migrations, "migrations")
-	if err != nil {
-		return nil, fmt.Errorf("read the migrations directory: %w", err)
-	}
-
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		names = append(names, entry.Name())
-	}
-
-	sort.Slice(names, func(i, j int) bool { return version(names[i]) < version(names[j]) })
-
-	return names, nil
-}
-
-// version returns the numeric prefix of a migration file name, or -1 when the
-// name carries no number at all. A file without a number cannot be placed in
-// the order, so it sorts first and the runner refuses it.
-func version(name string) int {
-	number := 0
-	digits := 0
-
-	for _, r := range name {
-		if r < '0' || r > '9' {
-			break
-		}
-
-		number = number*10 + int(r-'0')
-		digits++
-	}
-
-	if digits == 0 {
-		return -1
-	}
-
-	return number
 }

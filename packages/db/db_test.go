@@ -30,20 +30,3 @@ func TestMigrationsHoldsTheSchemaFiles(t *testing.T) {
 		t.Errorf("the published migrations do not hold 001_initial_schema.sql, got %d files", len(got))
 	}
 }
-
-// The names come back in the order the migrations have to be applied, which is
-// the numeric prefix of the name and not the lexical order of the file name.
-func TestMigrationNamesAreOrderedByNumber(t *testing.T) {
-	names, err := db.MigrationNames()
-	if err != nil {
-		t.Fatalf("list the migration names: %v", err)
-	}
-
-	if len(names) == 0 {
-		t.Fatal("no migration names, want at least the initial schema")
-	}
-
-	if names[0] != "001_initial_schema.sql" {
-		t.Errorf("the first migration is %q, want 001_initial_schema.sql", names[0])
-	}
-}

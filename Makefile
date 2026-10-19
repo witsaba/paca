@@ -18,6 +18,8 @@ COV_DIR  ?= $(CURDIR)/.coverage
 COV_FILE ?= $(CURDIR)/coverage.out
 CLI_DIR  ?= apps/cli
 CLI_BIN  ?= $(BIN_DIR)/paca
+MCP_DIR  ?= apps/mcp
+MCP_BIN  ?= $(BIN_DIR)/paca-mcp
 
 # Every module of the workspace, discovered from the go.mod files.
 MODULES := $(shell find . -maxdepth 3 -name go.mod \
@@ -78,6 +80,8 @@ build:
 	@mkdir -p $(BIN_DIR)
 	@echo "==> $(CLI_DIR): building paca into $(CLI_BIN)"
 	@cd $(CLI_DIR) && $(GO) build -o $(CLI_BIN) ./cmd/paca
+	@echo "==> $(MCP_DIR): building paca-mcp into $(MCP_BIN)"
+	@cd $(MCP_DIR) && $(GO) build -o $(MCP_BIN) ./cmd/paca-mcp
 
 ## test: run the test suite
 test:

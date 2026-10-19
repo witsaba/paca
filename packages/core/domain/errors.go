@@ -86,7 +86,14 @@ func (e *Error) Unwrap() error {
 
 // Error returns the message of the error: the code and the detail, and
 // nothing else.
+//
+// An error without a detail has nothing to add to its code, so the message is
+// the code alone.
 func (e *Error) Error() string {
+	if e.detail == "" {
+		return string(e.code)
+	}
+
 	return string(e.code) + ": " + e.detail
 }
 

@@ -111,3 +111,12 @@ func TestErrorMessageIsTheCodeAndTheDetail(t *testing.T) {
 		t.Errorf("the message of the error is %q, want %q", got, want)
 	}
 }
+
+// An error without a detail has nothing to add to its code.
+func TestErrorMessageWithoutDetailIsTheCode(t *testing.T) {
+	err := domain.New(domain.CodeInternal, "")
+
+	if got := err.Error(); got != "internal_error" {
+		t.Errorf("the message of the error is %q, want %q", got, "internal_error")
+	}
+}

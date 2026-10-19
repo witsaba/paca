@@ -101,6 +101,32 @@ func TestCodeOfNilIsEmpty(t *testing.T) {
 	}
 }
 
+// The detail of an error is found through the wrapping, so a transport can
+// report the business detail and not the one of the wrapper.
+func TestDetailOfFindsTheDetailThroughWrapping(t *testing.T) {
+	err := domain.New(domain.CodeNotFound, "account 7 does not exist")
+	wrapped := errors.Join(errors.New("context lost"), err)
+
+	if got := domain.DetailOf(wrapped); got != "account 7 does not exist" {
+		t.Errorf("the detail of the wrapped error is %q, want %q", got, "account 7 does not exist")
+	}
+}
+
+// An error that is not a domain error has no detail: an unclassified failure
+// has nothing safe to show.
+func TestDetailOfAnUntypedErrorIsEmpty(t *testing.T) {
+	if got := domain.DetailOf(errors.New("the disk is on fire")); got != "" {
+		t.Errorf("the detail of an untyped error is %q, want an empty detail", got)
+	}
+}
+
+// A nil error has no detail either.
+func TestDetailOfNilIsEmpty(t *testing.T) {
+	if got := domain.DetailOf(nil); got != "" {
+		t.Errorf("the detail of a nil error is %q, want an empty detail", got)
+	}
+}
+
 // The message of an error is the code and the detail, because the detail is
 // the only part that is safe to show.
 func TestErrorMessageIsTheCodeAndTheDetail(t *testing.T) {

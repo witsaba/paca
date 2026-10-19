@@ -122,3 +122,11 @@ func TestMovementKindSignIsTheSignOfItsEffect(t *testing.T) {
 		}
 	}
 }
+
+// A kind the domain does not know has no sign: it moves no money, and a
+// report that meets it does not add it to either side.
+func TestTheSignOfAnUnknownKindIsZero(t *testing.T) {
+	if got := domain.MovementKind("something_else").Sign(); got != 0 {
+		t.Errorf("the sign of an unknown kind is %d, want 0", got)
+	}
+}

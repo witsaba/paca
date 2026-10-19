@@ -204,3 +204,51 @@ on its own.
   initial schema is not applied twice, a migration added later applies
   without a change to the runner, and a constraint violation maps to a typed
   error and not to `internal_error`.
+
+### L7 — The coverage of the session
+
+The first pass of the session left the failure paths of the adapter untested:
+the module stood at 85.5% of its statements, and `sqlite.go` at 70%. The
+session was closed with a coverage slice that closes the gaps, and every file
+of the module now stands above 92%:
+
+| File | Before | After |
+|---|---|---|
+| `adapters/sqlite/sqlite.go` | 70.0% | 97.5% |
+| `adapters/sqlite/errors.go` | 81.2% | 100% |
+| `adapters/sqlite/migrate.go` | 81.5% | 92.6% |
+| `adapters/sqlite/repository.go` | 83.3% | 100% |
+| `adapters/sqlite/loans.go` | 89.1% | 96.4% |
+| `adapters/sqlite/movements.go` | 86.5% | 93.6% |
+| `adapters/sqlite/accounts.go` | 93.5% | 95.7% |
+| `adapters/sqlite/contacts.go` | 92.5% | 95.0% |
+| `adapters/sqlite/loan_payments.go` | 90.7% | 92.6% |
+| `domain/errors.go` | 70.0% | 100% |
+| `domain/movement.go` | 75.0% | 100% |
+| `packages/db/db.go` | 100% | 100% |
+| **the module** | **85.5%** | **95.0%** |
+
+What the slice added, and why each one matters:
+
+- **The failure paths of the adapter.** A database that cannot be created, a
+  table that is not there, a transaction that reads, writes, fails and
+  commits, and a second transaction that waits for the single connection of
+  the pool.
+- **The rejections of the runner.** Two migrations with the same number, a
+  file with no number, a file whose number is not a number, a file with no
+  separator, and a migration that does not stamp the version it promises.
+- **The mapping of the result codes of SQLite**, pinned as the table it is,
+  with every code and the one that falls through to the default.
+- **The reports of the movements**, which fail when the movements are gone.
+- **The values the schema refuses in a specific way**: a missing required
+  field, and a trigger that refuses a row.
+- **The references a movement keeps**: the counterparty and the loan.
+- **The rate a loan keeps**, and the filter that narrows the movements to one
+  loan.
+
+What is left uncovered is defensive: a driver that fails in the middle of an
+iteration, a scan of a value of the wrong type, a `RowsAffected` the driver
+does not support, an unknown driver name, a `PRAGMA` that fails, and a file
+that is read after it was listed. Those branches are not reachable from the
+public interface of the adapter, and the session does not fake them.
+

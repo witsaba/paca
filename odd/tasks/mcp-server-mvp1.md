@@ -986,7 +986,9 @@ session is
 - **Verification:** `make all` is green over the four modules (`apps/cli`,
   `packages/core`, `packages/db`, `tools`), including the race detector and
   `govulncheck` (0 vulnerabilities in the code); the 57-check schema verifier
-  still passes; the CLI is byte-identical to before.
+  still passes; the CLI is byte-identical to before. The coverage of the
+  shared core stands at 95.0% of its statements, and every file of it above
+  92%; the coverage slice of the session is recorded in the feature document.
 - **Amendments applied:** A9 (the migrations are published by a module of
   their own) and A10 (a uniqueness violation is a `validation_failed`).
 

@@ -135,3 +135,28 @@ at 0% because `main()` cannot be called from a test.
   the workflow and left the rest alone: the debt belongs to the sessions
   that own those files, and the pull request of this session carries only
   the continuous integration.
+
+### L6 — The continuous integration, running on GitHub (2026-10-19)
+
+- The branch was published and the pull request opened: issue
+  [#13](https://github.com/witsaba/paca/issues/13), pull request
+  [#14](https://github.com/witsaba/paca/pull/14), with the label
+  `type:chore` (the label did not exist in the repository and was created
+  for it).
+- The workflow ran on the pull request and the three jobs are green:
+
+| Job | Result | Time |
+| --- | --- | --- |
+| The verifier of the schema | pass | 6s |
+| The coverage floor | pass | 55s |
+| The quality gate | pass | 3m5s |
+
+- The runner was `ubuntu-24.04` with the `sqlite3` 3.45.1 of the image, and
+  the verifier found the version it needs.
+- **The annotation of the runner.** GitHub announces that the label
+  `ubuntu-latest` migrates to Ubuntu 26 from October 19, 2026 — the day of
+  this session. The workflow follows the label, and the job that depends on
+  a system binary is the one that reports it: the verifier refuses to start
+  with a clear message when the image carries no `sqlite3`, or one older
+  than 3.37.0.
+- The merge of the pull request is the user's decision.

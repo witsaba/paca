@@ -179,14 +179,26 @@ folded into the session that first needs it).
 - **A6 — `add_category` and `list_categories` need a table.** `movements.category`
   is free text; there is no catalogue to write to or read from. Migration
   `002` adds a `categories` table. See open decision O1.
+- **A9 — the migrations are published by a module of their own.** `go:embed`
+  can only embed the files that live inside the directory tree of the module
+  that declares the embed, and the runner that applies the migrations lives
+  in `packages/core`, which is not the module that owns
+  `packages/db/migrations`. `packages/db` becomes a Go module that publishes
+  the migrations with `go:embed`, and the ADR's Repository Layout is
+  corrected. Applied in session S01.
+- **A10 — a uniqueness violation is a `validation_failed`.** The C7 taxonomy
+  has no code for a real uniqueness violation, and `duplicate_request` is
+  reserved for the idempotency key. MVP1 maps uniqueness violations
+  (duplicate NIT, duplicate Nequi phone, duplicate bank account) to
+  `validation_failed` with a specific detail. Applied in session S01.
 
-Two smaller consequences, not amendments but facts the sessions must respect:
+One smaller consequence, not an amendment but a fact the sessions must respect:
 
 - **A7 — no uniqueness code exists.** The C7 taxonomy has no code for a real
   uniqueness violation, and `duplicate_request` is reserved for idempotency.
   MVP1 maps uniqueness violations (duplicate NIT, duplicate Nequi phone,
   duplicate bank account) to `validation_failed` with a specific detail. The
-  gap is recorded for a future ADR.
+  gap is closed by amendment A10, applied in session S01.
 - **A8 — the CLI stays untouched.** C10 says the CLI composes the services
   directly. No MVP1 session changes the CLI's behaviour; the CLI keeps
   shipping `--help` only. Wiring the CLI to the new services is a separate
@@ -247,6 +259,11 @@ built first and merged as a unit of five reviewable commits.
 
 #### S01 — Persistence foundation
 
+- **Status:** Done — branch `feat/mcp-s01-persistence-foundation`, code slice
+  `7a4d357`. Issue
+  [#9](https://github.com/witsaba/paca/issues/9), pull request
+  [#10](https://github.com/witsaba/paca/pull/10). Feature document:
+  [`odd/tasks/mcp-s01-persistence-foundation.md`](mcp-s01-persistence-foundation.md).
 - **Spec:** ADR §Architecture, C8, C11. **Goal:** a real SQLite adapter.
 - **Change:** `packages/core/adapters/sqlite` implements the repository
   interfaces declared in `packages/core/ports`. The driver is
@@ -286,13 +303,12 @@ built first and merged as a unit of five reviewable commits.
 #### S03 — Tool contract layer
 
 - **Spec:** C5, C6, C7, C10. **Goal:** the shared shape every tool uses.
-- **Change:** in `packages/core/domain` — the error taxonomy as typed errors
-  with stable codes (`validation_failed`, `not_found`, `duplicate_request`,
-  `currency_not_supported_in_mvp1`, `account_inactive`,
-  `loop_required_for_unsafe_call`, `internal_error`) and a `detail` that never
-  carries DB internals, file paths, or stack frames; the money value object
-  that parses a decimal string, rejects more than 4 decimal places or a
-  non-positive amount, and rounds half-up to integer COP. In
+- **Change:** in `packages/core/domain` — the money value object that parses a
+  decimal string, rejects more than 4 decimal places or a non-positive amount,
+  and rounds half-up to integer COP. The error taxonomy itself is **already
+  delivered by S01**, which carries the seven stable codes, the typed error
+  and the rule that a detail never leaks the internals of the system; S03
+  extends it with the codes that only a tool can raise. In
   `apps/mcp/internal/tools` — the shared response envelope
   (`{ "ok": bool, "data": ..., "error": { "code", "detail" } }`), the actor
   resolution from the `X-PACA-Actor` header with the `agent:<tool_name>`
@@ -301,7 +317,8 @@ built first and merged as a unit of five reviewable commits.
 - **Tests:** the money parser (valid, 4 decimals, 5 decimals, zero, negative,
   non-numeric, exponent form); the rounding of `0.005` to `1` and `-0.005` to
   `0` under half-up; every error code mapping to the envelope; the actor
-  fallback when the header is absent.
+  fallback when the header is absent. The error codes themselves are already
+  covered by the tests of S01.
 - **Done when:** `make all` is green and a tool can be written without
   touching the error or money code.
 
@@ -934,3 +951,81 @@ One addition was made to keep the new dependency honest: the root package of
 the core holds the product identity, and the CLI presents it. Without a real
 import, `go mod tidy` would drop the `require` and the shared core would not
 be wired to anything.
+
+### L7 — S01 — Persistence foundation (Done)
+
+Branch `feat/mcp-s01-persistence-foundation`, code slice `7a4d357`, issue
+[#9](https://github.com/witsaba/paca/issues/9), pull request
+[#10](https://github.com/witsaba/paca/pull/10). The feature document of the
+session is
+[`odd/tasks/mcp-s01-persistence-foundation.md`](mcp-s01-persistence-foundation.md).
+
+- **The adapter exists.** `packages/core/adapters/sqlite` opens the database
+  with the pure-Go driver `modernc.org/sqlite`, one connection per pool, with
+  `PRAGMA foreign_keys = ON` on every connection. Every failure of the driver
+  becomes a typed error of the domain: a constraint violation is a
+  `validation_failed`, a missing row is a `not_found`, anything else is an
+  `internal_error` whose detail says nothing. The message of the driver never
+  reaches the detail.
+- **The error taxonomy is delivered here**, not in S03: the seven stable codes
+  of C7, the typed error, and the rule that the cause stays reachable through
+  `Unwrap` while the detail stays safe to show.
+- **The migration runner exists.** It applies the migrations of
+  `packages/db` in the order of their number, reads the version of the schema
+  from `PRAGMA user_version`, applies only what is missing, and stops at the
+  first error. A migration added later is applied by the same runner, without
+  a change to it.
+- **The repositories exist**, one per table, each one implementing the port of
+  the same name: accounts, contacts, loans, movements, loan payments. Every
+  method of every port is tested against a temporary database.
+- **The domain owns the vocabulary and the signs.** The kinds of an account, a
+  contact, a loan and a movement are named types pinned to the values the
+  schema accepts, and the sign of a kind of movement is a rule of the
+  business: the amount is always positive, and the kind says which way the
+  money went.
+- **Verification:** `make all` is green over the four modules (`apps/cli`,
+  `packages/core`, `packages/db`, `tools`), including the race detector and
+  `govulncheck` (0 vulnerabilities in the code); the 57-check schema verifier
+  still passes; the CLI is byte-identical to before. The coverage of the
+  shared core stands at 95.0% of its statements, and every file of it above
+  92%; the coverage slice of the session is recorded in the feature document.
+- **Amendments applied:** A9 (the migrations are published by a module of
+  their own) and A10 (a uniqueness violation is a `validation_failed`).
+
+#### Findings of the session
+
+- **The `holder` column of `accounts` can never hold a value.** The
+  `accounts_shape` CHECK constraint requires `holder IS NULL` for every kind
+  of account, while the reference of the repository documents the column as a
+  field of a Nequi account. The constraint is the one that is enforced, so the
+  domain does not model the column. The two documents of the repository
+  disagree, and the disagreement is reported to the user: the fix belongs to
+  the schema or to the reference, and it has to be taken before the migration
+  `002` of session S04.
+- **The runner is idempotent, and the migration is the one that refuses.**
+  Running the runner twice changes nothing; the initial schema, run against a
+  database that already holds tables, refuses itself and leaves the database
+  exactly as it was. Both properties are tested.
+
+#### The decisions of the S01 session
+
+The user answered the three open questions of the session before any code was
+written:
+
+1. **Scope** — the full S01, split into work-unit commits, one per table, so
+   that every commit stays reviewable on its own.
+2. **Migrations source** — `packages/db` becomes a Go module that embeds the
+   SQL, because `go:embed` cannot cross a module boundary.
+3. **Domain errors** — the full C7 taxonomy in S01, which shrinks S03 to the
+   money value object, the response envelope and actor resolution.
+
+#### Slice boundary of the S01 branch
+
+The branch carries one work-unit commit per task, and every commit is a
+behavior unit with its tests alongside it: the schema module (`e136591`), the
+error taxonomy (`490a31f`), the adapter foundation (`de926af`), the migration
+runner (`6b70ba7`), the entities and the ports (`036b31d`, `73cdaaf`), the
+five repositories (`59a0b1b`, `edd0a65`, `6c8111f`, `7a4d357`, `d08a07f`), the
+documentation slice (`16e4401`) and the lock file (`b7fb506`). The branch is
+over 400 lines, so it is a stack of reviewable commits: a chained pull
+request, one per work unit, unless the user asks for a single one.

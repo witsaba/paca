@@ -46,6 +46,8 @@ fi
 
 WORKDIR="$(mktemp -d)"
 DB="${WORKDIR}/verify.db"
+# Invoked by the EXIT trap below, not by name.
+# shellcheck disable=SC2329
 cleanup() { [ "$KEEP" -eq 1 ] || rm -rf "$WORKDIR"; }
 trap cleanup EXIT
 
@@ -81,16 +83,25 @@ fi
 # --- 2. structure ------------------------------------------------------------
 head1 "2. Structure"
 VERSION="$(sqlite3 "$DB" "PRAGMA user_version;")"
-[ "$VERSION" = "1" ] && { green "  PASS  user_version = 1"; PASS=$((PASS+1)); } \
-                     || { red "  FAIL  user_version is '${VERSION}', expected 1"; FAIL=$((FAIL+1)); }
+if [ "$VERSION" = "1" ]; then
+  green "  PASS  user_version = 1"; PASS=$((PASS + 1))
+else
+  red "  FAIL  user_version is '${VERSION}', expected 1"; FAIL=$((FAIL + 1))
+fi
 
 INTEGRITY="$(sqlite3 "$DB" "PRAGMA integrity_check;")"
-[ "$INTEGRITY" = "ok" ] && { green "  PASS  integrity_check = ok"; PASS=$((PASS+1)); } \
-                        || { red "  FAIL  integrity_check = ${INTEGRITY}"; FAIL=$((FAIL+1)); }
+if [ "$INTEGRITY" = "ok" ]; then
+  green "  PASS  integrity_check = ok"; PASS=$((PASS + 1))
+else
+  red "  FAIL  integrity_check = ${INTEGRITY}"; FAIL=$((FAIL + 1))
+fi
 
 FKVIOL="$(sqlite3 "$DB" "PRAGMA foreign_key_check;")"
-[ -z "$FKVIOL" ] && { green "  PASS  foreign_key_check clean"; PASS=$((PASS+1)); } \
-                  || { red "  FAIL  foreign_key_check: ${FKVIOL}"; FAIL=$((FAIL+1)); }
+if [ -z "$FKVIOL" ]; then
+  green "  PASS  foreign_key_check clean"; PASS=$((PASS + 1))
+else
+  red "  FAIL  foreign_key_check: ${FKVIOL}"; FAIL=$((FAIL + 1))
+fi
 
 for t in accounts contacts loans movements loan_payments; do
   SQL="$(sqlite3 "$DB" "SELECT sql FROM sqlite_master WHERE name='${t}';")"
@@ -178,11 +189,17 @@ else
     red "  FAIL  refused, but the message was unclear: $(head -1 "${WORKDIR}/guard_err.txt")"; FAIL=$((FAIL + 1))
   fi
   LEFTOVER="$(sqlite3 "$GUARD_DB" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='accounts';")"
-  [ "$LEFTOVER" = "0" ] && { green "  PASS  no partial schema was left behind"; PASS=$((PASS+1)); } \
-                        || { red "  FAIL  a partial schema was applied"; FAIL=$((FAIL+1)); }
+  if [ "$LEFTOVER" = "0" ]; then
+    green "  PASS  no partial schema was left behind"; PASS=$((PASS + 1))
+  else
+    red "  FAIL  a partial schema was applied"; FAIL=$((FAIL + 1))
+  fi
   GV="$(sqlite3 "$GUARD_DB" "PRAGMA user_version;")"
-  [ "$GV" = "0" ] && { green "  PASS  schema version was not stamped"; PASS=$((PASS+1)); } \
-                  || { red "  FAIL  schema version was stamped on a refused migration"; FAIL=$((FAIL+1)); }
+  if [ "$GV" = "0" ]; then
+    green "  PASS  schema version was not stamped"; PASS=$((PASS + 1))
+  else
+    red "  FAIL  schema version was stamped on a refused migration"; FAIL=$((FAIL + 1))
+  fi
 fi
 
 # The same guard must hold when the client keeps going after an error instead

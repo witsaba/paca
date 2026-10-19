@@ -152,6 +152,15 @@ on its own.
    SQL (rec.)".
 3. **Domain errors** — "Full C7 taxonomy in S01".
 
+### L3b — The delivery of the session
+
+- Branch `feat/mcp-s01-persistence-foundation`, pushed to `origin`.
+- Issue [#9](https://github.com/witsaba/paca/issues/9) (`enhancement`), pull
+  request [#10](https://github.com/witsaba/paca/pull/10) (`type:feature`).
+- The branch carries 16 work-unit commits, and the pull request is opened as
+  one: the review map is the commit list. 40 files, 5,187 insertions, 86
+  deletions.
+
 ### L4 — Evidence
 
 - Roadmap S01 entry, quoted in R1–R5: `odd/tasks/mcp-server-mvp1.md`.

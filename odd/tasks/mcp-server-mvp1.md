@@ -260,7 +260,9 @@ built first and merged as a unit of five reviewable commits.
 #### S01 — Persistence foundation
 
 - **Status:** Done — branch `feat/mcp-s01-persistence-foundation`, code slice
-  `7a4d357`. Feature document:
+  `7a4d357`. Issue
+  [#9](https://github.com/witsaba/paca/issues/9), pull request
+  [#10](https://github.com/witsaba/paca/pull/10). Feature document:
   [`odd/tasks/mcp-s01-persistence-foundation.md`](mcp-s01-persistence-foundation.md).
 - **Spec:** ADR §Architecture, C8, C11. **Goal:** a real SQLite adapter.
 - **Change:** `packages/core/adapters/sqlite` implements the repository
@@ -952,8 +954,10 @@ be wired to anything.
 
 ### L7 — S01 — Persistence foundation (Done)
 
-Branch `feat/mcp-s01-persistence-foundation`, code slice `7a4d357`. The
-feature document of the session is
+Branch `feat/mcp-s01-persistence-foundation`, code slice `7a4d357`, issue
+[#9](https://github.com/witsaba/paca/issues/9), pull request
+[#10](https://github.com/witsaba/paca/pull/10). The feature document of the
+session is
 [`odd/tasks/mcp-s01-persistence-foundation.md`](mcp-s01-persistence-foundation.md).
 
 - **The adapter exists.** `packages/core/adapters/sqlite` opens the database

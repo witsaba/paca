@@ -897,7 +897,9 @@ One entry per completed session, newest last. Each records the branch, the
 commit, and the outcome.
 
 - **S00 — Core module extraction.** Branch `feat/mcp-s00-core-extraction`,
-  commit `88032ee`. The layers `domain`, `ports`, and `application` moved from
+  commit `88032ee`, issue
+  [#7](https://github.com/witsaba/paca/issues/7), pull request
+  [#8](https://github.com/witsaba/paca/pull/8). The layers `domain`, `ports`, and `application` moved from
   `apps/cli/internal/` into the new module `packages/core`
   (`github.com/witsaba/paca/packages/core`); `apps/cli` requires it with a
   `replace` to the local path, and `go.work` lists the module. The product

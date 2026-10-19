@@ -162,7 +162,11 @@ The Go workspace ties them together, so `make test` covers every module. The roo
 - **CI workflow included.** The user asked for the standard industry quality gates; a
   single GitHub Actions workflow that runs `make all` is how those gates are actually
   enforced, and it adds no product surface. It shipped inside the documentation commit
-  (`cb7276c`).
+  (`cb7276c`) and is **held back from the push** by `cfab536`: GitHub refuses to create
+  a workflow file from a push whose token lacks the `workflow` scope, and the token of
+  this environment does not carry it. The file is preserved in the history of the
+  branch and is restored by one follow-up commit once the scope is granted
+  (`gh auth refresh -h github.com -s workflow`).
 
 ### L3 — Verified outcome
 
@@ -192,5 +196,11 @@ The test for the `--help` rule was observed RED before the implementation
 - No database migration and no SQLite driver: S1 forbids it. The driver choice
   remains the open question in the root README.
 - No CLI subcommand beyond the header: S5 limits the surface to `--help`.
-- The branch is not pushed and no pull request is opened: the push and the pull
-  request are the user's decision.
+- The branch is pushed and the pull request is opened against `main` on the user's
+  request, linking issue #4.
+- **The CI workflow is not in the pushed branch.** GitHub rejects a push that creates
+  a workflow file when the token lacks the `workflow` scope, which the token of this
+  environment does not carry. The workflow is authored and kept in the branch history;
+  it is restored by a single follow-up commit once the scope is granted, and the pull
+  request carries no automated checks until then. The local gate (`make all`) is the
+  proof in the meantime.

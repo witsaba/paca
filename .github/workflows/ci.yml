@@ -1,0 +1,90 @@
+# PACA — continuous integration.
+#
+# The workflow runs the same gate a contributor runs locally: the quality
+# gate of the Makefile, the verifier of the schema, and the coverage floor
+# of the repository. A pull request is green when the three jobs are green.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# The workflow reads the repository and nothing else.
+permissions:
+  contents: read
+
+# A new push to the same branch makes the older run unnecessary.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The quality gate of the Makefile: fmt-check, vet, lint, build, test, race
+  # and vuln, over the five modules of the workspace.
+  gate:
+    name: The quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          # The version of the repository is the one of the workspace, and the
+          # linter and the scanner are the tool dependencies of the module
+          # tools: a contributor needs nothing but the Go toolchain.
+          go-version-file: go.work
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            apps/cli/go.sum
+            apps/mcp/go.sum
+            packages/core/go.sum
+            packages/db/go.sum
+            tools/go.sum
+
+      - name: Run the quality gate
+        run: make all
+
+  # The verifier of the schema: the database behaves as the documentation
+  # says. It needs the sqlite3 CLI and nothing else.
+  schema:
+    name: The verifier of the schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Verify the schema
+        run: bash packages/db/tools/verify_schema.sh
+
+  # The coverage floor of the repository: every file is at or above 75% of
+  # its statements.
+  coverage:
+    name: The coverage floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.work
+          cache: true
+          cache-dependency-path: |
+            go.work.sum
+            apps/cli/go.sum
+            apps/mcp/go.sum
+            packages/core/go.sum
+            packages/db/go.sum
+            tools/go.sum
+
+      - name: Check the coverage floor
+        run: make cover-check

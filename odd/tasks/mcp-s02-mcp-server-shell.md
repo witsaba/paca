@@ -236,3 +236,28 @@ again.
 - The integration test proves the done-when of the session: the binary serves
   an empty MCP session over `httptest` with the client SDK of the same
   package, with and without the token.
+
+### L8 — The verification of the running binary (2026-10-19)
+
+The verification was run against the built binary, through its public
+interface, not against the code:
+
+| Check | Observed |
+| --- | --- |
+| `--bind 0.0.0.0` without a token | `missing bearer token for a non-loopback bind`, exit 2 |
+| `--bind 0.0.0.0` with a token and no TLS | `missing TLS material for a non-loopback bind`, exit 2 |
+| `--require-auth` without a token | `--require-auth needs --auth-token`, exit 2 |
+| no `--db` | `missing database path: --db is required`, exit 2 |
+| the token in the output of a refusal or a log | absent |
+| `/healthz` | `200`, body `ok`, outside the authentication |
+| `/mcp` without a token, with a token configured | `401 unauthorized` |
+| `/mcp` with a wrong token | `401 unauthorized` |
+| `/mcp` with the right token | `200`, the `initialize` answer of an empty session |
+| plain HTTP on loopback | serves |
+| TLS with the material | serves, and plain HTTP against it is refused by the listener |
+| the database at startup | `PRAGMA user_version = 1`, the five tables of the initial schema |
+| `SIGTERM` | the process stops cleanly |
+
+The independent verifier of the harness was not admitted for this change, so
+the verification above was run inline, with the focused tests and the suite
+of the repository as well.

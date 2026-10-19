@@ -1,11 +1,15 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/witsaba/paca/packages/core"
+)
 
 const (
 	rootName  = "paca"
-	rootShort = "PACA, a personal finance manager for the Colombian market"
-	rootLong  = `paca is the command line interface of PACA, a personal finance manager
+	rootShort = core.ProductName + ", " + core.ProductDescription
+	rootLong  = `paca is the command line interface of ` + core.ProductName + `, a personal finance manager
 for the Colombian market.
 
 This build ships the command header only: the command tree is not implemented

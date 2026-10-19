@@ -17,6 +17,8 @@ architecture notes under `architecture/`:
 - [`architecture/backend-scaffold.md`](architecture/backend-scaffold.md) — the backend
   foundation: the Go workspace, the hexagonal layout, the pinned tools, and the quality
   gate, with the industry sources behind each decision.
+- [`architecture/0001-mcp-agent-server.md`](architecture/0001-mcp-agent-server.md) — the
+  MCP agent server: the transport, the tools, and the eleven cross-cutting concerns.
 
 The design rationale for the database feature, including the measured comparison behind
 the model choice, is tracked in [`odd/tasks/database-model.md`](../odd/tasks/database-model.md).

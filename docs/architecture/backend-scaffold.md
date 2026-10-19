@@ -27,8 +27,9 @@ together.
 
 ```
 paca/
-├── go.work            the workspace: apps/cli + tools
+├── go.work            the workspace: apps/cli + packages/core + tools
 ├── apps/cli/          module github.com/witsaba/paca/apps/cli
+├── packages/core/     module github.com/witsaba/paca/packages/core
 └── tools/             module github.com/witsaba/paca/tools
 ```
 
@@ -39,6 +40,12 @@ cadence.
 
 Rejected: a separate repository per unit. The units are not published independently;
 the split would cost more than it buys.
+
+**Amendment.** The shared layers were first scaffolded inside `apps/cli/internal/`.
+Go's `internal` visibility rule scopes that tree to `apps/cli`, so a second binary
+could never import it. They now live in the module `packages/core`, imported by
+every delivery mechanism. This is amendment A2 of
+[`0001-mcp-agent-server.md`](0001-mcp-agent-server.md).
 
 **Consequence.** Every `go` command that takes a package pattern must run *inside* a
 module directory. At the workspace root, `go build ./...` fails with *"directory prefix
@@ -53,9 +60,9 @@ The application follows ports and adapters. The dependency rule is inward only.
 ```mermaid
 graph TD
     cmd["cmd/paca<br/>composition root"] --> adapter["internal/adapters/cli<br/>driving adapter"]
-    adapter --> app["internal/application<br/>use cases"]
-    app --> ports["internal/ports<br/>interfaces"]
-    app --> domain["internal/domain<br/>entities, invariants"]
+    adapter --> app["packages/core/application<br/>use cases"]
+    app --> ports["packages/core/ports<br/>interfaces"]
+    app --> domain["packages/core/domain<br/>entities, invariants"]
     ports --> domain
 ```
 
@@ -63,9 +70,9 @@ graph TD
 | --- | --- | --- |
 | `cmd/paca` | the composition root: build the command, run it, exit | the adapter |
 | `internal/adapters/cli` | the cobra command tree, flags, help, error presentation | application, ports, domain |
-| `internal/application` | use cases: orchestrate the domain through the ports | ports, domain |
-| `internal/ports` | the interfaces of both boundaries | domain |
-| `internal/domain` | entities, value objects, invariants, domain services | the standard library only |
+| `packages/core/application` | use cases: orchestrate the domain through the ports | ports, domain |
+| `packages/core/ports` | the interfaces of both boundaries | domain |
+| `packages/core/domain` | entities, value objects, invariants, domain services | the standard library only |
 
 Each package ships a `doc.go` that states its role and its dependency rule, so the
 boundary is written down where it is enforced. The rule that matters most: the domain

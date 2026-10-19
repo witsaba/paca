@@ -5,18 +5,28 @@ This document is the complete reference for the data team: it is sufficient to w
 database without reading the SQL. Every column, constraint, index, and rule described here is
 taken directly from `packages/db/migrations/001_initial_schema.sql`.
 
+The application that will read and write this schema is under construction. Its command
+line entry point is [`apps/cli`](apps/cli/README.md); the decisions behind it are recorded
+in [`docs/architecture/backend-scaffold.md`](docs/architecture/backend-scaffold.md).
+
 ---
 
 ## Repository Layout
 
 ```
 paca/
-├── apps/            reserved for application entry points (not yet authored)
+├── apps/            the runnable applications
+│   ├── cli/         the paca command — a Go module, hexagonal, command header only
+│   │   ├── cmd/paca/            the composition root
+│   │   └── internal/            the hexagonal layers: domain, ports, application, adapters
 │   └── README.md
-├── docs/            reserved for long-form documentation (not yet authored)
+├── docs/            long-form documentation
+│   ├── architecture/
+│   │   └── backend-scaffold.md  the backend decision record
 │   └── README.md
 ├── odd/             ODD feature documents: specs, tasks, evidence, decision log
 │   └── tasks/
+│       ├── backend-scaffold.md  feature document: the Go backend scaffold
 │       └── database-model.md   feature document: design rationale, benchmarks, tradeoffs
 ├── packages/
 │   └── db/
@@ -24,8 +34,11 @@ paca/
 │       │   └── 001_initial_schema.sql   the schema — authoritative source for this document
 │       └── tools/
 │           └── verify_schema.sh         automated schema verification (57 checks)
-├── tools/           reserved for repository-wide utilities (not yet authored)
+├── tools/           repository-wide developer tooling
+│   ├── go.mod       the pinned linter and vulnerability scanner (Go tool dependencies)
 │   └── README.md
+├── Makefile         the developer workflow: deps, build, test, cover, race, vuln, lint
+├── go.work          the Go workspace tying the modules of the repository together
 └── README.md        you are here
 ```
 
@@ -669,10 +682,14 @@ contact kind is needed.
 
 ## Open Questions
 
-**Tech stack (not yet decided).** The application language and SQLite driver are not chosen.
-This matters because the driver must expose SQLite version information so the migration
-runner can assert a 3.53.0+ floor before using `ALTER TABLE ADD CONSTRAINT`. If the driver
-is pre-3.53.0, the table-rebuild path must be used instead.
+**SQLite driver (not yet decided).** The application language is Go (decided in the
+backend scaffold feature, see [`apps/cli`](../apps/cli/README.md) and
+[`docs/architecture/backend-scaffold.md`](docs/architecture/backend-scaffold.md)), but the
+SQLite driver is still open. This matters because the driver must expose SQLite version
+information so the migration runner can assert a 3.53.0+ floor before using
+`ALTER TABLE ADD CONSTRAINT`. If the driver is pre-3.53.0, the table-rebuild path must
+be used instead. The candidates are `modernc.org/sqlite` (pure Go, no cgo) and
+`mattn/go-sqlite3` (cgo, the reference binding).
 
 **Single-user or multi-user.** No `user_id` column exists on any table. If the application
 grows to support multiple users, every table will need one. The migration runner will need to

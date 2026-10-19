@@ -10,8 +10,15 @@ Typical contents, as the project grows:
 - `guides/` — task-oriented walkthroughs for people working with the data.
 
 Nothing here yet. The documentation that exists today is the root
-[README](../README.md), which holds the complete database reference, and
-[`packages/db/README.md`](../packages/db/README.md) for the schema package.
+[README](../README.md), which holds the complete database reference,
+[`packages/db/README.md`](../packages/db/README.md) for the schema package, and the
+architecture notes under `architecture/`:
 
-The design rationale for this feature, including the measured comparison behind the
-model choice, is tracked in [`odd/tasks/database-model.md`](../odd/tasks/database-model.md).
+- [`architecture/backend-scaffold.md`](architecture/backend-scaffold.md) — the backend
+  foundation: the Go workspace, the hexagonal layout, the pinned tools, and the quality
+  gate, with the industry sources behind each decision.
+
+The design rationale for the database feature, including the measured comparison behind
+the model choice, is tracked in [`odd/tasks/database-model.md`](../odd/tasks/database-model.md).
+The design rationale for the backend scaffold is tracked in
+[`odd/tasks/backend-scaffold.md`](../odd/tasks/backend-scaffold.md).

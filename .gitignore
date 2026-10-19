@@ -20,6 +20,13 @@ __pycache__/
 .venv/
 venv/
 
+# --- Go build and coverage artifacts ---------------------------------------
+# Binaries written by `make build` and the coverage files written by
+# `make cover`. Never commit them.
+bin/
+coverage.out
+.coverage/
+
 # --- Editor and OS noise --------------------------------------------------
 .DS_Store
 .idea/

@@ -125,12 +125,12 @@ The Go workspace ties them together, so `make test` covers every module. The roo
 
 | ID | Specs | Route | Commit |
 | --- | --- | --- | --- |
-| T1 | S2, S6, S8 | inline — Go workspace, `tools` module with pinned tool dependencies | `build(go): add Go workspace and pinned tool dependencies` |
-| T2 | S3 | inline — hexagonal package skeleton with `doc.go` boundary contracts | `feat(cli): scaffold hexagonal packages for the paca app` |
-| T3 | S5 | inline — test-first cobra root command exposing only `--help` | `feat(cli): add paca root command with help-only surface` |
-| T4 | S4 | inline — repository-wide Makefile and `golangci-lint` configuration | `build(make): add repository-wide Makefile and lint config` |
-| T5 | S6, S8 | inline — architecture note, app README, layout updates | `docs: document the Go backend scaffold and update repo layout` |
-| T6 | S1, S4 | inline — full verification gate | `chore(ci): run the full quality gate on the scaffold` |
+| T1 | S2, S6, S8 | inline — Go workspace, `tools` module with pinned tool dependencies | `fd6f273` build(go): add Go workspace and pinned tool dependencies |
+| T2 | S3 | inline — hexagonal package skeleton with `doc.go` boundary contracts | `fefdb26` feat(cli): scaffold hexagonal packages for the paca app |
+| T3 | S5 | inline — test-first cobra root command exposing only `--help` | `90ba264` feat(cli): add paca root command with help-only surface |
+| T4 | S4 | inline — repository-wide Makefile and `golangci-lint` configuration | `4fe8c32` build(make): add repository-wide Makefile and lint config |
+| T5 | S6, S8 | inline — architecture note, app README, layout updates | `cb7276c` docs: document the Go backend scaffold and update repo layout |
+| T6 | S1, S4 | inline — manifests tidied, full verification gate | `ae5b9d5` build(go): tidy the module manifests |
 
 ## Log
 
@@ -161,4 +161,36 @@ The Go workspace ties them together, so `make test` covers every module. The roo
   finance CLI will need. `urfave/cli` was rejected as the less common choice.
 - **CI workflow included.** The user asked for the standard industry quality gates; a
   single GitHub Actions workflow that runs `make all` is how those gates are actually
-  enforced, and it adds no product surface.
+  enforced, and it adds no product surface. It shipped inside the documentation commit
+  (`cb7276c`).
+
+### L3 — Verified outcome
+
+Every check below was run in the worktree and observed, not assumed:
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Build | `make build` | every module compiles; `bin/paca` produced |
+| Help output | `./bin/paca --help` | prints the header, exit `0` |
+| No arguments | `./bin/paca` | prints the same header, exit `0` |
+| Unknown command | `./bin/paca accounts` | `Error: unknown command "accounts" for "paca"`, exit `1` |
+| Test suite | `make test` | `ok github.com/witsaba/paca/apps/cli/internal/adapters/cli` |
+| Coverage | `make cover` | `internal/adapters/cli` at 100.0%; `cmd/paca` at 0.0% by design (see the architecture note) |
+| Race detector | `make race` | no race reported |
+| Vulnerabilities | `make vuln` | `No vulnerabilities found` in both modules |
+| Lint | `make lint` | `0 issues` in both modules |
+| Formatting | `make fmt-check` | no unformatted file |
+| Manifests | `make tidy` | idempotent: a second run leaves no diff |
+| Full gate | `make all` | exit `0` |
+| Schema untouched | `bash packages/db/tools/verify_schema.sh` | `passed: 57, failed: 0` — the migration was not touched by this feature |
+
+The test for the `--help` rule was observed RED before the implementation
+(`undefined: cli.NewRootCommand`, build failure) and GREEN after it.
+
+### L4 — Not done, by design
+
+- No database migration and no SQLite driver: S1 forbids it. The driver choice
+  remains the open question in the root README.
+- No CLI subcommand beyond the header: S5 limits the surface to `--help`.
+- The branch is not pushed and no pull request is opened: the push and the pull
+  request are the user's decision.

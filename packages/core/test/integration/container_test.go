@@ -24,7 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -36,8 +38,9 @@ import (
 // The settings of the database the tests run against.
 const (
 	// defaultPostgresImage is the PostgreSQL the tests run against. It is the
-	// same version the stack of the monorepository runs, and it is the one
-	// the tests find on a machine that keeps the image around.
+	// version the stack of the monorepository runs, and it is the one the
+	// tests find on a machine that keeps the image around. The schema of the
+	// core needs no extension, so the plain image is enough.
 	defaultPostgresImage = "postgres:18.6-bookworm"
 
 	// postgresPort is the port PostgreSQL listens on inside the container.
@@ -212,6 +215,36 @@ func connectionString(ctx context.Context, container testcontainers.Container) (
 // run in parallel against the same database.
 func nextIdentifier() int64 {
 	return 100_000_000_000 + identifierCounter.Add(1)
+}
+
+// openUTCConnection opens a connection that reads the timestamps in UTC.
+//
+// The driver of the suite reads a timestamp in the zone of the process, the
+// way every Go program reads one. A reader that wants UTC asks the driver
+// for it, and the column gives it: the value of a timestamp with a zone is an
+// instant, and the zone of the reader only says how it is written down.
+func openUTCConnection(ctx context.Context, t *testing.T, url string) *pgx.Conn {
+	t.Helper()
+
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatalf("the connection of the reader of UTC could not be opened: %v", err)
+	}
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := conn.Close(closeCtx); err != nil {
+			t.Logf("the reader of UTC did not close: %v", err)
+		}
+	})
+
+	conn.TypeMap().RegisterType(&pgtype.Type{
+		Name:  "timestamptz",
+		OID:   pgtype.TimestamptzOID,
+		Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC},
+	})
+
+	return conn
 }
 
 // postgresError returns the PostgreSQL error behind an error of a query.

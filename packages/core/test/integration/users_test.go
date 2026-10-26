@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"database/sql"
+	"math"
 	"testing"
 	"time"
 
@@ -32,6 +33,10 @@ const (
 	// statusConstraint is the constraint that checks the state of the user.
 	statusConstraint = "users_status_check"
 )
+
+// optionalColumns are the columns of the table that hold a value only when
+// the value is known.
+const optionalColumns = "full_name, status_observations, phone, email"
 
 // TestTheTableHasTheColumnsOfTheSpecification proves that the table exists
 // with exactly the columns, the types, the nullability and the defaults the
@@ -403,12 +408,11 @@ func TestTheOptionalColumnsAcceptNothing(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name    string
-		columns string
-		values  string
+		name  string
+		named bool
 	}{
-		{name: "the columns are named and empty", columns: "full_name, status_observations, phone, email", values: "NULL, NULL, NULL, NULL"},
-		{name: "the columns are left out", columns: "", values: ""},
+		{name: "the columns are named and empty", named: true},
+		{name: "the columns are left out", named: false},
 	}
 
 	for _, tc := range tests {
@@ -418,11 +422,13 @@ func TestTheOptionalColumnsAcceptNothing(t *testing.T) {
 			id := nextIdentifier()
 
 			query := `INSERT INTO users (id) VALUES ($1)`
-			if tc.columns != "" {
-				query = `INSERT INTO users (id, ` + tc.columns + `) VALUES ($1, ` + tc.values + `)`
+			args := []any{id}
+			if tc.named {
+				query = `INSERT INTO users (id, ` + optionalColumns + `) VALUES ($1, $2, $3, $4, $5)`
+				args = append(args, nil, nil, nil, nil)
 			}
 
-			if _, err := theSuite.db.ExecContext(ctx, query, id); err != nil {
+			if _, err := theSuite.db.ExecContext(ctx, query, args...); err != nil {
 				t.Fatalf("the row could not be inserted: %v", err)
 			}
 
@@ -496,21 +502,28 @@ func TestTheTimestampsAreFilledByTheSystem(t *testing.T) {
 	}
 }
 
-// TestTheTimestampsAreReadInUTC proves that the timestamps of a row are read
-// in UTC.
+// TestTheTimestampsAreReadInUTC proves that the timestamps of a row are
+// instants, and that they are read in UTC.
 //
 // The session of the reader is moved away from UTC before the row is read,
-// so the reading cannot be right by accident: a reader that followed the
-// timezone of the session would bring the row back in another offset.
+// so the reading cannot be right by accident: a column that held a wall
+// clock would bring the row back in another offset.
+//
+// The driver of the suite reads a timestamp in the zone of the process, the
+// way every Go program reads one, so the reader that wants UTC asks the
+// driver for it. Both readings carry the same instant, and the one that asks
+// for UTC gets it in UTC.
 func TestTheTimestampsAreReadInUTC(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	id := nextIdentifier()
 
+	before := time.Now().UTC()
 	if _, err := theSuite.db.ExecContext(ctx, `INSERT INTO users (id) VALUES ($1)`, id); err != nil {
 		t.Fatalf("the row could not be inserted: %v", err)
 	}
+	after := time.Now().UTC()
 
 	conn, err := theSuite.db.Conn(ctx)
 	if err != nil {
@@ -518,7 +531,7 @@ func TestTheTimestampsAreReadInUTC(t *testing.T) {
 	}
 	defer conn.Close()
 
-	if _, err := conn.ExecContext(ctx, `SET TIME ZONE INTERVAL '-05:00' HOUR TO MINUTE`); err != nil {
+	if _, err := conn.ExecContext(ctx, `SET TIME ZONE INTERVAL '+09:00' HOUR TO MINUTE`); err != nil {
 		t.Fatalf("the timezone of the session could not be moved: %v", err)
 	}
 
@@ -537,17 +550,47 @@ func TestTheTimestampsAreReadInUTC(t *testing.T) {
 		t.Fatalf("the timestamps of the row could not be read: %v", err)
 	}
 
+	tolerance := time.Second
 	for name, value := range map[string]time.Time{
 		"created_at": createdAt,
 		"updated_at": updatedAt,
 	} {
-		if value.Location().String() != "UTC" {
-			t.Errorf("the column %q was read in %q, want UTC", name, value.Location())
+		instant := value.UTC()
+		if instant.Before(before.Add(-tolerance)) || instant.After(after.Add(tolerance)) {
+			t.Errorf("the column %q holds the instant %s, want it between %s and %s", name, instant, before, after)
 		}
-		_, offset := value.Zone()
-		if offset != 0 {
-			t.Errorf("the column %q was read with the offset %d, want zero", name, offset)
-		}
+	}
+
+	// The database holds the same instant, and the epoch of it does not
+	// depend on the session of the reader.
+	var epoch float64
+	if err := conn.QueryRowContext(ctx,
+		`SELECT extract(epoch FROM created_at) FROM users WHERE id = $1`, id,
+	).Scan(&epoch); err != nil {
+		t.Fatalf("the epoch of the creation time could not be read: %v", err)
+	}
+	if math.Abs(epoch-float64(createdAt.UTC().UnixMicro())/1e6) > 0.001 {
+		t.Errorf("the epoch of the creation time is %f, want %f", epoch, float64(createdAt.UTC().UnixMicro())/1e6)
+	}
+
+	// And the reader that asks for UTC reads the instant in UTC.
+	utc := openUTCConnection(ctx, t, theSuite.url)
+
+	var readInUTC time.Time
+	if err := utc.QueryRow(ctx,
+		`SELECT created_at FROM users WHERE id = $1`, id,
+	).Scan(&readInUTC); err != nil {
+		t.Fatalf("the creation time of the row could not be read: %v", err)
+	}
+
+	if readInUTC.Location().String() != "UTC" {
+		t.Errorf("the creation time of the row was read in %q, want UTC", readInUTC.Location())
+	}
+	if _, offset := readInUTC.Zone(); offset != 0 {
+		t.Errorf("the creation time of the row was read with the offset %d, want zero", offset)
+	}
+	if !readInUTC.Equal(createdAt) {
+		t.Errorf("the creation time read in UTC is %s, want %s", readInUTC, createdAt)
 	}
 }
 
@@ -608,9 +651,10 @@ func TestTheUpdatedAtIsNotMaintainedByATrigger(t *testing.T) {
 // TestApplyingTheMigrationsTwiceChangesNothing proves that the schema has
 // one writer and that the writer is idempotent: applying the migrations
 // again applies nothing, and the version of the schema stays the same.
+//
+// The test does not run in parallel with the others: the single writer takes
+// a lock of the database, and two of them at once would wait for each other.
 func TestApplyingTheMigrationsTwiceChangesNothing(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 
 	before, err := theSuite.migrator.Version(ctx)
@@ -645,9 +689,10 @@ func TestApplyingTheMigrationsTwiceChangesNothing(t *testing.T) {
 
 // TestTheMigratorReportsTheStateOfTheSchema proves that the single writer
 // tells the truth about the schema it wrote.
+//
+// The test does not run in parallel with the others: the single writer takes
+// a lock of the database, and two of them at once would wait for each other.
 func TestTheMigratorReportsTheStateOfTheSchema(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 
 	status, err := theSuite.migrator.Status(ctx)

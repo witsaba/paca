@@ -22,10 +22,19 @@ PACKAGE ?= ./...
 # The coverage the module must reach, in percent. The gate fails below it.
 COVERAGE_THRESHOLD ?= 80
 
-# The packages the coverage gate measures. The generated code is not one of
-# them: it is written by the generator, never by hand, and it is reviewed as
-# the schema it comes from.
-COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db')
+# The coverage of the container tests. It is measured over the whole module,
+# because the container tests are what cover the packages that talk to the
+# database.
+COV_FILE_INTEGRATION ?= $(COV_DIR)/coverage-integration.out
+
+# The packages the coverage gate measures: the ones whose rules can be
+# asserted without a database.
+#
+# The generated code is not one of them: it is written by the generator,
+# never by hand, and it is reviewed as the schema it comes from. Neither are
+# the packages that talk to the database: the container tests cover them,
+# and they report their own coverage.
+COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/core$$' | grep -v '/cmd/db-migrate')
 
 .DEFAULT_GOAL := help
 
@@ -112,9 +121,13 @@ test:
 ## test-integration: run the container tests
 #
 # The tests start a PostgreSQL with the schema of the migrations and assert
-# the rules of the tables against it, so they need Docker.
+# the rules of the tables against it, so they need Docker. They cover the
+# packages that talk to the database, and they report their coverage.
 test-integration:
-	$(GO) test -tags=integration -timeout=15m -v ./...
+	@mkdir -p $(COV_DIR)
+	$(GO) test -tags=integration -timeout=15m -v -covermode=atomic \
+		-coverprofile=$(COV_FILE_INTEGRATION) $(PACKAGE)
+	@$(GO) tool cover -func=$(COV_FILE_INTEGRATION) | tail -1
 
 ## cover: run the test suite with coverage and check the threshold
 cover:

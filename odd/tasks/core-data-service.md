@@ -262,6 +262,24 @@ every commit keeps the test suite green.
 The commit that carries the migration carries it alone, so a reviewer reads
 the schema change without the code around it.
 
+### The review slices
+
+The feature is bigger than one review, so it is delivered as a stack of
+pull requests, one per slice, each branch cut from the branch of the slice
+below it.
+
+| Slice | Branch             | What it carries                                          | Commits |
+|-------|--------------------|----------------------------------------------------------|---------|
+| 1     | `feat/core-data-service` | The specification, the module of the core, the gate and the model of the user | `15fa3ac`, `22d8f7a` |
+| 2     | `feat/core-data-table`   | The sqlc pipeline, the postgres adapter, the migration of the `users` table and the single writer | — |
+| 3     | `feat/core-data-consumers` | The wiring into the MCP server and the container tests that prove the table | — |
+| 4     | `feat/core-data-docs`    | The documentation of the core and the registry of the monorepository | — |
+
+Slice 1 is the branch of this slice of work. Slice 2 is cut from it, slice 3
+from slice 2, and slice 4 from slice 3: the stack is merged from the bottom,
+so a reviewer reads the module, then the table, then the consumer, then the
+words.
+
 The last commit of the feature carries the whole slice. The commit that
 touches the migrations carries them alone, so a reviewer can read the schema
 change without the code around it.

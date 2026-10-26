@@ -22,11 +22,16 @@ PACKAGE ?= ./...
 # The coverage the module must reach, in percent. The gate fails below it.
 COVERAGE_THRESHOLD ?= 80
 
+# The packages the coverage gate measures. The generated code is not one of
+# them: it is written by the generator, never by hand, and it is reviewed as
+# the schema it comes from.
+COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db')
+
 .DEFAULT_GOAL := help
 
 .PHONY: help deps tidy tidy-check fmt fmt-check vet lint build test \
         test-integration cover race bench perf vuln all generate \
-        db-migrate clean
+        generate-check db-migrate clean
 
 ## help: show this list of targets
 help:
@@ -49,6 +54,7 @@ help:
 	@echo "  make perf              check the allocation budgets and run the benchmarks"
 	@echo "  make vuln              scan the dependencies for known vulnerabilities"
 	@echo "  make generate          generate the code from the schema (sqlc)"
+	@echo "  make generate-check    fail when the generated code is not the one the schema describes"
 	@echo "  make db-migrate        apply the migrations to the database"
 	@echo "  make all               the full quality gate"
 	@echo "  make clean             remove the coverage artifacts"
@@ -113,7 +119,7 @@ test-integration:
 ## cover: run the test suite with coverage and check the threshold
 cover:
 	@mkdir -p $(COV_DIR)
-	$(GO) test -covermode=atomic -coverprofile=$(COV_FILE) $(PACKAGE)
+	$(GO) test -covermode=atomic -coverprofile=$(COV_FILE) $(COVER_PKGS)
 	@$(GO) tool cover -func=$(COV_FILE) | tail -1
 	@total=$$($(GO) tool cover -func=$(COV_FILE) | awk '/^total:/ {gsub(/%/, "", $$3); print $$3}'); \
 	awk -v total="$$total" -v threshold="$(COVERAGE_THRESHOLD)" 'BEGIN { \
@@ -142,7 +148,7 @@ vuln:
 	$(GO) tool govulncheck $(PACKAGE)
 
 ## all: the full quality gate
-all: fmt-check vet lint build test race cover vuln
+all: fmt-check generate-check vet lint build test race cover vuln
 
 ## generate: generate the code from the schema
 #
@@ -150,6 +156,19 @@ all: fmt-check vet lint build test race cover vuln
 # never edited by hand. The generator is pinned in tools/go.mod.
 generate:
 	$(GO) tool sqlc generate
+
+## generate-check: fail when the generated code is stale
+#
+# The gate regenerates the code and fails when it differs from the one that
+# is committed, so a change of the schema never reaches the repository
+# without the code that goes with it.
+generate-check:
+	@$(GO) tool sqlc generate
+	@if ! git diff --quiet -- internal/db; then \
+		echo "the generated code is not the one the schema describes, run 'make generate'"; \
+		git diff -- internal/db; \
+		exit 1; \
+	fi
 
 ## db-migrate: apply the migrations to the database
 #

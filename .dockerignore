@@ -1,0 +1,26 @@
+# The files the images of the monorepository do not need.
+#
+# The context of the image of the MCP server is the root of the repository,
+# so this file keeps the history of the repository, the build artifacts and
+# the local secrets out of the build.
+#
+# The stacks that build their own image keep their own .dockerignore.
+
+.git
+.gitignore
+
+# The build and the coverage artifacts of every module.
+**/bin/
+**/.coverage/
+**/coverage.out
+
+# The local credentials of the databases. They are never committed and they
+# never reach an image.
+**/.env
+
+# The documentation of the features and the editor noise.
+odd/
+**/*.md
+**/.DS_Store
+**/.idea/
+**/.vscode/

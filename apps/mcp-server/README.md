@@ -8,6 +8,10 @@ The service is **private**. It publishes no port: the only things that reach it
 are the other containers of the monorepository, through the `paca_internal`
 network. The host and the internet do not.
 
+The image of the server is built from the root of the monorepository, because
+the server imports the shared libraries of the repository, and they are
+modules of their own next to it.
+
 ---
 
 ## The architecture
@@ -35,6 +39,21 @@ The dependency rule holds: the domain knows nothing, the application knows
 the domain and the ports, the adapters know the ports, and only the
 composition root knows the adapters. Every layer is exercised through its
 public interface, so a rule can be tested without a server.
+
+## The database
+
+The server imports the [core](../packages/core) of the monorepository, and it
+watches the database through it: the pool, the driver and the queries belong
+to the core, and the server never names them.
+
+The database is **optional for now**. The server starts without one, exactly
+as it did before, and the first tool that reads the database will make it
+required. When `PACA_DATABASE_URL` names one, the health report carries a
+`database` check, and a database that does not answer makes the service
+unhealthy.
+
+The pool is lazy: a database that is down does not stop the server from
+starting. The health check is what asks the database whether it answers.
 
 ## The endpoints
 
@@ -69,6 +88,9 @@ silent fallback.
 | `PACA_MCP_MAX_REQUEST_BYTES`| `4MiB`      | The largest body the MCP transport accepts.           |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the clients see.             |
+| `PACA_DATABASE_URL`         | *empty*     | The connection string of the database. Empty means the server runs without one. |
+| `PACA_DATABASE_MAX_CONNS`   | `4`         | The number of connections the pool of the database may open. |
+| `PACA_DATABASE_CONNECT_TIMEOUT` | `5s`    | The bound of the attempt to open a connection. |
 
 ### The tracing
 

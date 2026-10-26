@@ -22,6 +22,9 @@ func clearEnvironment(t *testing.T) {
 		config.EnvMaxRequestBytes,
 		config.EnvLogLevel,
 		config.EnvServiceVersion,
+		config.EnvDatabaseURL,
+		config.EnvDatabaseMaxConns,
+		config.EnvDatabaseConnectTimeout,
 		config.EnvOtelDisabled,
 		config.EnvOtelEndpoint,
 		config.EnvOtelProtocol,
@@ -108,6 +111,49 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 	}
 }
 
+func TestLoadReadsTheSettingsOfTheDatabase(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvDatabaseURL, "postgres://paca:paca@postgres:5432/paca?sslmode=disable")
+	t.Setenv(config.EnvDatabaseMaxConns, "8")
+	t.Setenv(config.EnvDatabaseConnectTimeout, "3s")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Database.URL != "postgres://paca:paca@postgres:5432/paca?sslmode=disable" {
+		t.Fatalf("database url = %q, want the connection string of the environment", cfg.Database.URL)
+	}
+	if cfg.Database.MaxConns != 8 {
+		t.Fatalf("database max conns = %d, want %d", cfg.Database.MaxConns, 8)
+	}
+	if cfg.Database.ConnectTimeout != 3*time.Second {
+		t.Fatalf("database connect timeout = %s, want %s", cfg.Database.ConnectTimeout, 3*time.Second)
+	}
+}
+
+func TestLoadRunsWithoutADatabase(t *testing.T) {
+	clearEnvironment(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Database.URL != "" {
+		t.Fatalf("database url = %q, want it to be empty", cfg.Database.URL)
+	}
+	if cfg.Database.MaxConns != config.DefaultDatabaseMaxConns {
+		t.Fatalf("database max conns = %d, want %d", cfg.Database.MaxConns, config.DefaultDatabaseMaxConns)
+	}
+	if cfg.Database.ConnectTimeout != config.DefaultDatabaseConnectTimeout {
+		t.Fatalf("database connect timeout = %s, want %s",
+			cfg.Database.ConnectTimeout, config.DefaultDatabaseConnectTimeout)
+	}
+}
+
 func TestLoadRejectsAnInvalidSetting(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -124,6 +170,11 @@ func TestLoadRejectsAnInvalidSetting(t *testing.T) {
 		{name: "a body limit that is zero", key: config.EnvMaxRequestBytes, value: "0"},
 		{name: "a log level that does not exist", key: config.EnvLogLevel, value: "loud"},
 		{name: "an empty version", key: config.EnvServiceVersion, value: " "},
+		{name: "an empty connection string", key: config.EnvDatabaseURL, value: " "},
+		{name: "a number of connections that is not a number", key: config.EnvDatabaseMaxConns, value: "many"},
+		{name: "a number of connections that is zero", key: config.EnvDatabaseMaxConns, value: "0"},
+		{name: "a negative number of connections", key: config.EnvDatabaseMaxConns, value: "-1"},
+		{name: "a negative timeout to the database", key: config.EnvDatabaseConnectTimeout, value: "-1s"},
 	}
 
 	for _, test := range tests {

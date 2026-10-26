@@ -7,6 +7,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
+	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/database"
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/serving"
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
 	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
@@ -21,6 +23,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/server"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/core/postgres"
 )
 
 // Instructions tells the MCP clients what the server is for.
@@ -33,6 +36,7 @@ type App struct {
 	server           *server.Server
 	logger           *slog.Logger
 	transportChecker *serving.Checker
+	pool             *postgres.Pool
 }
 
 // New assembles the service.
@@ -43,6 +47,7 @@ type App struct {
 // The tracer provider creates the spans of the requests. A service without
 // one does not trace.
 func New(
+	ctx context.Context,
 	cfg config.Config,
 	logger *slog.Logger,
 	tracerProvider trace.TracerProvider,
@@ -56,14 +61,27 @@ func New(
 	startedAt := time.Now()
 
 	transportChecker := serving.NewChecker()
+	checkers := []ports.Checker{transportChecker}
+
+	pool, err := openDatabase(ctx, cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+	if pool != nil {
+		checkers = append(checkers, database.NewChecker(pool))
+	}
+
 	healthService, err := application.NewHealthService(
 		health.Identity{Name: config.ServiceName, Version: serviceVersion},
-		[]ports.Checker{transportChecker},
+		checkers,
 		clock.System{},
 		startedAt,
 		cfg.CheckTimeout,
 	)
 	if err != nil {
+		if pool != nil {
+			pool.Close()
+		}
 		return nil, err
 	}
 
@@ -86,7 +104,35 @@ func New(
 		server:           server.New(cfg.Addr(), router, logger, cfg.ShutdownTimeout),
 		logger:           logger,
 		transportChecker: transportChecker,
+		pool:             pool,
 	}, nil
+}
+
+// openDatabase opens the pool of the database, when the service names one.
+//
+// The database is optional: a service that does not name it starts without
+// one, and its health report says nothing about it. The pool is lazy, so a
+// database that is down does not stop the service from starting.
+func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*postgres.Pool, error) {
+	if cfg.Database.URL == "" {
+		return nil, nil
+	}
+
+	poolCfg := postgres.DefaultConfig()
+	poolCfg.URL = cfg.Database.URL
+	poolCfg.MaxConns = cfg.Database.MaxConns
+	poolCfg.ConnectTimeout = cfg.Database.ConnectTimeout
+
+	pool, err := postgres.Open(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("the pool of the database could not be opened: %w", err)
+	}
+
+	logger.Info("the database is configured",
+		slog.Int64("max_conns", int64(cfg.Database.MaxConns)),
+	)
+
+	return pool, nil
 }
 
 // Addr returns the address the server listens on. It is known after Listen.
@@ -109,6 +155,7 @@ func (a *App) Serve(ctx context.Context) error {
 		slog.String("health_path", http.HealthPath),
 	)
 	defer a.transportChecker.SetServing(false)
+	defer a.pool.Close()
 
 	return a.server.Serve(ctx)
 }
@@ -121,7 +168,7 @@ func Run(
 	tracerProvider trace.TracerProvider,
 	version string,
 ) error {
-	app, err := New(cfg, logger, tracerProvider, version)
+	app, err := New(ctx, cfg, logger, tracerProvider, version)
 	if err != nil {
 		return err
 	}

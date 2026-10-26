@@ -12,6 +12,11 @@
 #   1. create apps/<name>/ with its own Makefile;
 #   2. add <name> to APPS below.
 #
+# A shared library means the same:
+#
+#   1. create packages/<name>/ with its own Makefile;
+#   2. add <name> to PACKAGES below.
+#
 # Nothing else in the monorepository has to change: the continuous
 # integration calls the targets of this file, so the workflow never names a
 # stack.
@@ -20,13 +25,17 @@
 
 APPS := mcp-server
 
+# The shared libraries of the monorepository. A service imports them; they
+# publish no port and run no container.
+PACKAGES := core
+
 # The shell scripts of the repository. The shellcheck of the continuous
 # integration runs over exactly this list.
 SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all gate shellcheck db-up db-smoke db-down \
+.PHONY: help all gate packages-integration shellcheck db-up db-smoke db-down \
         observability-up observability-smoke observability-down
 
 help: ## Show this help
@@ -34,7 +43,8 @@ help: ## Show this help
 	@echo ""
 	@echo "  make help           show this help"
 	@echo "  make all            the full gate: the applications, the shellcheck and the databases"
-	@echo "  make gate           the quality gate of every application"
+	@echo "  make gate           the quality gate of every application and every package"
+	@echo "  make packages-integration  the container tests of every package (Docker)"
 	@echo "  make shellcheck     run shellcheck over the shell scripts of the repository"
 	@echo "  make db-up          start every database and wait until it is healthy"
 	@echo "  make db-smoke       run the smoke test of every database (it must be running)"
@@ -47,13 +57,28 @@ help: ## Show this help
 	@for app in $(APPS); do \
 		echo "  $$app -> apps/$$app"; \
 	done
+	@echo ""
+	@echo "The shared libraries of the monorepository:"
+	@for pkg in $(PACKAGES); do \
+		echo "  $$pkg -> packages/$$pkg"; \
+	done
 
 all: gate shellcheck db-smoke ## The full gate: the applications, the shellcheck and the databases
 
-gate: ## The quality gate of every application
+gate: ## The quality gate of every application and every package
 	@for app in $(APPS); do \
 		echo "==> $$app: gate"; \
 		$(MAKE) --no-print-directory -C apps/$$app all || exit 1; \
+	done
+	@for pkg in $(PACKAGES); do \
+		echo "==> packages/$$pkg: gate"; \
+		$(MAKE) --no-print-directory -C packages/$$pkg all || exit 1; \
+	done
+
+packages-integration: ## The container tests of every package
+	@for pkg in $(PACKAGES); do \
+		echo "==> packages/$$pkg: integration tests"; \
+		$(MAKE) --no-print-directory -C packages/$$pkg test-integration || exit 1; \
 	done
 
 shellcheck: ## Run shellcheck over the shell scripts of the repository

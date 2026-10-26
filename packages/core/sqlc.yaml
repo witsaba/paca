@@ -1,0 +1,22 @@
+# The generator of the code of the core.
+#
+# The schema of the tables lives in the migrations, and the migrations are
+# the history of the schema: the file that creates a table is the file that
+# the generator reads, so the two can never drift apart.
+#
+# The queries live in their own directory, next to the migrations.
+#
+# The generated code goes to internal/db: it belongs to the core alone, and
+# nothing outside the module imports it.
+version: "2"
+
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: internal/db
+        sql_package: pgx/v5
+        emit_empty_slices: true

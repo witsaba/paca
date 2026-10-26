@@ -3,10 +3,11 @@
 # The workflow runs the same gate a contributor runs locally, through the
 # root Makefile of the monorepository:
 #
-#   make gate        the quality gate of every application
-#   make db-up       every database, up and healthy
-#   make db-smoke    the smoke test of every database
-#   make shellcheck  the shell scripts of the repository
+#   make gate                the quality gate of every application and every package
+#   make packages-integration  the container tests of every package
+#   make db-up               every database, up and healthy
+#   make db-smoke            the smoke test of every database
+#   make shellcheck          the shell scripts of the repository
 #   make observability-up    the collector of the traces, up and healthy
 #   make observability-smoke the smoke test of the collector
 #
@@ -53,10 +54,17 @@ jobs:
           cache-dependency-path: |
             go.work.sum
             apps/mcp-server/go.sum
+            packages/core/go.sum
             tools/go.sum
 
       - name: Run the quality gate
         run: make gate
+
+      # The container tests of the shared libraries start a PostgreSQL with
+      # the schema of the migrations and assert the rules of the tables
+      # against it. The runner has Docker, so they run here.
+      - name: Run the container tests of the shared libraries
+        run: make packages-integration
 
   # The database: the image of the stack is built, the cluster starts, and
   # the smoke test asserts the guarantees it promises — UTF-8, UTC, UUID,

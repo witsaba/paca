@@ -1,8 +1,8 @@
 # The MCP server of the PACA monorepository.
 
 The server speaks the [Model Context Protocol](https://modelcontextprotocol.io)
-over the official Go SDK, and answers a health endpoint. **It registers no tool
-yet**: this is the initialization of the server, not its first feature.
+over the official Go SDK, answers a health endpoint, and exposes **three
+tools**: the ones that take care of the people who use PACA.
 
 The service is **private**. It publishes no port: the only things that reach it
 are the other containers of the monorepository, through the `paca_internal`
@@ -30,6 +30,7 @@ internal/
     inbound/http/              the HTTP adapter: the health endpoint
     inbound/mcpserver/         the MCP adapter: the official Go SDK
     outbound/serving/          the checker of the MCP transport
+    outbound/database/         the checker of the database
   platform/                    the infrastructure: config, logs, telemetry, clock, server
   bootstrap/                   the wiring of every layer
 test/integration/              the container tests
@@ -43,17 +44,50 @@ public interface, so a rule can be tested without a server.
 ## The database
 
 The server imports the [core](../packages/core) of the monorepository, and it
-watches the database through it: the pool, the driver and the queries belong
-to the core, and the server never names them.
+reads and writes the people through it: the pool, the driver, the queries and
+the rules of the person belong to the core, and the server never names them.
 
-The database is **optional for now**. The server starts without one, exactly
-as it did before, and the first tool that reads the database will make it
-required. When `PACA_DATABASE_URL` names one, the health report carries a
+The database is **still optional**. The server starts without one, the three
+tools are still there, and every call answers that the database is not
+configured. When `PACA_DATABASE_URL` names one, the health report carries a
 `database` check, and a database that does not answer makes the service
 unhealthy.
 
 The pool is lazy: a database that is down does not stop the server from
 starting. The health check is what asks the database whether it answers.
+
+## The tools
+
+The server exposes three tools, and they are the three moments of the
+journey of a person inside PACA.
+
+| Tool                      | What it does                                                    |
+|---------------------------|-----------------------------------------------------------------|
+| `onboard_user`            | Registers a person and starts their onboarding.                  |
+| `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
+| `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+
+**The description of a tool is not a comment.** It is the instruction the
+agent reads before it calls the tool, so it says what the tool needs, what it
+does with what it receives, and what it must not do. The description of
+`onboard_user` tells the agent that the document ID is required and that
+PACA never invents one, that the name is optional but worth asking for
+kindly, that the phone must carry its country code, that the email must be a
+valid address, and that it should gather as much as the person is willing to
+give. The description of `change_user_status` tells the agent the moves the
+map of the states allows and the rule of the observation. The description of
+`update_user_contact_data` tells the agent that an empty field is a field
+that stays as it is.
+
+**The failures are answered in words the agent can act on.** A document that
+is not a number, a phone without a country code, an address that is not an
+address, a document that is already registered, an email that belongs to
+somebody else, a move the map does not allow, and an observation that does
+not fit the status: each one says what happened and what to do about it.
+
+The rules themselves live in the [core](../packages/core): the cleaning of
+the phone, the check of the email, the map of the states and the rule of the
+observation. The tools only carry them to the agent.
 
 ## The endpoints
 
@@ -208,6 +242,11 @@ protocol, and that it keeps its transport to itself.
   read is timed out.
 - There is no authentication yet: the network is the boundary. The token and
   the TLS come with the first tool that needs them.
+- The three tools carry **personal data**: the document, the name, the phone
+  and the email of a person. The boundary has not moved — it is still the
+  network — and the hardening that was proposed for it (refusing a bind that
+  is not loopback, a Host allowlist and the explicit Origin rule) is still
+  open. It is now worth more than it was.
 
 ## The versions
 

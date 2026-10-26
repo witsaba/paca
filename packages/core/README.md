@@ -16,7 +16,8 @@ of the core, opens the pool and uses the models.
 ```
 packages/core/
   core.go               the migrator: the single writer of the schema
-  domain/user/          the model of the person: the identifier and the states
+  domain/user/          the model of the person: the identifier, the states
+                        and the port of the storage
   postgres/             the adapter that talks to PostgreSQL
   internal/db/          the generated code: the row model and the queries
   queries/              the SQL of the queries, read by the generator
@@ -38,16 +39,16 @@ other modules.
 ### `users`
 
 The person that PACA knows. It is the first table of the repository, and it
-arrives before its CRUD: the schema is right, and the operations come later.
+carries the schema and the rules of the people.
 
 | Column                | Type         | Rules                                                        |
 |-----------------------|--------------|--------------------------------------------------------------|
 | `id`                  | `bigint`     | Primary key, not null, never generated                        |
 | `full_name`           | `text`       | Optional                                                     |
 | `status`              | `text`       | Not null, default `onboarding`, checked against four states  |
-| `status_observations` | `text`       | Optional                                                     |
-| `phone`               | `text`       | Optional                                                     |
-| `email`               | `text`       | Optional                                                     |
+| `status_observations` | `text`       | The reason of the closed states; the open states carry none   |
+| `phone`               | `text`       | Optional, unique, digits only with the country code          |
+| `email`               | `text`       | Optional, unique without case, the shape of an address       |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 | `updated_at`          | `timestamptz`| Not null, default `now()`                                     |
 
@@ -61,13 +62,89 @@ should never meet the ceiling of a 32-bit integer.
 domain: `onboarding`, `active`, `inactive` and `blocked`. A writer that
 does not know the states cannot store one.
 
+**The observation belongs to the status.** The two closed states —
+`inactive` and `blocked` — carry the reason why the person is not using the
+product, and the two open states carry none. A CHECK on the table holds the
+rule, so no writer breaks it.
+
 **The optional columns are NULL when the value is not known.** The domain
 uses the empty string for the same fact, and the core never writes an empty
 string to the database.
 
+**The email and the phone are unique when they are set.** The indexes are
+partial: a person may have no email and no phone, and two people without an
+email do not collide. The email is compared without case, because
+`Foo@x.com` and `foo@x.com` are the same mailbox.
+
+**The formats are checked by the database too.** The phone holds digits only
+and carries its country code — eleven to fifteen digits — and the email
+holds the shape of an address.
+
 **The timestamps carry the time of the system.** The database fills them on
 insert. There is no trigger: whoever updates a row is responsible for
-`updated_at` after that.
+`updated_at` after that — and the core writes `updated_at = now()` inside
+the statement of the update.
+
+## The rules of the person
+
+The domain package holds the rules that the table cannot.
+
+**The phone is cleaned the way a person writes it.** The plus of the
+country code, the spaces, the dashes, the dots and the parentheses go away,
+and what is left are the digits: `+57 321-253-9984` is stored as
+`573212539984`. A number that carries no country code is refused: ten
+digits are exactly the length of a Colombian number, and that is the number
+that must be written with its code.
+
+**The email is checked** and trimmed: an address that does not look like an
+address is refused, and the same rule is a CHECK of the table.
+
+**The document ID keeps its digits.** A person writes `1.234.567` and
+`1234567`, and both are the same document.
+
+**The states move through a map.** The map of the transitions lives in the
+domain, and it is the only place that knows it:
+
+```
+onboarding ──▶ active      active     ──▶ inactive   inactive   ──▶ active
+onboarding ──▶ inactive    active     ──▶ blocked    inactive   ──▶ blocked
+onboarding ──▶ blocked     blocked    ──▶ active     blocked    ──▶ inactive
+```
+
+No move leads back to the onboarding: that state is the entry of the
+machine, the state of a person that has just been created, and it is never
+a destination.
+
+## The repository of the people
+
+The core publishes the port of the storage of the people, and the adapter
+that writes it:
+
+```go
+Create(ctx, id, details) (user.User, error)
+GetByID(ctx, id) (user.User, error)
+UpdateDetails(ctx, id, details) (user.User, error)
+ChangeStatus(ctx, id, status, observation) (user.User, error)
+```
+
+There is no delete and no list: a person that must go is `blocked`, and
+nothing consumes a list yet.
+
+**The writes are direct.** The adapter does not read a row to find out
+whether it may write it: the insert tells the truth with its primary key,
+and the update tells the truth with the row it touched. A document that is
+already registered is `ErrAlreadyExists`, an email that belongs to somebody
+else is `ErrEmailTaken`, and a document that does not exist is
+`ErrNotFound`.
+
+**A field that is empty is a field that does not change.** The details of a
+person carry the values that are set; the statement writes them with
+`COALESCE`, and the ones that are absent keep the value they had.
+
+**The change of the status is the only place the adapter reads before it
+writes.** The map of the states lives in the domain, and the map needs to
+know the state the user is in. The statement also requires that state, so a
+user that moved at the same time is reported instead of written over.
 
 ## The migrations
 
@@ -106,7 +183,8 @@ without the code that goes with it.
 
 The generator needs one query to write the code of the connection: the
 `Ping` of the health check. It touches no table, and it is not a query of
-the domain.
+the domain. The queries of the people live in `queries/users.sql`, and they
+are one statement per operation.
 
 ## The configuration of a service
 
@@ -158,10 +236,11 @@ and every container uses the same versions.
 ### The coverage, in two numbers
 
 The gate of the module measures the packages whose rules can be asserted
-without a database: the domain and the adapter. The packages that talk to
-the database — the migrator and its command — are covered by the container
-tests, which report their own coverage. The generated code is not measured
-at all: it is written by the generator, never by hand.
+without a database: the domain and the adapter. The parts that talk to the
+database — the migrator, its command and the file of the repository — are
+covered by the container tests, which report their own coverage. The
+generated code is not measured at all: it is written by the generator, never
+by hand.
 
 ## The tests
 
@@ -176,7 +255,8 @@ They start a PostgreSQL, apply the migrations through the single writer, and
 assert every rule of the tables against the real database: the primary key
 that refuses a duplicate, the identifier that the database never invents,
 the status that the database checks, the optional columns that hold NULL,
-and the timestamps that the system fills.
+the timestamps that the system fills, the email and the phone that belong
+to one person only, and the observation that belongs to the closed states.
 
 They run in the workflow of the continuous integration, next to the gate of
 the applications.

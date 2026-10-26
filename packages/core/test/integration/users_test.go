@@ -302,9 +302,18 @@ func TestEveryStateOfTheUserIsAccepted(t *testing.T) {
 
 			id := nextIdentifier()
 
-			if _, err := theSuite.db.ExecContext(ctx,
-				`INSERT INTO users (id, status) VALUES ($1, $2)`, id, status.String(),
-			); err != nil {
+			// The two closed states carry an observation: the database
+			// refuses a closed state without one, and the test proves the
+			// four states of the domain, not the four states of a row
+			// without an observation.
+			query := `INSERT INTO users (id, status) VALUES ($1, $2)`
+			args := []any{id, status.String()}
+			if user.RequiresObservations(status) {
+				query = `INSERT INTO users (id, status, status_observations) VALUES ($1, $2, $3)`
+				args = append(args, "the person asked to leave")
+			}
+
+			if _, err := theSuite.db.ExecContext(ctx, query, args...); err != nil {
 				t.Fatalf("the state %q was refused: %v", status, err)
 			}
 

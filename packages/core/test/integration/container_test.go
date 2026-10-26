@@ -67,6 +67,10 @@ type suite struct {
 	// migrator is the single writer of the schema.
 	migrator *core.Migrator
 
+	// pool is the pool of connections of the adapter, bound to the same
+	// database. The repositories of the core are proven against it.
+	pool *postgres.Pool
+
 	// url is the connection string of the database.
 	url string
 }
@@ -129,7 +133,7 @@ func runSuite(m *testing.M) int {
 	}
 	defer pool.Close()
 
-	if err := pool.Ping(ctx); err != nil {
+	if err := waitForTheDatabase(ctx, pool); err != nil {
 		fmt.Fprintf(os.Stderr, "the database did not answer: %v\n", err)
 		return 1
 	}
@@ -152,9 +156,37 @@ func runSuite(m *testing.M) int {
 		return 1
 	}
 
-	theSuite = &suite{db: db, migrator: migrator, url: url}
+	theSuite = &suite{db: db, migrator: migrator, pool: pool, url: url}
 
 	return m.Run()
+}
+
+// waitForTheDatabase asks the database whether it answers, and it asks
+// again while the server is still starting up.
+//
+// The container opens the port of PostgreSQL before the server accepts the
+// connections, and the first question of the suite can arrive in that
+// window: the database answers with the code 57P03, the server is starting
+// up. The suite waits for the answer instead of failing on it.
+func waitForTheDatabase(ctx context.Context, pool *postgres.Pool) error {
+	deadline := time.Now().Add(2 * time.Minute)
+
+	for {
+		err := pool.Ping(ctx)
+		if err == nil {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 }
 
 // startPostgres starts the PostgreSQL the tests run against.

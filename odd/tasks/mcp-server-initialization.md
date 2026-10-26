@@ -199,3 +199,14 @@ cross-origin request is rejected with 403.
   comes with the first tool that needs it.
 - No MCP tool, no persistence, no session state.
 - The port is reserved, but the REST and the gRPC backends do not exist yet.
+
+### L9 — The issue and the pull request of the slice
+
+- **Issue:** #18 — "feat(mcp): the MCP server of the monorepository — the
+  transport, the health endpoint and no tool yet".
+- **Pull request:** #19 — the branch `feat/mcp-server-init`, the label
+  `type:feature`, and the body closes #18.
+
+The branch was renamed from `feature/mcp-server-init` to
+`feat/mcp-server-init` before the push, to follow the naming rule of the
+repository.

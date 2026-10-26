@@ -175,3 +175,15 @@ And the log of the same request, on the standard output of the container:
 The identifier of the trace in the log is the identifier of the span in the collector: that is the
 join between the two signals. The requests to the health endpoint carry no identifier, because they
 are not traced.
+
+### L10 — The pull request
+
+The work was pushed on the branch `feat/observability-tracing` and opened as the pull request
+[#22](https://github.com/witsaba/paca/pull/22), which closes the issue
+[#21](https://github.com/witsaba/paca/issues/21). The branch was renamed from
+`feature/observability-tracing` before the push, to the `type/description` form the repository uses
+for every other branch.
+
+The verification of the security of the stack was made by an independent verifier, on the live
+stack: the verdict was that the claim holds, with three advisories that are now written down in the
+README of the stack and in the configuration of the collector.

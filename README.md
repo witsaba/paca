@@ -79,3 +79,31 @@ make -C apps/mcp-server all
 
 The tools are pinned in `tools/go.mod` and run with `go tool`, so every
 machine and every container uses the same versions.
+
+## The continuous integration
+
+The root `Makefile` dispatches to the stacks; it holds no stack-specific
+logic. It is the entry point of the continuous integration, so the workflow
+never names an application or a database.
+
+```sh
+make gate         # the quality gate of every application
+make shellcheck   # the shell scripts of the repository
+make db-up        # every database, up and healthy
+make db-smoke     # the smoke test of every database
+make db-down      # stop every database, keeping the data volumes
+make all          # the full gate: the applications, the shellcheck and the databases
+```
+
+The workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on
+every push to `main` and on every pull request, with three jobs:
+
+| Job          | What it verifies                                                    |
+|--------------|---------------------------------------------------------------------|
+| `gate`       | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application. |
+| `database`   | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
+| `shellcheck` | the shell scripts of the repository pass shellcheck.                  |
+
+The container tests of the MCP server (`make -C apps/mcp-server
+test-integration`) stay a local gate: they need Docker and build the image
+of the server, so they are not part of the workflow.

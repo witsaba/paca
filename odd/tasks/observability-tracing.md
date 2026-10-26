@@ -65,10 +65,10 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 |-----|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|--------|
 | T1  | S3, S4, S5, S8 | The `observability/` stack: Jaeger v2 with the Badger backend, the collector configuration owned by the repository, the Makefile and the documentation. | worker | `3945ac1` |
 | T2  | S1, S4 | The `internal/platform/telemetry` package: the resource, the tracer provider, the sampler, the propagator and the shutdown.                                          | inline | `9ea6265` |
-| T3  | S1     | The configuration: the strict validation of the OpenTelemetry environment, and the decision to trace or not.                                                       | inline | —      |
-| T4  | S2, S6 | The HTTP instrumentation and the logs that carry the trace: the server spans, the exclusion of the health endpoint and the identifiers of the trace in the records. | inline | —      |
-| T5  | S1, S6 | The deployment of the server: the OTLP endpoint in the compose of the application, and the documentation of the environment.                                       | inline | —      |
-| T6  | S1, S3, S5 | The wiring of the monorepository: the root compose, the root Makefile, the reserved ports and the continuous integration.                                           | inline | —      |
+| T3  | S1     | The configuration: the strict validation of the OpenTelemetry environment, and the decision to trace or not.                                                       | inline | `6dc6d01` |
+| T4  | S2, S6 | The HTTP instrumentation and the logs that carry the trace: the server spans, the exclusion of the health endpoint and the identifiers of the trace in the records. | inline | `9923802` |
+| T5  | S1, S6 | The deployment of the server: the OTLP endpoint in the compose of the application, and the documentation of the environment.                                       | inline | `9923802` |
+| T6  | S1, S3, S5 | The wiring of the monorepository: the root compose, the root Makefile, the reserved ports and the continuous integration.                                           | inline | `a9b490b` |
 
 ---
 

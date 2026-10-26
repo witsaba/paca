@@ -1,9 +1,10 @@
 // Package telemetry builds the OpenTelemetry providers of the service.
 //
-// The package is the only place in the service that knows OpenTelemetry. The
-// rest of the code carries the context and never the SDK: a request that
-// goes through the transport leaves a span behind, and the logs that the
-// handlers write carry the identifiers of that span.
+// The SDK lives here and nowhere else: the exporter, the sampler, the
+// resource and the providers are built in this package, and the rest of the
+// service only carries the context. The domain, the application and the
+// ports never hear of OpenTelemetry; the composition root and the adapters
+// know the type of the tracer provider, and nothing more.
 //
 // The providers are registered in the global OpenTelemetry registry on
 // purpose. The instrumentation of the transport and the bridge of the logger

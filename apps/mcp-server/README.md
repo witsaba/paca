@@ -26,7 +26,7 @@ internal/
     inbound/http/              the HTTP adapter: the health endpoint
     inbound/mcpserver/         the MCP adapter: the official Go SDK
     outbound/serving/          the checker of the MCP transport
-  platform/                    the infrastructure: config, logs, clock, server
+  platform/                    the infrastructure: config, logs, telemetry, clock, server
   bootstrap/                   the wiring of every layer
 test/integration/              the container tests
 ```
@@ -69,6 +69,48 @@ silent fallback.
 | `PACA_MCP_MAX_REQUEST_BYTES`| `4MiB`      | The largest body the MCP transport accepts.           |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the clients see.             |
+
+### The tracing
+
+The service traces its requests with [OpenTelemetry](https://opentelemetry.io)
+and sends the traces to a collector over OTLP. The settings are the ones of
+the OpenTelemetry specification, so an operator who knows the specification
+knows how to turn the tracing on and off.
+
+| Variable                          | Default     | What it is                                            |
+|-----------------------------------|-------------|-------------------------------------------------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT`     | *empty*     | The address of the collector: `host:port`. The tracing is **off** without it: there is nowhere to send the traces. |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`     | `grpc`      | The protocol of the exporter: `grpc` or `http/protobuf`. |
+| `OTEL_EXPORTER_OTLP_INSECURE`     | `false`     | Whether the exporter speaks to the collector without TLS. |
+| `OTEL_SDK_DISABLED`               | `false`     | Turns the tracing off.                                 |
+| `OTEL_TRACES_SAMPLER`             | `parentbased_always_on` | The sampler: `always_on`, `always_off`, `traceidratio`, `parentbased_always_on`, `parentbased_traceidratio`. |
+| `OTEL_TRACES_SAMPLER_ARG`         | *empty*     | The ratio of the traces that are kept, for the samplers that take one. |
+| `OTEL_SERVICE_NAME`               | `paca-mcp-server` | The name the telemetry carries.                  |
+| `OTEL_RESOURCE_ATTRIBUTES`        | *empty*     | The attributes of the deployment, as `key=value` pairs. |
+
+An invalid value is an error, never a silent fallback: a server that starts
+with a collector it cannot reach, or with a sampler it cannot read, is a
+server that nobody asked for.
+
+### The logs and the traces
+
+The logs go to the standard output, as JSON. Every record carries the
+`trace_id` and the `span_id` of the trace it belongs to, when the request
+that wrote it was inside a trace. That identifier is the join between the
+two: paste it into the search of the trace backend, and the whole request
+the line belongs to shows up.
+
+A record written outside of a request carries no identifier: there is no
+trace to point at.
+
+```json
+{"time":"2026-10-27T10:00:00Z","level":"INFO","msg":"request","method":"POST",
+ "path":"/mcp","status":200,"duration":1200000,
+ "trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7"}
+```
+
+The traces themselves live in the [observability stack](../../observability),
+which keeps them for two days.
 
 ## Running it
 
@@ -154,3 +196,5 @@ protocol, and that it keeps its transport to itself.
 | golangci-lint       | v2.15.0  | Pinned in `tools/go.mod`.                               |
 | govulncheck         | v1.8.0   | Pinned in `tools/go.mod`.                               |
 | testcontainers-go   | v0.44.0  | The container tests.                                    |
+| OpenTelemetry Go    | v1.47.0  | The tracing: the SDK, the OTLP exporter and the instrumentation of the transport. |
+| otelhttp            | v0.72.0  | The instrumentation of the HTTP transport.               |

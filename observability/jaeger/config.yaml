@@ -1,0 +1,101 @@
+# The collector configuration of the repository.
+#
+# Jaeger v2 is a distribution of the OpenTelemetry Collector: it reads this
+# file with the standard configuration format, and this file is the only
+# place where the behaviour of the telemetry stack is decided.
+
+extensions:
+  # The storage of the traces. Badger is embedded in the Jaeger process, so
+  # there is no extra container: it survives the restarts because its
+  # directories are on the named volume, and it has a native TTL, which is
+  # the time strategy of the repository.
+  jaeger_storage:
+    backends:
+      traces:
+        badger:
+          directories:
+            keys: /var/jaeger/keys
+            values: /var/jaeger/values
+          # The traces are written to the volume, not to a temporary
+          # filesystem, so they are still there after a restart of the stack.
+          ephemeral: false
+          # The retention: the traces live two days and are deleted
+          # afterwards. The storage takes care of the deletion itself.
+          ttl:
+            spans: 48h
+  # The query API and the UI of Jaeger. The traces are read from the backend
+  # above. The UI is a developer surface: the compose file publishes it on
+  # the loopback interface of the host only.
+  jaeger_query:
+    storage:
+      traces: traces
+    http:
+      endpoint: 0.0.0.0:16686
+
+receivers:
+  # The OTLP receivers: gRPC on 4317 and HTTP on 4318. The applications of
+  # the monorepository send their spans there, as `jaeger:4317`. They are
+  # reachable from the internal network only.
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # The first processor of the pipeline: it protects the collector from the
+  # out-of-memory killer, by refusing the spans when the process goes over
+  # the limit.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  # The spans are batched before they are written, so the storage is not hit
+  # with one write per span.
+  batch:
+    timeout: 5s
+  # The arguments and the results of a tool call may carry personal
+  # financial data: PACA is a finance product. They are deleted here, before
+  # the spans leave the process, so they never reach the storage and never
+  # leave the machine.
+  #
+  # The processor deletes the attributes of the spans. An attribute of the
+  # resource, or one under another name, would survive it: the redaction is
+  # a rule of this repository, not a promise of the collector.
+  attributes/redact:
+    actions:
+      - key: gen_ai.tool.call.arguments
+        action: delete
+      - key: gen_ai.tool.call.result
+        action: delete
+
+exporters:
+  # The spans are written to the Badger backend of the storage extension.
+  # The queue absorbs the bursts of the applications, so a burst does not
+  # block the receiver.
+  jaeger_storage_exporter:
+    trace_storage: traces
+    queue:
+      num_consumers: 10
+      queue_size: 100
+
+service:
+  # The extensions have to be enabled explicitly, otherwise their
+  # configuration is ignored.
+  extensions:
+    - jaeger_query
+    - jaeger_storage
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - batch
+        - attributes/redact
+      exporters:
+        - jaeger_storage_exporter
+  telemetry:
+    logs:
+      level: info

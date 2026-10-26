@@ -10,6 +10,7 @@ support them, in one repository and one compose project.
 | `apps/`       | The services, one directory and one Go module each.                        |
 | `packages/`   | *Reserved* — the libraries the services will share.                        |
 | `db/`         | The databases, one directory and one stack each.                           |
+| `observability/` | The traces: the collector and the backend that keeps them.              |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
 | `odd/tasks/`  | The feature documents: the specification of every piece of work.           |
 
@@ -22,6 +23,7 @@ tested against each other, and every module keeps working on its own.
 |--------------------|---------------------------------------------------|--------|
 | `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and no tool yet. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
+| `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 
 ## Running the stacks
 
@@ -60,12 +62,39 @@ the port of another one.
 |-------|---------------|----------------------------------------------------|
 | `5432`| PostgreSQL    | The containers of `paca_internal`, only.            |
 | `8081`| MCP server    | The containers of `paca_internal`, only.            |
+| `4317`| Jaeger (OTLP) | The containers of `paca_internal`, only.            |
+| `4318`| Jaeger (OTLP) | The containers of `paca_internal`, only.            |
+| `16686`| Jaeger UI    | The loopback interface of the host, only.           |
 | `8080`| *reserved*    | For the REST backend.                               |
 | `50051`| *reserved*   | For the gRPC backend.                               |
 
 The MCP server publishes no port at all. It binds the interface of its own
 container and sits on `paca_internal`, so the other containers of the stack
 reach it and nothing else does. The health endpoint shares that surface.
+
+The interface of Jaeger is the only exception: it is published on the
+loopback interface of the host, and on nothing else. It is a surface for the
+developer who reads the traces, not a surface of the network.
+
+## The observability
+
+The services trace themselves with [OpenTelemetry](https://opentelemetry.io)
+and send the traces to the collector of the `observability/` stack. The
+collector is Jaeger 2, which keeps the traces for two days in an embedded
+database and serves the interface that reads them.
+
+```sh
+make observability-up      # start the collector and wait until it is healthy
+make observability-smoke   # ask the collector whether it answers
+make observability-down    # stop it
+```
+
+The interface of the traces is at <http://127.0.0.1:16686>.
+
+The logs of the services stay on the standard output, where the runtime of
+the containers collects them. Every log record carries the identifiers of
+the trace it belongs to, so a line of the log opens the whole request it
+comes from.
 
 ## The quality gate
 

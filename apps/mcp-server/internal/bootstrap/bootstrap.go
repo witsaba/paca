@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/serving"
@@ -37,7 +39,15 @@ type App struct {
 //
 // The version is the one stamped into the binary at build time. The
 // environment overrides it, so a deployment can report the version it wants.
-func New(cfg config.Config, logger *slog.Logger, version string) (*App, error) {
+//
+// The tracer provider creates the spans of the requests. A service without
+// one does not trace.
+func New(
+	cfg config.Config,
+	logger *slog.Logger,
+	tracerProvider trace.TracerProvider,
+	version string,
+) (*App, error) {
 	serviceVersion := cfg.ServiceVersion
 	if serviceVersion == "" {
 		serviceVersion = version
@@ -66,9 +76,10 @@ func New(cfg config.Config, logger *slog.Logger, version string) (*App, error) {
 	})
 
 	router := http.NewRouter(http.RouterConfig{
-		Health: healthService,
-		MCP:    mcpServer.Handler(),
-		Logger: logger,
+		Health:         healthService,
+		MCP:            mcpServer.Handler(),
+		Logger:         logger,
+		TracerProvider: tracerProvider,
 	})
 
 	return &App{
@@ -103,8 +114,14 @@ func (a *App) Serve(ctx context.Context) error {
 }
 
 // Run assembles the service and serves it.
-func Run(ctx context.Context, cfg config.Config, logger *slog.Logger, version string) error {
-	app, err := New(cfg, logger, version)
+func Run(
+	ctx context.Context,
+	cfg config.Config,
+	logger *slog.Logger,
+	tracerProvider trace.TracerProvider,
+	version string,
+) error {
+	app, err := New(cfg, logger, tracerProvider, version)
 	if err != nil {
 		return err
 	}

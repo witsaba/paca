@@ -1,0 +1,95 @@
+# The observability stack of PACA: Jaeger v2.
+#
+# Jaeger v2 is a distribution of the OpenTelemetry Collector, so this single
+# container is both the collector that receives the OTLP traffic of the
+# monorepository and the backend that stores the traces. The configuration
+# belongs to the repository, in jaeger/config.yaml, and the traces are stored
+# in Badger, on a named volume, with a retention of 48 hours.
+#
+# The stack belongs to the root compose project, so it runs alone and with
+# the monorepository:
+#
+#   docker compose -f observability/compose.yaml up --wait   # this stack alone
+#   docker compose up --wait                                # every stack
+
+name: paca
+
+services:
+  jaeger:
+    # Pinned by digest, like every image of the repository.
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.22.0@sha256:836b967b5abcf1f7758066aa6b348619267a2f1459f72d472840570f9bd88a17
+    container_name: paca-jaeger
+    restart: unless-stopped
+    # Jaeger v2 is configured by a file, never by environment variables: the
+    # collector reads the standard OpenTelemetry Collector configuration.
+    command: ["--config", "/etc/jaeger/config.yaml"]
+    # The image runs as uid 10001, but the daemon creates a named volume
+    # owned by root:root, so the process cannot write the Badger files
+    # unless it runs as root. It keeps no capability and cannot gain more.
+    user: "0:0"
+    cap_drop:
+      - ALL
+    volumes:
+      # The collector configuration is owned by the repository, not by the
+      # image. The path is relative to this file, so the stack reads the same
+      # file whether it runs alone or included from the root compose.
+      - ./jaeger/config.yaml:/etc/jaeger/config.yaml:ro
+      # The Badger data: the keys and the values of the traces.
+      - jaeger-data:/var/jaeger
+    # The file system of the container is read-only: the traces are the only
+    # thing the process writes, and they go to the volume below.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    ports:
+      # The UI and the query API are a developer surface: they are published
+      # on the loopback interface of the host only, so they are reachable
+      # from the machine and from nowhere else.
+      - "127.0.0.1:16686:16686"
+    # The OTLP receivers are not published: the applications of the
+    # monorepository reach them on the internal network, as `jaeger:4317` and
+    # `jaeger:4318`.
+    expose:
+      - "4317"
+      - "4318"
+    networks:
+      # The service-to-service network: the applications send their spans
+      # here, and nothing is published on it.
+      - internal
+      # The network that carries the published port of the UI. Docker does
+      # not program the published ports of a container attached only to an
+      # internal network, so the UI needs a second network to be reachable
+      # from the browser of the developer.
+      - ui
+    healthcheck:
+      # The image has no curl and no shell of its own, but it ships busybox.
+      # The query API answering means the collector is serving. The path is
+      # the v3 one: the v1 endpoint `/api/services` was removed in Jaeger
+      # v2.22 and answers 404.
+      test: ["CMD", "/bin/busybox", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:16686/api/v3/services"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # Declared here with the same attributes as the root compose, so this
+  # stack also runs on its own. The name is fixed, so the network is the
+  # same one whichever way the stack is started.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true
+  # The network of the published UI port. It is private to this stack: no
+  # other service of the monorepository joins it. It exists because Docker
+  # refuses to program a published port for a container whose only networks
+  # are internal ones, which would leave the UI unreachable from the host.
+  ui:
+    name: paca_observability_ui
+    driver: bridge
+
+volumes:
+  jaeger-data:
+    name: paca-jaeger-data

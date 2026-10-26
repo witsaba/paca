@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 )
 
 // Options configures the MCP transport.
@@ -23,6 +25,11 @@ type Options struct {
 	Logger *slog.Logger
 	// MaxRequestBodyBytes is the largest request body the transport accepts.
 	MaxRequestBodyBytes int64
+	// Users is the use case of the users, the one behind the three tools.
+	//
+	// It may be nil: a server without a database still exposes the tools,
+	// and every call answers that the database is not there.
+	Users ports.UsersQuerier
 }
 
 // Server is the MCP transport of the service.
@@ -41,6 +48,9 @@ type Server struct {
 // header, and the body size limit rejects an oversized request. The cross
 // origin protection of the standard library rejects a cross-origin request
 // from a browser, and lets the requests of a non-browser client through.
+//
+// The three tools of the users are registered here: the list of the tools is
+// a property of the transport, and it does not depend on the database.
 func New(opts Options) *Server {
 	server := sdk.NewServer(
 		&sdk.Implementation{
@@ -54,6 +64,10 @@ func New(opts Options) *Server {
 		},
 	)
 
+	transport := &Server{server: server}
+
+	transport.registerUserTools(opts.Users)
+
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },
 		&sdk.StreamableHTTPOptions{
@@ -66,10 +80,9 @@ func New(opts Options) *Server {
 
 	protection := http.NewCrossOriginProtection()
 
-	return &Server{
-		server:  server,
-		handler: protection.Handler(handler),
-	}
+	transport.handler = protection.Handler(handler)
+
+	return transport
 }
 
 // Handler returns the HTTP handler of the transport.

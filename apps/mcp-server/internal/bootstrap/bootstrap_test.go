@@ -180,7 +180,7 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 0 {
-		t.Fatalf("the server exposes %d tools, want none yet", len(tools.Tools))
+	if len(tools.Tools) != 3 {
+		t.Fatalf("the server exposes %d tools, want the three of the users", len(tools.Tools))
 	}
 }

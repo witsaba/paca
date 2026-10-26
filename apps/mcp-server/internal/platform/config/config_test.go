@@ -22,6 +22,13 @@ func clearEnvironment(t *testing.T) {
 		config.EnvMaxRequestBytes,
 		config.EnvLogLevel,
 		config.EnvServiceVersion,
+		config.EnvOtelDisabled,
+		config.EnvOtelEndpoint,
+		config.EnvOtelProtocol,
+		config.EnvOtelInsecure,
+		config.EnvOtelSampler,
+		config.EnvOtelSamplerArg,
+		config.EnvOtelServiceName,
 	} {
 		if value, ok := os.LookupEnv(name); ok {
 			if err := os.Unsetenv(name); err != nil {
@@ -122,6 +129,120 @@ func TestLoadRejectsAnInvalidSetting(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			clearEnvironment(t)
+			t.Setenv(test.key, test.value)
+
+			if _, err := config.Load(); err == nil {
+				t.Fatalf("Load() with %s=%q = nil, want an error", test.key, test.value)
+			}
+		})
+	}
+}
+
+func TestLoadKeepsTheTracingOffWithoutACollector(t *testing.T) {
+	clearEnvironment(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Tracing.Enabled {
+		t.Fatal("the tracing is on, want it off without a collector")
+	}
+	if cfg.Tracing.Protocol != config.DefaultOtelProtocol {
+		t.Fatalf("protocol = %q, want %q", cfg.Tracing.Protocol, config.DefaultOtelProtocol)
+	}
+	if cfg.Tracing.Sampler != config.DefaultOtelSampler {
+		t.Fatalf("sampler = %q, want %q", cfg.Tracing.Sampler, config.DefaultOtelSampler)
+	}
+}
+
+func TestLoadTurnsTheTracingOnWithACollector(t *testing.T) {
+	clearEnvironment(t)
+	t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if !cfg.Tracing.Enabled {
+		t.Fatal("the tracing is off, want it on with a collector")
+	}
+	if cfg.Tracing.Endpoint != "jaeger:4317" {
+		t.Fatalf("endpoint = %q, want %q", cfg.Tracing.Endpoint, "jaeger:4317")
+	}
+}
+
+func TestLoadTurnsTheTracingOffWhenTheSpecificationDoes(t *testing.T) {
+	clearEnvironment(t)
+	t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
+	t.Setenv(config.EnvOtelDisabled, "true")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Tracing.Enabled {
+		t.Fatal("the tracing is on, want it off")
+	}
+}
+
+func TestLoadReadsTheSettingsOfTheExporter(t *testing.T) {
+	clearEnvironment(t)
+	t.Setenv(config.EnvOtelEndpoint, "http://jaeger:4318")
+	t.Setenv(config.EnvOtelProtocol, "http/protobuf")
+	t.Setenv(config.EnvOtelInsecure, "true")
+	t.Setenv(config.EnvOtelSampler, config.SamplerParentBasedTraceIDRatio)
+	t.Setenv(config.EnvOtelSamplerArg, "0.25")
+	t.Setenv(config.EnvOtelServiceName, "paca-mcp-server-canary")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Tracing.Protocol != "http/protobuf" {
+		t.Fatalf("protocol = %q, want %q", cfg.Tracing.Protocol, "http/protobuf")
+	}
+	if !cfg.Tracing.Insecure {
+		t.Fatal("the exporter is not insecure, want it insecure")
+	}
+	if cfg.Tracing.Sampler != config.SamplerParentBasedTraceIDRatio {
+		t.Fatalf("sampler = %q, want %q",
+			cfg.Tracing.Sampler, config.SamplerParentBasedTraceIDRatio)
+	}
+	if cfg.Tracing.SamplerArg != "0.25" {
+		t.Fatalf("sampler argument = %q, want %q", cfg.Tracing.SamplerArg, "0.25")
+	}
+	if cfg.Tracing.ServiceName != "paca-mcp-server-canary" {
+		t.Fatalf("service name = %q, want %q",
+			cfg.Tracing.ServiceName, "paca-mcp-server-canary")
+	}
+}
+
+func TestLoadRejectsTheTracingSettingsThatWouldNotWork(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{name: "a protocol that does not exist", key: config.EnvOtelProtocol, value: "smoke signals"},
+		{name: "an address that is not an address", key: config.EnvOtelEndpoint, value: "jaeger"},
+		{name: "an address with a scheme the protocol does not take",
+			key: config.EnvOtelEndpoint, value: "http://jaeger:4317"},
+		{name: "a sampler that does not exist", key: config.EnvOtelSampler, value: "whenever"},
+		{name: "a ratio that is not a number", key: config.EnvOtelSamplerArg, value: "half"},
+		{name: "a ratio out of bounds", key: config.EnvOtelSamplerArg, value: "1.5"},
+		{name: "a boolean that is not a boolean", key: config.EnvOtelInsecure, value: "maybe"},
+		{name: "an empty name", key: config.EnvOtelServiceName, value: " "},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clearEnvironment(t)
+			t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
 			t.Setenv(test.key, test.value)
 
 			if _, err := config.Load(); err == nil {

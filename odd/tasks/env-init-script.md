@@ -79,3 +79,14 @@ The answer to the question about the scope of the installer, verbatim:
 - **L6** — The decision on the secrets: a strong password is 32 characters of `A-Za-z0-9-_`, because those characters are safe in a `.env` file, in a Compose file and in a connection string, and `openssl rand -base64` produces `+` and `/`, which are not.
 - **L7** — The decision on the non-interactive mode: `--yes` keeps what is configured and generates the strong password of a secret that has no value yet, so the continuous integration and a scripted installation never depend on a terminal.
 - **L8** — The decision on the tests: the fixtures live in a temporary directory and the script is pointed at them with `--root`, so the `.env` of the repository is never touched by the tests.
+- **L9** — The work units and their commits, on the branch `feat/env-init`:
+
+  | Task | Commit | What it holds |
+  |------|--------|---------------|
+  | T1 | `72c0874` | The manifest format: `db/postgres/env.example` and the root `env.example`. |
+  | T2 | `f722672` | `scripts/setup-env.sh`: the installer of the environment. |
+  | T3 | `0954509` | `scripts/tests/setup-env-test.sh`: 19 cases, 59 assertions. |
+  | T4 | `0aa9a47` | The wiring: the root `Makefile`, the continuous integration, the `.gitignore` and the documentation. |
+
+- **L10** — The size of the slice: 1563 authored changed lines in four commits, over the 400 lines of the generic rule of the harness. The practice of this repository wins (one pull request per feature slice, the commits are the review path), so the slice is not split on its own: the maintainer decides. The deviation is stated in the body of the pull request, with the offer to split it.
+- **L11** — The verification of the slice, in the worktree: `make shellcheck` green over the three scripts of the repository, `make env-test` green (59 assertions, 0 failures), `make env-init ARGS="--dry-run"` writes nothing, and the real generation over the credentials of the running stack keeps the configured password, writes the file with the mode `600`, prints the secret masked, leaves the modification time untouched on a second run, and passes `make db-smoke` against the running PostgreSQL.

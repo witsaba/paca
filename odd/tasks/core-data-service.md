@@ -358,7 +358,65 @@ The two other questions of the same round were answered:
 The work happens in `/Users/braejan/workspace/witsaba/repositories/paca-core-data`,
 on the branch `feat/core-data-service`. `main` stays untouched (S21).
 
-### L9 — What is out of scope of this slice
+### L9 — The slice boundary and the delivery strategy
+
+The feature is bigger than one review, so the branch is divided into review
+slices, and the boundary of each one is recorded in the table above. The
+commits of each slice are:
+
+| Slice | Commits | What it carries |
+|-------|---------|-----------------|
+| 1 | `15fa3ac`, `22d8f7a` | The specification, the module of the core, the gate and the model of the user |
+| 2 | `482a9ab`, `3dc1cb6`, `03cd28a` | The table, the generated row model, the postgres adapter and the single writer of the schema |
+| 3 | `781c7a3`, the container tests | The wiring into the MCP server and the tests that prove the rules of the table |
+| 4 | `8ac8154` | The documentation |
+
+The slices are cut as stacked branches only when a stack of pull requests is
+wanted; the whole feature is one pull request otherwise, as the slices of
+the MCP server were.
+
+### L10 — What the implementation found
+
+- **sqlc and goose read the same files.** The migration carries the goose
+  annotations and the two directions of the migration, and sqlc reads the
+  very same directory as its schema. The `DROP TABLE` of the down section
+  does not remove the table from the catalog of the generator, so the schema
+  and the row model cannot drift apart. The tool was proved on a scratch
+  directory before the module was written.
+- **sqlc v1.31.1 writes nothing without a query.** The generator refuses a
+  configuration with no queries at all. The suite carries one query that is
+  not CRUD: the `Ping` of the health check, which touches no table.
+- **`internal` does not cross the boundary of a module.** The generated code
+  lives in `internal/db` of the core, where it belongs, and the public
+  surface of the core is curated by hand (S9).
+- **The coverage of the core is in two numbers.** The gate measures the
+  packages whose rules can be asserted without a database; the migrator and
+  its command are covered by the container tests, which report their own
+  coverage. The generated code is not measured at all.
+- **The image of the MCP server is built from the root of the repository.**
+  The server imports the core, the core is a module of its own, and the
+  local dependency of the server on it resolves outside the context of the
+  old build. The sources inside the image mirror the layout of the
+  repository, so the same paths hold in both places. The image was built
+  and the binary it holds came out of the new context.
+
+### L11 — The decisions the implementation took
+
+- The identifier column is a `bigint`: the document number comes from
+  outside the system, and a ten-digit cédula should never meet the ceiling
+  of a 32-bit integer (S17).
+- The database of the MCP server is **optional** for now. The server starts
+  without one, exactly as it did before, and the first tool that reads the
+  database makes it required. The health report carries the `database` check
+  when the service names one.
+- The credentials of the database stay with the stack that owns them. The
+  stack of the MCP server does not name a database yet, so it does not need
+  the credentials of the stack of the database.
+- The composition root opens the pool, and the health use case receives the
+  checkers it watches. The domain of the service never learns that a
+  database exists.
+
+### L12 — What is out of scope of this slice
 
 - The gRPC facade and the reserved port 50051 (S15).
 - **The CRUD of the `users` table** (S20). No create, no read, no update, no
@@ -368,7 +426,7 @@ on the branch `feat/core-data-service`. `main` stays untouched (S21).
   delivers the core and its proof; the first consumer arrives after it.
 - Authentication, TLS, row-level security and multi-tenancy.
 
-### L10 — Three guards that are deliberately not in the table
+### L13 — Three guards that are deliberately not in the table
 
 The request describes the table, and the table is implemented as it is
 described. These three guards are **not** in it, and each one is a decision

@@ -24,6 +24,10 @@ var ErrPhoneTaken = errors.New("that phone number is already registered")
 // the core read it and the moment it wrote it.
 var ErrConcurrentChange = errors.New("the user changed at the same time")
 
+// ErrInvalidValue is the error of a row the database refused because it
+// breaks a rule of the table.
+var ErrInvalidValue = errors.New("the database refused the row")
+
 // Repository is the port of the storage of the users.
 //
 // The port is what a use case needs, not the shape of the table: it creates,

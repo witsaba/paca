@@ -10,6 +10,10 @@
 *.sqlite3-wal
 *.sqlite3-shm
 
+# --- Local database secrets -----------------------------------------------
+# Never commit the local database credentials.
+db/postgres/.env
+
 # --- Build and tool output ------------------------------------------------
 node_modules/
 dist/

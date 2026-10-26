@@ -1,0 +1,59 @@
+# The project name is the one of the monorepository, so this file and the
+# root compose drive the same project: the same container, the same volume
+# and the same networks, whichever way the stack is started.
+name: paca
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        POSTGRES_IMAGE: postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc
+        PGVECTOR_VERSION: 0.8.7
+    image: paca/postgres:18.6-pgvector0.8.7
+    container_name: paca-postgres
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      # The cluster is created as UTF-8 with checksums; see the image ENV too.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --data-checksums"
+      PGDATA: /var/lib/postgresql/data/pgdata
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      TZ: UTC
+      PGTZ: UTC
+    # The credentials live with the stack that owns them. The path is
+    # relative to this file, so the stack reads the same file whether it
+    # runs alone or included from the root compose.
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No `ports:` mapping on purpose. The database is reachable only from
+    # containers attached to the `internal` network below; the host talks to it
+    # through `docker compose exec` (or by joining that network).
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    shm_size: 256mb
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # Declared here with the same attributes as the root compose, so this
+  # stack also runs on its own. The name is fixed, so the network is the
+  # same one whichever way the stack is started.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true
+
+volumes:
+  pgdata:
+    name: paca-postgres-data

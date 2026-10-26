@@ -1,0 +1,5 @@
+# Keep the build context minimal: only the Dockerfile and the init scripts.
+*
+!Dockerfile
+!initdb/
+!initdb/**

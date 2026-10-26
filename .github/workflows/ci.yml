@@ -7,6 +7,8 @@
 #   make db-up       every database, up and healthy
 #   make db-smoke    the smoke test of every database
 #   make shellcheck  the shell scripts of the repository
+#   make observability-up    the collector of the traces, up and healthy
+#   make observability-smoke the smoke test of the collector
 #
 # The workflow never names a stack: a new application or a new database
 # joins the tree through the root Makefile alone.
@@ -88,6 +90,27 @@ jobs:
       - name: Stop the database
         if: always()
         run: make db-down
+
+  # The collector of the traces: the stack starts, and the smoke test
+  # asserts that it answers, that it keeps the traces it receives and that
+  # it keeps them to itself.
+  observability:
+    name: The observability
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Start the collector of the traces
+        run: make observability-up
+
+      - name: Run the smoke test of the collector
+        run: make observability-smoke
+
+      - name: Stop the collector of the traces
+        if: always()
+        run: make observability-down
 
   # The shell scripts of the repository: the smoke test of the database and
   # every script a stack brings.

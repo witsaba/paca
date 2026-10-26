@@ -5,6 +5,7 @@
 #
 #   apps/mcp-server/Makefile   the MCP server
 #   db/Makefile                the databases, one directory and one stack each
+#   observability/Makefile     the traces: the collector and the backend
 #
 # Adding an application means two steps:
 #
@@ -25,7 +26,8 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all gate shellcheck db-up db-smoke db-down
+.PHONY: help all gate shellcheck db-up db-smoke db-down \
+        observability-up observability-smoke observability-down
 
 help: ## Show this help
 	@echo "PACA — the targets of the monorepository"
@@ -37,6 +39,9 @@ help: ## Show this help
 	@echo "  make db-up          start every database and wait until it is healthy"
 	@echo "  make db-smoke       run the smoke test of every database (it must be running)"
 	@echo "  make db-down        stop every database (keeps the data volumes)"
+	@echo "  make observability-up    start the collector of the traces and wait until it is healthy"
+	@echo "  make observability-smoke run the smoke test of the collector (it must be running)"
+	@echo "  make observability-down  stop the collector of the traces (keeps the traces)"
 	@echo ""
 	@echo "The applications of the monorepository:"
 	@for app in $(APPS); do \
@@ -71,3 +76,12 @@ db-smoke: ## Run the smoke test of every database (it must be running)
 
 db-down: ## Stop every database (keeps the data volumes)
 	$(MAKE) --no-print-directory -C db down
+
+observability-up: ## Start the collector of the traces and wait until it is healthy
+	$(MAKE) --no-print-directory -C observability up
+
+observability-smoke: ## Run the smoke test of the collector (it must be running)
+	$(MAKE) --no-print-directory -C observability smoke
+
+observability-down: ## Stop the collector of the traces (keeps the traces)
+	$(MAKE) --no-print-directory -C observability down

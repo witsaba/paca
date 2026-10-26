@@ -110,6 +110,8 @@ else
 fi
 
 # A container on the internal network must be able to connect.
+# The password is expanded by the shell inside the container, not here.
+# shellcheck disable=SC2016
 password="$("${COMPOSE[@]}" exec -T postgres sh -c 'printf %s "$POSTGRES_PASSWORD"')"
 if PGPASSWORD="${password}" docker run --rm --network paca-postgres_internal \
 	-e PGPASSWORD="${password}" postgres:18.6-bookworm \

@@ -39,11 +39,11 @@ shell scripts, plus the root Makefile that dispatches them.
 
 | ID  | What | Links | Route | Commit |
 |-----|------|-------|-------|--------|
-| T1  | The feature document and the root dispatching Makefile (help, gate, shellcheck, db-up, db-smoke, db-down, all) | S1, S3 | inline | `feat(build): the root Makefile that dispatches to the stacks of the monorepository` |
-| T2  | The CI workflow `.github/workflows/ci.yml`: the gate job, the database job, the shellcheck job | S2, S4 | inline | `ci(workflows): the continuous integration of PACA — the gate, the database and the shellcheck` |
-| T3  | The documentation: the root README describes the root Makefile and the CI | S2, S3 | inline | `docs(readme): the quality gate of the monorepository and its continuous integration` |
-| T4  | The verification of the workflow: `make gate`, `make db-smoke` and `make shellcheck` run green locally | S2, S3, S4 | inline | (folded into T1-T3) |
-| T5  | The pull request: issue #13 updated to the current baseline, PR opened with `Closes #13` and the `type:chore` label | S1, S2 | inline | (the PR is the deliverable) |
+| T1  | The feature document and the root dispatching Makefile (help, gate, shellcheck, db-up, db-smoke, db-down, all) | S1, S3 | inline | `521a5c9` (the document), `0351e90` (the Makefile) |
+| T2  | The CI workflow `.github/workflows/ci.yml`: the gate job, the database job, the shellcheck job | S2, S4 | inline | `ad37931` |
+| T3  | The documentation: the root README describes the root Makefile and the CI | S2, S3 | inline | `bcc7217` |
+| T4  | The verification of the workflow: `make gate`, `make db-smoke` and `make shellcheck` run green locally | S2, S3, S4 | inline | (the evidence is in L9; no code) |
+| T5  | The pull request: issue #13 updated to the current baseline, PR opened with `Closes #13` and the `type:chore` label | S1, S2 | inline | PR #20 (the deliverable) |
 
 ## Log
 
@@ -54,4 +54,6 @@ shell scripts, plus the root Makefile that dispatches them.
 - **L5** (2026-10-26): Analysis of the baseline: `main` at `780f5c7` has no `.github`; `apps/mcp-server/Makefile` exposes `all` (fmt-check, vet, lint, build, test, race, cover, vuln) with an 80% coverage floor; `db/Makefile` is the umbrella of the databases and `db/postgres/Makefile` owns `up`/`smoke`; `db/postgres/scripts/smoke-test.sh` asserts the database guarantees and needs the stack running, `db/postgres/.env` and `nc` on the host; `go.work` pins Go 1.27.3 and `tools/go.mod` pins golangci-lint v2.15.0 and govulncheck v1.8.0.
 - **L6** (2026-10-26): The branch `origin/feat/ci-github-actions` is stale: it forks from `bd7a378` (before the blank-slate reset) and still carries the deleted finance-manager tree. It is a style reference only; the workflow is written from scratch on top of the current `main`.
 - **L7** (2026-10-26): Issue #13 tracks the CI, but its body describes the pre-reset baseline (five modules, the sqlite schema verifier, a 75% per-file coverage floor). It is updated to the current baseline before the pull request closes it.
-- **L8** (2026-10-26): `actions/checkout@v7` and `actions/setup-go@v7` exist (checked against the GitHub API on 2026-10-26); the cache dependency paths are `go.work.sum`, `apps/mcp-server/go.sum` and `tools/go.sum`.
+- **L8** (2026-10-26): `actions/checkout@v7` and `actions/setup-go@v7` exist (checked against the GitHub API on 2026-10-26); the cache dependency paths are `go.work.sum`, `apps/mcp-server/go.sum` and `tools/go.sum`. `setup-go` reads the `go` directive of a `go.work` file, so the version of the workflow is the one of the workspace.
+- **L9** (2026-10-26): The verification of the slice, run locally in the worktree: `make gate` is green (fmt-check, vet, lint with 0 issues, build, test, race, the coverage floor at 85.0% over the 80% threshold, govulncheck with no vulnerabilities); `make db-up` builds the image of the PostgreSQL 18.6 stack with pgvector and starts the cluster healthy, and `make db-smoke` passes its 23 assertions (UTF-8, UTC, UUID, vector search, checksums, no published port, cross-container reachability); `make shellcheck` passes over the shell script of the stack. The workflow is parsed and its jobs and triggers checked.
+- **L10** (2026-10-26): Issue #13 was updated to the current baseline (its body described the pre-reset repository) and the pull request #20 was opened with `Closes #13` and the `type:chore` label.

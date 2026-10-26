@@ -55,6 +55,10 @@ MF_DESCRIPTIONS=()
 MF_SECRET=()
 MF_GENERATE=()
 
+# Whether the value of a key was asked to the person. A key that was not
+# asked is reported with its description, because nobody saw it.
+MF_ASKED=()
+
 # The `.env` that is already on disk.
 ENV_KEYS=()
 ENV_VALUES=()
@@ -359,6 +363,7 @@ parse_manifest() {
   MF_DESCRIPTIONS=()
   MF_SECRET=()
   MF_GENERATE=()
+  MF_ASKED=()
 
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line%$'\r'}"
@@ -544,8 +549,10 @@ resolve_values() {
   local value
   local source
   local answer
+  local asked
 
   VALUES=()
+  MF_ASKED=()
 
   for index in "${!MF_KEYS[@]}"; do
     key="${MF_KEYS[$index]}"
@@ -557,6 +564,15 @@ resolve_values() {
     existing=''
     if existing=$(env_lookup "$key"); then
       configured=1
+    fi
+
+    # An empty value is no value: the file was left half written, or the key
+    # was emptied by hand. The default of the manifest applies again, and a
+    # secret gets a strong password instead of nothing.
+    if [ "$configured" -eq 1 ] && [ -z "$existing" ]; then
+      warn "$key is empty in the environment of the stack: the default is used instead"
+      configured=0
+      existing=''
     fi
 
     # The value of the manifest is not a configured value: the placeholder
@@ -590,7 +606,9 @@ resolve_values() {
       fi
     fi
 
+    asked=0
     if should_ask "$secret"; then
+      asked=1
       if ask_value "$key" "${MF_DESCRIPTIONS[$index]}" "$value" "$secret" "$generate" "$source"; then
         answer="$ANSWER"
         if [ -n "$answer" ]; then
@@ -604,9 +622,11 @@ resolve_values() {
         fi
       else
         NO_INPUT=1
+        asked=0
       fi
     fi
 
+    MF_ASKED+=("$asked")
     VALUES+=("$value")
   done
 }
@@ -664,6 +684,11 @@ report_values() {
   local index
   printf '  %s\n' "$TARGET_REL"
   for index in "${!MF_KEYS[@]}"; do
+    # A key that was asked carries its description in the question itself.
+    # A key that nobody was asked about is reported with it.
+    if [ "${MF_ASKED[$index]}" -eq 0 ] && [ -n "${MF_DESCRIPTIONS[$index]}" ]; then
+      printf '    %s\n' "${MF_DESCRIPTIONS[$index]}"
+    fi
     if [ "${MF_SECRET[$index]}" -eq 1 ]; then
       printf '    %s=%s\n' "${MF_KEYS[$index]}" "$MASK"
     else
@@ -706,6 +731,12 @@ write_target() {
   if [ -f "$TARGET" ] && cmp -s "$tmp" "$TARGET"; then
     rm -f "$tmp"
     TMP_FILE=''
+    # A link is not touched: the file it points at can live outside of the
+    # root, and the installer writes nothing outside of it.
+    if [ -L "$TARGET" ]; then
+      printf '  unchanged %s (a link)\n' "$TARGET_REL"
+      return 0
+    fi
     current_mode=$(file_mode_of "$TARGET")
     if [ "$current_mode" != "$expected_mode" ]; then
       chmod "$expected_mode" "$TARGET" || die "cannot set the mode of [$TARGET]"
@@ -751,6 +782,13 @@ process_manifest() {
 
   resolve_values
   collect_extra_keys
+
+  # A key that the manifest does not declare may be a secret: the file that
+  # holds it is private either way.
+  if [ "${#EXTRA_KEYS[@]}" -gt 0 ]; then
+    HAS_SECRET=1
+  fi
+
   build_content
 
   report_values

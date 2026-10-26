@@ -16,6 +16,9 @@
 # stacks: the database password, and whatever a stack adds later. The rule
 # covers every stack of the monorepository, at any depth.
 .env
+# The temporary file of the atomic write of the installer. It holds the
+# secrets of the stack while it is written, and it must never be committed.
+.env.tmp.*
 
 # --- Build and tool output ------------------------------------------------
 node_modules/

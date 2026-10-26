@@ -65,10 +65,10 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 |-----|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|--------|
 | T1  | S3, S4, S5, S8 | The `observability/` stack: Jaeger v2 with the Badger backend, the collector configuration owned by the repository, the Makefile and the documentation. | worker | `3945ac1` |
 | T2  | S1, S4 | The `internal/platform/telemetry` package: the resource, the tracer provider, the sampler, the propagator and the shutdown.                                          | inline | `9ea6265` |
-| T3  | S1     | The configuration: the strict validation of the OpenTelemetry environment, and the decision to trace or not.                                                       | inline | —      |
-| T4  | S2, S6 | The HTTP instrumentation and the logs that carry the trace: the server spans, the exclusion of the health endpoint and the identifiers of the trace in the records. | inline | —      |
-| T5  | S1, S6 | The deployment of the server: the OTLP endpoint in the compose of the application, and the documentation of the environment.                                       | inline | —      |
-| T6  | S1, S3, S5 | The wiring of the monorepository: the root compose, the root Makefile, the reserved ports and the continuous integration.                                           | inline | —      |
+| T3  | S1     | The configuration: the strict validation of the OpenTelemetry environment, and the decision to trace or not.                                                       | inline | `6dc6d01` |
+| T4  | S2, S6 | The HTTP instrumentation and the logs that carry the trace: the server spans, the exclusion of the health endpoint and the identifiers of the trace in the records. | inline | `9923802` |
+| T5  | S1, S6 | The deployment of the server: the OTLP endpoint in the compose of the application, and the documentation of the environment.                                       | inline | `9923802` |
+| T6  | S1, S3, S5 | The wiring of the monorepository: the root compose, the root Makefile, the reserved ports and the continuous integration.                                           | inline | `a9b490b` |
 
 ---
 
@@ -137,7 +137,11 @@ reason is in the gate itself:
 |------|---------------|--------------------------|
 | `3945ac1` | The `observability/` stack. | The stack is one unit: the compose file, the collector configuration, the Makefile and the documentation of the same thing. |
 | `9ea6265` | The `internal/platform/telemetry` package and the dependencies. | The package and its tests belong together: a package without its tests fails the coverage gate of the module, which is one of the targets of `make all`. |
-| the next ones | The configuration, the instrumentation, the wiring. | They are the ordinary slices. |
+| `6dc6d01`, `9923802`, `a9b490b` | The configuration, the instrumentation and the wiring. | They are the ordinary slices. |
+
+The pull request was merged with a squash, so the history of `main` holds one commit for the whole
+feature and the identifiers above live on the branch `feat/observability-tracing`, not in the
+history of `main`. The record of what happened is the pull request itself.
 
 ### L8 — The facts of the runtime that shaped the stack
 
@@ -187,3 +191,18 @@ for every other branch.
 The verification of the security of the stack was made by an independent verifier, on the live
 stack: the verdict was that the claim holds, with three advisories that are now written down in the
 README of the stack and in the configuration of the collector.
+
+The pull request was merged as a squash commit, `33eb9f7`, and the branch was deleted by GitHub.
+Two corrections landed after the merge — the claim about the boundary of the SDK, and the record of
+the commits — and they came back in a pull request of their own.
+
+### L11 — The follow-up
+
+The claim of the package comment was imprecise: the package was described as *the only place in
+the service that knows OpenTelemetry*, while the adapter of the transport, the composition root and
+the logger import the API of OpenTelemetry — the type of the tracer provider and the library of the
+instrumentation. Only the SDK lives in the package: the exporter, the sampler, the resource and the
+providers.
+
+The dependency rule was checked with the imports: the domain, the application and the ports import
+nothing from OpenTelemetry.

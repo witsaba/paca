@@ -239,9 +239,9 @@ The work happens in its own worktree, on its own branch, and never on `main`:
 | T2  | S16, S17, S18, S19     | inline | `22d8f7a` | The domain model of the user: the identifier, the four states and the invariants |
 | T3  | S6, S16                | inline | `482a9ab` | The sqlc pipeline: the schema of the table and the generated row model |
 | T4  | S2, S10                | inline | `3dc1cb6` | The postgres adapter: the pool, the configuration and the ping of the database |
-| T5  | S1, S11, S12, S16, S19 | inline | `03cd28a`, `ae229ff` | The migration of the `users` table and the single writer that applies it |
+| T5  | S1, S11, S12, S16, S19 | inline | `03cd28a`, `74a5c2b` | The migration of the `users` table and the single writer that applies it |
 | T6  | S1, S2, S8             | inline | `781c7a3` | The wiring into `apps/mcp-server`: the dependency, the configuration and the health check of the database |
-| T7  | S14, S16, S17, S18, S19, S20 | worker | `a75fb89` | The testcontainers suite: the migration, and every rule of the table proven against a real database |
+| T7  | S14, S16, S17, S18, S19, S20 | worker | `10b977c` | The testcontainers suite: the migration, and every rule of the table proven against a real database |
 | T8  | S3, S13                | inline | `8ac8154` | The documentation: the README of the core and the registry of the monorepository |
 
 ### The slice boundaries
@@ -272,8 +272,8 @@ below it.
 |-------|--------------------|----------------------------------------------------------|---------|
 | 1     | `feat/core-data-service` | The specification, the module of the core, the gate and the model of the user | `15fa3ac`, `22d8f7a` |
 | 2     | `feat/core-data-table`   | The sqlc pipeline, the postgres adapter, the migration of the `users` table and the single writer | `482a9ab`, `3dc1cb6`, `03cd28a` |
-| 3     | `feat/core-data-consumers` | The wiring into the MCP server and the container tests that prove the table | `781c7a3`, `ae229ff`, `a75fb89` |
-| 4     | `feat/core-data-docs`    | The documentation of the core and the registry of the monorepository | `8ac8154`, `b9f3914` |
+| 3     | `feat/core-data-consumers` | The wiring into the MCP server and the container tests that prove the table | `781c7a3`, `74a5c2b`, `10b977c` |
+| 4     | `feat/core-data-docs`    | The documentation of the core and the registry of the monorepository | `8ac8154`, `3770c7b` |
 
 Slice 1 is the branch of this slice of work. Slice 2 is cut from it, slice 3
 from slice 2, and slice 4 from slice 3: the stack is merged from the bottom,
@@ -368,12 +368,17 @@ commits of each slice are:
 |-------|---------|-----------------|
 | 1 | `15fa3ac`, `22d8f7a` | The specification, the module of the core, the gate and the model of the user |
 | 2 | `482a9ab`, `3dc1cb6`, `03cd28a` | The table, the generated row model, the postgres adapter and the single writer of the schema |
-| 3 | `781c7a3`, the container tests | The wiring into the MCP server and the tests that prove the rules of the table |
-| 4 | `8ac8154` | The documentation |
+| 3 | `781c7a3`, `74a5c2b`, `10b977c` | The wiring into the MCP server, the defect the container tests found, and the container tests that prove the rules of the table |
+| 4 | `8ac8154`, `3770c7b`, `805afde`, `71e58f1` | The documentation of the core, the boundary of the slices, the evidence and the issue and the pull request |
 
 The slices are cut as stacked branches only when a stack of pull requests is
 wanted; the whole feature is one pull request otherwise, as the slices of
 the MCP server were.
+
+The history of the branch was rewritten once, after the container tests were
+written: a commit of the documentation had captured a copy of the test files
+that was still being written, and that commit did not compile. The commits
+above are the ones on the branch now, and every one of them builds.
 
 ### L10 — What the implementation found
 
@@ -447,7 +452,7 @@ for them at the root of the files it receives, and the migrator handed it the
 whole embedded filesystem, whose files live in a directory. The migrator
 found no migration at all, and the schema was never written. The defect was
 in the code of the core, not in the tests: the directory becomes the root
-now (`ae229ff`).
+now (`74a5c2b`).
 
 ### L15 — What the slice proves
 

@@ -156,8 +156,11 @@ vuln:
 all: fmt-check vet lint build test race cover vuln
 
 ## docker-build: build the image of the server
+#
+# The context of the build is the root of the monorepository, because the
+# server imports the shared libraries of the repository.
 docker-build:
-	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE) .
+	docker build --build-arg VERSION=$(VERSION) -f Dockerfile -t $(IMAGE) ../..
 
 ## compose-up: start the stack and wait until it is healthy
 compose-up:

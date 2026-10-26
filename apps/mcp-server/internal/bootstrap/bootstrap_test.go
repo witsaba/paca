@@ -22,7 +22,10 @@ func discardLogger() *slog.Logger {
 }
 
 // startService assembles the service and serves it on a free port.
-func startService(t *testing.T, version string) string {
+//
+// The mutator changes the configuration before the service is assembled, so
+// a test can name a database or leave it out.
+func startService(t *testing.T, version string, mutate func(*config.Config)) string {
 	t.Helper()
 
 	cfg := config.Config{
@@ -33,8 +36,11 @@ func startService(t *testing.T, version string) string {
 		MaxRequestBytes: 1 << 20,
 		LogLevel:        slog.LevelInfo,
 	}
+	if mutate != nil {
+		mutate(&cfg)
+	}
 
-	app, err := bootstrap.New(cfg, discardLogger(), noop.NewTracerProvider(), version)
+	app, err := bootstrap.New(context.Background(), cfg, discardLogger(), noop.NewTracerProvider(), version)
 	if err != nil {
 		t.Fatalf("the service could not be assembled: %v", err)
 	}
@@ -63,7 +69,7 @@ func startService(t *testing.T, version string) string {
 func TestTheServiceAnswersItsHealthEndpoint(t *testing.T) {
 	t.Parallel()
 
-	addr := startService(t, "0.1.0")
+	addr := startService(t, "0.1.0", nil)
 
 	response, err := http.Get("http://" + addr + "/healthz")
 	if err != nil {
@@ -104,10 +110,62 @@ func TestTheServiceAnswersItsHealthEndpoint(t *testing.T) {
 	}
 }
 
+func TestTheServiceChecksTheDatabaseWhenItNamesOne(t *testing.T) {
+	t.Parallel()
+
+	// Nothing listens on this port: the pool is lazy, so the service starts
+	// anyway, and the check of the database is the thing that fails.
+	addr := startService(t, "0.1.0", func(cfg *config.Config) {
+		cfg.Database = config.DatabaseConfig{
+			URL:            "postgres://paca:paca@127.0.0.1:1/paca?sslmode=disable",
+			MaxConns:       1,
+			ConnectTimeout: time.Second,
+		}
+	})
+
+	response, err := http.Get("http://" + addr + "/healthz")
+	if err != nil {
+		t.Fatalf("the health request failed: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusServiceUnavailable)
+	}
+
+	var body struct {
+		Status string `json:"status"`
+		Checks []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"checks"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("the body is not JSON: %v", err)
+	}
+
+	if body.Status != "unhealthy" {
+		t.Fatalf("status = %q, want %q", body.Status, "unhealthy")
+	}
+
+	found := false
+	for _, check := range body.Checks {
+		if check.Name == "database" {
+			found = true
+			if check.Status != "unhealthy" {
+				t.Errorf("the check of the database is %q, want %q", check.Status, "unhealthy")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("checks = %+v, want the database to be checked", body.Checks)
+	}
+}
+
 func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	t.Parallel()
 
-	addr := startService(t, "0.1.0")
+	addr := startService(t, "0.1.0", nil)
 
 	client := sdk.NewClient(&sdk.Implementation{Name: "paca-mcp-server-test", Version: "0.1.0"}, nil)
 

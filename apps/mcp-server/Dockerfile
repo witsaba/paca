@@ -14,6 +14,9 @@
 #
 # The base images are pinned by digest, so a future tag move cannot silently
 # change what this image is built on top of.
+#
+# The build context is the root of the monorepository: the server imports
+# the shared libraries of the repository, and they are modules of their own.
 
 ARG GO_IMAGE=golang:1.27.3-alpine3.23@sha256:754d5200fc3edae76d3b6598a9a3fac7e74981ee6a5413ab955025f185753ef2
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
@@ -25,15 +28,25 @@ ARG VERSION=dev
 
 WORKDIR /src
 
+# The context of the build is the root of the monorepository, because the
+# server imports the shared libraries of the repository, and a library is a
+# module of its own next to it.
+#
+# The layout of the sources is the layout of the repository, so the local
+# dependency of the server on the core resolves the same way here as it does
+# on a machine.
+#
 # The dependencies are downloaded first, so the layer of the dependencies is
 # reused every time the sources change.
-COPY go.mod go.sum ./
-RUN go mod download
+COPY apps/mcp-server/go.mod apps/mcp-server/go.sum ./apps/mcp-server/
+COPY packages/core/go.mod packages/core/go.sum ./packages/core/
+RUN cd apps/mcp-server && go mod download
 
-COPY . .
+COPY apps/mcp-server/ ./apps/mcp-server/
+COPY packages/core/ ./packages/core/
 
 # A static binary, so the runtime image needs no C library at all.
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN cd apps/mcp-server && CGO_ENABLED=0 GOOS=linux go build \
         -trimpath \
         -ldflags "-s -w -X main.version=${VERSION}" \
         -o /out/paca-mcp-server \

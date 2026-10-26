@@ -36,6 +36,18 @@ const (
 	EnvServiceVersion = "PACA_SERVICE_VERSION"
 )
 
+// The environment variables of the database. They are the ones of the core,
+// and every service of the monorepository reads them the same way.
+const (
+	// EnvDatabaseURL is the connection string of the database.
+	EnvDatabaseURL = "PACA_DATABASE_URL"
+	// EnvDatabaseMaxConns is the number of connections the pool may open at
+	// the same time.
+	EnvDatabaseMaxConns = "PACA_DATABASE_MAX_CONNS"
+	// EnvDatabaseConnectTimeout bounds the attempt to open a connection.
+	EnvDatabaseConnectTimeout = "PACA_DATABASE_CONNECT_TIMEOUT"
+)
+
 // The environment variables of the tracing. They are the ones of the
 // OpenTelemetry specification, so an operator who knows the specification
 // knows how to turn the tracing on and off.
@@ -78,6 +90,13 @@ const (
 	DefaultMaxRequestBytes int64 = 4 << 20
 	// DefaultLogLevel is the verbosity of the logs.
 	DefaultLogLevel = slog.LevelInfo
+	// DefaultDatabaseMaxConns is the number of connections the pool of the
+	// service holds. The service needs few: it talks to the database for
+	// one tool at a time.
+	DefaultDatabaseMaxConns int32 = 4
+	// DefaultDatabaseConnectTimeout bounds the attempt to reach the
+	// database.
+	DefaultDatabaseConnectTimeout = 5 * time.Second
 	// ServiceName is the name the MCP clients see.
 	ServiceName = "paca-mcp-server"
 	// DefaultOtelProtocol is the protocol the exporter speaks to the
@@ -124,8 +143,25 @@ type Config struct {
 	LogLevel slog.Level
 	// ServiceVersion is the version reported to the MCP clients.
 	ServiceVersion string
+	// Database holds the settings of the database.
+	Database DatabaseConfig
 	// Tracing holds the settings of the tracing.
 	Tracing TracingConfig
+}
+
+// DatabaseConfig holds the settings of the database.
+//
+// The database is optional: a service that does not name one starts without
+// it. The first tool that reads the database makes it required.
+type DatabaseConfig struct {
+	// URL is the connection string of the database. It is empty when the
+	// service runs without a database.
+	URL string
+	// MaxConns is the number of connections the pool may open at the same
+	// time.
+	MaxConns int32
+	// ConnectTimeout bounds the attempt to open a connection.
+	ConnectTimeout time.Duration
 }
 
 // TracingConfig holds the settings of the tracing.
@@ -227,6 +263,12 @@ func Load() (Config, error) {
 		cfg.ServiceVersion = version
 	}
 
+	database, err := loadDatabase()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Database = database
+
 	tracing, err := loadTracing()
 	if err != nil {
 		return Config{}, err
@@ -238,6 +280,61 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadDatabase reads the settings of the database from the environment.
+//
+// The database is optional. A service that does not name it runs without
+// one, and says nothing about it in its health report.
+func loadDatabase() (DatabaseConfig, error) {
+	database := DatabaseConfig{
+		MaxConns:       DefaultDatabaseMaxConns,
+		ConnectTimeout: DefaultDatabaseConnectTimeout,
+	}
+
+	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
+		url := strings.TrimSpace(raw)
+		if url == "" {
+			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
+		}
+		database.URL = url
+	}
+
+	if raw, ok := os.LookupEnv(EnvDatabaseMaxConns); ok {
+		connections, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 32)
+		if err != nil {
+			return DatabaseConfig{}, fmt.Errorf("%s: %q is not a number of connections", EnvDatabaseMaxConns, raw)
+		}
+		database.MaxConns = int32(connections)
+	}
+
+	if raw, ok := os.LookupEnv(EnvDatabaseConnectTimeout); ok {
+		timeout, err := parseDuration(EnvDatabaseConnectTimeout, raw)
+		if err != nil {
+			return DatabaseConfig{}, err
+		}
+		database.ConnectTimeout = timeout
+	}
+
+	if err := database.validate(); err != nil {
+		return DatabaseConfig{}, err
+	}
+
+	return database, nil
+}
+
+// validate rejects the settings of the database that would not work.
+//
+// The settings are always valid, whether the service names a database or
+// not: a number of connections that makes no sense is an error on its own.
+func (d DatabaseConfig) validate() error {
+	if d.MaxConns < 1 {
+		return fmt.Errorf("%s: the pool must hold at least one connection, got %d", EnvDatabaseMaxConns, d.MaxConns)
+	}
+	if d.ConnectTimeout <= 0 {
+		return fmt.Errorf("%s: the timeout must be positive", EnvDatabaseConnectTimeout)
+	}
+	return nil
 }
 
 // loadTracing reads the settings of the tracing from the environment.

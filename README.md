@@ -8,7 +8,7 @@ support them, in one repository and one compose project.
 | Directory     | What it holds                                                              |
 |---------------|----------------------------------------------------------------------------|
 | `apps/`       | The services, one directory and one Go module each.                        |
-| `packages/`   | *Reserved* — the libraries the services will share.                        |
+| `packages/`   | The libraries the services share, one directory and one Go module each.     |
 | `db/`         | The databases, one directory and one stack each.                           |
 | `observability/` | The traces: the collector and the backend that keeps them.              |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
@@ -22,6 +22,7 @@ tested against each other, and every module keeps working on its own.
 | Directory          | What it is                                        | README |
 |--------------------|---------------------------------------------------|--------|
 | `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and no tool yet. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
+| `packages/core/`  | The core: the models, the repositories and the migrations that the services share. A library, with no port and no container. | [packages/core/README.md](packages/core/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 
@@ -104,6 +105,7 @@ the coverage gate, the benchmarks and the vulnerability scan.
 
 ```sh
 make -C apps/mcp-server all
+make -C packages/core all
 ```
 
 The tools are pinned in `tools/go.mod` and run with `go tool`, so every
@@ -116,22 +118,24 @@ logic. It is the entry point of the continuous integration, so the workflow
 never names an application or a database.
 
 ```sh
-make gate         # the quality gate of every application
-make shellcheck   # the shell scripts of the repository
-make db-up        # every database, up and healthy
-make db-smoke     # the smoke test of every database
-make db-down      # stop every database, keeping the data volumes
-make all          # the full gate: the applications, the shellcheck and the databases
+make gate               # the quality gate of every application and every package
+make packages-integration  # the container tests of every package
+make shellcheck         # the shell scripts of the repository
+make db-up              # every database, up and healthy
+make db-smoke           # the smoke test of every database
+make db-down            # stop every database, keeping the data volumes
+make all                # the full gate: the applications, the shellcheck and the databases
 ```
 
 The workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on
-every push to `main` and on every pull request, with three jobs:
+every push to `main` and on every pull request, with four jobs:
 
-| Job          | What it verifies                                                    |
-|--------------|---------------------------------------------------------------------|
-| `gate`       | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application. |
-| `database`   | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
-| `shellcheck` | the shell scripts of the repository pass shellcheck.                  |
+| Job            | What it verifies                                                    |
+|----------------|---------------------------------------------------------------------|
+| `gate`         | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application and every package, and then the container tests of the shared libraries: the rules of the tables, asserted against a real PostgreSQL. |
+| `database`     | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
+| `observability`| the collector of the traces starts, and its query API answers.       |
+| `shellcheck`   | the shell scripts of the repository pass shellcheck.                  |
 
 The container tests of the MCP server (`make -C apps/mcp-server
 test-integration`) stay a local gate: they need Docker and build the image

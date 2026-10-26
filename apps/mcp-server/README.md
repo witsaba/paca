@@ -56,6 +56,22 @@ unhealthy.
 The pool is lazy: a database that is down does not stop the server from
 starting. The health check is what asks the database whether it answers.
 
+**The stack does not point the server at the database yet.** The credentials
+live with the stack that owns them — `db/postgres/.env` — and the compose of
+the server does not read that file, so the three tools of a server that the
+stack started answer that the database is not configured. To run the stack
+with the tools working, name the database in the environment of the server:
+
+```sh
+set -a; . db/postgres/.env; set +a
+export PACA_DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+docker compose up -d --wait
+```
+
+The URL names the container, so it is the same URL the host does not reach:
+the database publishes no port, and only the containers of the internal
+network do.
+
 ## The tools
 
 The server exposes three tools, and they are the three moments of the

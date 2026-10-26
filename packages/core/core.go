@@ -28,6 +28,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"path"
 	"time"
@@ -88,10 +89,18 @@ func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
 		return nil, fmt.Errorf("the lock of the database could not be taken: %w", err)
 	}
 
+	// The runner looks for the migrations at the root of the files it
+	// receives, and the embedded files live in a directory. The directory
+	// becomes the root here.
+	migrationFS, err := fs.Sub(migrationFiles, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("the migrations could not be read: %w", err)
+	}
+
 	provider, err := goose.NewProvider(
 		goose.DialectPostgres,
 		db,
-		migrationFiles,
+		migrationFS,
 		goose.WithSessionLocker(locker),
 		goose.WithSlog(logger),
 	)

@@ -12,5 +12,6 @@ go 1.27.3
 
 use (
 	./apps/mcp-server
+	./packages/core
 	./tools
 )

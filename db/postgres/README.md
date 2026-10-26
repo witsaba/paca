@@ -4,6 +4,10 @@ Internal-only database for PACA. Nothing is published on the host: the
 container lives on an `internal` Docker network, so only other containers on
 that network can open a connection.
 
+The domain this database belongs to is described in
+[db/README.md](../README.md): the layout of the `db/` folder, the aggregate
+commands and how to add another database.
+
 ## Versions (checked 2026-10-26)
 
 | Component  | Version  | Notes                                                                 |
@@ -46,7 +50,8 @@ db/
 This is a monorepository: every stack owns its own directory and its own
 Makefile, and the root of the repository carries no stack-specific targets.
 `db/Makefile` is the entry point of the database domain — it knows the list of
-databases and forwards to them.
+databases and forwards to them. See [db/README.md](../README.md) for the
+domain view.
 
 ## Usage
 

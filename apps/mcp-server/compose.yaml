@@ -1,0 +1,66 @@
+# The stack of the MCP server.
+#
+# The server is private: it publishes no port, so it is reachable from the
+# other containers of the monorepository only, never from the host and never
+# from the internet. It sits on the `internal` network, which has no
+# outbound access at all.
+#
+# The definitions of the network are repeated here, identically, so the
+# stack also runs on its own:
+#
+#   docker compose up --wait                          # the whole monorepository
+#   docker compose -f apps/mcp-server/compose.yaml up  # this stack alone
+
+name: paca
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GO_IMAGE: golang:1.27.3-alpine3.23@sha256:754d5200fc3edae76d3b6598a9a3fac7e74981ee6a5413ab955025f185753ef2
+        RUNTIME_IMAGE: gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+        VERSION: ${PACA_VERSION:-dev}
+    image: paca/mcp-server:${PACA_VERSION:-dev}
+    container_name: paca-mcp-server
+    restart: unless-stopped
+    stop_grace_period: 15s
+    environment:
+      # The server binds the interface of the container, so the other
+      # containers of the stack reach it. It publishes no port, so the host
+      # does not.
+      PACA_MCP_HOST: "0.0.0.0"
+      # The port reserved for the MCP server of the monorepository.
+      PACA_MCP_PORT: "8081"
+      PACA_LOG_LEVEL: "info"
+    # The port is exposed to the network of the stack, not published to the
+    # host. There is no `ports:` mapping here, on purpose.
+    expose:
+      - "8081"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "/app/paca-mcp-server", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    # The container runs as a non-root user, without any capability, and
+    # without the ability to gain more.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # Declared here with the same attributes as the root compose, so this
+  # stack also runs on its own. The name is fixed, so the network is the
+  # same one whichever way the stack is started.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true

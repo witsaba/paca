@@ -1,0 +1,16 @@
+// The workspace of the PACA monorepository.
+//
+// Every Go module of the tree is listed here, so the modules are built and
+// tested against each other without a `replace` directive between them. A
+// module keeps working on its own: `go build ./...` inside a module directory
+// still resolves its own dependencies.
+//
+// The Go version is pinned here, and in every go.mod of the tree, so every
+// contributor and every container compiles the same code with the same
+// toolchain.
+go 1.27.3
+
+use (
+	./apps/mcp-server
+	./tools
+)

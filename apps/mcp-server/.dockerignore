@@ -1,0 +1,25 @@
+# The build context of the image of the MCP server.
+#
+# The context is the directory of the project, and the image only needs the
+# module of the server. Everything else is noise for the build.
+
+# The build artifacts.
+bin/
+.coverage/
+coverage.out
+
+# The tests of the stack: they run in their own container, not in the image.
+test/
+
+# The version control and the editor noise.
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# The documentation and the development files.
+README.md
+Makefile
+docker-compose*.yml

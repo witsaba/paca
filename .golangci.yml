@@ -1,0 +1,62 @@
+# golangci-lint configuration for the PACA repository.
+#
+# The linter is pinned as a tool dependency (tools/go.mod) and runs with
+# `go tool golangci-lint`, so every contributor and every container runs the
+# same version.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  # The standard set: errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose
+    - dupword
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr
+    - predeclared
+    - revive
+    - unconvert
+    - whitespace
+  settings:
+    revive:
+      rules:
+        - name: package-comments
+        - name: exported
+        - name: var-naming
+        - name: indent-error-flow
+        - name: error-strings
+        - name: context-as-argument
+        - name: receiver-naming
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+  exclusions:
+    generated: lax
+    rules:
+      # A test asserts on the error it expects; the check is noise there.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+      # The composition root is allowed to end the process.
+      - path: cmd/
+        linters:
+          - forbidigo
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/witsaba/paca
+  exclusions:
+    generated: lax

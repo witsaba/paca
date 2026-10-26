@@ -28,7 +28,9 @@ import (
 
 // Instructions tells the MCP clients what the server is for.
 const Instructions = "The PACA MCP server. It speaks the Model Context Protocol " +
-	"and exposes no tool yet."
+	"and it takes care of the people who use PACA: it registers a person and " +
+	"starts their onboarding, it moves them to another status, and it " +
+	"corrects their data."
 
 // App is the assembled service: the HTTP server that hosts the MCP
 // transport, and the health use case that reports on it.
@@ -85,12 +87,19 @@ func New(
 		return nil, err
 	}
 
+	// The repository of the users is the adapter of the core: the service
+	// writes the people through it, and it never writes a row of its own.
+	// Without a database there is no repository, and the use case says so
+	// to the agent that calls it.
+	usersService := application.NewUsersService(postgres.NewUserRepository(pool))
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
 		Instructions:        Instructions,
 		Logger:              logger,
 		MaxRequestBodyBytes: cfg.MaxRequestBytes,
+		Users:               usersService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

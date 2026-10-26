@@ -8,10 +8,18 @@ package ports
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
+	"github.com/witsaba/paca/packages/core/domain/user"
 )
+
+// ErrNoDatabase is the error of a use case with no database behind it.
+//
+// The service may run without a database: the tools are still there, and
+// every call says that the database is not.
+var ErrNoDatabase = errors.New("the service has no database configured")
 
 // HealthQuerier is the inbound port of the health use case. Every adapter
 // that exposes the health of the service depends on this contract, never on
@@ -36,4 +44,25 @@ type Checker interface {
 type Clock interface {
 	// Now returns the current time.
 	Now() time.Time
+}
+
+// UsersQuerier is the inbound port of the three tools of the users.
+//
+// The tools of the Model Context Protocol speak in text: a document ID, a
+// name, a phone, an email. The use case speaks in the model of the domain,
+// and the port is where the two meet.
+type UsersQuerier interface {
+	// Onboard registers a person and starts their onboarding.
+	//
+	// The document ID is required: it is the number the person carries, and
+	// nothing generates it. The name, the phone and the email are optional.
+	Onboard(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
+
+	// ChangeStatus moves a user to another status and writes the
+	// observation of the move.
+	ChangeStatus(ctx context.Context, documentID, status, observation string) (user.User, error)
+
+	// UpdateContactData writes the data of a user. A field that is empty is
+	// a field that does not change.
+	UpdateContactData(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
 }

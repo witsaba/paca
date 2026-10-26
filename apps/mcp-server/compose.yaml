@@ -34,6 +34,17 @@ services:
       # The port reserved for the MCP server of the monorepository.
       PACA_MCP_PORT: "8081"
       PACA_LOG_LEVEL: "info"
+      # The traces go to the collector of the observability stack. It sits
+      # on the same internal network, so the server keeps its promise of no
+      # outbound access to the internet. The traffic inside that network is
+      # not encrypted: it never leaves the host.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4317"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+      # The traces of this environment carry the name of the environment,
+      # so a trace of a development run is never mixed with a trace of
+      # another one.
+      OTEL_RESOURCE_ATTRIBUTES: "deployment.environment.name=development"
     # The port is exposed to the network of the stack, not published to the
     # host. There is no `ports:` mapping here, on purpose.
     expose:

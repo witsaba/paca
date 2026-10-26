@@ -14,18 +14,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/bootstrap"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/healthcheck"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/logging"
+	"github.com/witsaba/paca/apps/mcp-server/internal/platform/telemetry"
 )
 
 // version is the version of the binary. The build stamps it.
 var version = "dev"
+
+// shutdownTimeout is how long the telemetry has to leave the process. The
+// spans that are still in the batcher are sent during the shutdown; a
+// collector that does not answer must not hold the process forever.
+const shutdownTimeout = 5 * time.Second
 
 func main() {
 	os.Exit(runMain())
@@ -61,7 +69,48 @@ func run(ctx context.Context) error {
 
 	logger := logging.New(os.Stdout, cfg.LogLevel)
 
-	return bootstrap.Run(ctx, cfg, logger, version)
+	providers, err := telemetry.Setup(ctx, telemetry.Options{
+		Enabled:        cfg.Tracing.Enabled,
+		ServiceName:    telemetryName(cfg),
+		ServiceVersion: cfg.ServiceVersion,
+		Endpoint:       cfg.Tracing.Endpoint,
+		Protocol:       cfg.Tracing.Protocol,
+		Insecure:       cfg.Tracing.Insecure,
+		Sampler:        cfg.Tracing.Sampler,
+		SamplerArg:     cfg.Tracing.SamplerArg,
+	})
+	if err != nil {
+		return fmt.Errorf("set the telemetry up: %w", err)
+	}
+	defer shutdownTelemetry(logger, providers)
+
+	logger.Info("the service starts",
+		slog.Bool("tracing", cfg.Tracing.Enabled),
+		slog.String("collector", cfg.Tracing.Endpoint),
+	)
+
+	return bootstrap.Run(ctx, cfg, logger, providers.TracerProvider, version)
+}
+
+// telemetryName returns the name the telemetry carries. It is the name of
+// the service, unless the environment of the OpenTelemetry specification
+// names it otherwise.
+func telemetryName(cfg config.Config) string {
+	if cfg.Tracing.ServiceName != "" {
+		return cfg.Tracing.ServiceName
+	}
+	return config.ServiceName
+}
+
+// shutdownTelemetry sends the spans that are still in the batcher.
+func shutdownTelemetry(logger *slog.Logger, providers *telemetry.Providers) {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := providers.Shutdown(ctx); err != nil {
+		logger.Error("the telemetry did not leave the process cleanly",
+			slog.Any("error", err))
+	}
 }
 
 // runHealthcheck asks the running server whether it is alive.

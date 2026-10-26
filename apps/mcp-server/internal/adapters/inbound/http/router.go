@@ -10,6 +10,11 @@ import (
 	"runtime/debug"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/filters"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 )
 
@@ -24,6 +29,9 @@ type RouterConfig struct {
 	MCP http.Handler
 	// Logger is the logger of the router.
 	Logger *slog.Logger
+	// TracerProvider creates the spans of the requests. A router without
+	// one does not trace the requests it serves.
+	TracerProvider trace.TracerProvider
 }
 
 // NewRouter builds the HTTP handler of the service.
@@ -31,12 +39,31 @@ type RouterConfig struct {
 // The health endpoint and the MCP transport live on the same listener, so
 // they share the same reachability: whoever can reach the MCP transport can
 // reach the health endpoint too.
+//
+// Every request leaves a span behind, named after the route it took. The
+// health endpoint is the exception: the container runtime asks it every few
+// seconds, and those spans would fill the traces of the work without
+// telling anything about it.
 func NewRouter(cfg RouterConfig) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET "+HealthPath, NewHealthHandler(cfg.Health))
 	mux.Handle(MCPPath, cfg.MCP)
 
-	return recoverPanic(cfg.Logger, requestLogger(cfg.Logger, securityHeaders(mux)))
+	handler := recoverPanic(cfg.Logger, requestLogger(cfg.Logger, securityHeaders(mux)))
+
+	return otelhttp.NewHandler(handler, "http",
+		otelhttp.WithTracerProvider(tracerProvider(cfg.TracerProvider)),
+		otelhttp.WithFilter(filters.Not(filters.Path(HealthPath))),
+	)
+}
+
+// tracerProvider returns the provider of the router, or the no-op one when
+// the router has none.
+func tracerProvider(provider trace.TracerProvider) trace.TracerProvider {
+	if provider == nil {
+		return noop.NewTracerProvider()
+	}
+	return provider
 }
 
 // securityHeaders sets the headers that keep a browser away from the
@@ -51,6 +78,9 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // requestLogger writes one line per request.
+//
+// The line carries the context of the request, so the logger adds the
+// identifiers of the trace the request belongs to.
 func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
@@ -58,7 +88,7 @@ func requestLogger(logger *slog.Logger, next http.Handler) http.Handler {
 
 		next.ServeHTTP(recorder, r)
 
-		logger.Info("request",
+		logger.InfoContext(r.Context(), "request",
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.Int("status", recorder.status),
@@ -73,7 +103,7 @@ func recoverPanic(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				logger.Error("the request panicked",
+				logger.ErrorContext(r.Context(), "the request panicked",
 					slog.Any("panic", recovered),
 					slog.String("stack", string(debug.Stack())),
 				)

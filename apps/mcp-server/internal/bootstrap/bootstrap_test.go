@@ -10,6 +10,7 @@ import (
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/bootstrap"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
@@ -33,7 +34,7 @@ func startService(t *testing.T, version string) string {
 		LogLevel:        slog.LevelInfo,
 	}
 
-	app, err := bootstrap.New(cfg, discardLogger(), version)
+	app, err := bootstrap.New(cfg, discardLogger(), noop.NewTracerProvider(), version)
 	if err != nil {
 		t.Fatalf("the service could not be assembled: %v", err)
 	}

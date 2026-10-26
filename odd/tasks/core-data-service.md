@@ -235,14 +235,14 @@ The work happens in its own worktree, on its own branch, and never on `main`:
 
 | ID  | Specs                  | Route | Commit | Summary |
 |-----|------------------------|-------|--------|---------|
-| T1  | S7, S8, S13            | inline | —     | The module `packages/core`, the `go.work` entry, the Makefile and the CI entry of the gate |
-| T2  | S16, S17, S18, S19     | inline | —     | The domain model of the user: the identifier, the four states and the invariants |
-| T3  | S6, S16                | inline | —     | The sqlc pipeline: the schema of the table and the generated row model |
-| T4  | S2, S10                | inline | —     | The postgres adapter: the pool, the configuration and the ping of the database |
-| T5  | S1, S11, S12, S16, S19 | inline | —     | The migration of the `users` table and the single writer that applies it |
-| T6  | S1, S2, S8             | inline | —     | The wiring into `apps/mcp-server`: the dependency, the configuration and the health check of the database |
-| T7  | S14, S16, S17, S18, S19, S20 | inline | — | The testcontainers suite: the migration, and every rule of the table proven against a real database |
-| T8  | S3, S13                | inline | —     | The documentation: the README of the core and the registry of the monorepository |
+| T1  | S7, S8, S13            | inline | `22d8f7a` | The module `packages/core`, the `go.work` entry, the Makefile and the CI entry of the gate |
+| T2  | S16, S17, S18, S19     | inline | `22d8f7a` | The domain model of the user: the identifier, the four states and the invariants |
+| T3  | S6, S16                | inline | `482a9ab` | The sqlc pipeline: the schema of the table and the generated row model |
+| T4  | S2, S10                | inline | `3dc1cb6` | The postgres adapter: the pool, the configuration and the ping of the database |
+| T5  | S1, S11, S12, S16, S19 | inline | `03cd28a`, `ae229ff` | The migration of the `users` table and the single writer that applies it |
+| T6  | S1, S2, S8             | inline | `781c7a3` | The wiring into `apps/mcp-server`: the dependency, the configuration and the health check of the database |
+| T7  | S14, S16, S17, S18, S19, S20 | worker | `a75fb89` | The testcontainers suite: the migration, and every rule of the table proven against a real database |
+| T8  | S3, S13                | inline | `8ac8154` | The documentation: the README of the core and the registry of the monorepository |
 
 ### The slice boundaries
 
@@ -271,9 +271,9 @@ below it.
 | Slice | Branch             | What it carries                                          | Commits |
 |-------|--------------------|----------------------------------------------------------|---------|
 | 1     | `feat/core-data-service` | The specification, the module of the core, the gate and the model of the user | `15fa3ac`, `22d8f7a` |
-| 2     | `feat/core-data-table`   | The sqlc pipeline, the postgres adapter, the migration of the `users` table and the single writer | — |
-| 3     | `feat/core-data-consumers` | The wiring into the MCP server and the container tests that prove the table | — |
-| 4     | `feat/core-data-docs`    | The documentation of the core and the registry of the monorepository | — |
+| 2     | `feat/core-data-table`   | The sqlc pipeline, the postgres adapter, the migration of the `users` table and the single writer | `482a9ab`, `3dc1cb6`, `03cd28a` |
+| 3     | `feat/core-data-consumers` | The wiring into the MCP server and the container tests that prove the table | `781c7a3`, `ae229ff`, `a75fb89` |
+| 4     | `feat/core-data-docs`    | The documentation of the core and the registry of the monorepository | `8ac8154`, `b9f3914` |
 
 Slice 1 is the branch of this slice of work. Slice 2 is cut from it, slice 3
 from slice 2, and slice 4 from slice 3: the stack is merged from the bottom,
@@ -439,3 +439,26 @@ the user may want to take in a later slice:
 - **A uniqueness rule on the email.** The request makes only the primary key
   unique. Two people may share an email today, and the database will not stop
   them.
+
+### L14 — The defect the container tests found
+
+The suite could not reach the database: the runner of the migrations looks
+for them at the root of the files it receives, and the migrator handed it the
+whole embedded filesystem, whose files live in a directory. The migrator
+found no migration at all, and the schema was never written. The defect was
+in the code of the core, not in the tests: the directory becomes the root
+now (`ae229ff`).
+
+### L15 — What the slice proves
+
+The gate of the monorepository is green: the format check, the analyzers of
+the toolchain, `golangci-lint` with `gosec`, the build, the test suite, the
+race detector, the coverage gate and `govulncheck` (**no vulnerabilities**)
+for the MCP server (**84.7%**) and for the core (**96.9%**).
+
+The container tests of the core start a real PostgreSQL, apply the
+migrations through the single writer, and prove the thirteen rules of the
+`users` table against it: **14 tests and 20 subtests, all passing**.
+
+The image of the MCP server was built from the root of the monorepository,
+the new context, and the binary it holds came out of that build.

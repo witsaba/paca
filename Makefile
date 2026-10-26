@@ -7,6 +7,10 @@
 #   db/Makefile                the databases, one directory and one stack each
 #   observability/Makefile     the traces: the collector and the backend
 #
+# The scripts of the root are the ones of the repository itself:
+#
+#   scripts/setup-env.sh       the installer of the environment of the stacks
+#
 # Adding an application means two steps:
 #
 #   1. create apps/<name>/ with its own Makefile;
@@ -36,7 +40,8 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
 .DEFAULT_GOAL := help
 
 .PHONY: help all gate packages-integration shellcheck db-up db-smoke db-down \
-        observability-up observability-smoke observability-down
+        observability-up observability-smoke observability-down \
+        env-init env-test
 
 help: ## Show this help
 	@echo "PACA — the targets of the monorepository"
@@ -52,6 +57,10 @@ help: ## Show this help
 	@echo "  make observability-up    start the collector of the traces and wait until it is healthy"
 	@echo "  make observability-smoke run the smoke test of the collector (it must be running)"
 	@echo "  make observability-down  stop the collector of the traces (keeps the traces)"
+	@echo ""
+	@echo "The installation of the environment:"
+	@echo "  make env-init           write the .env file of every stack (asks for the values)"
+	@echo "  make env-test           run the tests of the installer of the environment"
 	@echo ""
 	@echo "The applications of the monorepository:"
 	@for app in $(APPS); do \
@@ -110,3 +119,22 @@ observability-smoke: ## Run the smoke test of the collector (it must be running)
 
 observability-down: ## Stop the collector of the traces (keeps the traces)
 	$(MAKE) --no-print-directory -C observability down
+
+# The installer of the environment: it writes the .env file of every stack
+# that ships an env.example, offering the default of every value and
+# generating a strong password for the secrets. The values already
+# configured are kept, and can be changed in the questions it asks.
+#
+# The arguments reach the script, so the non-interactive modes are reachable
+# from the Makefile too:
+#
+#   make env-init                      ask for every value
+#   make env-init ARGS="--yes"        keep what is configured, generate the rest
+#   make env-init ARGS="--dry-run"     print what it would write, write nothing
+env-init: ## Write the .env file of every stack of the monorepository
+	@./scripts/setup-env.sh $(ARGS)
+
+# The tests of the installer: they run against fixtures in a temporary
+# directory, so the .env of the repository is never touched.
+env-test: ## Run the tests of the installer of the environment
+	@./scripts/tests/setup-env-test.sh

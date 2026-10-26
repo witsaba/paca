@@ -85,9 +85,10 @@ jobs:
           sudo apt-get install --yes netcat-openbsd
 
       # The credentials live with the stack that owns them and are never
-      # committed, so the runner creates them from the example.
+      # committed, so the runner generates them with the installer of the
+      # environment: it keeps the defaults and generates a strong password.
       - name: Create the credentials of the stack
-        run: cp db/postgres/env.example db/postgres/.env
+        run: make env-init ARGS="--yes"
 
       - name: Start the database
         run: make db-up
@@ -136,3 +137,9 @@ jobs:
 
       - name: Run shellcheck
         run: make shellcheck
+
+      # The installer of the environment is a script of the repository, so
+      # its own tests run here. They work against fixtures in a temporary
+      # directory: the credentials of the runner are never touched.
+      - name: Run the tests of the installer of the environment
+        run: make env-test

@@ -67,17 +67,26 @@ func NewUserRepository(pool *Pool) *UserRepository {
 // The statement writes the onboarding state and no observation: the new user
 // starts at the entry of the machine, and the caller does not choose it.
 //
+// The data is cleaned before it is written, so the row never carries a phone
+// with its punctuation or an address with its spaces, whatever the caller
+// sends.
+//
 // The error is user.ErrAlreadyExists when the document ID is taken.
 func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.Details) (user.User, error) {
+	clean, err := user.NewDetails(details.FullName, details.Phone, details.Email)
+	if err != nil {
+		return user.User{}, err
+	}
+
 	if r == nil || r.queries == nil {
 		return user.User{}, ErrNoRepository
 	}
 
 	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
 		ID:       int64(id),
-		FullName: optionalText(details.FullName),
-		Phone:    optionalText(details.Phone),
-		Email:    optionalText(details.Email),
+		FullName: optionalText(clean.FullName),
+		Phone:    optionalText(clean.Phone),
+		Email:    optionalText(clean.Email),
 	})
 	if err != nil {
 		return user.User{}, writeError(err)
@@ -107,18 +116,25 @@ func (r *UserRepository) GetByID(ctx context.Context, id user.ID) (user.User, er
 // The statement writes the fields that carry a value and leaves the others
 // as they are: an empty field is a field that does not change.
 //
+// The data is cleaned before it is written, exactly as it is on the way in.
+//
 // The error is user.ErrNotFound when no user carries that document ID, and
 // user.ErrEmailTaken or user.ErrPhoneTaken when the value belongs to
 // somebody else.
 func (r *UserRepository) UpdateDetails(ctx context.Context, id user.ID, details user.Details) (user.User, error) {
+	clean, err := user.NewDetails(details.FullName, details.Phone, details.Email)
+	if err != nil {
+		return user.User{}, err
+	}
+
 	if r == nil || r.queries == nil {
 		return user.User{}, ErrNoRepository
 	}
 
 	row, err := r.queries.UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
-		FullName: optionalText(details.FullName),
-		Phone:    optionalText(details.Phone),
-		Email:    optionalText(details.Email),
+		FullName: optionalText(clean.FullName),
+		Phone:    optionalText(clean.Phone),
+		Email:    optionalText(clean.Email),
 		ID:       int64(id),
 	})
 	if err != nil {

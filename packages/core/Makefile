@@ -132,9 +132,14 @@ test:
 # The tests start a PostgreSQL with the schema of the migrations and assert
 # the rules of the tables against it, so they need Docker. They cover the
 # packages that talk to the database, and they report their coverage.
+#
+# The coverage is measured with -coverpkg, so the coverage of the adapter and
+# of the domain comes from the container tests and not from the unit tests:
+# the two numbers together are the coverage of the module.
 test-integration:
 	@mkdir -p $(COV_DIR)
 	$(GO) test -tags=integration -timeout=15m -v -covermode=atomic \
+		-coverpkg=./postgres/...,./domain/... \
 		-coverprofile=$(COV_FILE_INTEGRATION) $(PACKAGE)
 	@$(GO) tool cover -func=$(COV_FILE_INTEGRATION) | tail -1
 

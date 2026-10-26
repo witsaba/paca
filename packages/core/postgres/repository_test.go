@@ -208,6 +208,27 @@ func TestTheRepositoryRefusesAMissingObservation(t *testing.T) {
 	}
 }
 
+func TestTheRepositoryCleansTheDataBeforeItWritesIt(t *testing.T) {
+	t.Parallel()
+
+	repository := &UserRepository{}
+
+	_, err := repository.Create(t.Context(), 1, user.Details{Phone: "3212539984"})
+	if !errors.Is(err, user.ErrInvalidPhone) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidPhone)
+	}
+
+	_, err = repository.UpdateDetails(t.Context(), 1, user.Details{Phone: "3212539984"})
+	if !errors.Is(err, user.ErrInvalidPhone) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidPhone)
+	}
+
+	_, err = repository.Create(t.Context(), 1, user.Details{Email: "not an address"})
+	if !errors.Is(err, user.ErrInvalidEmail) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidEmail)
+	}
+}
+
 func TestTheRepositoryNamesTheStatusItRefuses(t *testing.T) {
 	t.Parallel()
 

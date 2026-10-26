@@ -462,3 +462,10 @@ migrations through the single writer, and prove the thirteen rules of the
 
 The image of the MCP server was built from the root of the monorepository,
 the new context, and the binary it holds came out of that build.
+
+### L16 — The issue and the pull request of the slice
+
+- **Issue:** #24 — "feat(core): the core of the monorepository — the shared
+  models, the schema and the first table".
+- **Pull request:** #25 — the branch `feat/core-data-service`, the label
+  `type:feature`, and the body closes #24.

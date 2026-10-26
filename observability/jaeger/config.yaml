@@ -59,6 +59,10 @@ processors:
   # financial data: PACA is a finance product. They are deleted here, before
   # the spans leave the process, so they never reach the storage and never
   # leave the machine.
+  #
+  # The processor deletes the attributes of the spans. An attribute of the
+  # resource, or one under another name, would survive it: the redaction is
+  # a rule of this repository, not a promise of the collector.
   attributes/redact:
     actions:
       - key: gen_ai.tool.call.arguments

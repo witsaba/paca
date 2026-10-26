@@ -64,6 +64,12 @@ mapping for them. The applications of the monorepository point their OTLP
 exporter at `jaeger:4317` and reach it over `paca_internal`, the network
 with no outbound access at all.
 
+The query API, the interface and the receivers are not authenticated. Every
+container of `paca_internal` can read the traces and write spans. That is
+the same trust domain as the database, which keeps its credentials in the
+stack that owns it: a container of the internal network is inside the
+boundary of the monorepository.
+
 ## The networks
 
 The service joins two networks:

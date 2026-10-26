@@ -92,8 +92,7 @@ jobs:
         run: make db-down
 
   # The collector of the traces: the stack starts, and the smoke test
-  # asserts that it answers, that it keeps the traces it receives and that
-  # it keeps them to itself.
+  # asserts that its query API answers.
   observability:
     name: The observability
     runs-on: ubuntu-latest

@@ -1,9 +1,0 @@
-go 1.26.9
-
-use (
-	./apps/cli
-	./apps/mcp
-	./packages/core
-	./packages/db
-	./tools
-)

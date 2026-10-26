@@ -6,21 +6,25 @@
 #
 #   ./db/postgres/scripts/smoke-test.sh
 #
+# The container is found by its compose service label, so the test works
+# whichever compose project started it.
+#
 # Exit code 0 means every assertion passed.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DB_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COMPOSE=(docker compose -f "${DB_DIR}/compose.yaml")
-
+SERVICE=postgres
 failures=0
 
 pass() { printf '  ok   %s\n' "$1"; }
 fail() { printf '  FAIL %s\n' "$1"; failures=$((failures + 1)); }
 
-# Runs one SQL statement and prints the single value it returned.
+# The running container of the service, whatever project started it.
+container="$(docker ps --filter "label=com.docker.compose.service=${SERVICE}" --format '{{.Names}}' | head -1)"
+
+# Runs one SQL statement inside the container and prints the value it
+# returned.
 query() {
-	"${COMPOSE[@]}" exec -T postgres sh -c "psql -X -q -A -t -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"$1\""
+	docker exec "${container}" sh -c "psql -X -q -A -t -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"$1\""
 }
 
 assert_equals() {
@@ -42,13 +46,13 @@ assert_contains() {
 }
 
 echo "== container state =="
-state="$("${COMPOSE[@]}" ps --format '{{.Name}} {{.State}} {{.Health}}' postgres 2>/dev/null || true)"
-if [[ -z "${state}" ]]; then
-	echo "  FAIL the postgres container is not running (run 'make db-up' first)"
+if [[ -z "${container}" ]]; then
+	echo "  FAIL the ${SERVICE} container is not running (run 'make -C db/postgres up' first)"
 	exit 1
 fi
-assert_contains "container" "running" "${state}"
-assert_contains "container health" "healthy" "${state}"
+pass "the container ${container} is running"
+health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${container}")"
+assert_equals "container health" "healthy" "${health}"
 
 echo "== version =="
 assert_contains "server_version" "18.6" "$(query 'show server_version')"
@@ -84,7 +88,7 @@ assert_equals "vector distance to itself" "0" "$(query "select round((('[1,2,3]'
 assert_equals "vector distance [1,2,3] <-> [2,4,6]" "4" "$(query "select round((('[1,2,3]'::vector <-> '[2,4,6]'::vector))::numeric, 0)")"
 
 # A real vector column with an ANN index must answer a nearest-neighbour query.
-nearest="$("${COMPOSE[@]}" exec -T postgres sh -c "psql -X -q -A -t -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"" <<'SQL'
+nearest="$(docker exec -i "${container}" sh -c "psql -X -q -A -t -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"" <<'SQL'
 create temp table smoke_vectors (id int primary key, embedding vector(3));
 insert into smoke_vectors values (1, '[1,2,3]'), (2, '[4,5,6]');
 create index on smoke_vectors using ivfflat (embedding vector_cosine_ops) with (lists=1);
@@ -99,10 +103,10 @@ assert_equals "data checksums" "on" "$(query 'show data_checksums')"
 echo "== isolation =="
 # Docker publishes a port only when NetworkSettings.Ports maps it to a host
 # address; for this service it must be null.
-ports_json="$(docker inspect -f '{{json .NetworkSettings.Ports}}' paca-postgres 2>/dev/null || echo '{}')"
+ports_json="$(docker inspect -f '{{json .NetworkSettings.Ports}}' "${container}" 2>/dev/null || echo '{}')"
 # The container may expose 5432 internally; what matters is that no host
 # address/port binding exists. This template lists the host bindings only.
-host_bindings="$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{range $conf}}{{.HostIp}}:{{.HostPort}} {{end}}{{end}}' paca-postgres 2>/dev/null || true)"
+host_bindings="$(docker inspect -f '{{range $p, $conf := .NetworkSettings.Ports}}{{range $conf}}{{.HostIp}}:{{.HostPort}} {{end}}{{end}}' "${container}" 2>/dev/null || true)"
 if [[ -z "${host_bindings// /}" ]]; then
 	pass "no host port is published (${ports_json})"
 else
@@ -112,8 +116,16 @@ fi
 # A container on the internal network must be able to connect.
 # The password is expanded by the shell inside the container, not here.
 # shellcheck disable=SC2016
-password="$("${COMPOSE[@]}" exec -T postgres sh -c 'printf %s "$POSTGRES_PASSWORD"')"
-if PGPASSWORD="${password}" docker run --rm --network paca-postgres_internal \
+password="$(docker exec "${container}" sh -c 'printf %s "$POSTGRES_PASSWORD"')"
+# The network is discovered from the container, so the test does not depend on
+# the name the compose project gives it.
+network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "${container}" | awk '{print $1}')"
+if [[ -n "${network}" ]]; then
+	pass "the database is attached to the network ${network}"
+else
+	fail "the database has no network"
+fi
+if PGPASSWORD="${password}" docker run --rm --network "${network}" \
 	-e PGPASSWORD="${password}" postgres:18.6-bookworm \
 	psql -X -q -A -t -h postgres -U paca -d paca -c 'select 1' 2>/dev/null | grep -q '^1$'; then
 	pass "another container on the internal network can connect"

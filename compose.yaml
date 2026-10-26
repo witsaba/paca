@@ -1,0 +1,29 @@
+# The entry point of the monorepository.
+#
+# Every stack keeps its own compose file; this one only includes them and
+# declares the networks they share:
+#
+#   docker compose up --wait                          # every stack
+#   docker compose -f db/postgres/compose.yaml up     # one stack alone
+#
+# A stack declares the networks it attaches to, with the same attributes as
+# here, so it also runs on its own. The credentials of a stack live in its
+# own `env_file`, so nothing has to be exported to start the whole project.
+
+name: paca
+
+include:
+  - path: ./db/postgres/compose.yaml
+
+networks:
+  # Service-to-service traffic: the database and the services that talk to
+  # it. A container on this network has no outbound access at all.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true
+  # Outbound traffic for the services that need the internet. A service
+  # joins both networks when it needs the database and the internet.
+  egress:
+    name: paca_egress
+    driver: bridge

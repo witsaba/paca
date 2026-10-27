@@ -12,6 +12,7 @@ support them, in one repository and one compose project.
 | `db/`         | The databases, one directory and one stack each.                           |
 | `observability/` | The traces: the collector and the backend that keeps them.              |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
+| `scripts/`    | The scripts of the repository: the installer of the environment.            |
 | `odd/tasks/`  | The feature documents: the specification of every piece of work.           |
 
 The repository is a Go workspace (`go.work`), so the modules are built and
@@ -25,6 +26,37 @@ tested against each other, and every module keeps working on its own.
 | `packages/core/`  | The core: the models, the repositories and the migrations that the services share. A library, with no port and no container. | [packages/core/README.md](packages/core/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
+
+## The installation
+
+The stacks need their environment: the credentials of the database, and
+whatever a stack declares in its own manifest. Every stack that ships an
+`env.example` gets its `.env` written by the installer of the environment:
+
+```sh
+make env-init
+```
+
+It asks one question per value and offers the default of each one: the value
+already configured when the file exists, the value of the manifest otherwise.
+The empty answer keeps the default, any other answer replaces it, and `g`
+generates a strong password for the secrets.
+
+Running it again keeps what is configured, so a value can be changed at any
+time without losing the rest of the file. The secrets are never printed, and
+the files that hold them are written for the owner alone.
+
+The installer also works without a terminal, for a scripted installation and
+for the continuous integration:
+
+```sh
+make env-init ARGS="--yes"       # keep what is configured, generate the rest
+make env-init ARGS="--dry-run"    # print what it would write, write nothing
+./scripts/setup-env.sh --help     # every option
+```
+
+The `.env` files are never committed. The manual way, with an editor, keeps
+working: copy the example of the stack and change the values.
 
 ## Running the stacks
 

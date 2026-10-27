@@ -185,6 +185,50 @@ is_within_root() {
   esac
 }
 
+# bare_value VALUE
+#
+# Prints the value as Docker Compose reads it in an `env_file`: without the
+# spaces around it and without the quotes that wrap it. The value itself is
+# never changed: a quoted value stays quoted in the file that is written.
+bare_value() {
+  local value
+  value=$(trim "$1")
+  case "$value" in
+    '""') printf '' ;;
+    "''") printf '' ;;
+    '"'*'"')
+      value="${value#\"}"
+      value="${value%\"}"
+      printf '%s' "$value"
+      ;;
+    "'"*"'")
+      value="${value#\'}"
+      value="${value%\'}"
+      printf '%s' "$value"
+      ;;
+    *) printf '%s' "$value" ;;
+  esac
+}
+
+# resolve_link PATH
+#
+# Prints the path a link points at, resolved. A path that is not a link is
+# printed as it is.
+resolve_link() {
+  local path="$1"
+  local target
+  local guard=0
+  while [ -L "$path" ] && [ "$guard" -lt 10 ]; do
+    guard=$((guard + 1))
+    target=$(readlink "$path")
+    case "$target" in
+      /*) path="$target" ;;
+      *) path="$(dirname "$path")/$target" ;;
+    esac
+  done
+  printf '%s\n' "$path"
+}
+
 # random_material
 #
 # Prints the raw material of a strong password: characters of A-Za-z0-9-_.
@@ -550,6 +594,7 @@ resolve_values() {
   local source
   local answer
   local asked
+  local existing_bare
 
   VALUES=()
   MF_ASKED=()
@@ -566,21 +611,27 @@ resolve_values() {
       configured=1
     fi
 
+    # The bare value is the value as Compose reads it: without the spaces
+    # and without the quotes that wrap it.
+    existing_bare=$(bare_value "$existing")
+
     # An empty value is no value: the file was left half written, or the key
     # was emptied by hand. The default of the manifest applies again, and a
     # secret gets a strong password instead of nothing.
-    if [ "$configured" -eq 1 ] && [ -z "$existing" ]; then
+    if [ "$configured" -eq 1 ] && [ -z "$existing_bare" ]; then
       warn "$key is empty in the environment of the stack: the default is used instead"
       configured=0
       existing=''
+      existing_bare=''
     fi
 
     # The value of the manifest is not a configured value: the placeholder
     # of a secret is never kept silently, not even when the file that holds
     # it was copied from the manifest.
-    if [ "$secret" -eq 1 ] && [ "$configured" -eq 1 ] && [ "$existing" = "$manifest_value" ]; then
+    if [ "$secret" -eq 1 ] && [ "$configured" -eq 1 ] && [ "$existing_bare" = "$manifest_value" ]; then
       configured=0
       existing=''
+      existing_bare=''
     fi
 
     if [ "$configured" -eq 1 ]; then
@@ -709,6 +760,8 @@ write_target() {
   local tmp
   local expected_mode
   local current_mode
+  local resolved
+  local resolved_dir
 
   dir=$(dirname "$TARGET")
 
@@ -731,15 +784,18 @@ write_target() {
   if [ -f "$TARGET" ] && cmp -s "$tmp" "$TARGET"; then
     rm -f "$tmp"
     TMP_FILE=''
-    # A link is not touched: the file it points at can live outside of the
+    # A link is resolved: the file it points at can live outside of the
     # root, and the installer writes nothing outside of it.
-    if [ -L "$TARGET" ]; then
-      printf '  unchanged %s (a link)\n' "$TARGET_REL"
+    resolved=$(resolve_link "$TARGET")
+    resolved_dir=$(CDPATH='' cd -- "$(dirname "$resolved")" && pwd -P)
+    resolved="$resolved_dir/$(basename "$resolved")"
+    if ! is_within_root "$resolved"; then
+      printf '  unchanged %s (a link outside of the root)\n' "$TARGET_REL"
       return 0
     fi
-    current_mode=$(file_mode_of "$TARGET")
+    current_mode=$(file_mode_of "$resolved")
     if [ "$current_mode" != "$expected_mode" ]; then
-      chmod "$expected_mode" "$TARGET" || die "cannot set the mode of [$TARGET]"
+      chmod "$expected_mode" "$resolved" || die "cannot set the mode of [$resolved]"
       printf '  fixed the mode of %s\n' "$TARGET_REL"
     else
       printf '  unchanged %s\n' "$TARGET_REL"

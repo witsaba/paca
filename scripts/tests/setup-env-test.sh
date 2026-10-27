@@ -390,12 +390,29 @@ EOF
 test_a_file_with_a_hand_written_key_is_private() {
   local root="$TMP_ROOT/private"
   make_fixture "$root"
-  cat > "$root/db/postgres/.env" <<'EOF'
+  # The stack of the root declares no secret: only the key that was added
+  # by hand can make the file a secret.
+  cat > "$root/.env" <<'EOF'
 EXTRA_KEY=extra-value
 EOF
   run_setup_env "$root" --yes
   assert_equals "0" "$STATUS" "the run succeeds"
-  assert_file_mode "$root/db/postgres/.env" "600" "a key that the manifest does not declare may be a secret"
+  assert_file_mode "$root/.env" "600" "a key that the manifest does not declare may be a secret"
+}
+
+test_a_quoted_empty_value_is_no_value() {
+  local root="$TMP_ROOT/quoted-empty"
+  local password
+  make_fixture "$root"
+  cat > "$root/db/postgres/.env" <<'EOF'
+POSTGRES_PASSWORD=""
+EOF
+  run_setup_env "$root" --yes
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_contains "$OUTPUT" "empty" "the script warns about the empty value"
+  password=$(value_of "$root/db/postgres/.env" POSTGRES_PASSWORD)
+  assert_equals "32" "${#password}" "the password is 32 characters long"
+  assert_not_contains "$(cat "$root/db/postgres/.env")" 'POSTGRES_PASSWORD=""' "the empty value is replaced"
 }
 
 test_the_header_names_the_manifest() {
@@ -431,9 +448,14 @@ test_no_temporary_file_is_left_behind() {
   local root="$TMP_ROOT/atomic"
   make_fixture "$root"
   run_setup_env "$root" --yes
+  run_setup_env "$root" --yes
   assert_equals "0" "$STATUS" "the run succeeds"
   assert_no_file_matching "$root/db/postgres" ".env.tmp.*" "no temporary file is left behind"
   assert_no_file_matching "$root" ".env.tmp.*" "no temporary file is left behind"
+}
+
+test_the_temporary_file_of_the_write_is_ignored_by_git() {
+  assert_file_contains "$REPO_ROOT/.gitignore" ".env.tmp.*" "the temporary file of the write is ignored by git"
 }
 
 test_a_link_is_not_followed_outside_of_the_root() {
@@ -441,13 +463,31 @@ test_a_link_is_not_followed_outside_of_the_root() {
   local neighbour="$TMP_ROOT/link/neighbour"
   mkdir -p "$neighbour"
   make_fixture "$root"
-  printf 'POSTGRES_USER=paca\n' > "$neighbour/secret.env"
+  # The target of the link holds exactly what the installer writes, so the
+  # run takes the path that leaves the content alone.
+  run_setup_env "$root" --yes
+  cp "$root/db/postgres/.env" "$neighbour/secret.env"
   chmod 644 "$neighbour/secret.env"
+  rm -f "$root/db/postgres/.env"
   ln -s "$neighbour/secret.env" "$root/db/postgres/.env"
   run_setup_env "$root" --yes
   assert_equals "0" "$STATUS" "the run succeeds"
   assert_file_mode "$neighbour/secret.env" "644" "the mode of the file outside of the root is not changed"
-  assert_file_value "$neighbour/secret.env" "POSTGRES_USER" "paca" "the file outside of the root is not written"
+  assert_contains "$OUTPUT" "link outside of the root" "the script says that the link points outside"
+}
+
+test_a_link_inside_of_the_root_gets_its_mode_fixed() {
+  local root="$TMP_ROOT/link-inside/root"
+  mkdir -p "$root/shared"
+  make_fixture "$root"
+  run_setup_env "$root" --yes
+  cp "$root/db/postgres/.env" "$root/shared/.env"
+  chmod 644 "$root/shared/.env"
+  rm -f "$root/db/postgres/.env"
+  ln -s "$root/shared/.env" "$root/db/postgres/.env"
+  run_setup_env "$root" --yes
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_file_mode "$root/shared/.env" "600" "the mode of a file inside of the root is corrected"
 }
 
 test_a_stack_that_is_a_link_outside_of_the_root_is_refused() {
@@ -624,12 +664,15 @@ test_a_value_modified_by_hand_is_kept_and_offered
 test_a_key_added_by_hand_is_preserved
 test_the_yes_mode_asks_nothing_and_works_with_a_closed_input
 test_an_empty_configured_value_is_no_value
+test_a_quoted_empty_value_is_no_value
 test_a_file_with_a_hand_written_key_is_private
 test_the_header_names_the_manifest
 test_the_description_is_shown_for_every_key
 test_the_dry_run_hides_the_secret
 test_no_temporary_file_is_left_behind
+test_the_temporary_file_of_the_write_is_ignored_by_git
 test_a_link_is_not_followed_outside_of_the_root
+test_a_link_inside_of_the_root_gets_its_mode_fixed
 test_a_stack_that_is_a_link_outside_of_the_root_is_refused
 test_the_dry_run_writes_nothing
 test_the_password_never_appears_in_the_output

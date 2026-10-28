@@ -33,7 +33,7 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and three tools for the people who use PACA. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/database/` | The database library: the pool, the queries, the migrations and the repositories that write the rows. A library, with no port and no container. | [packages/database/README.md](packages/database/README.md) |
-| `packages/domain/` | The domain: the models of the people and the port of their storage. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
+| `packages/domain/` | The domain: the models of the people, the port of their storage and the state of the schema. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 

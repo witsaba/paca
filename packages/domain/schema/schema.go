@@ -5,6 +5,11 @@
 // The model is pure. It knows nothing about SQL, about the driver, or about
 // the migrator that writes the schema, so the rules of the migration use
 // case can be tested without a database.
+//
+// The package lives in the module of the domain because it has two sides: the
+// service that writes the schema and the library that applies the migrations.
+// One model, one owner: the two sides speak the same record, and the adapter
+// between them maps nothing.
 package schema
 
 import "time"
@@ -21,7 +26,8 @@ type Migration struct {
 	Applied bool
 
 	// AppliedAt is the moment the migration was applied. It is the zero
-	// time when the migration has not been applied.
+	// time when the moment is not known: a migration that was applied a
+	// moment ago carries it until the state of the schema is read.
 	AppliedAt time.Time
 }
 

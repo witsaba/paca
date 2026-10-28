@@ -17,6 +17,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/witsaba/paca/packages/database v0.0.0
+	github.com/witsaba/paca/packages/domain v0.0.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
@@ -96,10 +97,10 @@ require (
 // workspace of the repository resolves it, and the replace keeps
 // `go mod tidy` working inside the module alone.
 //
-// The domain is a module of its own too. The service does not import it
-// directly, but the database library does, and a replace of a dependency
-// is ignored: the service carries its own replace, or it cannot resolve
-// its graph outside the workspace.
+// The domain is a module of its own too, and the service imports it: the
+// model of the state of the schema has one owner, and that owner is the
+// domain. A replace of a dependency is ignored, so the service carries its
+// own replace, or it cannot resolve its graph outside the workspace.
 replace github.com/witsaba/paca/packages/database => ../../packages/database
 
 replace github.com/witsaba/paca/packages/domain => ../../packages/domain

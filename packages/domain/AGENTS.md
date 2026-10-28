@@ -8,8 +8,10 @@ specifics of the module.
 
 - A **library**. It publishes no port on the network, it runs no container, it starts no
   process.
-- The **single owner** of the concepts that more than one service needs. The person, its
-  states, its rules, and the port of its storage live here and nowhere else.
+- The **single owner** of the concepts that more than one side needs. The person, its
+  states, its rules and the port of its storage live here; so does the state of the
+  schema of the database, which the writer of the schema and the library of the
+  migrations both speak.
 - The **purest** module of the tree: it imports nothing but the standard library. That is
   the boundary that makes "the domain knows nothing about the database" a compile error.
 

@@ -1,9 +1,14 @@
 # The domain of the PACA monorepository.
 
-The domain holds what the services of the monorepository share about the
-*people*: the model of a person, the rules a person carries, and the port of
-the storage that keeps them. The MCP server imports it today; the worker and
-the REST backend will import it tomorrow.
+The domain holds what the services of the monorepository share: the model
+of a *person*, the rules a person carries, the port of the storage that keeps
+them, and the state of the *schema* of the database — the version it is at,
+the migrations it carries and what is pending.
+
+A model has one owner. The person lives here because more than one service
+needs it, and the state of the schema lives here because two sides need it:
+the service that writes the schema and the library that applies the migrations.
+Both speak the same record, and the adapter between them maps nothing.
 
 It is a **library**. It publishes no port on the network, it runs no
 container, and it starts no process.
@@ -17,6 +22,8 @@ packages/domain/
   domain.go         the package comment: the models and the rules, nothing else
   user/             the model of the person: the identifier, the states, the
                     details and the port of the storage
+  schema/           the state of the schema of the database: the version, the
+                    migrations and what is pending
 ```
 
 The dependency rule of the hexagonal architecture holds here, and the

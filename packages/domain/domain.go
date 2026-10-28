@@ -10,4 +10,6 @@
 //
 //	domain/user/   the model of the person that PACA knows: the identifier,
 //	               the states and the port of the storage
+//	domain/schema/ the state of the schema of the database: the version, the
+//	               migrations and what is pending
 package domain

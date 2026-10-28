@@ -28,7 +28,6 @@ knows every layer at once.
 cmd/paca-db-admin/          the binary, and the healthcheck command
 internal/
   domain/health/            the health model: states, checks, reports
-  domain/schema/            the state of the schema: version, pending, applied
   application/               the use cases: migrate and health
   ports/                     the contracts between the layers
   adapters/

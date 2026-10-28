@@ -20,7 +20,6 @@ applies here and is never relaxed. This file holds the specifics of the service.
 cmd/paca-db-admin/             the composition root
 internal/
   domain/health/              the health model: states, checks, reports
-  domain/schema/              the state of the schema of the database
   application/                 the use cases: health and migrations
   ports/                      the contracts between the layers
   adapters/
@@ -40,9 +39,9 @@ internal/
   before the restart succeeds.
 - **The service opens one connection**, and both the migrations and the health check go
   through it. It does not open a second stack of connections of its own.
-- **The state of the schema is one model, in one place.** The model of a migration is
-  owned by the domain of the library or by the domain of the service, never by both: two
-  copies of the same record drift.
+- **The state of the schema is one model, in one place.** The model of a migration
+  lives in `packages/domain/schema`, and both the service and the library speak it: the
+  adapter between them maps nothing. Two copies of the same record drift.
 - **The check of the database is the only check of the service.** The service does
   nothing but the database, so the database is the only thing that can be wrong with it.
 

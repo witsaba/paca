@@ -38,6 +38,8 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
+
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 // migrationFiles holds the history of the schema: the migrations, in the
@@ -48,22 +50,6 @@ var migrationFiles embed.FS
 
 // ErrNoDatabase is the error of a migrator with no database behind it.
 var ErrNoDatabase = errors.New("the database of the migrator is not open")
-
-// Migration is the state of one migration of the schema.
-type Migration struct {
-	// Version is the number of the migration.
-	Version int64
-
-	// Name is the name of the file of the migration.
-	Name string
-
-	// Applied tells whether the migration has been applied to the database.
-	Applied bool
-
-	// AppliedAt is the moment the migration was applied. It is the zero
-	// time when the migration has not been applied.
-	AppliedAt time.Time
-}
 
 // Migrator applies the migrations of the schema.
 //
@@ -119,7 +105,7 @@ func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
 //
 // The list is empty when the schema was already up to date: applying the
 // migrations twice is not an error, it is nothing to do.
-func (m *Migrator) Up(ctx context.Context) ([]Migration, error) {
+func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
 	if m == nil || m.provider == nil {
 		return nil, ErrNoDatabase
 	}
@@ -129,12 +115,12 @@ func (m *Migrator) Up(ctx context.Context) ([]Migration, error) {
 		return nil, fmt.Errorf("the migrations could not be applied: %w", err)
 	}
 
-	applied := make([]Migration, 0, len(results))
+	applied := make([]schema.Migration, 0, len(results))
 	for _, result := range results {
 		if result == nil || result.Source == nil {
 			continue
 		}
-		applied = append(applied, Migration{
+		applied = append(applied, schema.Migration{
 			Version: result.Source.Version,
 			Name:    migrationName(result.Source.Path),
 			Applied: true,
@@ -145,7 +131,7 @@ func (m *Migrator) Up(ctx context.Context) ([]Migration, error) {
 }
 
 // Status returns the state of every migration of the schema.
-func (m *Migrator) Status(ctx context.Context) ([]Migration, error) {
+func (m *Migrator) Status(ctx context.Context) ([]schema.Migration, error) {
 	if m == nil || m.provider == nil {
 		return nil, ErrNoDatabase
 	}
@@ -155,12 +141,12 @@ func (m *Migrator) Status(ctx context.Context) ([]Migration, error) {
 		return nil, fmt.Errorf("the state of the migrations could not be read: %w", err)
 	}
 
-	migrations := make([]Migration, 0, len(statuses))
+	migrations := make([]schema.Migration, 0, len(statuses))
 	for _, status := range statuses {
 		if status == nil || status.Source == nil {
 			continue
 		}
-		migrations = append(migrations, Migration{
+		migrations = append(migrations, schema.Migration{
 			Version:   status.Source.Version,
 			Name:      migrationName(status.Source.Path),
 			Applied:   status.AppliedAt.After(time.Time{}),

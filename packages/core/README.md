@@ -22,7 +22,6 @@ packages/core/
   internal/db/          the generated code: the row model and the queries
   queries/              the SQL of the queries, read by the generator
   migrations/           the history of the schema
-  cmd/db-migrate/       the command that applies the migrations
 ```
 
 The dependency rule of the hexagonal architecture holds here too: the domain
@@ -148,24 +147,22 @@ user that moved at the same time is reported instead of written over.
 
 ## The migrations
 
-The schema has **one writer**. In the container it is the `db-admin` service
-(`apps/db-admin/`): it applies the pending migrations when it starts, and
-nothing else writes the schema. From a machine, the writer is the command
-`db-migrate`.
+The schema has **one writer**: the `db-admin` service (`apps/db-admin/`). It
+applies the pending migrations when it starts, and nothing else writes the
+schema — not a service, not a command.
 
 The other services never migrate on boot: a service that migrates on boot
 races with the other replicas of itself. The writer is the exception, and
 the lock of the database is what keeps it safe.
 
 ```sh
-make -C packages/core db-migrate      # apply the pending migrations
-make -C packages/core db-migrate -status   # print the state, change nothing
+make stack-up          # the writer applies the schema when it starts
+make stack-schema      # assert that the schema was written by its owner
 ```
 
-The command names the database through `PACA_DATABASE_URL` and refuses to
-run without it, rather than guessing a database. The migrator takes the
-lock of the database while it applies a migration, so two migrators that
-run at the same time take turns instead of writing the same table twice.
+The migrator takes the lock of the database while it applies a migration,
+so two migrators that run at the same time take turns instead of writing
+the same table twice.
 
 The migration files are embedded in the binary: the file that creates a
 table is the file the generator reads, so the schema and the row model
@@ -233,7 +230,6 @@ make -C packages/core test-integration  # the container tests (Docker)
 | `make perf`       | Checks the allocation budgets, then runs the benchmarks.          |
 | `make vuln`       | Runs `govulncheck` over the dependencies.                         |
 | `make generate-check` | Fails when the generated code is not what the schema describes. |
-| `make db-migrate` | Applies the migrations to the database.                           |
 
 The tools are pinned in the repository (`tools/go.mod`), so every machine
 and every container uses the same versions.

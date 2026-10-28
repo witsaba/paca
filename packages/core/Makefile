@@ -34,7 +34,7 @@ COV_FILE_INTEGRATION ?= $(COV_DIR)/coverage-integration.out
 # never by hand, and it is reviewed as the schema it comes from. Neither are
 # the packages that talk to the database: the container tests cover them,
 # and they report their own coverage.
-COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/core$$' | grep -v '/cmd/db-migrate')
+COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/core$$')
 
 # The files of the module that talk to the database and can only be measured
 # against a real one.
@@ -49,7 +49,7 @@ COVER_EXCLUDE_FILES ?= packages/core/postgres/repository\.go
 
 .PHONY: help deps tidy tidy-check fmt fmt-check vet lint build test \
         test-integration cover race bench perf vuln all generate \
-        generate-check db-migrate clean
+        generate-check clean
 
 ## help: show this list of targets
 help:
@@ -73,7 +73,6 @@ help:
 	@echo "  make vuln              scan the dependencies for known vulnerabilities"
 	@echo "  make generate          generate the code from the schema (sqlc)"
 	@echo "  make generate-check    fail when the generated code is not the one the schema describes"
-	@echo "  make db-migrate        apply the migrations to the database"
 	@echo "  make all               the full quality gate"
 	@echo "  make clean             remove the coverage artifacts"
 	@echo ""
@@ -197,14 +196,6 @@ generate-check:
 		git diff -- internal/db; \
 		exit 1; \
 	fi
-
-## db-migrate: apply the migrations to the database
-#
-# The migrations are applied by this command and by nothing else. The
-# database is named by PACA_DATABASE_URL; without it, the command refuses to
-# run rather than guessing a database.
-db-migrate:
-	$(GO) run ./cmd/db-migrate
 
 ## clean: remove the coverage artifacts
 clean:

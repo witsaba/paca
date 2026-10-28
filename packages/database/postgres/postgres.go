@@ -23,6 +23,9 @@ import (
 // ErrNoURL is the error of a configuration without a connection string.
 var ErrNoURL = errors.New("the connection string of the database is empty")
 
+// ErrNoPool is the error of a pool of connections that is not open.
+var ErrNoPool = errors.New("the pool of connections is not open")
+
 // Config is the configuration of the pool of connections.
 //
 // The library reads no environment variable: a service maps its own environment
@@ -140,7 +143,7 @@ func Open(ctx context.Context, cfg Config) (*Pool, error) {
 // with the same driver as everything else the library does.
 func (p *Pool) Ping(ctx context.Context) error {
 	if p == nil || p.pool == nil {
-		return errors.New("the pool of connections is not open")
+		return ErrNoPool
 	}
 
 	queries := db.New(p.pool)

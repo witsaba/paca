@@ -24,6 +24,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/server"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // Instructions tells the MCP clients what the server is for.
@@ -89,9 +90,20 @@ func New(
 
 	// The repository of the users is the adapter of the core: the service
 	// writes the people through it, and it never writes a row of its own.
-	// Without a database there is no repository, and the use case says so
-	// to the agent that calls it.
-	usersService := application.NewUsersService(postgres.NewUserRepository(pool))
+	// Without a database there is no repository at all — not a repository
+	// that is closed — so the use case tells the agent that calls it that
+	// the database is not configured.
+	var repository user.Repository
+	if pool != nil {
+		bound, err := postgres.NewUserRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the users could not be built: %w", err)
+		}
+		repository = bound
+	}
+
+	usersService := application.NewUsersService(repository)
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,

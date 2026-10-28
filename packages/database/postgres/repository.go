@@ -52,14 +52,18 @@ type UserRepository struct {
 
 // NewUserRepository returns the repository of the users, bound to the pool.
 //
-// The repository of a nil pool is nil: a service without a database has no
-// repository either, and it says so instead of failing later.
-func NewUserRepository(pool *Pool) *UserRepository {
+// The repository needs an open pool, and the constructor refuses anything
+// else: a repository built on nothing would be a nil pointer inside an
+// interface, and the interface would not be nil. A caller that has no
+// database holds no repository at all, and says so.
+//
+// The error is ErrNoPool when the pool is not there.
+func NewUserRepository(pool *Pool) (*UserRepository, error) {
 	if pool == nil {
-		return nil
+		return nil, ErrNoPool
 	}
 
-	return &UserRepository{queries: pool.Queries()}
+	return &UserRepository{queries: pool.Queries()}, nil
 }
 
 // Create registers a person.

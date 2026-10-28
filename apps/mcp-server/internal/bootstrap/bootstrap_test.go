@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -160,6 +161,60 @@ func TestTheServiceChecksTheDatabaseWhenItNamesOne(t *testing.T) {
 	if !found {
 		t.Fatalf("checks = %+v, want the database to be checked", body.Checks)
 	}
+}
+
+// TestTheServiceSaysItHasNoDatabaseWhenItHasNone proves the wiring of the
+// service: with no database configured, the tools are still there, and the
+// call answers that the database is not configured — in the words of the
+// service, not in the words of the adapter.
+//
+// The test drives the real composition root, because the trap it guards
+// against lives there: a repository that is nil inside an interface is not a
+// nil interface.
+func TestTheServiceSaysItHasNoDatabaseWhenItHasNone(t *testing.T) {
+	t.Parallel()
+
+	addr := startService(t, "0.1.0", nil)
+
+	client := sdk.NewClient(&sdk.Implementation{Name: "paca-mcp-server-test", Version: "0.1.0"}, nil)
+
+	ctx := context.Background()
+	session, err := client.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: "http://" + addr + "/mcp"}, nil)
+	if err != nil {
+		t.Fatalf("the client could not connect to the service: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(ctx, &sdk.CallToolParams{
+		Name:      "onboard_user",
+		Arguments: map[string]any{"document_id": "1234567"},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	text := textOf(t, result)
+	want := "the service has no database configured: the users cannot be reached"
+	if !strings.Contains(text, want) {
+		t.Errorf("the message is %q, want it to hold %q", text, want)
+	}
+}
+
+// textOf returns the text of the answer of a tool.
+func textOf(t *testing.T, result *sdk.CallToolResult) string {
+	t.Helper()
+
+	var text strings.Builder
+	for _, content := range result.Content {
+		if textContent, ok := content.(*sdk.TextContent); ok {
+			text.WriteString(textContent.Text)
+		}
+	}
+
+	return text.String()
 }
 
 func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {

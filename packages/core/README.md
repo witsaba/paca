@@ -2,8 +2,8 @@
 
 The core holds what the services of the monorepository share: the models of
 the domain, the contracts of the repositories and the migrations of the
-schema. The MCP server imports it today; the worker and the REST backend
-will import it tomorrow.
+schema. The MCP server and the database admin import it today; the worker
+and the REST backend will import it tomorrow.
 
 It is a **library**. It publishes no port, it runs no container, and it
 starts no process. A service maps its own environment onto the configuration
@@ -148,9 +148,14 @@ user that moved at the same time is reported instead of written over.
 
 ## The migrations
 
-The schema has **one writer**, and it is the command `db-migrate`. A service
-never migrates on boot: a service that migrates on boot races with the other
-replicas of itself.
+The schema has **one writer**. In the container it is the `db-admin` service
+(`apps/db-admin/`): it applies the pending migrations when it starts, and
+nothing else writes the schema. From a machine, the writer is the command
+`db-migrate`.
+
+The other services never migrate on boot: a service that migrates on boot
+races with the other replicas of itself. The writer is the exception, and
+the lock of the database is what keeps it safe.
 
 ```sh
 make -C packages/core db-migrate      # apply the pending migrations

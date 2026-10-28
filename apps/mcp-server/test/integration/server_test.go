@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -46,8 +47,8 @@ func startServer(t *testing.T) string {
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    projectDir(t),
-				Dockerfile: "Dockerfile",
+				Context:    repositoryRoot(t),
+				Dockerfile: filepath.Join("apps", "mcp-server", "Dockerfile"),
 				Repo:       imageName,
 				Tag:        imageTag,
 				KeepImage:  true,
@@ -99,6 +100,18 @@ func projectDir(t *testing.T) string {
 
 	// The test lives in <project>/test/integration.
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+}
+
+// repositoryRoot returns the root of the monorepository, which is the
+// context of the build of the image.
+//
+// The image of the server is built from the root of the repository, the way
+// the stack of the monorepository builds it: the server imports the shared
+// libraries of the repository, and they are modules of their own next to it.
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+
+	return filepath.Clean(filepath.Join(projectDir(t), "..", ".."))
 }
 
 func TestTheServerComesUpAndAnswersItsHealth(t *testing.T) {
@@ -168,8 +181,17 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 0 {
-		t.Fatalf("the server exposes %d tools, want none yet", len(tools.Tools))
+
+	// The server speaks the protocol and it serves the tools that its
+	// documentation promises.
+	want := []string{"change_user_status", "onboard_user", "update_user_contact_data"}
+	got := make([]string, 0, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		got = append(got, tool.Name)
+	}
+	slices.Sort(got)
+	if !slices.Equal(got, want) {
+		t.Fatalf("the server exposes the tools %v, want %v", got, want)
 	}
 }
 

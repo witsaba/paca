@@ -95,16 +95,22 @@ because each one states it in its own words and its own tests assert those words
 
 | ID   | Task                                                                                          | Specs   | Route   | Commit    |
 |------|-----------------------------------------------------------------------------------------------|---------|---------|-----------|
-| T1   | Delete the `db-migrate` command and every reference to it (Makefile, README, coverage lists)   | S3      | inline  | _pending_ |
-| T2   | Create the `packages/domain` module: the model of the user and the port of the storage          | S2, S5  | inline  | _pending_ |
-| T3   | Create the `packages/database` module: the pool, the queries, the migrations, the migrator, the repository | S2, S5 | inline | _pending_ |
-| T4   | Point the two applications at the two new modules                                               | S2, S6  | worker  | _pending_ |
-| T5   | Move the assembly of the connection string into the database library                           | S7      | inline  | _pending_ |
-| T6   | Wire the build: `go.work`, the root `Makefile`, the continuous integration, the documentation   | S2, S5  | inline  | _pending_ |
+| T1   | Delete the `db-migrate` command and every reference to it (Makefile, README, coverage lists)   | S3      | inline  | `f3f29a5` |
+| T2   | Create the `packages/domain` module: the model of the user and the port of the storage          | S2, S5  | inline  | `d6ea254` |
+| T3   | Create the `packages/database` module: the pool, the queries, the migrations, the migrator, the repository | S2, S5 | inline | `266e48b` |
+| T4   | Point the two applications at the two new modules                                               | S2, S6  | inline  | `266e48b` |
+| T5   | Move the assembly of the connection string into the database library                           | S7      | worker  | `8f6efd2` |
+| T6   | Wire the build: `go.work`, the root `Makefile`, the continuous integration, the documentation   | S2, S5  | inline  | `90b572d` |
 | T7   | The differential check and the gate of the repository                                           | S6      | verifier | _pending_ |
 
 Each task is one work unit: one commit, with its tests and its documentation
 alongside the behavior it changes.
+
+T4 landed with T3: the rewrite of the import paths of the two applications is
+the same mechanical operation as the move of the library, and splitting it in
+two commits would have produced a commit that does not build.
+
+The feature document of the slice is `a5a2db7`.
 
 ---
 
@@ -176,3 +182,83 @@ packages/database/          module github.com/witsaba/paca/packages/database
 
 `packages/domain` imports nothing but the standard library. `packages/database`
 imports `packages/domain` and never an application. The applications import both.
+
+### L8 — the writer of the slice, and the work units
+
+The writer of T5 was a worker, with a bounded surface: the new package
+`packages/database/config`, the configuration of the two services, and the
+README of the library. The writer proved the RED (the package did not exist) and
+the GREEN, and it proved with a scratch script that the connection string of the
+library is byte-for-byte the one the two services built before.
+
+### L9 — the defect the writer found in the work of T3
+
+The writer reported that the lint of `packages/database` failed on three files of
+the adapter: the rewrite of the import paths moved `packages/domain/user` before
+`packages/database/internal/db`, and the group of the local imports was not sorted
+anymore. `gofmt` refused the files, and the gate of the module failed on them.
+
+The defect was mine, from T3, and it was fixed in `9c72c6d`: the import group is
+sorted again. A fourth file, the one of the container tests, was not in the report
+of the writer because the linter does not see it — it carries the build tag of the
+integration tests — and `make fmt-check` runs over every file. It is sorted too.
+
+### L10 — the documentation of the past slices is left alone
+
+The feature documents of the past slices (`odd/tasks/core-data-service.md`,
+`odd/tasks/db-admin-service.md`, `odd/tasks/user-crud-mcp.md`) name the module
+`packages/core`. They are the record of what happened then, and they keep the
+paths they were written with. The documentation that describes the repository
+today — the root README, the README of the two services, the README of the two
+libraries — says where the library and the domain live now.
+
+### L11 — the differential check of the slice
+
+Sixteen scenarios were run against the binaries of the previous code (the commit
+`5f87399`, built in a scratch directory outside the worktree) and against the
+binaries of the change, with the same environment: the stdout, the stderr and the
+exit code of every one of them are identical. The scenarios cover the refusals of
+the configuration (an empty connection string, a connection string of spaces, a
+number of connections that is not a number, a timeout that is not a duration, a
+port that is not a number, a port out of range, an empty host), the start of the
+MCP server with and without a database, the refusals of the database admin (no
+database, an empty connection string, a wait timeout that is not a duration, a
+port that is not a number, half of the credentials), the give-up of the writer
+when the database does not answer, and the health check without a service.
+
+The script is a scratch tool and it is not committed. The timestamp of the log
+line is normalized, because it is the only thing two runs of the same code never
+share.
+
+### L12 — the size of the slice
+
+The slice is larger than the four hundred lines a work unit aims at: the two
+modules, the move of the code, the wiring of the build and the documentation. The
+repository's practice is one pull request per feature slice, and the commits are
+the review path. The deviation is recorded here, and the maintainer decides
+whether to split it.
+
+### L13 — the defect that the container tests of the packages found
+
+The root of the monorepository calls the container tests of every package, and
+the new module of the domain brought no target to call: `make
+packages-integration` stopped on it before it ran a single test.
+
+The module talks to no database, and the rules of the domain are proven by the
+unit tests. The module now declares its own answer with a `test-integration`
+target that says so and succeeds, and the root keeps dispatching without naming
+anything. It is fixed in `9851df4`.
+
+### L14 — the evidence of the gate
+
+- `make gate`: green. The format check, the check of the generated code, the
+  analyzers, the linter (0 issues in every module), the build, the tests, the
+  race detector, the coverage gate (96.3% for the database library, 97.2% for
+  the domain) and the vulnerability scan (no vulnerability) of the two
+  applications and the two libraries.
+- `make packages-integration`: green. The container tests of the database library
+  assert every rule of the tables against a real PostgreSQL.
+- `make apps-integration`: green. The images of the two services are built from
+  the root of the repository and run against a PostgreSQL.
+
+

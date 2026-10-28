@@ -93,6 +93,23 @@ When the migrations fail, the service **does not start serving**: it logs
 the failure and exits with a non-zero status. A service that did not write
 the schema is not a writer.
 
+### The wait for the database
+
+The database of the monorepository and the writer that owns its schema start
+at the same moment, and the database accepts the connections a couple of
+seconds after its container starts. The writer **waits** for its database
+instead of asking it once and exiting.
+
+The difference matters: a container that exits is restarted by the runtime
+of Docker, and the health check of the container declares it unhealthy
+before the restart succeeds. The stack would then come up by a race, and the
+race is lost more often than not.
+
+The budget of the wait is `PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT` (60 seconds
+by default). An invalid value is an error, never a silent fallback. The
+start period of the health check of the container is longer than the budget,
+so the container is never declared unhealthy while the writer waits.
+
 ## The endpoint
 
 | Path       | Method | What it answers                                          |
@@ -135,6 +152,7 @@ silent fallback.
 | `PACA_DB_ADMIN_PORT`        | `8082`      | The port reserved for the database admin service.      |
 | `PACA_DB_ADMIN_CHECK_TIMEOUT` | `2s`      | The bound of a single health check.                   |
 | `PACA_DB_ADMIN_SHUTDOWN_TIMEOUT` | `10s`   | The grace period of the shutdown.                     |
+| `PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT` | `60s` | How long the writer waits for the database to answer when it starts. |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the health report carries.   |
 | `PACA_DATABASE_URL`         | *empty*     | The whole connection string of the database. When it is set, it wins and nothing else is read. |

@@ -21,6 +21,7 @@ func clearEnvironment(t *testing.T) {
 		config.EnvPort,
 		config.EnvShutdownTimeout,
 		config.EnvCheckTimeout,
+		config.EnvDatabaseWaitTimeout,
 		config.EnvLogLevel,
 		config.EnvServiceVersion,
 		config.EnvDatabaseURL,
@@ -80,6 +81,9 @@ func TestLoadUsesTheSafeDefaults(t *testing.T) {
 	}
 	if cfg.CheckTimeout != config.DefaultCheckTimeout {
 		t.Fatalf("check timeout = %s, want %s", cfg.CheckTimeout, config.DefaultCheckTimeout)
+	}
+	if cfg.Database.WaitTimeout != config.DefaultDatabaseWaitTimeout {
+		t.Fatalf("database wait timeout = %s, want %s", cfg.Database.WaitTimeout, config.DefaultDatabaseWaitTimeout)
 	}
 	if cfg.LogLevel != slog.LevelInfo {
 		t.Fatalf("log level = %s, want %s", cfg.LogLevel, slog.LevelInfo)
@@ -347,6 +351,44 @@ func TestLoadFailsWithAnInvalidTimeout(t *testing.T) {
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the timeout of the checks")
+	}
+}
+
+func TestLoadReadsTheWaitTimeoutOfTheDatabase(t *testing.T) {
+	clearEnvironment(t)
+	setCredentials(t)
+
+	t.Setenv(config.EnvDatabaseWaitTimeout, "90s")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Database.WaitTimeout != 90*time.Second {
+		t.Fatalf("database wait timeout = %s, want %s", cfg.Database.WaitTimeout, 90*time.Second)
+	}
+}
+
+func TestLoadFailsWithAnInvalidWaitTimeoutOfTheDatabase(t *testing.T) {
+	clearEnvironment(t)
+	setCredentials(t)
+
+	t.Setenv(config.EnvDatabaseWaitTimeout, "soon")
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load() = nil, want an error about the timeout of the wait")
+	}
+}
+
+func TestLoadFailsWithANegativeWaitTimeoutOfTheDatabase(t *testing.T) {
+	clearEnvironment(t)
+	setCredentials(t)
+
+	t.Setenv(config.EnvDatabaseWaitTimeout, "-1s")
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load() = nil, want an error about the timeout of the wait")
 	}
 }
 

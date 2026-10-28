@@ -78,7 +78,11 @@ ENV PACA_DB_ADMIN_HOST=0.0.0.0 \
 
 # The health check asks the service, from inside the container, whether it
 # is alive. It needs the binary itself and nothing else.
-HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+#
+# The start period covers the wait of the writer for its database: the
+# service waits for the database before it serves, and the container is
+# not declared unhealthy while it waits.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=3 \
     CMD ["/app/paca-db-admin", "healthcheck"]
 
 ENTRYPOINT ["/app/paca-db-admin"]

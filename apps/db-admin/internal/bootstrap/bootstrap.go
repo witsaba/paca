@@ -32,11 +32,6 @@ import (
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
 )
 
-// connectTimeout bounds the attempt to reach the database when the service
-// starts. The database is required: the service is the writer of the schema,
-// and it has nothing to do without it.
-const connectTimeout = 10 * time.Second
-
 // App is the assembled service: the HTTP server that hosts the health
 // endpoint, and the connection to the database it wrote the schema with.
 type App struct {
@@ -66,7 +61,7 @@ func New(
 
 	startedAt := time.Now()
 
-	db, err := openDatabase(ctx, cfg)
+	db, err := openDatabase(ctx, cfg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -121,23 +116,38 @@ func New(
 	}, nil
 }
 
-// openDatabase opens the connection of the service to the database.
+// openDatabase opens the connection of the service to the database, and it
+// waits for the database to answer.
 //
 // The connection is opened with the driver of the core, the same one the
 // migrator of the core uses: the service and the schema speak the same
 // protocol.
-func openDatabase(ctx context.Context, cfg config.Config) (*sql.DB, error) {
+//
+// The wait is the rule: the database of the monorepository and the writer
+// that owns its schema start at the same moment, and the database accepts
+// the connections a couple of seconds after its container starts. The
+// writer waits for it instead of asking once and exiting: a container that
+// exits is restarted by the runtime of Docker, and the health check of the
+// container declares it unhealthy before the restart succeeds.
+func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*sql.DB, error) {
 	db, err := sql.Open("pgx", cfg.Database.URL)
 	if err != nil {
 		return nil, fmt.Errorf("the database could not be opened: %w", err)
 	}
 
-	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	waitCtx, cancel := context.WithTimeout(ctx, cfg.Database.WaitTimeout)
 	defer cancel()
 
-	if err := db.PingContext(connectCtx); err != nil {
+	waiter := database.NewWaiter(
+		database.NewPinger(db),
+		logger,
+		database.WaitInterval,
+		database.Sleep,
+	)
+
+	if err := waiter.Wait(waitCtx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("the database did not answer: %w", err)
+		return nil, err
 	}
 
 	return db, nil

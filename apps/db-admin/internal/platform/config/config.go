@@ -55,6 +55,9 @@ const (
 	// EnvDatabasePort is the port of the database, when the connection
 	// string is assembled from the credentials.
 	EnvDatabasePort = "PACA_DATABASE_PORT"
+	// EnvDatabaseWaitTimeout is how long the writer waits for the
+	// database to answer when it starts.
+	EnvDatabaseWaitTimeout = "PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT"
 	// EnvPostgresUser is the user of the database. It is the variable the
 	// stack of PostgreSQL writes its credentials to.
 	EnvPostgresUser = "POSTGRES_USER"
@@ -109,6 +112,15 @@ const (
 	DefaultDatabaseHost = "postgres"
 	// DefaultDatabasePort is the port of the database.
 	DefaultDatabasePort = "5432"
+	// DefaultDatabaseWaitTimeout is how long the writer waits for the
+	// database to answer before it gives up.
+	//
+	// The database of the monorepository accepts the connections a couple
+	// of seconds after its container starts, and the writer starts at the
+	// same moment as the database. A minute is long enough for the
+	// database to be ready, and short enough for a person to notice that
+	// something is wrong.
+	DefaultDatabaseWaitTimeout = 60 * time.Second
 	// ServiceName is the name the service reports in its health report.
 	ServiceName = "paca-db-admin"
 	// DefaultOtelProtocol is the protocol the exporter speaks to the
@@ -166,6 +178,9 @@ type Config struct {
 type DatabaseConfig struct {
 	// URL is the connection string of the database.
 	URL string
+	// WaitTimeout is how long the writer waits for the database to answer
+	// when it starts.
+	WaitTimeout time.Duration
 }
 
 // TracingConfig holds the settings of the tracing.
@@ -316,12 +331,21 @@ func LoadPort() (int, error) {
 // A service without a database has nothing to do: it is the writer of the
 // schema, so it refuses to start.
 func loadDatabase() (DatabaseConfig, error) {
+	waitTimeout := DefaultDatabaseWaitTimeout
+	if raw, ok := os.LookupEnv(EnvDatabaseWaitTimeout); ok {
+		timeout, err := parseDuration(EnvDatabaseWaitTimeout, raw)
+		if err != nil {
+			return DatabaseConfig{}, err
+		}
+		waitTimeout = timeout
+	}
+
 	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
 		connection := strings.TrimSpace(raw)
 		if connection == "" {
 			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
 		}
-		return DatabaseConfig{URL: connection}, nil
+		return DatabaseConfig{URL: connection, WaitTimeout: waitTimeout}, nil
 	}
 
 	user := strings.TrimSpace(os.Getenv(EnvPostgresUser))
@@ -357,7 +381,10 @@ func loadDatabase() (DatabaseConfig, error) {
 		port = strconv.Itoa(number)
 	}
 
-	return DatabaseConfig{URL: connectionString(user, password, host, port, database)}, nil
+	return DatabaseConfig{
+		URL:         connectionString(user, password, host, port, database),
+		WaitTimeout: waitTimeout,
+	}, nil
 }
 
 // connectionString assembles the connection string of the database from its
@@ -457,6 +484,9 @@ func (c Config) validate() error {
 	}
 	if c.Database.URL == "" {
 		return fmt.Errorf("%s: the connection string of the database is empty", EnvDatabaseURL)
+	}
+	if c.Database.WaitTimeout <= 0 {
+		return fmt.Errorf("%s: the timeout must be positive", EnvDatabaseWaitTimeout)
 	}
 	return nil
 }

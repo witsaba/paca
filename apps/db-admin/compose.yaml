@@ -51,6 +51,14 @@ services:
       # monorepository.
       PACA_DB_ADMIN_PORT: "8082"
       PACA_LOG_LEVEL: "info"
+      # How long the writer waits for the database before it gives up.
+      #
+      # The database and the writer start at the same moment, and the
+      # database accepts the connections a couple of seconds after its
+      # container starts: the writer waits for it instead of exiting. The
+      # start period of the health check below is longer than this budget,
+      # so the container is never declared unhealthy while the writer waits.
+      PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT: "60s"
       # The database of the stack. The credentials of it come from the
       # `env_file` above, and the service assembles the connection string.
       PACA_DATABASE_HOST: "postgres"
@@ -77,7 +85,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      # The writer waits for the database before it serves, and the
+      # database accepts the connections a couple of seconds after its
+      # container starts. The start period covers that wait: the container
+      # is not declared unhealthy while the writer waits for its database.
+      #
+      # It is longer than the budget of the wait of the service (60
+      # seconds by default), so the writer is never declared unhealthy
+      # while it is still waiting.
+      start_period: 90s
     # The container runs as a non-root user, without any capability, and
     # without the ability to gain more.
     read_only: true

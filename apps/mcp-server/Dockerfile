@@ -41,11 +41,13 @@ WORKDIR /src
 COPY apps/mcp-server/go.mod apps/mcp-server/go.sum ./apps/mcp-server/
 COPY packages/database/go.mod packages/database/go.sum ./packages/database/
 COPY packages/domain/go.mod ./packages/domain/
+COPY packages/platform/go.mod packages/platform/go.sum ./packages/platform/
 RUN cd apps/mcp-server && go mod download
 
 COPY apps/mcp-server/ ./apps/mcp-server/
 COPY packages/database/ ./packages/database/
 COPY packages/domain/ ./packages/domain/
+COPY packages/platform/ ./packages/platform/
 
 # A static binary, so the runtime image needs no C library at all.
 RUN cd apps/mcp-server && CGO_ENABLED=0 GOOS=linux go build \

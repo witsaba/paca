@@ -59,6 +59,17 @@ assert_equals() {
   fi
 }
 
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local message="$3"
+  ASSERTIONS=$((ASSERTIONS + 1))
+  case "$haystack" in
+    *"$needle"*) ;;
+    *) fail "$message: [$needle] was not found" ;;
+  esac
+}
+
 assert_not_contains() {
   local haystack="$1"
   local needle="$2"
@@ -411,6 +422,44 @@ EOF
   done < <(documents_of_the_repository)
 }
 
+# test_every_image_copies_the_modules_it_imports asserts that the image of
+# every service copies every module of the monorepository the service
+# imports.
+#
+# The context of the image is the root of the repository, and a module the
+# image does not copy is a module the build cannot resolve: the service
+# fails to build inside the container, and the failure is a line of a log
+# far from the change that caused it.
+test_every_image_copies_the_modules_it_imports() {
+  local application
+  while IFS= read -r application; do
+    local module
+    module=$(basename "$application")
+
+    local dockerfile="$REPO_ROOT/$application/Dockerfile"
+    [ -f "$dockerfile" ] || continue
+
+    local imported
+    imported=$(grep -oE 'github.com/witsaba/paca/packages/[a-z-]+' "$REPO_ROOT/$application/go.mod" |
+      sort -u)
+
+    local library
+    while IFS= read -r library; do
+      [ -n "$library" ] || continue
+
+      local path
+      path=${library#github.com/witsaba/paca/}
+
+      # The sources of the module, not only its go.mod: the image builds
+      # the service from them.
+      assert_contains "$(cat "$dockerfile")" "COPY $path/ ./$path/" \
+        "the image of $module copies the sources of $path: the service imports it"
+    done <<EOF
+$imported
+EOF
+  done < <(applications_of_the_repository)
+}
+
 # ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
@@ -423,6 +472,7 @@ test_the_adapters_of_every_application_know_no_use_case
 test_only_the_composition_root_knows_the_adapters
 test_the_shared_domain_knows_nothing_but_the_standard_library
 test_the_shared_platform_knows_no_model
+test_every_image_copies_the_modules_it_imports
 
 printf '%s assertion(s), %s failure(s)\n' "$ASSERTIONS" "$FAILURES"
 

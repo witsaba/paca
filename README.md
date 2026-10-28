@@ -148,7 +148,7 @@ comes from.
 ## The schema of the database
 
 The schema has **one writer**, and it is the `db-admin` service. It applies
-the pending migrations of `packages/core/migrations/` when it starts, and it
+the pending migrations of `packages/database/migrations/` when it starts, and it
 says so in its log. A service never migrates on boot: a service that
 migrates on boot races with the other replicas of itself.
 
@@ -166,7 +166,8 @@ the coverage gate, the benchmarks and the vulnerability scan.
 
 ```sh
 make -C apps/mcp-server all
-make -C packages/core all
+make -C packages/domain all
+make -C packages/database all
 ```
 
 The tools are pinned in `tools/go.mod` and run with `go tool`, so every
@@ -198,7 +199,7 @@ brings the whole monorepository up and waits until it is healthy, and
 `make stack-schema` asserts, against the running project, that every
 container is running and healthy, that the writer of the schema was not
 restarted (it waits for its database instead of exiting and being
-restarted), that every migration of `packages/core/migrations` is applied,
+restarted), that every migration of `packages/database/migrations` is applied,
 and that the table `users` exists. The script behind it is
 [`scripts/stack-schema.sh`](scripts/stack-schema.sh).
 

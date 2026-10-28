@@ -18,11 +18,19 @@ support them, in one repository and one compose project.
 The repository is a Go workspace (`go.work`), so the modules are built and
 tested against each other, and every module keeps working on its own.
 
+## The contract of the agents
+
+[`AGENTS.md`](AGENTS.md) holds the contract of the architecture: the layers and the
+direction of the dependencies, the ownership of the rules of the domain, the owner of
+every model, and the checks of SOLID. It is written for a coding agent, and it is the
+canonical entry of the instructions of the repository. The entry file of each module
+(`packages/*/AGENTS.md`, `apps/*/AGENTS.md`) adds the specifics of that module.
+
 ## What is in the repository now
 
 | Directory          | What it is                                        | README |
 |--------------------|---------------------------------------------------|--------|
-| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and no tool yet. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
+| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and three tools for the people who use PACA. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/database/` | The database library: the pool, the queries, the migrations and the repositories that write the rows. A library, with no port and no container. | [packages/database/README.md](packages/database/README.md) |
 | `packages/domain/` | The domain: the models of the people and the port of their storage. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |

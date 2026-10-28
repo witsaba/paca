@@ -23,7 +23,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/server"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
-	"github.com/witsaba/paca/packages/core/postgres"
+	"github.com/witsaba/paca/packages/database/postgres"
 )
 
 // Instructions tells the MCP clients what the server is for.

@@ -8,7 +8,7 @@
 #   * the writer of the schema was not restarted: it waits for its
 #     database instead of exiting and being restarted;
 #   * the schema of the database is complete: every migration of
-#     packages/core/migrations is applied;
+#     packages/database/migrations is applied;
 #   * the table `users` exists.
 #
 # The usage:
@@ -28,7 +28,7 @@ set -euo pipefail
 PROJECT=paca
 
 # The migrations of the schema, and the writer of it.
-MIGRATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../packages/core/migrations" && pwd)"
+MIGRATIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../packages/database/migrations" && pwd)"
 WRITER=db-admin
 
 failures=0

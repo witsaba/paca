@@ -33,7 +33,7 @@ APPS := mcp-server db-admin
 
 # The shared libraries of the monorepository. A service imports them; they
 # publish no port and run no container.
-PACKAGES := core
+PACKAGES := domain database
 
 # The compose project of the monorepository: the root compose file includes
 # every stack, so the whole project is driven from here.
@@ -49,7 +49,7 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
         db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
         stack-up stack-schema stack-down \
-        env-init env-test
+        env-init env-test structure-test
 
 help: ## Show this help
 	@echo "PACA — the targets of the monorepository"
@@ -75,6 +75,7 @@ help: ## Show this help
 	@echo "The installation of the environment:"
 	@echo "  make env-init           write the .env file of every stack (asks for the values)"
 	@echo "  make env-test           run the tests of the installer of the environment"
+	@echo "  make structure-test      run the tests of the structure of the repository"
 	@echo ""
 	@echo "The applications of the monorepository:"
 	@for app in $(APPS); do \
@@ -122,6 +123,8 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 	$(MAKE) --no-print-directory shellcheck; \
 	echo "==> the tests of the installer of the environment"; \
 	$(MAKE) --no-print-directory env-test; \
+	echo "==> the tests of the structure of the repository"; \
+	$(MAKE) --no-print-directory structure-test; \
 	echo "==> the database"; \
 	$(MAKE) --no-print-directory db-up; \
 	$(MAKE) --no-print-directory db-smoke; \
@@ -224,3 +227,8 @@ env-init: ## Write the .env file of every stack of the monorepository
 # directory, so the .env of the repository is never touched.
 env-test: ## Run the tests of the installer of the environment
 	@./scripts/tests/setup-env-test.sh
+
+# The tests of the structure: every module resolves its own graph, and every
+# link of the documentation points at a file that exists.
+structure-test: ## Run the tests of the structure of the repository
+	@./scripts/tests/structure-test.sh

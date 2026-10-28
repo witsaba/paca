@@ -33,17 +33,19 @@ WORKDIR /src
 # module of its own next to it.
 #
 # The layout of the sources is the layout of the repository, so the local
-# dependency of the service on the core resolves the same way here as it
-# does on a machine.
+# dependency of the service on the database library resolves the same way
+# it does on a machine.
 #
 # The dependencies are downloaded first, so the layer of the dependencies is
 # reused every time the sources change.
 COPY apps/db-admin/go.mod apps/db-admin/go.sum ./apps/db-admin/
-COPY packages/core/go.mod packages/core/go.sum ./packages/core/
+COPY packages/database/go.mod packages/database/go.sum ./packages/database/
+COPY packages/domain/go.mod ./packages/domain/
 RUN cd apps/db-admin && go mod download
 
 COPY apps/db-admin/ ./apps/db-admin/
-COPY packages/core/ ./packages/core/
+COPY packages/database/ ./packages/database/
+COPY packages/domain/ ./packages/domain/
 
 # A static binary, so the runtime image needs no C library at all.
 RUN cd apps/db-admin && CGO_ENABLED=0 GOOS=linux go build \

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/database"
-	"github.com/witsaba/paca/packages/core/postgres"
+	"github.com/witsaba/paca/packages/database/postgres"
 )
 
 func TestTheCheckerNamesTheDatabase(t *testing.T) {

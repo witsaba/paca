@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // UsersService is the use case of the users.

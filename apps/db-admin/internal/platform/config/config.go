@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	dbconfig "github.com/witsaba/paca/packages/database/config"
 )
 
 // The environment variables the service reads.
@@ -382,26 +384,15 @@ func loadDatabase() (DatabaseConfig, error) {
 	}
 
 	return DatabaseConfig{
-		URL:         connectionString(user, password, host, port, database),
+		URL: dbconfig.ConnectionString(dbconfig.Credentials{
+			User:     user,
+			Password: password,
+			Database: database,
+			Host:     host,
+			Port:     port,
+		}),
 		WaitTimeout: waitTimeout,
 	}, nil
-}
-
-// connectionString assembles the connection string of the database from its
-// credentials.
-//
-// The password is escaped: a password of the stack may hold a character that
-// the connection string reserves, and an unescaped one would change the
-// meaning of the URL.
-func connectionString(user, password, host, port, database string) string {
-	connection := &url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(user, password),
-		Host:     net.JoinHostPort(host, port),
-		Path:     "/" + database,
-		RawQuery: "sslmode=disable",
-	}
-	return connection.String()
 }
 
 // loadTracing reads the settings of the tracing from the environment.

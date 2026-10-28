@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // ErrNoDatabase is the error of a use case with no database behind it.

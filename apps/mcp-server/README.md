@@ -43,9 +43,11 @@ public interface, so a rule can be tested without a server.
 
 ## The database
 
-The server imports the [core](../packages/core) of the monorepository, and it
-reads and writes the people through it: the pool, the driver, the queries and
-the rules of the person belong to the core, and the server never names them.
+The server imports the [database library](../../packages/database) and the
+[domain](../../packages/domain) of the monorepository, and it reads and writes
+the people through them: the pool, the driver and the queries belong to the
+database library, the rules of the person belong to the domain, and the
+server never names them.
 
 The database is **still optional**. The server starts without one, the three
 tools are still there, and every call answers that the database is not
@@ -118,7 +120,7 @@ address, a document that is already registered, an email that belongs to
 somebody else, a move the map does not allow, and an observation that does
 not fit the status: each one says what happened and what to do about it.
 
-The rules themselves live in the [core](../packages/core): the cleaning of
+The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the
 observation. The tools only carry them to the agent.
 

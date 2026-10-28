@@ -1,7 +1,7 @@
 # The database admin service of the PACA monorepository.
 
 The service is the **single writer of the schema**. It applies the pending
-migrations of the [core](../../packages/core) when it starts, and it stays
+migrations of the [database library](../../packages/database) when it starts, and it stays
 alive serving exactly **one** health endpoint: `/healthz`.
 
 It does nothing else. There is no REST API and there is no gRPC surface yet:
@@ -33,7 +33,7 @@ internal/
   ports/                     the contracts between the layers
   adapters/
     inbound/http/            the HTTP adapter: the health endpoint
-    outbound/database/       the migrator over the core, the checker of the database
+    outbound/database/       the migrator over the database library, the checker of the database
   platform/                  the infrastructure: config, logs, telemetry, clock, server
   bootstrap/                 the wiring of every layer
 test/integration/            the container tests
@@ -55,11 +55,12 @@ without a database on purpose: its tools are still there, and every call says
 that the database is not configured. The database admin service has no such
 fallback.
 
-The service imports the [core](../../packages/core) of the monorepository and
-it writes the schema through it: the migrator of the core is the only thing
-that writes the schema, and the service never writes a migration of its own.
-The core reads no environment variable — the mapping of the environment onto
-the configuration lives here, in the configuration of this service.
+The service imports the [database library](../../packages/database) of the
+monorepository and it writes the schema through it: the migrator of the
+library is the only thing that writes the schema, and the service never
+writes a migration of its own. The library reads no environment variable —
+the mapping of the environment onto the configuration lives here, in the
+configuration of this service.
 
 ### The credentials
 
@@ -82,7 +83,7 @@ is missing and exits. An invalid value is an error, never a silent fallback.
 ### The migrations
 
 The service applies the pending migrations of the schema when it starts, and
-it does it through the migrator of the core, which takes the lock of the
+it does it through the migrator of the library, which takes the lock of the
 database while it writes.
 
 Applying the migrations is **idempotent**: a second start finds nothing to

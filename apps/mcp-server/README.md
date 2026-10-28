@@ -49,28 +49,45 @@ the rules of the person belong to the core, and the server never names them.
 
 The database is **still optional**. The server starts without one, the three
 tools are still there, and every call answers that the database is not
-configured. When `PACA_DATABASE_URL` names one, the health report carries a
+configured. When the configuration names one, the health report carries a
 `database` check, and a database that does not answer makes the service
 unhealthy.
 
 The pool is lazy: a database that is down does not stop the server from
 starting. The health check is what asks the database whether it answers.
 
-**The stack does not point the server at the database yet.** The credentials
-live with the stack that owns them — `db/postgres/.env` — and the compose of
-the server does not read that file, so the three tools of a server that the
-stack started answer that the database is not configured. To run the stack
-with the tools working, name the database in the environment of the server:
+**The stack points the server at the database.** The credentials live with
+the stack that owns them — `db/postgres/.env` — and the compose of the
+server loads that file with `env_file`, so they are written once and only
+once. The server assembles the connection string itself, because Docker
+Compose does not interpolate `${VAR}` from the `env_file` of a service into
+its `environment` block.
 
-```sh
-set -a; . db/postgres/.env; set +a
-export PACA_DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
-docker compose up -d --wait
-```
+The connection string is resolved in this order:
+
+1. `PACA_DATABASE_URL` — the whole connection string. When it is set, it
+   wins, and nothing else is read.
+2. Otherwise the connection string is assembled from the credentials of the
+   PostgreSQL stack — `POSTGRES_USER`, `POSTGRES_PASSWORD` and
+   `POSTGRES_DB` — with `PACA_DATABASE_HOST` (default `postgres`) and
+   `PACA_DATABASE_PORT` (default `5432`):
+   `postgres://<user>:<password>@<host>:<port>/<database>?sslmode=disable`.
+   The user and the password are escaped the way a URL carries them, so a
+   password with an `@` or a `/` in it does not break the connection string.
+3. When neither of them is there, the server runs **without a database**, and
+   its health report says nothing about it. Credentials that are half there
+   are ignored the same way: the server runs without a database and says so
+   in its log. A variable that is there and holds something invalid is
+   still an error, never a silent fallback.
 
 The URL names the container, so it is the same URL the host does not reach:
 the database publishes no port, and only the containers of the internal
-network do.
+network do. To point the server at a database by hand, name it whole:
+
+```sh
+export PACA_DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+docker compose up -d --wait
+```
 
 ## The tools
 
@@ -138,9 +155,18 @@ silent fallback.
 | `PACA_MCP_MAX_REQUEST_BYTES`| `4MiB`      | The largest body the MCP transport accepts.           |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the clients see.             |
-| `PACA_DATABASE_URL`         | *empty*     | The connection string of the database. Empty means the server runs without one. |
+| `PACA_DATABASE_URL`         | *empty*     | The connection string of the database. When it is set, it wins and nothing else is read. Empty means the server runs without one. |
 | `PACA_DATABASE_MAX_CONNS`   | `4`         | The number of connections the pool of the database may open. |
 | `PACA_DATABASE_CONNECT_TIMEOUT` | `5s`    | The bound of the attempt to open a connection. |
+| `PACA_DATABASE_HOST`        | `postgres`  | The host the database answers on. It is only read when the connection string is assembled from the credentials. |
+| `PACA_DATABASE_PORT`        | `5432`      | The port the database answers on. It is only read when the connection string is assembled from the credentials. |
+| `POSTGRES_USER`             | *empty*     | The role that owns the application database. It travels from `db/postgres/.env` with the `env_file` of the compose. |
+| `POSTGRES_PASSWORD`         | *empty*     | The password of the role. It travels from `db/postgres/.env` with the `env_file` of the compose. |
+| `POSTGRES_DB`               | *empty*     | The application database. It travels from `db/postgres/.env` with the `env_file` of the compose. |
+
+Without `PACA_DATABASE_URL` and without the credentials of the PostgreSQL
+stack, the server runs without a database. Credentials that are half there
+are ignored: the server runs without a database and says so in its log.
 
 ### The tracing
 
@@ -198,6 +224,13 @@ make -C apps/mcp-server compose-up     # start the stack and wait until it is he
 make -C apps/mcp-server smoke          # ask the running server whether it is alive
 make -C apps/mcp-server compose-down   # stop the stack
 ```
+
+The stack of the server loads the credentials of the PostgreSQL stack, so it
+expects a database to answer at `postgres:5432`: the database of the
+monorepository, on the network the stacks share. Start the database first
+(`make db-up`) or start the whole monorepository (`docker compose up
+--wait`). Without a database the server still serves, and its health report
+says that the database does not answer.
 
 ## The quality gate
 

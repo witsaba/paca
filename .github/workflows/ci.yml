@@ -5,16 +5,19 @@
 #
 #   make gate                the quality gate of every application and every package
 #   make packages-integration  the container tests of every package
+#   make apps-integration     the container tests of every application
 #   make db-up               every database, up and healthy
 #   make db-smoke            the smoke test of every database
 #   make shellcheck          the shell scripts of the repository
 #   make observability-up    the collector of the traces, up and healthy
 #   make observability-smoke the smoke test of the collector
+#   make stack-up            the whole monorepository, up and healthy
+#   make stack-schema        the assertion of the schema of the database
 #
 # The workflow never names a stack: a new application or a new database
 # joins the tree through the root Makefile alone.
 #
-# A pull request is green when the three jobs are green.
+# A pull request is green when every job is green.
 name: CI
 
 on:
@@ -54,6 +57,7 @@ jobs:
           cache-dependency-path: |
             go.work.sum
             apps/mcp-server/go.sum
+            apps/db-admin/go.sum
             packages/core/go.sum
             tools/go.sum
 
@@ -65,6 +69,15 @@ jobs:
       # against it. The runner has Docker, so they run here.
       - name: Run the container tests of the shared libraries
         run: make packages-integration
+
+      # The container tests of the applications build the image of the
+      # service and start it against a PostgreSQL. The rules of the
+      # composition root — the service applies the migrations when it
+      # starts and it keeps serving — can only be asserted against the
+      # real thing, so these tests are part of the gate. The runner has
+      # Docker, so they run here.
+      - name: Run the container tests of the applications
+        run: make apps-integration
 
   # The database: the image of the stack is built, the cluster starts, and
   # the smoke test asserts the guarantees it promises — UTF-8, UTC, UUID,
@@ -119,6 +132,35 @@ jobs:
       - name: Stop the collector of the traces
         if: always()
         run: make observability-down
+
+  # The whole monorepository from nothing: the credentials of the stacks
+  # are written, the project comes up, and the schema of the database is
+  # asserted. The schema is written by the service that owns it, so the
+  # assertion proves that the stack comes up with its schema, on a machine
+  # that has no image, no container and no volume.
+  stack:
+    name: The stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # The credentials live with the stacks that own them and are never
+      # committed, so the runner generates them with the installer of the
+      # environment: it keeps the defaults and generates a strong password.
+      - name: Create the credentials of the stacks
+        run: make env-init ARGS="--yes"
+
+      - name: Start the whole stack
+        run: make stack-up
+
+      - name: Assert the schema of the database
+        run: make stack-schema
+
+      - name: Stop the whole stack
+        if: always()
+        run: make stack-down
 
   # The shell scripts of the repository: the smoke test of the database and
   # every script a stack brings.

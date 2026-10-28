@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"log/slog"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -25,6 +26,11 @@ func clearEnvironment(t *testing.T) {
 		config.EnvDatabaseURL,
 		config.EnvDatabaseMaxConns,
 		config.EnvDatabaseConnectTimeout,
+		config.EnvDatabaseHost,
+		config.EnvDatabasePort,
+		config.EnvPostgresUser,
+		config.EnvPostgresPassword,
+		config.EnvPostgresDB,
 		config.EnvOtelDisabled,
 		config.EnvOtelEndpoint,
 		config.EnvOtelProtocol,
@@ -131,6 +137,243 @@ func TestLoadReadsTheSettingsOfTheDatabase(t *testing.T) {
 	}
 	if cfg.Database.ConnectTimeout != 3*time.Second {
 		t.Fatalf("database connect timeout = %s, want %s", cfg.Database.ConnectTimeout, 3*time.Second)
+	}
+}
+
+func TestLoadUsesTheDatabaseURLAsItIs(t *testing.T) {
+	clearEnvironment(t)
+
+	const connection = "postgres://paca:secret@postgres:5432/paca?sslmode=disable"
+	t.Setenv(config.EnvDatabaseURL, connection)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Database.URL != connection {
+		t.Fatalf("database url = %q, want %q", cfg.Database.URL, connection)
+	}
+}
+
+func TestLoadUsesTheDatabaseURLOverTheCredentials(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(config.EnvPostgresUser, "other")
+	t.Setenv(config.EnvPostgresPassword, "other-secret")
+	t.Setenv(config.EnvPostgresDB, "other")
+	t.Setenv(config.EnvDatabaseHost, "other-host")
+	t.Setenv(config.EnvDatabasePort, "6543")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable"
+	if cfg.Database.URL != want {
+		t.Fatalf("database url = %q, want %q", cfg.Database.URL, want)
+	}
+}
+
+func TestLoadReadsNothingElseWhenTheDatabaseURLIsSet(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(config.EnvDatabasePort, "not-a-port")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable"
+	if cfg.Database.URL != want {
+		t.Fatalf("database url = %q, want %q", cfg.Database.URL, want)
+	}
+}
+
+func TestLoadAssemblesTheDatabaseURLFromTheCredentials(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvPostgresUser, "paca")
+	t.Setenv(config.EnvPostgresPassword, "s3cr3t")
+	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(config.EnvDatabaseHost, "db.internal")
+	t.Setenv(config.EnvDatabasePort, "6543")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := "postgres://paca:s3cr3t@db.internal:6543/paca?sslmode=disable"
+	if cfg.Database.URL != want {
+		t.Fatalf("database url = %q, want %q", cfg.Database.URL, want)
+	}
+}
+
+func TestLoadUsesTheDefaultHostAndPortOfTheDatabase(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvPostgresUser, "paca")
+	t.Setenv(config.EnvPostgresPassword, "s3cr3t")
+	t.Setenv(config.EnvPostgresDB, "paca")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := "postgres://paca:s3cr3t@postgres:5432/paca?sslmode=disable"
+	if cfg.Database.URL != want {
+		t.Fatalf("database url = %q, want %q", cfg.Database.URL, want)
+	}
+}
+
+func TestLoadEscapesTheCredentialsOfTheDatabaseURL(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvPostgresUser, "paca")
+	t.Setenv(config.EnvPostgresPassword, "p@ss/wor d")
+	t.Setenv(config.EnvPostgresDB, "paca")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	if parsed.User == nil {
+		t.Fatalf("database url %q carries no user", cfg.Database.URL)
+	}
+	if parsed.User.Username() != "paca" {
+		t.Fatalf("user = %q, want %q", parsed.User.Username(), "paca")
+	}
+	password, ok := parsed.User.Password()
+	if !ok {
+		t.Fatalf("database url %q carries no password", cfg.Database.URL)
+	}
+	if password != "p@ss/wor d" {
+		t.Fatalf("password = %q, want %q", password, "p@ss/wor d")
+	}
+	if parsed.Host != "postgres:5432" {
+		t.Fatalf("host = %q, want %q", parsed.Host, "postgres:5432")
+	}
+	if parsed.Path != "/paca" {
+		t.Fatalf("path = %q, want %q", parsed.Path, "/paca")
+	}
+}
+
+func TestLoadRejectsAnInvalidDatabasePort(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "a port that is not a number", value: "not-a-port"},
+		{name: "a port that is zero", value: "0"},
+		{name: "a port out of range", value: "70000"},
+		{name: "an empty port", value: " "},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clearEnvironment(t)
+			t.Setenv(config.EnvPostgresUser, "paca")
+			t.Setenv(config.EnvPostgresPassword, "s3cr3t")
+			t.Setenv(config.EnvPostgresDB, "paca")
+			t.Setenv(config.EnvDatabasePort, test.value)
+
+			if _, err := config.Load(); err == nil {
+				t.Fatalf("Load() with %s=%q = nil, want an error",
+					config.EnvDatabasePort, test.value)
+			}
+		})
+	}
+}
+
+func TestLoadKeepsTheSpacesOfThePassword(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvPostgresUser, "paca")
+	t.Setenv(config.EnvPostgresPassword, " s3cr3t ")
+	t.Setenv(config.EnvPostgresDB, "paca")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	password, ok := parsed.User.Password()
+	if !ok {
+		t.Fatalf("database url %q carries no password", cfg.Database.URL)
+	}
+	if password != " s3cr3t " {
+		t.Fatalf("password = %q, want the spaces of the password to be kept", password)
+	}
+}
+
+func TestLoadRunsWithoutADatabaseWhenTheCredentialsAreIncomplete(t *testing.T) {
+	user := func(value string) *string { return &value }
+	tests := []struct {
+		name     string
+		user     *string
+		password *string
+		database *string
+	}{
+		{name: "a user without a password", user: user("paca"), database: user("paca")},
+		{name: "a password without a user", password: user("s3cr3t"), database: user("paca")},
+		{name: "a user and a password without a database", user: user("paca"), password: user("s3cr3t")},
+		{name: "a user without a password and without a database", user: user("paca")},
+		{name: "an empty password", user: user("paca"), password: user(""), database: user("paca")},
+		{name: "an empty database", user: user("paca"), password: user("s3cr3t"), database: user("")},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clearEnvironment(t)
+			if test.user != nil {
+				t.Setenv(config.EnvPostgresUser, *test.user)
+			}
+			if test.password != nil {
+				t.Setenv(config.EnvPostgresPassword, *test.password)
+			}
+			if test.database != nil {
+				t.Setenv(config.EnvPostgresDB, *test.database)
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				t.Fatalf("Load() = %v, want the server to run without a database", err)
+			}
+			if cfg.Database.URL != "" {
+				t.Fatalf("database url = %q, want the server to run without a database", cfg.Database.URL)
+			}
+			if !cfg.Database.CredentialsIncomplete {
+				t.Fatal("the credentials are incomplete and the configuration does not say so")
+			}
+		})
+	}
+}
+
+func TestLoadRunsWithoutADatabaseWhenNothingIsConfigured(t *testing.T) {
+	clearEnvironment(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if cfg.Database.URL != "" {
+		t.Fatalf("database url = %q, want it to be empty", cfg.Database.URL)
 	}
 }
 

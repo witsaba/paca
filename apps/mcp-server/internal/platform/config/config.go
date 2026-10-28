@@ -4,6 +4,16 @@
 // container, on a laptop and in a test without a configuration file. The
 // defaults are the safe ones: the server listens on the loopback interface
 // unless it is told otherwise.
+//
+// The database is named by one of two ways, and the first one wins:
+//
+//  1. `PACA_DATABASE_URL` — the whole connection string.
+//  2. The credentials of the PostgreSQL stack — `POSTGRES_USER`,
+//     `POSTGRES_PASSWORD` and `POSTGRES_DB`, which the service loads with
+//     the `env_file` of its compose — with `PACA_DATABASE_HOST` (default
+//     `postgres`) and `PACA_DATABASE_PORT` (default `5432`).
+//
+// Without either of them the service runs without a database.
 package config
 
 import (
@@ -46,6 +56,28 @@ const (
 	EnvDatabaseMaxConns = "PACA_DATABASE_MAX_CONNS"
 	// EnvDatabaseConnectTimeout bounds the attempt to open a connection.
 	EnvDatabaseConnectTimeout = "PACA_DATABASE_CONNECT_TIMEOUT"
+	// EnvDatabaseHost is the host the database answers on. It is only
+	// read when the connection string is assembled from the credentials
+	// of the PostgreSQL stack.
+	EnvDatabaseHost = "PACA_DATABASE_HOST"
+	// EnvDatabasePort is the port the database answers on. It is only
+	// read when the connection string is assembled from the credentials
+	// of the PostgreSQL stack.
+	EnvDatabasePort = "PACA_DATABASE_PORT"
+)
+
+// The environment variables of the PostgreSQL stack. They are the ones of
+// the image of PostgreSQL, and they are the credentials that live in
+// `db/postgres/.env`: the stack that owns them is the only one that
+// writes them, and every service that talks to the database loads them
+// with `env_file`.
+const (
+	// EnvPostgresUser is the role that owns the application database.
+	EnvPostgresUser = "POSTGRES_USER"
+	// EnvPostgresPassword is the password of the role.
+	EnvPostgresPassword = "POSTGRES_PASSWORD" //nolint:gosec // the name of the environment variable, not a credential.
+	// EnvPostgresDB is the application database.
+	EnvPostgresDB = "POSTGRES_DB"
 )
 
 // The environment variables of the tracing. They are the ones of the
@@ -97,6 +129,12 @@ const (
 	// DefaultDatabaseConnectTimeout bounds the attempt to reach the
 	// database.
 	DefaultDatabaseConnectTimeout = 5 * time.Second
+	// DefaultDatabaseHost is the host of the database of the
+	// monorepository: the container of the PostgreSQL stack.
+	DefaultDatabaseHost = "postgres"
+	// DefaultDatabasePort is the port the database of the monorepository
+	// answers on.
+	DefaultDatabasePort = 5432
 	// ServiceName is the name the MCP clients see.
 	ServiceName = "paca-mcp-server"
 	// DefaultOtelProtocol is the protocol the exporter speaks to the
@@ -162,6 +200,12 @@ type DatabaseConfig struct {
 	MaxConns int32
 	// ConnectTimeout bounds the attempt to open a connection.
 	ConnectTimeout time.Duration
+	// CredentialsIncomplete says that the environment carries some of the
+	// credentials of the database and not all of them. The service runs
+	// without a database in that case, as it always did, and it says so in
+	// its log: a service that stops because a variable of the environment
+	// is half set is a service that stops for a reason nobody asked for.
+	CredentialsIncomplete bool
 }
 
 // TracingConfig holds the settings of the tracing.
@@ -286,6 +330,23 @@ func Load() (Config, error) {
 //
 // The database is optional. A service that does not name it runs without
 // one, and says nothing about it in its health report.
+//
+// The connection string is resolved in this order:
+//
+//  1. `PACA_DATABASE_URL` — the whole connection string. When it is set, it
+//     wins, and nothing else is read: a hosted database, or a URL built by
+//     hand, needs nothing else.
+//  2. Otherwise the connection string is assembled from the credentials of
+//     the PostgreSQL stack (`POSTGRES_USER`, `POSTGRES_PASSWORD` and
+//     `POSTGRES_DB`, loaded from `db/postgres/.env` with `env_file`) and
+//     from `PACA_DATABASE_HOST` and `PACA_DATABASE_PORT`.
+//
+// Credentials that are half there are ignored: the service runs without a
+// database, the way it ran before the credentials of the PostgreSQL stack
+// reached it, and it says so in its log. A database that the service tries
+// to reach with an incomplete password fails later, in the middle of a
+// request; a service that says the credentials are incomplete fails at the
+// start, in the log.
 func loadDatabase() (DatabaseConfig, error) {
 	database := DatabaseConfig{
 		MaxConns:       DefaultDatabaseMaxConns,
@@ -293,11 +354,13 @@ func loadDatabase() (DatabaseConfig, error) {
 	}
 
 	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
-		url := strings.TrimSpace(raw)
-		if url == "" {
+		connection := strings.TrimSpace(raw)
+		if connection == "" {
 			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
 		}
-		database.URL = url
+		database.URL = connection
+	} else if err := loadDatabaseFromCredentials(&database); err != nil {
+		return DatabaseConfig{}, err
 	}
 
 	if raw, ok := os.LookupEnv(EnvDatabaseMaxConns); ok {
@@ -321,6 +384,101 @@ func loadDatabase() (DatabaseConfig, error) {
 	}
 
 	return database, nil
+}
+
+// loadDatabaseFromCredentials assembles the connection string of the
+// database from the credentials of the PostgreSQL stack.
+//
+// The credentials travel to the service through the `env_file` of the
+// compose of the service, because the stack that owns them is the only one
+// that writes them.
+//
+// When no credential is there at all, the service has no database: that is
+// the behaviour of a service that runs alone. When some of them are there
+// and the others are not, the service still has no database, and it says so.
+func loadDatabaseFromCredentials(database *DatabaseConfig) error {
+	user, hasUser := os.LookupEnv(EnvPostgresUser)
+	password, hasPassword := os.LookupEnv(EnvPostgresPassword)
+	name, hasDatabase := os.LookupEnv(EnvPostgresDB)
+
+	if !hasUser && !hasPassword && !hasDatabase {
+		return nil
+	}
+
+	if !hasUser || strings.TrimSpace(user) == "" ||
+		!hasPassword || password == "" ||
+		!hasDatabase || strings.TrimSpace(name) == "" {
+		database.CredentialsIncomplete = true
+		return nil
+	}
+
+	host, err := loadDatabaseHost()
+	if err != nil {
+		return err
+	}
+	port, err := loadDatabasePort()
+	if err != nil {
+		return err
+	}
+
+	database.URL = assembleDatabaseURL(
+		strings.TrimSpace(user),
+		password,
+		strings.TrimSpace(name),
+		host,
+		port,
+	)
+
+	return nil
+}
+
+// loadDatabaseHost reads the host the database answers on.
+func loadDatabaseHost() (string, error) {
+	raw, ok := os.LookupEnv(EnvDatabaseHost)
+	if !ok {
+		return DefaultDatabaseHost, nil
+	}
+
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return "", fmt.Errorf("%s: the host cannot be empty", EnvDatabaseHost)
+	}
+
+	return host, nil
+}
+
+// loadDatabasePort reads the port the database answers on.
+func loadDatabasePort() (int, error) {
+	raw, ok := os.LookupEnv(EnvDatabasePort)
+	if !ok {
+		return DefaultDatabasePort, nil
+	}
+
+	port, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, fmt.Errorf("%s: %q is not a port number", EnvDatabasePort, raw)
+	}
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("%s: %d is not a valid port", EnvDatabasePort, port)
+	}
+
+	return port, nil
+}
+
+// assembleDatabaseURL builds the connection string of the database.
+//
+// The user and the password are escaped the way a URL carries them, so a
+// password with an `@` or a `/` in it does not break the connection string.
+func assembleDatabaseURL(user, password, database, host string, port int) string {
+	connection := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, password),
+		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
+		Path:     "/" + database,
+		RawQuery: "sslmode=disable",
+	}
+
+	return connection.String()
 }
 
 // validate rejects the settings of the database that would not work.

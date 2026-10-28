@@ -129,6 +129,7 @@ requests**, one per work unit, in the order of the table above:
 | 4            | `a8073fc`                | the state of the schema, with one owner                   |
 | 5            | `8b6d3b4`                | the gate that pins the layers                              |
 | 6            | `85d4493`                | the shared platform and the shared health model           |
+| 7            | `75f5e79`, `b352a14`, `83e3d72` | the evidence of the slice, and the images that copy every module they import |
 
 The pushes, the pull requests and the merge stay the decision of the person: the branch
 holds the work, and nothing is published by the agent. A reviewer who wants the smallest
@@ -224,3 +225,8 @@ seven inconsistencies of S7, two of which reach the agent that uses the MCP serv
    was trusted: a domain that named a driver, a use case that named an adapter, a module
    that forgot to name its dependency, and a layer that named an adapter outside the
    composition root — every one of them was caught. *(T9)*
+8. **The image of a service copies every module the service imports.** The move of the
+   platform broke the image of both services: the context of the build is the root of the
+   repository, and the new module was not copied into it. The container test of the image
+   caught it, and the gate now asserts it, so the next module that a service imports
+   cannot be forgotten the same way. *(T9)*

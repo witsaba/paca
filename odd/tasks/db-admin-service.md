@@ -239,3 +239,39 @@ deviation is stated here as it was stated in `odd/tasks/env-init-script.md`.
   practice of the repository is one pull request per feature slice, with the
   commits as the review path; the deviation from the generic budget of the
   harness is stated above.
+
+- **L10** — the independent verification round (T8), and what it changed.
+
+  The verifier was an adversary with the job of finding what the author
+  missed. It mutated the code in a scratch copy and checked that a test
+  fails when the behaviour is broken. It found:
+
+  - **A regression the author had not seen.** Half of the credentials of the
+    database in the environment of the MCP server made the server stop with
+    an error. Before the slice, the same environment started the server
+    without a database: the guarantee "a server with no database configured
+    starts without one" was broken by a change nobody asked for. Fixed: half
+    credentials are ignored, the server runs without a database and says so
+    in its log. The test now pins the old behaviour.
+  - **A rule without a test.** The MCP server did not guard the rule that
+    the password of the database keeps its spaces. The rule exists in the
+    db-admin and it is now in the MCP server too.
+  - **Rules that only the container tests covered**: the service applies the
+    migrations when it starts, it carries exactly one check, and it keeps
+    serving. The container tests were never in the continuous integration.
+    They are now: the root Makefile gained the target `apps-integration`,
+    and the workflow runs it.
+  - **A test that proved nothing**: the test of the migrator asserted that
+    the adapter was built, and not that it writes through the core. It now
+    fails when the adapter stops calling the core, and the migration use
+    case counts the calls, so "the migrations are applied once" is proven.
+  - **Two broken container tests of the MCP server**, older than this slice
+    and never run by the workflow: the image was built with the wrong
+    context (the Dockerfile of the server expects the root of the
+    monorepository), and the protocol test still expected a server without
+    tools. Both are fixed, so the target of the continuous integration is
+    green.
+
+  The gates after the fixes: `make gate` green (the MCP server at 83.7% of
+  coverage, the db-admin at 90.5%, the core at 96.8%, no vulnerability),
+  `make shellcheck` green, `make apps-integration` green.

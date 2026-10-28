@@ -261,4 +261,39 @@ anything. It is fixed in `9851df4`.
 - `make apps-integration`: green. The images of the two services are built from
   the root of the repository and run against a PostgreSQL.
 
+### L15 — what the independent verification found, and what it changed
+
+An independent verifier audited the slice against the base commit `5f87399` and
+reproduced the differential check with its own harness, of thirty-two
+scenarios. It found one regression and two defects that the parent had missed:
+
+1. **A regression of medium severity.** `apps/db-admin/go.mod` carried the
+   `replace` of the database library but not the one of the domain. A replace of
+   a dependency is ignored, so the module could not resolve its own graph
+   outside the workspace of the repository: `GOWORK=off go list -m all` tried to
+   fetch the sibling from the network and failed. The build, the tests and the
+   image still worked, because the workspace hides the hole. The `replace` is
+   there now.
+
+2. **Three broken links.** The README of the MCP server pointed at
+   `../packages/database` and `../packages/domain`, which resolve to
+   `apps/packages/...`: the file is at `apps/mcp-server/README.md`, so the path
+   needs two levels up. One of the three was already broken before the slice;
+   the other two came with it.
+
+3. **Two advisories.** The comments of `packages/database/sqlc.yaml` still spoke
+   of the core, and the cache of the continuous integration named a `go.sum` that
+   the domain does not have — it has no dependency.
+
+The two classes of defect are now pinned by `scripts/tests/structure-test.sh`:
+every module of the repository resolves its own graph without the workspace, and
+every relative link of the documentation points at a file that exists. The
+script has thirty-two assertions, and it was proved to discriminate: the two
+defects were reintroduced and the script failed with four failures, and they
+were fixed again and the script passed.
+
+The target is `make structure-test`, it runs in the continuous integration next
+to the tests of the installer, and it is a step of `make all`.
+
+
 

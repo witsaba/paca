@@ -59,7 +59,6 @@ jobs:
             apps/mcp-server/go.sum
             apps/db-admin/go.sum
             packages/database/go.sum
-            packages/domain/go.sum
             tools/go.sum
 
       - name: Run the quality gate
@@ -186,3 +185,9 @@ jobs:
       # directory: the credentials of the runner are never touched.
       - name: Run the tests of the installer of the environment
         run: make env-test
+
+      # The structure of the repository is a promise of its own: every
+      # module resolves its own graph, and every link of the documentation
+      # points at a file that exists. The tests of the structure prove it.
+      - name: Run the tests of the structure of the repository
+        run: make structure-test

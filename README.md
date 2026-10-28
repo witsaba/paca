@@ -70,6 +70,15 @@ docker compose up -d --wait mcp-server      # one service of it
 docker compose down                         # stop everything
 ```
 
+The root `Makefile` drives the same project, and the targets of the whole
+stack are the ones the continuous integration calls:
+
+```sh
+make stack-up        # start every stack and wait until the whole project is healthy
+make stack-schema    # assert that the schema was written by the service that owns it
+make stack-down      # stop every container of the project, keeping the named volumes
+```
+
 A single stack also runs on its own, from its own directory:
 
 ```sh
@@ -162,6 +171,36 @@ make -C packages/core all
 The tools are pinned in `tools/go.mod` and run with `go tool`, so every
 machine and every container uses the same versions.
 
+## The gate of the repository
+
+`make all` is the one command that proves the repository: it runs every
+check the continuous integration runs, and it runs them **from nothing** —
+no image, no container, no volume and no `.env` are needed.
+
+```sh
+make all
+```
+
+It writes the environment it needs, it runs the quality gate of every
+application and every package, the container tests of the packages, the
+container tests of the applications, the shellcheck of the scripts, the
+tests of the installer of the environment, the smoke test of every
+database, the smoke test of the collector of the traces, and finally the
+whole stack: it comes up, the schema is asserted, and it goes down.
+
+A step that fails stops the gate, and the exit code says so. The gate
+leaves no container behind: the containers it started are stopped when it
+ends, whether it passed or failed.
+
+The last step of the gate is the proof of the stack. `make stack-up`
+brings the whole monorepository up and waits until it is healthy, and
+`make stack-schema` asserts, against the running project, that every
+container is running and healthy, that the writer of the schema was not
+restarted (it waits for its database instead of exiting and being
+restarted), that every migration of `packages/core/migrations` is applied,
+and that the table `users` exists. The script behind it is
+[`scripts/stack-schema.sh`](scripts/stack-schema.sh).
+
 ## The continuous integration
 
 The root `Makefile` dispatches to the stacks; it holds no stack-specific
@@ -175,17 +214,21 @@ make shellcheck         # the shell scripts of the repository
 make db-up              # every database, up and healthy
 make db-smoke           # the smoke test of every database
 make db-down            # stop every database, keeping the data volumes
-make all                # the full gate: the applications, the shellcheck and the databases
+make stack-up           # the whole monorepository, up and healthy
+make stack-schema       # the schema of the database was written by the service that owns it
+make stack-down         # stop every container of the project, keeping the named volumes
+make all                # the full gate of the repository, from nothing
 ```
 
 The workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on
-every push to `main` and on every pull request, with four jobs:
+every push to `main` and on every pull request, with five jobs:
 
 | Job            | What it verifies                                                    |
 |----------------|---------------------------------------------------------------------|
 | `gate`         | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application and every package, and then the container tests of the shared libraries: the rules of the tables, asserted against a real PostgreSQL. |
 | `database`     | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
 | `observability`| the collector of the traces starts, and its query API answers.       |
+| `stack`        | the whole monorepository comes up from nothing, and the schema of the database is there: it was written by the service that owns it. |
 | `shellcheck`   | the shell scripts of the repository pass shellcheck.                  |
 
 The container tests of the MCP server (`make -C apps/mcp-server

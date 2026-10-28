@@ -11,11 +11,13 @@
 #   make shellcheck          the shell scripts of the repository
 #   make observability-up    the collector of the traces, up and healthy
 #   make observability-smoke the smoke test of the collector
+#   make stack-up            the whole monorepository, up and healthy
+#   make stack-schema        the assertion of the schema of the database
 #
 # The workflow never names a stack: a new application or a new database
 # joins the tree through the root Makefile alone.
 #
-# A pull request is green when the three jobs are green.
+# A pull request is green when every job is green.
 name: CI
 
 on:
@@ -130,6 +132,35 @@ jobs:
       - name: Stop the collector of the traces
         if: always()
         run: make observability-down
+
+  # The whole monorepository from nothing: the credentials of the stacks
+  # are written, the project comes up, and the schema of the database is
+  # asserted. The schema is written by the service that owns it, so the
+  # assertion proves that the stack comes up with its schema, on a machine
+  # that has no image, no container and no volume.
+  stack:
+    name: The stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # The credentials live with the stacks that own them and are never
+      # committed, so the runner generates them with the installer of the
+      # environment: it keeps the defaults and generates a strong password.
+      - name: Create the credentials of the stacks
+        run: make env-init ARGS="--yes"
+
+      - name: Start the whole stack
+        run: make stack-up
+
+      - name: Assert the schema of the database
+        run: make stack-schema
+
+      - name: Stop the whole stack
+        if: always()
+        run: make stack-down
 
   # The shell scripts of the repository: the smoke test of the database and
   # every script a stack brings.

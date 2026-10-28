@@ -117,6 +117,13 @@ fi
 # The password is expanded by the shell inside the container, not here.
 # shellcheck disable=SC2016
 password="$(docker exec "${container}" sh -c 'printf %s "$POSTGRES_PASSWORD"')"
+# The role and the database are the ones the stack is configured with, and
+# they are read from the container for the same reason: the smoke test
+# asserts the guarantees of the stack, not the defaults of the manifest.
+# shellcheck disable=SC2016
+user="$(docker exec "${container}" sh -c 'printf %s "$POSTGRES_USER"')"
+# shellcheck disable=SC2016
+database="$(docker exec "${container}" sh -c 'printf %s "$POSTGRES_DB"')"
 # The network is discovered from the container, so the test does not depend on
 # the name the compose project gives it.
 network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}} {{end}}' "${container}" | awk '{print $1}')"
@@ -127,7 +134,7 @@ else
 fi
 if PGPASSWORD="${password}" docker run --rm --network "${network}" \
 	-e PGPASSWORD="${password}" postgres:18.6-bookworm \
-	psql -X -q -A -t -h postgres -U paca -d paca -c 'select 1' 2>/dev/null | grep -q '^1$'; then
+	psql -X -q -A -t -h postgres -U "${user}" -d "${database}" -c 'select 1' 2>/dev/null | grep -q '^1$'; then
 	pass "another container on the internal network can connect"
 else
 	fail "a container on the internal network could not connect"

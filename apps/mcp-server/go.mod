@@ -15,6 +15,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/witsaba/paca/packages/core v0.0.0
+	github.com/witsaba/paca/packages/domain v0.0.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
@@ -99,3 +100,8 @@ require (
 replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20261019180522-ce908d29299b
 
 replace github.com/witsaba/paca/packages/core => ../../packages/core
+
+// The domain is a module of its own, next to the service: the workspace of
+// the repository resolves it, and the replace keeps `go mod tidy` working
+// inside the module alone.
+replace github.com/witsaba/paca/packages/domain => ../../packages/domain

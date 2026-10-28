@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // This file holds the container tests of the status of a person, and the

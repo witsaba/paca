@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 func TestNewUserRepositoryWithoutAPool(t *testing.T) {

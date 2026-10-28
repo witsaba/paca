@@ -92,9 +92,10 @@ type ID int64
 
 // User is a person that PACA knows.
 //
-// A field the database stores as NULL is empty here. The core never writes
-// an empty string to the database: it writes NULL. The rule is the same in
-// both directions, so a value that is not set has exactly one meaning.
+// A field the database stores as NULL is empty here. The storage never
+// writes an empty string to the database: it writes NULL. The rule is the
+// same in both directions, so a value that is not set has exactly one
+// meaning.
 type User struct {
 	// ID is the national document ID of the person.
 	ID ID

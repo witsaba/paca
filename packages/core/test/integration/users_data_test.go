@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // This file holds the container tests of the reading and of the writing of

@@ -9,7 +9,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // The names of the three tools of the users.

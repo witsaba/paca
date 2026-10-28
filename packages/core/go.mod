@@ -17,6 +17,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.29.0
 	github.com/testcontainers/testcontainers-go v0.44.0
+	github.com/witsaba/paca/packages/domain v0.0.0
 )
 
 require (
@@ -78,3 +79,8 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 )
+
+// The domain is a module of its own, next to this one: the workspace of the
+// repository resolves it, and the replace keeps `go mod tidy` working
+// inside the module alone.
+replace github.com/witsaba/paca/packages/domain => ../domain

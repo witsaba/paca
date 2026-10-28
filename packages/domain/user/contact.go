@@ -137,8 +137,8 @@ func ParseID(raw string) (ID, error) {
 
 // Details holds the optional data of a person.
 //
-// A field that is empty is a field that is not set. The core never writes an
-// empty string to the database: it writes NULL.
+// A field that is empty is a field that is not set. The storage never writes
+// an empty string to the database: it writes NULL.
 type Details struct {
 	// FullName is the complete name of the person.
 	FullName string

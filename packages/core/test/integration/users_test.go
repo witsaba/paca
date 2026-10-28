@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // The codes of the errors of PostgreSQL the assertions expect.

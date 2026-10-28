@@ -14,5 +14,6 @@ use (
 	./apps/db-admin
 	./apps/mcp-server
 	./packages/core
+	./packages/domain
 	./tools
 )

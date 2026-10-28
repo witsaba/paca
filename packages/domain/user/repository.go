@@ -21,7 +21,7 @@ var ErrEmailTaken = errors.New("that email address is already registered")
 var ErrPhoneTaken = errors.New("that phone number is already registered")
 
 // ErrConcurrentChange is the error of a row that changed between the moment
-// the core read it and the moment it wrote it.
+// the storage read it and the moment it wrote it.
 var ErrConcurrentChange = errors.New("the user changed at the same time")
 
 // ErrInvalidValue is the error of a row the database refused because it

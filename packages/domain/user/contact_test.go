@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 func TestCleanPhone(t *testing.T) {

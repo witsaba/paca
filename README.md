@@ -25,6 +25,7 @@ tested against each other, and every module keeps working on its own.
 | `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and no tool yet. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/core/`  | The core: the models, the repositories and the migrations that the services share. A library, with no port and no container. | [packages/core/README.md](packages/core/README.md) |
+| `packages/domain/` | The domain: the models of the people and the port of their storage. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 

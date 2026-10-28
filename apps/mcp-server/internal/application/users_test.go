@@ -8,7 +8,7 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
-	"github.com/witsaba/paca/packages/core/domain/user"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // fakeRepository is the port of the storage, in memory.

@@ -66,13 +66,13 @@ type CreateUserParams struct {
 // The queries of the users.
 //
 // Every query writes or reads one row, and every one of them is a single
-// statement: the core does not read a row to find out whether it may write
+// statement: the library does not read a row to find out whether it may write
 // it. The write tells the truth by itself -- a primary key that is taken, a
-// unique index that refuses a value -- and the core maps that truth to its
+// unique index that refuses a value -- and the library maps that truth to its
 // own errors.
 //
 // The optional columns are NULL when the value is not set. The queries use
-// sqlc.narg for them, so the core passes NULL and the column keeps the rule
+// sqlc.narg for them, so the library passes NULL and the column keeps the rule
 // of the domain: an empty value is an absent value.
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,

@@ -1,37 +1,43 @@
-# The core of the PACA monorepository.
+# The database library of the PACA monorepository.
 
-The core holds what the services of the monorepository share: the models of
-the domain, the contracts of the repositories and the migrations of the
-schema. The MCP server and the database admin import it today; the worker
-and the REST backend will import it tomorrow.
+The library holds the implementation of the persistence: the pool of
+connections, the queries, the migrations of the schema and the repositories
+that write the rows. The MCP server imports it today; the worker and the
+REST backend will import it tomorrow.
 
-It is a **library**. It publishes no port, it runs no container, and it
-starts no process. A service maps its own environment onto the configuration
-of the core, opens the pool and uses the models.
+It is a **library**. It publishes no port on the network, it runs no
+container, and it starts no process. A service maps its own environment
+onto the configuration of the library, opens the pool and uses the
+repositories.
+
+The models of the domain — what a person is, and the rules a person
+carries — live in another module, `packages/domain`. This one depends on
+it, never the other way around.
 
 ---
 
 ## The layout
 
 ```
-packages/core/
-  core.go               the migrator: the single writer of the schema
-  domain/user/          the model of the person: the identifier, the states
-                        and the port of the storage
-  postgres/             the adapter that talks to PostgreSQL
-  internal/db/          the generated code: the row model and the queries
-  queries/              the SQL of the queries, read by the generator
-  migrations/           the history of the schema
+packages/database/
+  database.go         the migrator: the single writer of the schema
+  postgres/           the adapter that talks to PostgreSQL: the pool, the
+                      configuration and the repositories
+  internal/db/        the generated code: the row model and the queries
+  queries/            the SQL of the queries, read by the generator
+  migrations/         the history of the schema
+  test/integration/   the container tests, against a real PostgreSQL
 ```
 
-The dependency rule of the hexagonal architecture holds here too: the domain
-knows nothing about the database, the adapter knows the models and nothing
-about the services, and only a service knows the core.
+The dependency rule of the hexagonal architecture holds here, and the
+toolchain enforces it: the module depends on `packages/domain`, and
+`packages/domain` imports nothing but the standard library. The domain
+cannot reach the generated code of the queries, because the visibility rule
+of `internal` does not cross the boundary of a module.
 
-The generated code lives in `internal/db`: it belongs to the core alone. The
-public surface of the core is curated by hand, because the visibility rule
-of `internal` does not cross the boundary of a module — the services are
-other modules.
+The generated code lives in `internal/db`: it belongs to this module alone.
+The public surface of the library is curated by hand, because the services
+are other modules.
 
 ## The tables
 
@@ -52,7 +58,7 @@ carries the schema and the rules of the people.
 | `updated_at`          | `timestamptz`| Not null, default `now()`                                     |
 
 **The identifier is the national document ID of the person.** The caller
-supplies it, and nothing in the core generates one: the number is not
+supplies it, and nothing in the library generates one: the number is not
 sequential because it is not a counter, it is the number the person already
 carries. The column is a `bigint`, because a ten-digit document number
 should never meet the ceiling of a 32-bit integer.
@@ -67,8 +73,8 @@ product, and the two open states carry none. A CHECK on the table holds the
 rule, so no writer breaks it.
 
 **The optional columns are NULL when the value is not known.** The domain
-uses the empty string for the same fact, and the core never writes an empty
-string to the database.
+uses the empty string for the same fact, and the library never writes an
+empty string to the database.
 
 **The email and the phone are unique when they are set.** The indexes are
 partial: a person may have no email and no phone, and two people without an
@@ -81,43 +87,17 @@ holds the shape of an address.
 
 **The timestamps carry the time of the system.** The database fills them on
 insert. There is no trigger: whoever updates a row is responsible for
-`updated_at` after that — and the core writes `updated_at = now()` inside
-the statement of the update.
+`updated_at` after that — and the library writes `updated_at = now()`
+inside the statement of the update.
 
-## The rules of the person
-
-The domain package holds the rules that the table cannot.
-
-**The phone is cleaned the way a person writes it.** The plus of the
-country code, the spaces, the dashes, the dots and the parentheses go away,
-and what is left are the digits: `+57 321-253-9984` is stored as
-`573212539984`. A number that carries no country code is refused: ten
-digits are exactly the length of a Colombian number, and that is the number
-that must be written with its code.
-
-**The email is checked** and trimmed: an address that does not look like an
-address is refused, and the same rule is a CHECK of the table.
-
-**The document ID keeps its digits.** A person writes `1.234.567` and
-`1234567`, and both are the same document.
-
-**The states move through a map.** The map of the transitions lives in the
-domain, and it is the only place that knows it:
-
-```
-onboarding ──▶ active      active     ──▶ inactive   inactive   ──▶ active
-onboarding ──▶ inactive    active     ──▶ blocked    inactive   ──▶ blocked
-onboarding ──▶ blocked     blocked    ──▶ active     blocked    ──▶ inactive
-```
-
-No move leads back to the onboarding: that state is the entry of the
-machine, the state of a person that has just been created, and it is never
-a destination.
+The rules that a table cannot hold — the cleaning of the phone, the shape
+of the email, the map of the states — live in the module of the domain, and
+the domain is the one that refuses them.
 
 ## The repository of the people
 
-The core publishes the port of the storage of the people, and the adapter
-that writes it:
+The adapter writes the people through the port of the domain
+(`user.Repository`):
 
 ```go
 Create(ctx, id, details) (user.User, error)
@@ -172,11 +152,11 @@ cannot drift apart.
 
 The schema is the source of truth and the SQL is written by hand. `sqlc`
 reads the migrations, reads the queries and writes the row model and the
-code of the queries.
+queries themselves.
 
 ```sh
-make -C packages/core generate          # write the generated code
-make -C packages/core generate-check    # fail when it is not what the schema describes
+make -C packages/database generate          # write the generated code
+make -C packages/database generate-check    # fail when it is not what the schema describes
 ```
 
 The gate of the module regenerates the code and fails when it differs from
@@ -190,9 +170,9 @@ are one statement per operation.
 
 ## The configuration of a service
 
-The core reads no environment variable. A service maps its own environment
-onto the configuration of the core, so the same core serves every service
-with its own settings.
+The library reads no environment variable. A service maps its own environment
+onto the configuration of the library, so the same library serves every
+service with its own settings.
 
 | Variable                       | Default | What it is                                          |
 |--------------------------------|---------|-----------------------------------------------------|
@@ -208,8 +188,8 @@ answers.
 ## Running it
 
 ```sh
-make -C packages/core all               # the full quality gate
-make -C packages/core test-integration  # the container tests (Docker)
+make -C packages/database all               # the full quality gate
+make -C packages/database test-integration  # the container tests (Docker)
 ```
 
 ## The quality gate
@@ -237,11 +217,10 @@ and every container uses the same versions.
 ### The coverage, in two numbers
 
 The gate of the module measures the packages whose rules can be asserted
-without a database: the domain and the adapter. The parts that talk to the
-database — the migrator, its command and the file of the repository — are
-covered by the container tests, which report their own coverage. The
-generated code is not measured at all: it is written by the generator, never
-by hand.
+without a database: the adapter. The parts that talk to the database — the
+migrator and the file of the repository — are covered by the container
+tests, which report their own coverage. The generated code is not measured
+at all: it is written by the generator, never by hand.
 
 ## The tests
 
@@ -249,7 +228,7 @@ The unit tests live with the code they cover. The container tests live in
 `test/integration` and need Docker:
 
 ```sh
-make -C packages/core test-integration
+make -C packages/database test-integration
 ```
 
 They start a PostgreSQL, apply the migrations through the single writer, and
@@ -267,9 +246,3 @@ the applications.
 | What             | Version  | Why                                                     |
 |------------------|----------|---------------------------------------------------------|
 | Go               | 1.27.3   | The latest security release of the 1.27 line.            |
-| pgx              | v5.11.0  | The driver of PostgreSQL, and the pool of the core.      |
-| sqlc             | v1.31.1  | The generator of the row model and of the queries.       |
-| goose            | v3.29.0  | The runner of the migrations.                            |
-| testcontainers-go| v0.44.0  | The container tests.                                     |
-| golangci-lint    | v2.15.0  | Pinned in `tools/go.mod`.                                |
-| govulncheck      | v1.8.0   | Pinned in `tools/go.mod`.                                |

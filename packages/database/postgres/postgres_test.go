@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/packages/core/postgres"
+	"github.com/witsaba/paca/packages/database/postgres"
 )
 
 func TestConfigValidate(t *testing.T) {

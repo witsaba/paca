@@ -1,6 +1,6 @@
 //go:build integration
 
-// Package integration_test holds the tests of the core that run against a
+// Package integration_test holds the tests of the database library that run against a
 // real PostgreSQL.
 //
 // The suite starts one container, applies the migrations through the single
@@ -31,8 +31,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/witsaba/paca/packages/core"
-	"github.com/witsaba/paca/packages/core/postgres"
+	"github.com/witsaba/paca/packages/database"
+	"github.com/witsaba/paca/packages/database/postgres"
 )
 
 // The settings of the database the tests run against.
@@ -40,7 +40,7 @@ const (
 	// defaultPostgresImage is the PostgreSQL the tests run against. It is the
 	// version the stack of the monorepository runs, and it is the one the
 	// tests find on a machine that keeps the image around. The schema of the
-	// core needs no extension, so the plain image is enough.
+	// library needs no extension, so the plain image is enough.
 	defaultPostgresImage = "postgres:18.6-bookworm"
 
 	// postgresPort is the port PostgreSQL listens on inside the container.
@@ -65,10 +65,10 @@ type suite struct {
 	db *sql.DB
 
 	// migrator is the single writer of the schema.
-	migrator *core.Migrator
+	migrator *database.Migrator
 
 	// pool is the pool of connections of the adapter, bound to the same
-	// database. The repositories of the core are proven against it.
+	// database. The repositories of the library are proven against it.
 	pool *postgres.Pool
 
 	// url is the connection string of the database.
@@ -140,7 +140,7 @@ func runSuite(m *testing.M) int {
 
 	// The schema has one writer, and the tests use it: the migrations are
 	// applied here, and never by a query of the suite.
-	migrator, err := core.NewMigrator(db, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	migrator, err := database.NewMigrator(db, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "the migrator could not be created: %v\n", err)
 		return 1

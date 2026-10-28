@@ -201,11 +201,11 @@ func TestChangeStatusOfAMissingDocument(t *testing.T) {
 	}
 }
 
-// TestTheDatabaseRefusesWhatTheCoreRefuses proves that the guards of the
-// migration 00002 hold on their own: a writer that is not the core cannot
+// TestTheDatabaseRefusesWhatTheDomainRefuses proves that the guards of the
+// migration 00002 hold on their own: a writer that is not the library cannot
 // store a row that breaks them, the error names the guard, and nothing is
 // stored.
-func TestTheDatabaseRefusesWhatTheCoreRefuses(t *testing.T) {
+func TestTheDatabaseRefusesWhatTheDomainRefuses(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()

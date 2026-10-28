@@ -1,7 +1,8 @@
-// Package postgres is the adapter of the core that talks to PostgreSQL.
+// Package postgres is the adapter of the database library that talks to
+// PostgreSQL.
 //
 // The package owns the pool of connections and the configuration of it. It
-// hides the driver: a service that imports the core never names pgx, never
+// hides the driver: a service that imports the library never names pgx, never
 // names a connection string, and never opens a connection of its own.
 //
 // The dependency rule holds: the package knows the models of the domain and
@@ -16,7 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/witsaba/paca/packages/core/internal/db"
+	"github.com/witsaba/paca/packages/database/internal/db"
 )
 
 // ErrNoURL is the error of a configuration without a connection string.
@@ -24,8 +25,8 @@ var ErrNoURL = errors.New("the connection string of the database is empty")
 
 // Config is the configuration of the pool of connections.
 //
-// The core reads no environment variable: a service maps its own environment
-// onto this configuration, so the same core serves every service of the
+// The library reads no environment variable: a service maps its own environment
+// onto this configuration, so the same library serves every service of the
 // monorepository with its own settings.
 type Config struct {
 	// URL is the connection string of the database. It is required.
@@ -53,7 +54,7 @@ type Config struct {
 	ConnectTimeout time.Duration
 }
 
-// DefaultConfig returns the configuration the core uses when the service
+// DefaultConfig returns the configuration the library uses when the service
 // says nothing: a small pool, with the connections replaced before a
 // database closes them.
 func DefaultConfig() Config {
@@ -98,8 +99,8 @@ func (c Config) Validate() error {
 
 // Pool is the pool of connections to the database.
 //
-// It is the only door of the core to PostgreSQL. The type hides the driver
-// on purpose: the services depend on the core, not on pgx.
+// It is the only door of the library to PostgreSQL. The type hides the driver
+// on purpose: the services depend on the library, not on pgx.
 type Pool struct {
 	pool *pgxpool.Pool
 }
@@ -136,7 +137,7 @@ func Open(ctx context.Context, cfg Config) (*Pool, error) {
 // Ping asks the database whether it answers.
 //
 // The question goes through the generated code, on the same connection and
-// with the same driver as everything else the core does.
+// with the same driver as everything else the library does.
 func (p *Pool) Ping(ctx context.Context) error {
 	if p == nil || p.pool == nil {
 		return errors.New("the pool of connections is not open")
@@ -151,7 +152,7 @@ func (p *Pool) Ping(ctx context.Context) error {
 
 // Queries returns the generated queries, bound to the pool.
 //
-// The repositories of the core use them. A service that needs a query of
+// The repositories of the library use them. A service that needs a query of
 // its own goes through a repository, never through this door.
 func (p *Pool) Queries() *db.Queries {
 	if p == nil || p.pool == nil {

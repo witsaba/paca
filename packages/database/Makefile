@@ -1,8 +1,14 @@
-# The core of the PACA monorepository.
+# The database library of the PACA monorepository.
 #
-# The core holds the models, the repositories and the migrations that the
-# services of the monorepository share. It is a library: it publishes no
-# port, it runs no container, and the services import it.
+# The library holds the implementation of the persistence: the pool of
+# connections, the queries, the migrations of the schema and the
+# repositories that write the rows. It is a library: it publishes no port,
+# it runs no container, and the services import it.
+#
+# The models of the domain live in another module, packages/domain, and this
+# one depends on it. The direction of the dependency is the toolchain: the
+# domain imports nothing but the standard library, so it cannot reach the
+# queries of this module.
 #
 # Every target of the project is here: the dependencies, the generation of
 # the code, the build, the tests, the coverage gate, the race detector, the
@@ -34,7 +40,7 @@ COV_FILE_INTEGRATION ?= $(COV_DIR)/coverage-integration.out
 # never by hand, and it is reviewed as the schema it comes from. Neither are
 # the packages that talk to the database: the container tests cover them,
 # and they report their own coverage.
-COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/core$$')
+COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/database$$')
 
 # The files of the module that talk to the database and can only be measured
 # against a real one.
@@ -43,7 +49,7 @@ COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/core
 # measures what can be asserted without a database, and the container tests
 # measure the rest. The files below belong to the second half: their queries
 # run against PostgreSQL, and the container tests are what prove them.
-COVER_EXCLUDE_FILES ?= packages/core/postgres/repository\.go
+COVER_EXCLUDE_FILES ?= packages/database/postgres/repository\.go
 
 .DEFAULT_GOAL := help
 
@@ -53,7 +59,7 @@ COVER_EXCLUDE_FILES ?= packages/core/postgres/repository\.go
 
 ## help: show this list of targets
 help:
-	@echo "PACA core — developer targets"
+	@echo "PACA database — developer targets"
 	@echo ""
 	@echo "  make help              show this list of targets"
 	@echo "  make deps              download the dependencies"
@@ -138,7 +144,7 @@ test:
 test-integration:
 	@mkdir -p $(COV_DIR)
 	$(GO) test -tags=integration -timeout=15m -v -covermode=atomic \
-		-coverpkg=./postgres/...,./domain/... \
+		-coverpkg=./postgres/... \
 		-coverprofile=$(COV_FILE_INTEGRATION) $(PACKAGE)
 	@$(GO) tool cover -func=$(COV_FILE_INTEGRATION) | tail -1
 

@@ -1,15 +1,18 @@
-// The core of the PACA monorepository.
+// The database library of the PACA monorepository.
 //
-// The module holds what the services of the monorepository share: the models
-// of the domain, the contracts of the repositories and the migrations of the
-// schema. It is a library: it publishes no port and runs no container.
+// The module holds the implementation of the persistence: the pool of
+// connections, the queries, the migrations of the schema and the
+// repositories that write the rows. It is a library: it publishes no port
+// and runs no container.
 //
-// The dependency rule holds: the domain knows nothing about the database, the
-// adapters know the contracts, and the services know the core.
+// The dependency rule holds: the models of the domain live in another
+// module, packages/domain, and this one depends on it. The domain imports
+// nothing but the standard library, so it cannot reach the queries of this
+// module.
 //
 // The Go version is pinned to the latest security release of the 1.27 line.
 // The toolchain downloads it automatically when the local Go is older.
-module github.com/witsaba/paca/packages/core
+module github.com/witsaba/paca/packages/database
 
 go 1.27.3
 

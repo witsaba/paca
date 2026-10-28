@@ -9,7 +9,7 @@ package database
 import (
 	"context"
 
-	"github.com/witsaba/paca/packages/core/postgres"
+	"github.com/witsaba/paca/packages/database/postgres"
 )
 
 // Checker reports whether the database answers.

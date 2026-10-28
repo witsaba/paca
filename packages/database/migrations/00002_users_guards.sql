@@ -1,7 +1,7 @@
 -- The guards of the table of the users.
 --
 -- The first migration created the table. This one holds the rules that the
--- rows themselves have to obey, so that no writer -- not the core, not a
+-- rows themselves have to obey, so that no writer -- not the library, not a
 -- future service, not a session of psql -- can break them.
 --
 -- The email and the phone are unique when they are set. A person may have no

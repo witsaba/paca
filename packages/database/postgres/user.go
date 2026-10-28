@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/witsaba/paca/packages/domain/user"
-	"github.com/witsaba/paca/packages/core/internal/db"
+	"github.com/witsaba/paca/packages/database/internal/db"
 )
 
 // userFromRow maps a row of the users table onto the model of the domain.
@@ -38,7 +38,7 @@ func userFromRow(row db.User) (user.User, error) {
 // column holds NULL.
 //
 // The domain and the table agree on the rule: a value that is not set is
-// NULL in the table and empty in the model. The core never writes an empty
+// NULL in the table and empty in the model. The library never writes an empty
 // string, so the two facts never drift apart.
 func text(value pgtype.Text) string {
 	if !value.Valid {

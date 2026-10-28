@@ -15,7 +15,7 @@ import (
 
 	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
-	"github.com/witsaba/paca/packages/core"
+	"github.com/witsaba/paca/packages/database"
 )
 
 // The adapters of this package are the ones the application talks to.
@@ -25,24 +25,25 @@ var (
 	_ ports.Checker  = (*Checker)(nil)
 )
 
-// Migrator applies the migrations of the schema, through the core.
+// Migrator applies the migrations of the schema, through the database
+// library.
 //
-// The core is the single writer of the schema of the monorepository: this
-// adapter never writes a migration of its own, it asks the migrator of the
-// core to do it.
+// The library is the single writer of the schema of the monorepository:
+// this adapter never writes a migration of its own, it asks the migrator of
+// the library to do it.
 type Migrator struct {
-	migrator *core.Migrator
+	migrator *database.Migrator
 }
 
-// NewMigrator builds the adapter of the migrator of the core.
+// NewMigrator builds the adapter of the migrator of the database library.
 //
-// The migrator of the core takes the lock of the database while it applies a
-// migration, so two replicas of the service take turns instead of writing
-// the same table twice.
+// The migrator of the library takes the lock of the database while it
+// applies a migration, so two replicas of the service take turns instead of
+// writing the same table twice.
 func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
-	migrator, err := core.NewMigrator(db, logger)
+	migrator, err := database.NewMigrator(db, logger)
 	if err != nil {
-		return nil, fmt.Errorf("the migrator of the core could not be created: %w", err)
+		return nil, fmt.Errorf("the migrator of the database library could not be created: %w", err)
 	}
 	return &Migrator{migrator: migrator}, nil
 }

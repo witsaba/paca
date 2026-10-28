@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/database/internal/db"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 func TestUserFromRow(t *testing.T) {

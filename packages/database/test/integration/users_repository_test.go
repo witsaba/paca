@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/user"
 )
 
 // The names of the guards of the migration 00002.

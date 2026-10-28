@@ -136,6 +136,47 @@ rules as the MCP server:
 - The port is not published: the service is reachable from the containers of
   `paca_internal` only.
 
+### S11 — `make all` is the gate of the repository, and it works from nothing
+
+> before merging, ensure the make all in the repository.
+
+`make all` is the one command that proves the repository. It runs every
+check the continuous integration runs, and it leaves no container behind.
+
+*(decided)* The rules:
+
+- It works on a machine with nothing: no image, no container, no volume and
+  no `.env`. It writes the environment it needs, it starts what it must
+  smoke, and it stops what it started.
+- It runs the quality gate of every application and every package, the
+  container tests of the packages, the container tests of the applications,
+  the shellcheck of the scripts, the tests of the installer of the
+  environment, the smoke test of every database and the smoke test of the
+  collector of the traces.
+- A step that fails stops the gate, and the exit code says so.
+
+### S12 — The migration runs when the stack starts, from nothing
+
+> ensure that when starting the docker compose the migration run properly
+
+`docker compose up --wait` on a machine with no image, no container and no
+volume brings the whole stack up healthy, and the schema of the database is
+written by the service that owns it.
+
+*(decided)* The rules:
+
+- The writer **waits** for the database instead of exiting: the service
+  stays up while the database is still starting, and it writes the schema as
+  soon as the database answers. The container is not restarted in the
+  meantime, and the stack comes up healthy the first time.
+- The budget of the wait is a setting of the service:
+  `PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT`, 60 seconds by default. An invalid
+  value is an error, never a silent fallback.
+- The health check of the container tolerates the wait: the container is not
+  declared unhealthy while the service waits for its database.
+- The rule is proven continuously: the continuous integration starts the
+  whole stack from nothing and asserts that the schema was written.
+
 ---
 
 ## Tasks
@@ -150,16 +191,24 @@ rules as the MCP server:
 | T6  | S6, S7, S10 | inline | `5c157fa` | The wiring of the monorepository: the root `Makefile` (`APPS`), the root `compose.yaml` (the include), the root `README.md` (the tables of the repository and of the ports), the workflow (the cache of the dependencies). |
 | T7  | S6, S9 | inline | `43a9849` | The database URL of the MCP server: its compose file loads the credentials of the PostgreSQL stack, and its configuration assembles the connection string with the rules of S9. |
 | T8  | S1–S10 | inline | — | The verification of the slice: the gate of the service, the container tests, the stack of the monorepository up and healthy, and the migrations applied by the stack. The evidence is in L8. |
+| T9  | S11 | inline | `37ac2ce` | The gate of the repository: `make all` runs every check of the continuous integration, from nothing, and leaves no container behind. The evidence is in L14. |
+| T10 | S12 | worker | `5e29199` | The writer waits for the database: the service retries it until the database answers, the container tolerates the wait, and the stack comes up healthy the first time. The evidence is in L14. |
 
 The commit of every task is recorded in the Log.
 
 ### The size of the slice
 
-The slice carries 15 commits and 6,701 changed lines. The generic guidance
+The slice carries 17 commits and 7,688 changed lines. The generic guidance
 of the harness is a slice of about 400 authored changed lines per commit;
 the practice of this repository is one pull request per feature slice, with
 the work-unit commits as the review path (PRs #25, #27 and #29), and the
 deviation is stated here as it was stated in `odd/tasks/env-init-script.md`.
+
+The two commits of the last round are the boundary of the slice: `5e29199`
+(the writer waits for the database, S12) and `37ac2ce` (the gate of the
+repository, S11). They are the last work units of the feature: the slice
+ends with them, and the pull request #31 carries them as its last two
+commits.
 
 ---
 
@@ -275,3 +324,170 @@ deviation is stated here as it was stated in `odd/tasks/env-init-script.md`.
   The gates after the fixes: `make gate` green (the MCP server at 83.7% of
   coverage, the db-admin at 90.5%, the core at 96.8%, no vulnerability),
   `make shellcheck` green, `make apps-integration` green.
+
+- **L11** — the request of the user, verbatim, before the merge of the slice:
+
+  > before merging, ensure the make all in the repository. Clean the all
+  > docker images and volumes and containers and build from zero and ensure
+  > that when starting the docker compose the migration run properly
+
+- **L12** — the machine was wiped before the verification: every container,
+  every image, every volume and the build cache of Docker were removed
+  (`docker rm -f`, `docker rmi -f`, `docker volume rm -f`, `docker network
+  prune -f`, `docker builder prune -af`). The machine came back with 0
+  containers, 0 images, 0 volumes and 0 bytes of build cache. The volume
+  `witsaba-local-home-mac_witsaba-postgres-data`, which belongs to another
+  project of the machine, was removed as well: the user chose the full
+  wipe over the scoped one.
+
+- **L13** — the verification from zero, and the two defects it found.
+
+  **Defect 1 — `make all` did not work from a clean state.** The target
+  `all` of the root `Makefile` was `gate shellcheck db-smoke`: it ran the
+  smoke test of the database against a database it never started. On a
+  machine where the database was not running, `make all` ended with:
+
+  ```
+  == container state ==
+    FAIL the postgres container is not running (run 'make -C db/postgres up' first)
+  make[2]: *** [smoke] Error 1
+  make[1]: *** [smoke] Error 1
+  make: *** [db-smoke] Error 2
+  ```
+
+  The continuous integration never saw it: the workflow runs `make db-up`
+  before `make db-smoke`, in a job of its own. The target `all` — the one
+  command a person runs to prove the repository — was broken, and the
+  merge was about to ship it broken. Fixed by S11 and T9.
+
+  **Defect 2 — the stack did not come up from nothing, and the migration
+  did not run.** With the whole machine wiped, `docker compose up -d
+  --build --wait` **failed with the exit code 1**:
+
+  ```
+  container paca-db-admin is unhealthy
+  ```
+
+  The cause was a race, and it was in the service and not in the compose
+  file. The database accepts connections about two seconds after its
+  container starts, and the writer started at the same moment as the
+  database: it asked the database once, and the answer was `connection
+  refused`:
+
+  ```
+  paca-db-admin: the database did not answer: failed to connect to
+  `user=paca database=paca`: 172.19.0.3:5432 (postgres): dial error:
+  dial tcp 172.19.0.3:5432: connect: connection refused
+  ```
+
+  The service exited, the `restart: unless-stopped` policy of the container
+  brought it back, and it restarted **three** times before it won the race.
+  The health check of the container declared it unhealthy in the meantime,
+  so `--wait` gave up and the whole stack never came up. The migration was
+  applied on the fourth attempt, and the schema was correct — but the
+  command a person runs to start the stack failed, and the way it failed
+  was a race, not a rule.
+
+  The rule the writer obeys is now S12: it waits for the database instead
+  of asking it once, the container tolerates the wait, and the stack comes
+  up healthy the first time.
+
+  The evidence of the fix is in L14.
+
+- **L14** — the fix of the two defects, and the proof from nothing.
+
+  **The writer waits for the database (S12, T10, `5e29199`).** The wait
+  is an adapter of the database — `apps/db-admin/internal/adapters/outbound/database/waiter.go`
+  — and the package is under the coverage gate, so the rule is proven by
+  unit tests that never sleep: the writer asks again until the database
+  answers, it gives up when the budget of the wait is spent, and it stops
+  when the service is cancelled. The budget of the wait is a setting of
+  the service, `PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT` (60 seconds by
+  default), and an invalid value is an error, never a silent fallback. The
+  start period of the health check of the container is 90 seconds, so the
+  container is not declared unhealthy while the writer waits.
+
+  **The gate of the repository (S11, T9, `37ac2ce`).** `make all` runs
+  every check of the continuous integration from nothing, and it stops the
+  containers it started when a step fails: the whole recipe is one shell,
+  so a trap does it. The new targets `stack-up`, `stack-schema` and
+  `stack-down` bring the whole project up, assert that the schema of the
+  database was written by the service that owns it, and stop it. The
+  assertion also proves that the writer was **not** restarted.
+
+  **The proof, from a machine with nothing.** The Docker state was wiped
+  again (0 containers, 0 images, 0 volumes, 0 bytes of build cache), and
+  the stack was brought up from there:
+
+  ```
+  $ docker compose up -d --build --wait
+  ...
+  Container paca-db-admin Healthy
+  Container paca-mcp-server Healthy
+  Container paca-postgres Healthy
+  Container paca-jaeger Healthy
+  === EXIT: 0 ===
+  ```
+
+  The **first** attempt, with no retry of the command and no manual
+  intervention. The log of the writer says what happened, and it is the
+  wait and not the race:
+
+  ```
+  {"msg":"the service starts"}
+  {"msg":"the database did not answer, the writer waits for it",
+   "error":"the database did not answer: ... connect: connection refused",
+   "pause":1000000000}
+  {"msg":"the migration was applied","version":1,"name":"00001_users.sql"}
+  {"msg":"the migration was applied","version":2,"name":"00002_users_guards.sql"}
+  {"msg":"the schema is up to date","version":2}
+  {"msg":"the database admin is serving","addr":"[::]:8082"}
+  ```
+
+  One refusal, one pause, one success. The container was **not** restarted:
+  `RestartCount` is 0, where it was 3 before the fix. The schema is in
+  place: `goose_db_version` carries the three rows of the versions and the
+  table `users` exists.
+
+  The gate of the repository was then run against the same zero machine,
+  and it was green from the first step to the last one:
+
+  ```
+  $ make all
+  ==> the environment of the stacks
+  ==> the quality gate
+  ==> the container tests of the packages
+  ==> the container tests of the applications
+  ==> the shellcheck of the scripts
+  ==> the tests of the installer of the environment
+  ==> the database            (up, smoke, down)
+  ==> the collector of the traces
+  ==> the whole stack         (up, schema, down)
+  All the steps of the gate passed.
+  === EXIT: 0 ===
+  ```
+
+  The gate left no container behind, and the assertion of the schema was
+  green inside it:
+
+  ```
+  == the writer of the schema ==
+    ok   the restart count of paca-db-admin = 0
+  == the schema ==
+    ok   the applied migrations = 3
+    ok   the migrations that are not applied = 0
+    ok   the maximum applied version = 2
+    ok   the table users = 1
+  ```
+
+  **A third defect, found by the gate.** The smoke test of the database
+  asserted the isolation of the stack with the role and the database of
+  the manifest hardcoded (`-U paca -d paca`), while every other assertion
+  of the same script reads the credentials from inside the container. The
+  `.env` of the machine is not committed and names the database
+  `paca-pg`, so the assertion failed against a stack that was configured
+  correctly. The script reads the role and the database from the container
+  now, the way it reads the password. It was a latent defect of the
+  repository: it never showed itself because the default of the manifest
+  and the name of the database of the machine were the same.
+

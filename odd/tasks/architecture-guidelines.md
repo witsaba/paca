@@ -230,3 +230,37 @@ seven inconsistencies of S7, two of which reach the agent that uses the MCP serv
    repository, and the new module was not copied into it. The container test of the image
    caught it, and the gate now asserts it, so the next module that a service imports
    cannot be forgotten the same way. *(T9)*
+
+### L7 — the evidence of the gate, and the one step that cannot pass on this machine
+
+`make all` was run on the branch. What it proved:
+
+| Step                                | Result                                                              |
+|-------------------------------------|---------------------------------------------------------------------|
+| the quality gate of the five modules | green: format, analyzers, linter, build, tests, race, coverage, scan |
+| the container tests of the packages  | green, against a real PostgreSQL that they create and throw away     |
+| the container tests of the applications | green: the image of both services builds and serves                  |
+| the shellcheck of the scripts        | green                                                               |
+| the tests of the installer          | green                                                               |
+| the tests of the structure          | green: 223 assertions                                               |
+| **the smoke test of the database**   | **red, and not because of this slice**                              |
+| the whole stack                     | **not reached, for the same reason**                                |
+
+The smoke test of the database fails because the volume `paca-postgres-data` of this
+machine holds a cluster that **another session initialized**: it carries the database
+`paca-pg` and the password of that session, while every `.env` of the tree names the
+database `paca` and carries its own password. The smoke test connects to a database that
+does not exist, and the stack comes up with `password authentication failed for user
+"paca"`.
+
+**The failure is not of this slice.** It was reproduced on `main`, in the worktree of the
+repository, without a single file of this slice: `make -C db smoke` fails there with the
+same six assertions. The feature document `odd/tasks/core-split.md` records the same
+observation, with the same volume, from the slice that split the core.
+
+The fix belongs to the machine and not to the branch: either the volume is
+re-initialized — it drops the local data of the development environment, so it is the
+decision of the person — or the `.env` of the stack carries the credentials of that
+cluster. Nothing of this slice is unproven because of it: the container tests of the
+packages and of the applications assert the rules of the schema and of the services
+against a real PostgreSQL that they create and throw away.

@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	dbconfig "github.com/witsaba/paca/packages/database/config"
 )
 
 // The environment variables the server reads.
@@ -421,13 +423,13 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 		return err
 	}
 
-	database.URL = assembleDatabaseURL(
-		strings.TrimSpace(user),
-		password,
-		strings.TrimSpace(name),
-		host,
-		port,
-	)
+	database.URL = dbconfig.ConnectionString(dbconfig.Credentials{
+		User:     strings.TrimSpace(user),
+		Password: password,
+		Database: strings.TrimSpace(name),
+		Host:     host,
+		Port:     strconv.Itoa(port),
+	})
 
 	return nil
 }
@@ -463,22 +465,6 @@ func loadDatabasePort() (int, error) {
 	}
 
 	return port, nil
-}
-
-// assembleDatabaseURL builds the connection string of the database.
-//
-// The user and the password are escaped the way a URL carries them, so a
-// password with an `@` or a `/` in it does not break the connection string.
-func assembleDatabaseURL(user, password, database, host string, port int) string {
-	connection := url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(user, password),
-		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
-		Path:     "/" + database,
-		RawQuery: "sslmode=disable",
-	}
-
-	return connection.String()
 }
 
 // validate rejects the settings of the database that would not work.

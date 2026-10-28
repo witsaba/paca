@@ -23,6 +23,8 @@ packages/database/
   database.go         the migrator: the single writer of the schema
   postgres/           the adapter that talks to PostgreSQL: the pool, the
                       configuration and the repositories
+  config/             the assembly of the connection string, shared by the
+                      services
   internal/db/        the generated code: the row model and the queries
   queries/            the SQL of the queries, read by the generator
   migrations/         the history of the schema
@@ -173,6 +175,14 @@ are one statement per operation.
 The library reads no environment variable. A service maps its own environment
 onto the configuration of the library, so the same library serves every
 service with its own settings.
+
+The services that name their database with the credentials of the
+PostgreSQL stack build the connection string in one place, in
+`packages/database/config`. The package is pure: it reads no variable, no
+file and no clock, it takes the credentials and returns the string. Which
+variable wins, which default applies and which value is invalid stay in
+the service, because every service states them in its own words and in its
+own tests.
 
 | Variable                       | Default | What it is                                          |
 |--------------------------------|---------|-----------------------------------------------------|

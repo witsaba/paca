@@ -295,5 +295,33 @@ were fixed again and the script passed.
 The target is `make structure-test`, it runs in the continuous integration next
 to the tests of the installer, and it is a step of `make all`.
 
+### L16 — `make all`, and the one step that the machine of the maintainer cannot pass
+
+`make all` is the one command that proves the repository from nothing. It ran on
+this slice and it stopped at the smoke test of the database, before the stack of
+the monorepository came up. The failure is **not** of the slice:
+
+- the volume `paca-postgres-data` of the machine holds a cluster that was
+  initialized by another session, with the database `paca-pg` and a password that
+  no `.env` of the tree carries. Every `.env` names the database `paca` and
+  carries its own password, so the smoke test connects to a database that does
+  not exist and the password of the role is refused;
+- the same command fails the same way on the commit `5f87399`, in the worktree
+  of `main`, which the slice never touched. The reproduction is in the log of
+  the run.
+
+The step is not missing a proof of the slice: the container tests of the
+applications assert the same thing against a real PostgreSQL that they create
+and throw away. `TestTheServiceAppliesTheMigrationsAndAnswersItsHealth` asserts
+that the table of the people exists after the service starts, and
+`TestTheServiceAppliesNothingOnASecondRun` asserts that a second run applies
+nothing. `make apps-integration` is green.
+
+What the machine needs is a decision that is not the agent's to take: either the
+volume is dropped, and the stack builds its cluster again from the `.env` of the
+worktree, or the credentials of the cluster are aligned with the `.env`. The
+volume holds the data of a local development database.
+
+
 
 

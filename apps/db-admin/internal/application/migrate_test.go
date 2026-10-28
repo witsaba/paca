@@ -14,6 +14,7 @@ import (
 type fakeMigrator struct {
 	applied    []schema.Migration
 	upErr      error
+	upCalls    int
 	statuses   []schema.Migration
 	statusErr  error
 	pending    bool
@@ -24,6 +25,7 @@ type fakeMigrator struct {
 
 // Up applies the migrations of the test.
 func (m *fakeMigrator) Up(context.Context) ([]schema.Migration, error) {
+	m.upCalls++
 	if m.upErr != nil {
 		return nil, m.upErr
 	}
@@ -118,6 +120,25 @@ func TestTheMigrationServiceIsIdempotent(t *testing.T) {
 	}
 	if state.Version != 2 {
 		t.Fatalf("version = %d, want %d", state.Version, 2)
+	}
+}
+
+func TestTheMigrationServiceAppliesTheMigrationsOnce(t *testing.T) {
+	t.Parallel()
+
+	migrator := &fakeMigrator{version: 2}
+
+	service, err := application.NewMigrateService(migrator)
+	if err != nil {
+		t.Fatalf("NewMigrateService() = %v", err)
+	}
+
+	if _, err := service.Migrate(context.Background()); err != nil {
+		t.Fatalf("Migrate() = %v", err)
+	}
+
+	if migrator.upCalls != 1 {
+		t.Fatalf("the migrations were applied %d times, want once", migrator.upCalls)
 	}
 }
 

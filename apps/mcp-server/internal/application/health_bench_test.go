@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // maxHealthAllocations is the budget of the health use case. It is a budget

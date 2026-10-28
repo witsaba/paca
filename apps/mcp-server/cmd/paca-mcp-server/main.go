@@ -22,9 +22,9 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/bootstrap"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/healthcheck"
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/logging"
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/telemetry"
+	"github.com/witsaba/paca/packages/platform/healthcheck"
+	"github.com/witsaba/paca/packages/platform/logging"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // version is the version of the binary. The build stamps it.

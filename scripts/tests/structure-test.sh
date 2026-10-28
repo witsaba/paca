@@ -187,14 +187,17 @@ test_the_domain_of_every_application_knows_nothing() {
       for imported in $imports; do
         is_external "$imported" || continue
 
-        assert_not_contains "$imported" "/internal/domain/" \
-          "the domain of $module imports nothing but itself: [$imported]"
-        assert_not_contains "$imported" "/internal/adapters/" \
-          "the domain of $module imports no adapter: [$imported]"
-        assert_not_contains "$imported" "/internal/platform/" \
-          "the domain of $module imports no infrastructure: [$imported]"
-        assert_not_contains "$imported" "/internal/application/" \
-          "the domain of $module imports no use case: [$imported]"
+        # The domain of an application may name its own domain and the
+        # shared domain — the models every service shares. It names nothing
+        # else.
+        case "$imported" in
+          github.com/witsaba/paca/apps/"$module"/internal/domain*) ;;
+          github.com/witsaba/paca/packages/domain*) ;;
+          *)
+            fail "the domain of $module imports nothing but the domain: [$imported]"
+            ;;
+        esac
+        ASSERTIONS=$((ASSERTIONS + 1))
       done
 
       # The standard library is allowed, the technology inside it is not.
@@ -338,6 +341,36 @@ test_only_the_composition_root_knows_the_adapters() {
   done < <(applications_of_the_repository)
 }
 
+# test_the_shared_platform_knows_no_model asserts that the shared platform
+# module imports nothing of the monorepository but itself.
+#
+# The platform is the infrastructure: it answers questions about the machine.
+# The day it imports a model, the infrastructure decides what the model means.
+test_the_shared_platform_knows_no_model() {
+  local line
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+
+    local imports
+    imports=${line#* }
+
+    local imported
+    for imported in $imports; do
+      case "$imported" in
+        github.com/witsaba/paca/*)
+          case "$imported" in
+            github.com/witsaba/paca/packages/platform*) ;;
+            *)
+              fail "the shared platform imports nothing of the monorepository but itself: [$imported]"
+              ;;
+          esac
+          ;;
+      esac
+      ASSERTIONS=$((ASSERTIONS + 1))
+    done
+  done < <(imports_of_the_layer packages/platform .)
+}
+
 # ---------------------------------------------------------------------------
 # The documentation
 # ---------------------------------------------------------------------------
@@ -389,6 +422,7 @@ test_the_application_of_every_application_knows_no_adapter
 test_the_adapters_of_every_application_know_no_use_case
 test_only_the_composition_root_knows_the_adapters
 test_the_shared_domain_knows_nothing_but_the_standard_library
+test_the_shared_platform_knows_no_model
 
 printf '%s assertion(s), %s failure(s)\n' "$ASSERTIONS" "$FAILURES"
 

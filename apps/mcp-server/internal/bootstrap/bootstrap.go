@@ -18,13 +18,13 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/database"
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/outbound/serving"
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/clock"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/server"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/user"
+	"github.com/witsaba/paca/packages/platform/clock"
+	"github.com/witsaba/paca/packages/platform/server"
 )
 
 // Instructions tells the MCP clients what the server is for.

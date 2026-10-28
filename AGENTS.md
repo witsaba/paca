@@ -19,7 +19,9 @@ product. It holds:
 
 - the **services** (`apps/`): each one is a process with one job and its own boundaries;
 - the **shared libraries** (`packages/`): the code that more than one service needs, so
-  it is written once and owned by nobody's business logic;
+  it is written once and owned by nobody's business logic — the **domain**
+  (`packages/domain`), the **database** (`packages/database`) and the **platform**
+  (`packages/platform`);
 - the **databases** (`db/`), the **traces** (`observability/`), the pinned **tools**
   (`tools/`), the **scripts** (`scripts/`) and the **feature documents** (`odd/tasks/`).
 
@@ -28,8 +30,9 @@ state that moves through a small state machine. The MCP server registers people,
 their state and corrects their data; the database admin is the single writer of the
 schema of the database.
 
-Read `README.md` for the layout and the running of the stacks, and
-`packages/domain/README.md` for the model of the person and the rules it carries.
+Read `README.md` for the layout and the running of the stacks,
+`packages/domain/README.md` for the model of the person and the rules it carries, and
+`packages/platform/README.md` for the infrastructure every service shares.
 
 ---
 
@@ -54,6 +57,12 @@ The dependencies point inward, always. The domain knows no driver, no table, no
 protocol and no HTTP. The application knows no concrete adapter. Only the composition
 root (the `bootstrap` package and the `main` of the service) knows the adapters, and it
 knows nothing else that the layers do not already say.
+
+A layer may be **empty**: a service whose models all belong to more than one service
+has no domain layer of its own. The models live in the shared domain, and the service
+imports them. The same holds for the infrastructure: a service owns only the
+configuration that is its own, and imports the clock, the logs, the telemetry and the
+server from the shared platform.
 
 **What enforces it, by language:** a module boundary (a `go.mod` in Go, a package
 boundary in Python, a crate boundary in Rust) or a folder boundary. A rule that only the
@@ -133,7 +142,8 @@ rule, it is **derived** from the domain — never re-typed by hand.
 - **No hand-written generated code.** The code a generator writes is committed, and the
   gate proves it is what the generator writes.
 - **No copy of a shared layer.** The platform and the shared domain are shared: they are
-  extended, never forked.
+  extended, never forked. The infrastructure of a service lives in `packages/platform`,
+  and the models that more than one service needs live in `packages/domain`.
 - **No dead API.** A function that no production code calls is not a promise, it is
   debris: it is removed, or the caller that needs it is written.
 - **No rule that only a comment states.** A rule that the code cannot break is a wish.

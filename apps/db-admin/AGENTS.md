@@ -19,15 +19,20 @@ applies here and is never relaxed. This file holds the specifics of the service.
 ```
 cmd/paca-db-admin/             the composition root
 internal/
-  domain/health/              the health model: states, checks, reports
   application/                 the use cases: health and migrations
   ports/                      the contracts between the layers
   adapters/
     inbound/http/              the HTTP adapter: the health endpoint
     outbound/database/         the migrator, the pinger and the checker of the database
-  platform/                    the infrastructure: config, logs, telemetry, clock, server
+  platform/config/             the configuration of this service: the only
+                               infrastructure the service owns
   bootstrap/                   the wiring of every layer
 ```
+
+The models live in the shared modules: the state of the schema and the health in
+`packages/domain`, the clock, the logs, the telemetry and the server in `packages/platform`.
+A service that has a model of its own keeps it in `internal/domain/`; a model that more
+than one service needs lives in `packages/domain`, and it is never copied.
 
 ## The rules that are specific to this service
 

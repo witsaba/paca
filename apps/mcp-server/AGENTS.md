@@ -19,7 +19,6 @@ root applies here and is never relaxed. This file holds the specifics of the ser
 ```
 cmd/paca-mcp-server/          the composition root
 internal/
-  domain/health/              the health model: states, checks, reports
   application/                 the use cases: the rules of the service
   ports/                      the contracts between the layers
   adapters/
@@ -27,12 +26,18 @@ internal/
     inbound/mcpserver/         the MCP adapter: the official Go SDK
     outbound/serving/          the checker of the MCP transport
     outbound/database/         the checker of the database
-  platform/                    the infrastructure: config, logs, telemetry, clock, server
+  platform/config/             the configuration of this service: the only
+                               infrastructure the service owns
   bootstrap/                   the wiring of every layer
 ```
 
 The domain knows nothing, the application knows the domain and the ports, the adapters
 know the ports, and only the composition root knows the adapters.
+
+The models live in the shared modules: the person and the health in
+`packages/domain`, the clock, the logs, the telemetry and the server in `packages/platform`.
+A service that has a model of its own keeps it in `internal/domain/`; a model that more
+than one service needs lives in `packages/domain`, and it is never copied.
 
 ## The rules that are specific to this service
 

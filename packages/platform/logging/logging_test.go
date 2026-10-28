@@ -10,7 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/logging"
+	"github.com/witsaba/paca/packages/platform/logging"
 )
 
 // traceContext returns a context that holds an active span.

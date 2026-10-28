@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // HealthService is the use case that reports the health of the service.

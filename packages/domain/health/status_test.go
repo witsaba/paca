@@ -3,7 +3,7 @@ package health_test
 import (
 	"testing"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 func TestStatusWorstKeepsTheSickestStatus(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
+	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/schema"
 )
 

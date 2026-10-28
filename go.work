@@ -15,5 +15,6 @@ use (
 	./apps/mcp-server
 	./packages/database
 	./packages/domain
+	./packages/platform
 	./tools
 )

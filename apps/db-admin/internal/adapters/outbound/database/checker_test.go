@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/outbound/database"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
+	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/schema"
 )
 

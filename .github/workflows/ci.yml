@@ -59,6 +59,7 @@ jobs:
             apps/mcp-server/go.sum
             apps/db-admin/go.sum
             packages/database/go.sum
+            packages/platform/go.sum
             tools/go.sum
 
       - name: Run the quality gate

@@ -2,13 +2,15 @@
 
 The domain holds what the services of the monorepository share: the model
 of a *person*, the rules a person carries, the port of the storage that keeps
-them, and the state of the *schema* of the database — the version it is at,
-the migrations it carries and what is pending.
+them, the state of the *schema* of the database — the version it is at, the
+migrations it carries and what is pending — and the model of the *health* of
+a service: the states it is in, the checks it runs and the report it answers.
 
 A model has one owner. The person lives here because more than one service
-needs it, and the state of the schema lives here because two sides need it:
-the service that writes the schema and the library that applies the migrations.
-Both speak the same record, and the adapter between them maps nothing.
+needs it, the state of the schema because two sides need it — the service
+that writes the schema and the library that applies the migrations — and the
+health because every service with a health endpoint speaks it. Both sides
+speak the same record, and the adapter between them maps nothing.
 
 It is a **library**. It publishes no port on the network, it runs no
 container, and it starts no process.
@@ -24,6 +26,9 @@ packages/domain/
                     details and the port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
+  health/           the model of the health of a service: the states, the
+                    checks, the report and the rule that one failing
+                    component makes the whole service unhealthy
 ```
 
 The dependency rule of the hexagonal architecture holds here, and the
@@ -105,6 +110,22 @@ in the module of the models, because both sides of it need it: the service
 that writes the people, and the adapter that reads the table. An adapter of
 another storage — a gRPC client of a data service, tomorrow — implements
 the same port, and no service changes.
+
+## The model of the health
+
+`health.Status` is the state a service is in: `ok`, `degraded` or
+`unhealthy`. `health.Check` is one component the service watches, with the
+time it took to answer, and `health.Report` is the answer of the service:
+its identity, its state, the checks it ran and the time it has been up.
+
+**The state of the service is the worst state of its components.** The rule
+lives here, in `Status.Worst`, and every service answers the same way: one
+failing component makes the whole service unhealthy, one degraded component
+makes it degraded, and a service with no checks at all is healthy.
+
+**An unknown state is never trusted.** A status that the domain does not know
+is `unhealthy`, never `ok`: the report of a service that nobody understands
+must not be read as a promise.
 
 ## Running it
 

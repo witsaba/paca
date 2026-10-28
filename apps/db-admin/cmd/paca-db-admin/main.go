@@ -26,9 +26,9 @@ import (
 
 	"github.com/witsaba/paca/apps/db-admin/internal/bootstrap"
 	"github.com/witsaba/paca/apps/db-admin/internal/platform/config"
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/healthcheck"
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/logging"
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/telemetry"
+	"github.com/witsaba/paca/packages/platform/healthcheck"
+	"github.com/witsaba/paca/packages/platform/logging"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // version is the version of the binary. The build stamps it.

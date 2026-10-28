@@ -23,7 +23,6 @@ knows every layer at once.
 ```
 cmd/paca-mcp-server/          the composition root: it wires the layers
 internal/
-  domain/health/              the health model: states, checks, reports
   application/                 the use cases: the rules of the service
   ports/                       the contracts between the layers
   adapters/
@@ -31,10 +30,16 @@ internal/
     inbound/mcpserver/         the MCP adapter: the official Go SDK
     outbound/serving/          the checker of the MCP transport
     outbound/database/         the checker of the database
-  platform/                    the infrastructure: config, logs, telemetry, clock, server
+  platform/config/             the configuration of this service: the only
+                               infrastructure the service owns
   bootstrap/                   the wiring of every layer
 test/integration/              the container tests
 ```
+
+The models and the infrastructure live in the shared modules: the person and the health
+in [packages/domain](../../packages/domain), the clock, the logs, the telemetry and the
+server in [packages/platform](../../packages/platform). The service owns only the models
+that belong to it alone, and the configuration that is its own.
 
 The dependency rule holds: the domain knows nothing, the application knows
 the domain and the ports, the adapters know the ports, and only the

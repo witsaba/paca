@@ -102,17 +102,38 @@ grows the checks that pin the rule of the layers (S7.5).
 |------|-----------------------------------------------------------------------------------------------|---------|---------|-----------|
 | T1   | The worktree, the branch and the feature document                                             | S1      | inline  | this file |
 | T2   | The research of the format of the guidelines of the agents, and its conclusions               | S3      | inline  | this file |
-| T3   | `AGENTS.md` of the root: the project, the architecture contract, the commands, the workflow   | S2, S5, S6 | inline | _pending_ |
-| T4   | The mirror of the contract in Engram                                                          | S4      | inline  | _pending_ |
-| T5   | The repair of the repository that is nil inside an interface                                 | S7.1    | inline  | _pending_ |
-| T6   | The repair of the tool contract: the schema and the description derive from the domain        | S7.2    | inline  | _pending_ |
-| T7   | The repair of the model of the migrations: one owner                                         | S7.3    | inline  | _pending_ |
-| T8   | The repair of the duplication: the health domain and the platform layer are shared           | S7.4    | worker  | _pending_ |
-| T9   | The repair of the gate: the rule of the layers is pinned by a check                          | S7.5    | inline  | _pending_ |
-| T10  | The documentation of the repository and the evidence of the slice                             | S2, S8  | inline  | _pending_ |
+| T3   | `AGENTS.md` of the root: the project, the architecture contract, the commands, the workflow   | S2, S5, S6 | inline | `a8ab4c8` |
+| T4   | The mirror of the contract in Engram                                                          | S4      | inline  | Engram 4618 |
+| T5   | The repair of the repository that is nil inside an interface                                 | S7.1    | inline  | `645c8c1` |
+| T6   | The repair of the tool contract: the schema and the description derive from the domain        | S7.2    | inline  | `d702118` |
+| T7   | The repair of the model of the migrations: one owner                                         | S7.3    | inline  | `a8073fc` |
+| T8   | The repair of the duplication: the health domain and the platform layer are shared           | S7.4    | inline  | `85d4493` |
+| T9   | The repair of the gate: the rule of the layers is pinned by a check                          | S7.5    | inline  | `8b6d3b4` |
+| T10  | The documentation of the repository and the evidence of the slice                             | S2, S8  | inline  | this file |
 
 Each task is one work unit: one commit, with its tests and its documentation alongside
 the behavior it changes.
+
+### The slice boundary and the delivery strategy
+
+The branch holds **six work units** since `main` (`428d4a8`), and the tooling of the
+repository counts them as about **3,200 authored changed lines** — well past the ~400
+lines of a reviewable slice. The feature is therefore delivered as a **chain of pull
+requests**, one per work unit, in the order of the table above:
+
+| Pull request | Commit                   | What a reviewer reads                                    |
+|--------------|--------------------------|----------------------------------------------------------|
+| 1            | `a8ab4c8`                | the contract of the agents, and the entry of every module |
+| 2            | `645c8c1`                | the promise of the "no database" answer, kept             |
+| 3            | `d702118`                | the contract of the status tool, derived from the domain  |
+| 4            | `a8073fc`                | the state of the schema, with one owner                   |
+| 5            | `8b6d3b4`                | the gate that pins the layers                              |
+| 6            | `85d4493`                | the shared platform and the shared health model           |
+
+The pushes, the pull requests and the merge stay the decision of the person: the branch
+holds the work, and nothing is published by the agent. A reviewer who wants the smallest
+possible diff reads the pull request of the behavior they care about — each one builds,
+each one is green on its own, and each one is a commit that says what it changes.
 
 ---
 
@@ -166,3 +187,40 @@ The audit of L2 confirmed that the boundary of the modules is real and enforced 
 compiler, that the layering inside the applications holds in every import it could find,
 and that the domain module imports nothing but the standard library. It also found the
 seven inconsistencies of S7, two of which reach the agent that uses the MCP server.
+
+### L6 — the decisions the repairs required
+
+1. **The absence of a collaborator is the absence of the value.** The library of the
+   database no longer returns a `*UserRepository` that is nil inside a `user.Repository`:
+   it refuses the nil pool, and the composition root of the MCP server leaves the
+   interface nil when there is no database. The promise of the "no database" answer is
+   now reachable. *(T5)*
+2. **The tool contract is derived, never re-typed.** The states a tool accepts come from
+   `user.AllTargets()`, and the description of the allowed moves comes from
+   `user.AllStatuses()` and `AllowedTargets()`. The error of a concurrent change is
+   mapped into the words of the agent. *(T6)*
+3. **The model of a migration has one owner.** It lives in `packages/domain/schema`,
+   because two sides need it: the service that writes the schema and the library that
+   applies the migrations. The adapter between them maps nothing. The service named the
+   dependency in its own `go.mod` — a replace of a dependency is ignored, and the module
+   did not build outside the workspace. *(T7)*
+4. **The infrastructure is shared; the configuration is not.** The clock, the logs, the
+   telemetry, the server and the health check of the container live in `packages/platform`
+   now, and the model of the health in `packages/domain/health`. The configuration stays
+   with each service: it is the one thing that is really its own, and the two services do
+   not read the same environment variables. *(T8)*
+5. **The health use case and the health handler stay with each service.** They depend on
+   the ports of the service that owns them, and a port belongs to its consumer. Sharing
+   them would mean moving the ports into a shared library, which is the ownership rule
+   broken in the other direction. The duplication that remains is deliberate, and it is
+   the price of the rule. *(T8)*
+6. **A layer may be empty.** After the move, neither service has a domain layer of its
+   own: every model it needs belongs to more than one service and lives in the shared
+   domain. The contract says so, and the gate accepts it: a layer that has no package of
+   its own cannot break the rule of the layers. *(T8, T9)*
+7. **The gate pins the direction of the dependencies.** The rule is read from the
+   compiler itself — the packages of every layer and their real imports — so the
+   assertion cannot drift from the code. Four probes were run against the gate before it
+   was trusted: a domain that named a driver, a use case that named an adapter, a module
+   that forgot to name its dependency, and a layer that named an adapter outside the
+   composition root — every one of them was caught. *(T9)*

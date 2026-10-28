@@ -76,7 +76,9 @@ The connection string is resolved in this order:
    password with an `@` or a `/` in it does not break the connection string.
 3. When neither of them is there, the server runs **without a database**, and
    its health report says nothing about it. Credentials that are half there
-   are an error: an invalid value is an error, never a silent fallback.
+   are ignored the same way: the server runs without a database and says so
+   in its log. A variable that is there and holds something invalid is
+   still an error, never a silent fallback.
 
 The URL names the container, so it is the same URL the host does not reach:
 the database publishes no port, and only the containers of the internal
@@ -164,7 +166,7 @@ silent fallback.
 
 Without `PACA_DATABASE_URL` and without the credentials of the PostgreSQL
 stack, the server runs without a database. Credentials that are half there
-are an error.
+are ignored: the server runs without a database and says so in its log.
 
 ### The tracing
 
@@ -222,6 +224,13 @@ make -C apps/mcp-server compose-up     # start the stack and wait until it is he
 make -C apps/mcp-server smoke          # ask the running server whether it is alive
 make -C apps/mcp-server compose-down   # stop the stack
 ```
+
+The stack of the server loads the credentials of the PostgreSQL stack, so it
+expects a database to answer at `postgres:5432`: the database of the
+monorepository, on the network the stacks share. Start the database first
+(`make db-up`) or start the whole monorepository (`docker compose up
+--wait`). Without a database the server still serves, and its health report
+says that the database does not answer.
 
 ## The quality gate
 

@@ -32,8 +32,9 @@ services:
     # The credentials of the database live with the stack that owns them:
     # `db/postgres/.env`. They travel to the server through this file, so
     # they are written once and only once. The file is optional: a stack
-    # that runs without the database keeps working, and the server starts
-    # without a database.
+    # that runs without the file keeps working, and the server starts
+    # without a database. With the file, the server expects the database of
+    # the monorepository at the host below.
     env_file:
       - path: ../../db/postgres/.env
         required: false

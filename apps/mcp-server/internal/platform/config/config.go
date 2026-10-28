@@ -200,6 +200,12 @@ type DatabaseConfig struct {
 	MaxConns int32
 	// ConnectTimeout bounds the attempt to open a connection.
 	ConnectTimeout time.Duration
+	// CredentialsIncomplete says that the environment carries some of the
+	// credentials of the database and not all of them. The service runs
+	// without a database in that case, as it always did, and it says so in
+	// its log: a service that stops because a variable of the environment
+	// is half set is a service that stops for a reason nobody asked for.
+	CredentialsIncomplete bool
 }
 
 // TracingConfig holds the settings of the tracing.
@@ -335,9 +341,12 @@ func Load() (Config, error) {
 //     `POSTGRES_DB`, loaded from `db/postgres/.env` with `env_file`) and
 //     from `PACA_DATABASE_HOST` and `PACA_DATABASE_PORT`.
 //
-// Credentials that are half there are an error: a database that the service
-// tries to reach with an incomplete password fails later, in the middle of a
-// request, instead of at the start.
+// Credentials that are half there are ignored: the service runs without a
+// database, the way it ran before the credentials of the PostgreSQL stack
+// reached it, and it says so in its log. A database that the service tries
+// to reach with an incomplete password fails later, in the middle of a
+// request; a service that says the credentials are incomplete fails at the
+// start, in the log.
 func loadDatabase() (DatabaseConfig, error) {
 	database := DatabaseConfig{
 		MaxConns:       DefaultDatabaseMaxConns,
@@ -386,7 +395,7 @@ func loadDatabase() (DatabaseConfig, error) {
 //
 // When no credential is there at all, the service has no database: that is
 // the behaviour of a service that runs alone. When some of them are there
-// and the others are not, the configuration is an error.
+// and the others are not, the service still has no database, and it says so.
 func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 	user, hasUser := os.LookupEnv(EnvPostgresUser)
 	password, hasPassword := os.LookupEnv(EnvPostgresPassword)
@@ -396,14 +405,11 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 		return nil
 	}
 
-	if !hasUser || strings.TrimSpace(user) == "" {
-		return fmt.Errorf("%s: the role of the database is missing", EnvPostgresUser)
-	}
-	if !hasPassword || password == "" {
-		return fmt.Errorf("%s: the password of the role is missing", EnvPostgresPassword)
-	}
-	if !hasDatabase || strings.TrimSpace(name) == "" {
-		return fmt.Errorf("%s: the name of the database is missing", EnvPostgresDB)
+	if !hasUser || strings.TrimSpace(user) == "" ||
+		!hasPassword || password == "" ||
+		!hasDatabase || strings.TrimSpace(name) == "" {
+		database.CredentialsIncomplete = true
+		return nil
 	}
 
 	host, err := loadDatabaseHost()

@@ -296,7 +296,32 @@ func TestLoadRejectsAnInvalidDatabasePort(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsIncompleteDatabaseCredentials(t *testing.T) {
+func TestLoadKeepsTheSpacesOfThePassword(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvPostgresUser, "paca")
+	t.Setenv(config.EnvPostgresPassword, " s3cr3t ")
+	t.Setenv(config.EnvPostgresDB, "paca")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	password, ok := parsed.User.Password()
+	if !ok {
+		t.Fatalf("database url %q carries no password", cfg.Database.URL)
+	}
+	if password != " s3cr3t " {
+		t.Fatalf("password = %q, want the spaces of the password to be kept", password)
+	}
+}
+
+func TestLoadRunsWithoutADatabaseWhenTheCredentialsAreIncomplete(t *testing.T) {
 	user := func(value string) *string { return &value }
 	tests := []struct {
 		name     string
@@ -325,8 +350,15 @@ func TestLoadRejectsIncompleteDatabaseCredentials(t *testing.T) {
 				t.Setenv(config.EnvPostgresDB, *test.database)
 			}
 
-			if _, err := config.Load(); err == nil {
-				t.Fatal("Load() with incomplete credentials = nil, want an error")
+			cfg, err := config.Load()
+			if err != nil {
+				t.Fatalf("Load() = %v, want the server to run without a database", err)
+			}
+			if cfg.Database.URL != "" {
+				t.Fatalf("database url = %q, want the server to run without a database", cfg.Database.URL)
+			}
+			if !cfg.Database.CredentialsIncomplete {
+				t.Fatal("the credentials are incomplete and the configuration does not say so")
 			}
 		})
 	}

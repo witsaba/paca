@@ -69,6 +69,10 @@ func run(ctx context.Context) error {
 
 	logger := logging.New(os.Stdout, cfg.LogLevel)
 
+	if cfg.Database.CredentialsIncomplete {
+		logger.Warn("the credentials of the database are incomplete; the server runs without a database")
+	}
+
 	providers, err := telemetry.Setup(ctx, telemetry.Options{
 		Enabled:        cfg.Tracing.Enabled,
 		ServiceName:    telemetryName(cfg),

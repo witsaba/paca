@@ -35,7 +35,7 @@ COVER_PKGS ?= $(shell $(GO) list ./...)
 .DEFAULT_GOAL := help
 
 .PHONY: help deps tidy tidy-check fmt fmt-check vet lint build test \
-        cover race bench perf vuln all clean
+        test-integration cover race bench perf vuln all clean
 
 ## help: show this list of targets
 help:
@@ -51,6 +51,7 @@ help:
 	@echo "  make lint              run golangci-lint"
 	@echo "  make build             build every package of the module"
 	@echo "  make test              run the test suite"
+	@echo "  make test-integration  run the container tests (none here: the module talks to no database)"
 	@echo "  make cover             run the test suite with coverage and check the threshold"
 	@echo "  make race              run the test suite with the race detector"
 	@echo "  make bench             run the benchmarks"
@@ -108,6 +109,19 @@ build:
 ## test: run the test suite
 test:
 	$(GO) test $(PACKAGE)
+
+## test-integration: run the container tests
+#
+# The module talks to no database: the rules of the domain are asserted
+# without a PostgreSQL, and the assertions are the unit tests. The rules of
+# the table are proven against a real one by the container tests of the
+# database library (packages/database).
+#
+# The target exists because the root of the monorepository calls it on
+# every package. A package that has no container test says so here,
+# instead of leaving the caller to guess.
+test-integration:
+	@echo "the domain has no container test: it talks to no database"
 
 ## cover: run the test suite with coverage and check the threshold
 cover:

@@ -140,7 +140,7 @@ applications_of_the_repository() {
 # other path — a module, a third-party package — has one.
 is_external() {
   case "$1" in
-    *.*/*|*./*) return 0 ;;
+    *.*/*) return 0 ;;
     *) return 1 ;;
   esac
 }

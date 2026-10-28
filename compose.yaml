@@ -15,6 +15,7 @@ name: paca
 include:
   - path: ./db/postgres/compose.yaml
   - path: ./apps/mcp-server/compose.yaml
+  - path: ./apps/db-admin/compose.yaml
   - path: ./observability/compose.yaml
 
 networks:

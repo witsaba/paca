@@ -4,6 +4,7 @@
 # own Makefile:
 #
 #   apps/mcp-server/Makefile   the MCP server
+#   apps/db-admin/Makefile     the database admin: the writer of the schema
 #   db/Makefile                the databases, one directory and one stack each
 #   observability/Makefile     the traces: the collector and the backend
 #
@@ -27,7 +28,7 @@
 #
 # Run `make` for the list of targets.
 
-APPS := mcp-server
+APPS := mcp-server db-admin
 
 # The shared libraries of the monorepository. A service imports them; they
 # publish no port and run no container.

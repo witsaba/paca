@@ -40,7 +40,8 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help all gate packages-integration shellcheck db-up db-smoke db-down \
+.PHONY: help all gate packages-integration apps-integration shellcheck \
+        db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
         env-init env-test
 
@@ -51,6 +52,7 @@ help: ## Show this help
 	@echo "  make all            the full gate: the applications, the shellcheck and the databases"
 	@echo "  make gate           the quality gate of every application and every package"
 	@echo "  make packages-integration  the container tests of every package (Docker)"
+	@echo "  make apps-integration     the container tests of every application (Docker)"
 	@echo "  make shellcheck     run shellcheck over the shell scripts of the repository"
 	@echo "  make db-up          start every database and wait until it is healthy"
 	@echo "  make db-smoke       run the smoke test of every database (it must be running)"
@@ -89,6 +91,17 @@ packages-integration: ## The container tests of every package
 	@for pkg in $(PACKAGES); do \
 		echo "==> packages/$$pkg: integration tests"; \
 		$(MAKE) --no-print-directory -C packages/$$pkg test-integration || exit 1; \
+	done
+
+# The container tests of the applications: they build the image of the
+# service, start it against a PostgreSQL and assert the guarantees it
+# promises. The rules that live in the composition root — the service
+# applies the migrations when it starts and it keeps serving — can only be
+# asserted against the real thing, so these tests are part of the gate.
+apps-integration: ## The container tests of every application
+	@for app in $(APPS); do \
+		echo "==> apps/$$app: container tests"; \
+		$(MAKE) --no-print-directory -C apps/$$app test-integration || exit 1; \
 	done
 
 shellcheck: ## Run shellcheck over the shell scripts of the repository

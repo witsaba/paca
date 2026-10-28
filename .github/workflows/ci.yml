@@ -5,6 +5,7 @@
 #
 #   make gate                the quality gate of every application and every package
 #   make packages-integration  the container tests of every package
+#   make apps-integration     the container tests of every application
 #   make db-up               every database, up and healthy
 #   make db-smoke            the smoke test of every database
 #   make shellcheck          the shell scripts of the repository
@@ -66,6 +67,15 @@ jobs:
       # against it. The runner has Docker, so they run here.
       - name: Run the container tests of the shared libraries
         run: make packages-integration
+
+      # The container tests of the applications build the image of the
+      # service and start it against a PostgreSQL. The rules of the
+      # composition root — the service applies the migrations when it
+      # starts and it keeps serving — can only be asserted against the
+      # real thing, so these tests are part of the gate. The runner has
+      # Docker, so they run here.
+      - name: Run the container tests of the applications
+        run: make apps-integration
 
   # The database: the image of the stack is built, the cluster starts, and
   # the smoke test asserts the guarantees it promises — UTF-8, UTC, UUID,

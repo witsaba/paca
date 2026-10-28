@@ -24,12 +24,12 @@ import (
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/outbound/database"
 	"github.com/witsaba/paca/apps/db-admin/internal/application"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/clock"
 	"github.com/witsaba/paca/apps/db-admin/internal/platform/config"
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/server"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/schema"
+	"github.com/witsaba/paca/packages/platform/clock"
+	"github.com/witsaba/paca/packages/platform/server"
 )
 
 // App is the assembled service: the HTTP server that hosts the health

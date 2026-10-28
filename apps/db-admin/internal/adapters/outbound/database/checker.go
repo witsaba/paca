@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // ErrPendingMigrations is what the checker reports when the schema of the

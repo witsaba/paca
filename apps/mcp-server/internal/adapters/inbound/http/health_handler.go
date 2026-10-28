@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // HealthPath is the path of the health endpoint.

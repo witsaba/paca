@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/platform/telemetry"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // The tests of this package are not parallel: they register the providers

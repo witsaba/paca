@@ -16,10 +16,9 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/witsaba/paca/packages/database v0.0.0
 	github.com/witsaba/paca/packages/domain v0.0.0
+	github.com/witsaba/paca/packages/platform v0.0.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/otel v1.47.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
 )
@@ -76,6 +75,8 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.47.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.47.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
@@ -105,3 +106,10 @@ replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20261019
 replace github.com/witsaba/paca/packages/database => ../../packages/database
 
 replace github.com/witsaba/paca/packages/domain => ../../packages/domain
+
+// The platform is a module of its own too: the clock, the logs, the
+// telemetry, the server and the health check of the container are the same
+// in every service. A replace of a dependency is ignored, so the service
+// carries its own replace, or it cannot resolve its graph outside the
+// workspace.
+replace github.com/witsaba/paca/packages/platform => ../../packages/platform

@@ -20,7 +20,9 @@ it, never the other way around.
 
 ```
 packages/database/
-  database.go         the migrator: the single writer of the schema
+  database.go         the migrator: the single writer of the schema. It
+                      speaks in the model of the domain, so the service and
+                      the library share one record of a migration
   postgres/           the adapter that talks to PostgreSQL: the pool, the
                       configuration and the repositories
   config/             the assembly of the connection string, shared by the

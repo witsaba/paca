@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 // MigrateService is the use case that applies the pending migrations of the

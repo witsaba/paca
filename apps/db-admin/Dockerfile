@@ -41,11 +41,13 @@ WORKDIR /src
 COPY apps/db-admin/go.mod apps/db-admin/go.sum ./apps/db-admin/
 COPY packages/database/go.mod packages/database/go.sum ./packages/database/
 COPY packages/domain/go.mod ./packages/domain/
+COPY packages/platform/go.mod packages/platform/go.sum ./packages/platform/
 RUN cd apps/db-admin && go mod download
 
 COPY apps/db-admin/ ./apps/db-admin/
 COPY packages/database/ ./packages/database/
 COPY packages/domain/ ./packages/domain/
+COPY packages/platform/ ./packages/platform/
 
 # A static binary, so the runtime image needs no C library at all.
 RUN cd apps/db-admin && CGO_ENABLED=0 GOOS=linux go build \

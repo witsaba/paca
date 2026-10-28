@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // The health use case is the inbound port of the adapters that expose the

@@ -15,7 +15,12 @@ import (
 func TestNewUserRepositoryWithoutAPool(t *testing.T) {
 	t.Parallel()
 
-	if repository := NewUserRepository(nil); repository != nil {
+	repository, err := NewUserRepository(nil)
+
+	if !errors.Is(err, ErrNoPool) {
+		t.Fatalf("the error is %v, want %v", err, ErrNoPool)
+	}
+	if repository != nil {
 		t.Errorf("the repository is %v, want none", repository)
 	}
 }
@@ -153,10 +158,23 @@ func TestWriteErrorKeepsAnUnknownUniqueIndex(t *testing.T) {
 	}
 }
 
+func TestTheConstructorRefusesAPoolThatIsNotOpen(t *testing.T) {
+	t.Parallel()
+
+	repository, err := NewUserRepository(nil)
+
+	if !errors.Is(err, ErrNoPool) {
+		t.Fatalf("the error is %v, want %v", err, ErrNoPool)
+	}
+	if repository != nil {
+		t.Fatalf("the repository is %v, want none", repository)
+	}
+}
+
 func TestTheRepositoryWithoutADatabaseRefusesToWork(t *testing.T) {
 	t.Parallel()
 
-	repository := NewUserRepository(nil)
+	repository := &UserRepository{}
 
 	if _, err := repository.Create(t.Context(), 1, user.Details{}); !errors.Is(err, ErrNoRepository) {
 		t.Errorf("the error is %v, want %v", err, ErrNoRepository)

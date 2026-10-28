@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/application"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // fakeClock is the clock of the tests: it answers the time it holds, and it

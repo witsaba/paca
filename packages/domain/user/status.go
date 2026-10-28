@@ -47,6 +47,45 @@ func (s Status) AllowedTargets() []Status {
 	return allowed
 }
 
+// AllTargets returns every status a user may move to.
+//
+// It is the union of the destinations of the map of the transitions: the
+// states a person can reach. The onboarding is never one of them, because no
+// move leads back to it.
+//
+// The order is the order of the states of the domain, and the caller receives
+// a copy.
+//
+// The function exists so that the surfaces that show the states of the user —
+// the schema of a tool, the instruction an agent reads — read them from the
+// domain instead of writing them a second time.
+func AllTargets() []Status {
+	targets := make([]Status, 0, len(statuses))
+
+	for _, status := range statuses {
+		for _, target := range transitions[status] {
+			if target == StatusOnboarding {
+				continue
+			}
+			if !containsTarget(targets, target) {
+				targets = append(targets, target)
+			}
+		}
+	}
+
+	return targets
+}
+
+// containsTarget reports whether the list already holds the target.
+func containsTarget(targets []Status, target Status) bool {
+	for _, candidate := range targets {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
+}
+
 // CanMoveTo reports whether the status may move to the target.
 //
 // A status never moves to itself: a move is a change.

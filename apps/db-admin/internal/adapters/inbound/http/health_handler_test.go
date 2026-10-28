@@ -11,7 +11,7 @@ import (
 	"time"
 
 	adapter "github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // fakeQuerier is the use case of the test: it returns the report the test

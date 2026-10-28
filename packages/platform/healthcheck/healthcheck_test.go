@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/healthcheck"
+	"github.com/witsaba/paca/packages/platform/healthcheck"
 )
 
 func TestTheCheckFailsWhenTheServerDoesNotAnswer(t *testing.T) {

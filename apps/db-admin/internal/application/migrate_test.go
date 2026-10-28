@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/application"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 // fakeMigrator is the migrator of the tests: it answers what the test

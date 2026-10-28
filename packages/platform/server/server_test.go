@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/platform/server"
+	"github.com/witsaba/paca/packages/platform/server"
 )
 
 // discardLogger is the logger of the test.

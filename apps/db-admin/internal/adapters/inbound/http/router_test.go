@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	adapter "github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // discardLogger is the logger of the test.

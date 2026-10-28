@@ -18,14 +18,23 @@ support them, in one repository and one compose project.
 The repository is a Go workspace (`go.work`), so the modules are built and
 tested against each other, and every module keeps working on its own.
 
+## The contract of the agents
+
+[`AGENTS.md`](AGENTS.md) holds the contract of the architecture: the layers and the
+direction of the dependencies, the ownership of the rules of the domain, the owner of
+every model, and the checks of SOLID. It is written for a coding agent, and it is the
+canonical entry of the instructions of the repository. The entry file of each module
+(`packages/*/AGENTS.md`, `apps/*/AGENTS.md`) adds the specifics of that module.
+
 ## What is in the repository now
 
 | Directory          | What it is                                        | README |
 |--------------------|---------------------------------------------------|--------|
-| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and no tool yet. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
+| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and three tools for the people who use PACA. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/database/` | The database library: the pool, the queries, the migrations and the repositories that write the rows. A library, with no port and no container. | [packages/database/README.md](packages/database/README.md) |
-| `packages/domain/` | The domain: the models of the people and the port of their storage. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
+| `packages/domain/` | The domain: the models of the people, the port of their storage, the state of the schema and the model of the health. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
+| `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 
@@ -168,6 +177,7 @@ the coverage gate, the benchmarks and the vulnerability scan.
 make -C apps/mcp-server all
 make -C packages/domain all
 make -C packages/database all
+make -C packages/platform all
 ```
 
 The tools are pinned in `tools/go.mod` and run with `go tool`, so every
@@ -193,6 +203,15 @@ whole stack: it comes up, the schema is asserted, and it goes down.
 A step that fails stops the gate, and the exit code says so. The gate
 leaves no container behind: the containers it started are stopped when it
 ends, whether it passed or failed.
+
+The gate proves the architecture as well. `make structure-test` asserts that
+every module resolves its own graph and its own dependencies without the
+workspace of the repository, that every link of the documentation points at a
+file that exists, and that the layers of every application respect the
+direction of the dependencies: the domain names no technology, the
+application knows no adapter, the adapters know no use case, and only the
+composition root knows the adapters. The rules of the architecture are not a
+comment that a reviewer has to remember: they are assertions that fail.
 
 The last step of the gate is the proof of the stack. `make stack-up`
 brings the whole monorepository up and waits until it is healthy, and

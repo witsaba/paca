@@ -222,7 +222,10 @@ func TestCreateWithAPhoneThatIsTaken(t *testing.T) {
 func usersRepository(t *testing.T) *postgres.UserRepository {
 	t.Helper()
 
-	repo := postgres.NewUserRepository(theSuite.pool)
+	repo, err := postgres.NewUserRepository(theSuite.pool)
+	if err != nil {
+		t.Fatalf("the repository of the users could not be created: %v", err)
+	}
 	if repo == nil {
 		t.Fatal("the repository of the users could not be created, want one bound to the database of the suite")
 	}

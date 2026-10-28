@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
-	"github.com/witsaba/paca/apps/mcp-server/internal/domain/health"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/health"
 )
 
 // fakeClock is the clock of the test: it only moves when the test moves it.

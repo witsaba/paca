@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 func TestTheSchemaIsUpToDateWhenNothingIsPending(t *testing.T) {

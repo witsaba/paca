@@ -240,6 +240,20 @@ func statusesOfTheSchema(t *testing.T, schema any) []string {
 	return statuses
 }
 
+// schemaOf returns the input schema of the tool of the given name.
+func schemaOf(t *testing.T, tools []*sdk.Tool, name string) any {
+	t.Helper()
+
+	for _, tool := range tools {
+		if tool.Name == name {
+			return tool.InputSchema
+		}
+	}
+
+	t.Fatalf("the server exposes no tool named %q", name)
+	return nil
+}
+
 // descriptionOf returns the description of the tool of the given name.
 func descriptionOf(t *testing.T, tools []*sdk.Tool, name string) string {
 	t.Helper()
@@ -266,4 +280,114 @@ func textOf(t *testing.T, result *sdk.CallToolResult) string {
 	}
 
 	return text.String()
+}
+
+// TestTheSchemaOfTheStatusToolListsTheStatesOfTheDomain proves that the
+// contract of the tool agrees with the domain: the states the agent may send
+// are the states the domain allows.
+//
+// The list is read from the domain, so the day the domain adds a state the
+// schema follows it. A list written by hand in the adapter would agree with
+// the domain today and would fail this test from that day on.
+func TestTheSchemaOfTheStatusToolListsTheStatesOfTheDomain(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, &stubUsers{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	got := statusesOfTheSchema(t, schemaOf(t, tools.Tools, mcpserver.ToolChangeUserStatus))
+
+	want := make([]string, 0, len(user.AllTargets()))
+	for _, target := range user.AllTargets() {
+		want = append(want, target.String())
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("the schema lists %v, want %v", got, want)
+	}
+	for i, status := range want {
+		if got[i] != status {
+			t.Fatalf("the schema lists %v, want %v", got, want)
+		}
+	}
+}
+
+// TestTheDescriptionOfTheStatusToolListsTheMovesOfTheDomain proves that the
+// instruction the agent reads agrees with the map of the domain: every state
+// is a line, and the line holds the destinations the domain allows.
+//
+// The lines are rendered from the map, so the day the domain changes the map
+// the instruction changes with it.
+func TestTheDescriptionOfTheStatusToolListsTheMovesOfTheDomain(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, &stubUsers{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolChangeUserStatus)
+
+	lines := make(map[string]string)
+	for _, line := range strings.Split(description, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || fields[1] != "->" {
+			continue
+		}
+		lines[fields[0]] = strings.Join(fields[2:], " ")
+	}
+
+	for _, status := range user.AllStatuses() {
+		targets := status.AllowedTargets()
+		if len(targets) == 0 {
+			continue
+		}
+
+		line, ok := lines[status.String()]
+		if !ok {
+			t.Errorf("the description does not say what %q may move to:\n%s", status, description)
+			continue
+		}
+
+		for _, target := range targets {
+			if !strings.Contains(line, target.String()) {
+				t.Errorf("the line of %q does not hold %q: %q", status, target, line)
+			}
+		}
+	}
+}
+
+// TestTheToolExplainsAConcurrentChangeToTheAgent proves that every error of
+// the domain that the agent can see has a message in the words of the
+// protocol.
+func TestTheToolExplainsAConcurrentChangeToTheAgent(t *testing.T) {
+	t.Parallel()
+
+	users := &stubUsers{err: user.ErrConcurrentChange}
+	session := connect(t, users)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolChangeUserStatus,
+		Arguments: map[string]any{
+			"document_id": "1234567",
+			"status":      "active",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	message := textOf(t, result)
+	if !strings.Contains(message, "at the same time") {
+		t.Errorf("the message does not tell the agent that the user changed: %s", message)
+	}
 }

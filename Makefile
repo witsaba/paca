@@ -33,7 +33,7 @@ APPS := mcp-server db-admin
 
 # The shared libraries of the monorepository. A service imports them; they
 # publish no port and run no container.
-PACKAGES := domain database
+PACKAGES := domain database platform
 
 # The compose project of the monorepository: the root compose file includes
 # every stack, so the whole project is driven from here.
@@ -228,7 +228,10 @@ env-init: ## Write the .env file of every stack of the monorepository
 env-test: ## Run the tests of the installer of the environment
 	@./scripts/tests/setup-env-test.sh
 
-# The tests of the structure: every module resolves its own graph, and every
-# link of the documentation points at a file that exists.
+# The tests of the structure: every module resolves its own graph and its own
+# dependencies, every link of the documentation points at a file that exists,
+# and the layers of every application respect the direction of the
+# dependencies: the domain knows no technology, the application knows no
+# adapter, and only the composition root knows the adapters.
 structure-test: ## Run the tests of the structure of the repository
 	@./scripts/tests/structure-test.sh

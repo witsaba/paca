@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
 	"github.com/witsaba/paca/packages/database"
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 // The adapters of this package are the ones the application talks to.
@@ -53,43 +53,16 @@ func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
 //
 // The list is empty when the schema was already up to date: applying the
 // migrations twice is not an error, it is nothing to do.
+//
+// The record of a migration is the one of the domain: the model has a single
+// owner, and this adapter maps nothing.
 func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
-	applied, err := m.migrator.Up(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	migrations := make([]schema.Migration, 0, len(applied))
-	for _, migration := range applied {
-		migrations = append(migrations, schema.Migration{
-			Version:   migration.Version,
-			Name:      migration.Name,
-			Applied:   migration.Applied,
-			AppliedAt: migration.AppliedAt,
-		})
-	}
-
-	return migrations, nil
+	return m.migrator.Up(ctx)
 }
 
 // Status returns the state of every migration of the schema.
 func (m *Migrator) Status(ctx context.Context) ([]schema.Migration, error) {
-	statuses, err := m.migrator.Status(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	migrations := make([]schema.Migration, 0, len(statuses))
-	for _, status := range statuses {
-		migrations = append(migrations, schema.Migration{
-			Version:   status.Version,
-			Name:      status.Name,
-			Applied:   status.Applied,
-			AppliedAt: status.AppliedAt,
-		})
-	}
-
-	return migrations, nil
+	return m.migrator.Status(ctx)
 }
 
 // Pending reports whether a migration is waiting to be applied.

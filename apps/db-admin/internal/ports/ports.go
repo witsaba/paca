@@ -11,8 +11,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/health"
-	"github.com/witsaba/paca/apps/db-admin/internal/domain/schema"
+	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/schema"
 )
 
 // ErrNoDatabase is the error of a use case with no database behind it.

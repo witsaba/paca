@@ -212,6 +212,10 @@ The stack of the service runs on its own too:
 docker compose -f apps/db-admin/compose.yaml up --build -d --wait
 ```
 
+It needs the database of the monorepository: the stacks share the network
+`paca_internal`, so the PostgreSQL of the repository answers at
+`postgres:5432` when it runs. Start it first (`make db-up`).
+
 There is no `depends_on` on the other stacks: a cross-file dependency only
 resolves inside the merged project, and a stack that must run on its own
 cannot depend on a stack it does not include. The service waits for the

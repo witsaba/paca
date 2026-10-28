@@ -11,6 +11,7 @@
 go 1.27.3
 
 use (
+	./apps/db-admin
 	./apps/mcp-server
 	./packages/core
 	./tools

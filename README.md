@@ -202,6 +202,15 @@ A step that fails stops the gate, and the exit code says so. The gate
 leaves no container behind: the containers it started are stopped when it
 ends, whether it passed or failed.
 
+The gate proves the architecture as well. `make structure-test` asserts that
+every module resolves its own graph and its own dependencies without the
+workspace of the repository, that every link of the documentation points at a
+file that exists, and that the layers of every application respect the
+direction of the dependencies: the domain names no technology, the
+application knows no adapter, the adapters know no use case, and only the
+composition root knows the adapters. The rules of the architecture are not a
+comment that a reviewer has to remember: they are assertions that fail.
+
 The last step of the gate is the proof of the stack. `make stack-up`
 brings the whole monorepository up and waits until it is healthy, and
 `make stack-schema` asserts, against the running project, that every

@@ -29,6 +29,14 @@ services:
     container_name: paca-mcp-server
     restart: unless-stopped
     stop_grace_period: 15s
+    # The credentials of the database live with the stack that owns them:
+    # `db/postgres/.env`. They travel to the server through this file, so
+    # they are written once and only once. The file is optional: a stack
+    # that runs without the database keeps working, and the server starts
+    # without a database.
+    env_file:
+      - path: ../../db/postgres/.env
+        required: false
     environment:
       # The server binds the interface of the container, so the other
       # containers of the stack reach it. It publishes no port, so the host
@@ -37,6 +45,12 @@ services:
       # The port reserved for the MCP server of the monorepository.
       PACA_MCP_PORT: "8081"
       PACA_LOG_LEVEL: "info"
+      # The database of the monorepository: the container of the
+      # PostgreSQL stack, on the network below. The connection string is
+      # assembled by the server itself, from the credentials it loaded
+      # above and from the host and the port here.
+      PACA_DATABASE_HOST: "postgres"
+      PACA_DATABASE_PORT: "5432"
       # The traces go to the collector of the observability stack. It sits
       # on the same internal network, so the server keeps its promise of no
       # outbound access to the internet. The traffic inside that network is

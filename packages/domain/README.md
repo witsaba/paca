@@ -69,6 +69,12 @@ No move leads back to the onboarding: that state is the entry of the
 machine, the state of a person that has just been created, and it is never
 a destination.
 
+**The map is published.** `user.AllStatuses()` returns the four states and
+`user.AllTargets()` the states a person may reach, and `user.AllowedTargets()`
+the states one state may move to. The surfaces that show the states of the
+person — the schema of a tool, the instruction an agent reads — read them from
+here, so they never drift from the rule.
+
 **The observation belongs to the status.** The two closed states —
 `inactive` and `blocked` — carry the reason why the person is not using the
 product, and the two open states carry none.

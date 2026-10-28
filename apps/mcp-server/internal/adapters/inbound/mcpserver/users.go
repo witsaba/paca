@@ -3,6 +3,8 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -48,19 +50,22 @@ const (
 		"and then register the user with everything you have.\n\n" +
 		"The new user starts in the 'onboarding' status, with no reason attached to it."
 
-	// descriptionChangeUserStatus tells the agent how to move a user.
-	descriptionChangeUserStatus = "Move a user to another status, and say why when the status needs it.\n\n" +
-		"The status of a user may move like this:\n" +
-		"  onboarding -> active, inactive or blocked\n" +
-		"  active     -> inactive or blocked\n" +
-		"  inactive   -> active or blocked\n" +
-		"  blocked    -> active or inactive\n\n" +
-		"A user never returns to 'onboarding': that status belongs to a person who has just been registered, and " +
+	// descriptionChangeUserStatusHead tells the agent what the tool does and
+	// what it may do with what it receives.
+	//
+	// The map of the states is not written here: it is read from the domain
+	// and rendered for the agent, so the instruction and the rule never
+	// drift apart.
+	descriptionChangeUserStatusHead = "Move a user to another status, and say why when the status needs it.\n\n" +
+		"The status of a user may move like this:\n"
+
+	// descriptionChangeUserStatusTail tells the agent what it must not do.
+	descriptionChangeUserStatusTail = "\nA user never returns to 'onboarding': that status belongs to a person who has just been registered, and " +
 		"it is never a destination.\n\n" +
 		"The observation is REQUIRED when the new status is 'inactive' or 'blocked': those are the states that " +
 		"say why the person is not using the product, so ask the person for the reason. The observation must be " +
-		"left out when the new status is 'active', because that status carries no reason. The database refuses " +
-		"the wrong combination, and so does this tool."
+		"left out when the new status is 'active', because that status carries no reason. PACA refuses the wrong " +
+		"combination, and so does the database."
 
 	// descriptionUpdateUserContactData tells the agent how to write data.
 	descriptionUpdateUserContactData = "Update the data of a user who is already registered: the full name, the " +
@@ -159,7 +164,7 @@ func (s *Server) registerUserTools(users ports.UsersQuerier) {
 
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolChangeUserStatus,
-		Description: descriptionChangeUserStatus,
+		Description: descriptionOfTheStatusTool(),
 		InputSchema: statusInputSchema(),
 	}, s.changeUserStatus(users))
 
@@ -174,6 +179,9 @@ func (s *Server) registerUserTools(users ports.UsersQuerier) {
 // The schema is the one the generator infers from the input of the tool, with
 // the list of the statuses the user may move to: the agent reads the list
 // instead of guessing a state.
+//
+// The list comes from the domain, so a state the domain does not know cannot
+// reach the schema, and a state the domain adds reaches it.
 func statusInputSchema() *jsonschema.Schema {
 	schema, err := jsonschema.For[changeUserStatusInput](nil)
 	if err != nil {
@@ -181,10 +189,70 @@ func statusInputSchema() *jsonschema.Schema {
 	}
 
 	if status, ok := schema.Properties["status"]; ok {
-		status.Enum = []any{"active", "inactive", "blocked"}
+		targets := user.AllTargets()
+		enum := make([]any, 0, len(targets))
+		for _, target := range targets {
+			enum = append(enum, target.String())
+		}
+		status.Enum = enum
 	}
 
 	return schema
+}
+
+// descriptionOfTheStatusTool returns the instruction of the tool that moves a
+// user.
+//
+// The words are the ones of the protocol, and the map of the states is the
+// one of the domain: the instruction is rendered from it, never written a
+// second time.
+func descriptionOfTheStatusTool() string {
+	return descriptionChangeUserStatusHead + descriptionOfTheTransitions() + descriptionChangeUserStatusTail
+}
+
+// descriptionOfTheTransitions renders the map of the states of the domain for
+// the agent.
+//
+// Every state is a line, and the destinations of the line are the ones the
+// domain allows.
+func descriptionOfTheTransitions() string {
+	all := user.AllStatuses()
+
+	width := 0
+	for _, status := range all {
+		if length := len(status.String()); length > width {
+			width = length
+		}
+	}
+
+	var text strings.Builder
+	for _, status := range all {
+		targets := status.AllowedTargets()
+		if len(targets) == 0 {
+			continue
+		}
+
+		fmt.Fprintf(&text, "  %-*s-> %s\n", width+1, status.String(), namesOf(targets))
+	}
+
+	return text.String()
+}
+
+// namesOf returns the names of the states, in a sentence an agent reads.
+func namesOf(targets []user.Status) string {
+	names := make([]string, 0, len(targets))
+	for _, target := range targets {
+		names = append(names, target.String())
+	}
+
+	if len(names) == 0 {
+		return ""
+	}
+	if len(names) == 1 {
+		return names[0]
+	}
+
+	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
 }
 
 // onboardUser is the handler of the tool that starts an onboarding.
@@ -290,6 +358,8 @@ func toolError(err error) error {
 		return errors.New("that status takes no reason: send the observation only when the new status is inactive or blocked")
 	case errors.Is(err, user.ErrUnknownStatus):
 		return errors.New("the status must be active, inactive or blocked")
+	case errors.Is(err, user.ErrConcurrentChange):
+		return errors.New("the status of the user changed at the same time: read the user again and try the change once more")
 	case errors.Is(err, ports.ErrNoDatabase):
 		return errors.New("the service has no database configured: the users cannot be reached")
 	case errors.Is(err, user.ErrInvalidValue):

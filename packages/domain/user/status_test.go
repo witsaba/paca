@@ -201,3 +201,44 @@ func TestValidateObservation(t *testing.T) {
 		})
 	}
 }
+
+func TestAllTargetsReturnsTheStatesAUserCanReach(t *testing.T) {
+	t.Parallel()
+
+	targets := user.AllTargets()
+
+	want := []user.Status{user.StatusActive, user.StatusInactive, user.StatusBlocked}
+	if len(targets) != len(want) {
+		t.Fatalf("the targets are %v, want %v", targets, want)
+	}
+	for i, target := range targets {
+		if target != want[i] {
+			t.Fatalf("the targets are %v, want %v", targets, want)
+		}
+	}
+}
+
+func TestAllTargetsNeverLeadsBackToTheOnboarding(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range user.AllTargets() {
+		if target == user.StatusOnboarding {
+			t.Fatalf("the onboarding is a target of the map: %v", user.AllTargets())
+		}
+	}
+}
+
+func TestAllTargetsReturnsACopy(t *testing.T) {
+	t.Parallel()
+
+	targets := user.AllTargets()
+	if len(targets) == 0 {
+		t.Fatal("there are no targets")
+	}
+
+	targets[0] = user.Status("changed")
+
+	if user.AllTargets()[0] == user.Status("changed") {
+		t.Fatal("the list of the targets changed under the caller")
+	}
+}

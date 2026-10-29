@@ -264,3 +264,25 @@ decision of the person — or the `.env` of the stack carries the credentials of
 cluster. Nothing of this slice is unproven because of it: the container tests of the
 packages and of the applications assert the rules of the schema and of the services
 against a real PostgreSQL that they create and throw away.
+
+### L8 — the decision of the machine, and the state of the record
+
+The decision of L7 was taken on the machine, and it was the second one: the
+credentials of the cluster of the volume were aligned with the `.env` of the stack.
+The volume `paca-postgres-data` was **not** dropped, so the data of the local
+development environment is intact.
+
+The step that L7 names as red is green. `make all` now runs the whole gate of the
+repository from nothing on this machine and every step passes, the smoke test of the
+database and the whole stack included. The table of L7 keeps the state of that day,
+as the record of what happened; this entry is the state of today.
+
+Two stale remote branches were also deleted from the origin: `feat/ci-github-actions`
+and `feat/observability-tracing`. Both were already merged as squashes
+(`2116666` and `33eb9f7`), and the identifiers of their work units live in the
+pull requests that merged them, which the server keeps. Nothing that was not in
+`main` was added back to it.
+
+The work units of this slice were merged as the squash `d24574d`, so the history of
+`main` holds one commit for the whole feature. The identifiers of the table above
+live in the pull request #35, whose head the server keeps.

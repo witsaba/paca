@@ -101,7 +101,7 @@ because each one states it in its own words and its own tests assert those words
 | T4   | Point the two applications at the two new modules                                               | S2, S6  | inline  | `266e48b` |
 | T5   | Move the assembly of the connection string into the database library                           | S7      | worker  | `8f6efd2` |
 | T6   | Wire the build: `go.work`, the root `Makefile`, the continuous integration, the documentation   | S2, S5  | inline  | `90b572d` |
-| T7   | The differential check and the gate of the repository                                           | S6      | verifier | _pending_ |
+| T7   | The differential check and the gate of the repository                                           | S6      | verifier | `bfc0225` |
 
 Each task is one work unit: one commit, with its tests and its documentation
 alongside the behavior it changes.
@@ -111,6 +111,11 @@ the same mechanical operation as the move of the library, and splitting it in
 two commits would have produced a commit that does not build.
 
 The feature document of the slice is `a5a2db7`.
+
+The slice was merged as a squash (`428d4a8`), so the history of `main` holds one commit for the
+whole feature. The identifiers of the work units are not in the history of `main`: they live in the
+pull request #33, whose head the server keeps. The record of what happened is the pull request
+itself.
 
 ---
 
@@ -321,6 +326,27 @@ What the machine needs is a decision that is not the agent's to take: either the
 volume is dropped, and the stack builds its cluster again from the `.env` of the
 worktree, or the credentials of the cluster are aligned with the `.env`. The
 volume holds the data of a local development database.
+
+### L17 — the decision of the machine, and the state of the record
+
+The decision was taken on the machine, and it was the second one: the credentials
+of the cluster of the volume were aligned with the `.env` of the stack. The
+volume `paca-postgres-data` was **not** dropped, so the data of the local
+development database is intact, and the stack now answers with the database
+`paca-pg` and the password that the volume already held.
+
+The consequence is that the step L16 named as red is green. `make all` runs the
+whole gate of the repository from nothing on this machine and every step passes,
+the smoke test of the database and the whole stack included. The section L16
+keeps the state of that day, as the record of what happened; this entry is the
+state of today.
+
+The record of the work units of this slice is also closed. T7 was the last task
+without a commit: the independent verification ran, it found one regression and
+two defects, and the commit that fixed them is `bfc0225` — every module resolves
+its own graph without the workspace of the repository, and every relative link of
+the documentation points at a file that exists. The two classes of defect are
+pinned by `scripts/tests/structure-test.sh`, which the gate runs.
 
 
 

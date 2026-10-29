@@ -140,8 +140,8 @@ reason is in the gate itself:
 | `6dc6d01`, `9923802`, `a9b490b` | The configuration, the instrumentation and the wiring. | They are the ordinary slices. |
 
 The pull request was merged with a squash, so the history of `main` holds one commit for the whole
-feature and the identifiers above live on the branch `feat/observability-tracing`, not in the
-history of `main`. The record of what happened is the pull request itself.
+feature and the identifiers above are not in the history of `main`: they live in the pull request
+#22, whose head the server keeps. The record of what happened is the pull request itself.
 
 ### L8 — The facts of the runtime that shaped the stack
 
@@ -192,9 +192,9 @@ The verification of the security of the stack was made by an independent verifie
 stack: the verdict was that the claim holds, with three advisories that are now written down in the
 README of the stack and in the configuration of the collector.
 
-The pull request was merged as a squash commit, `33eb9f7`, and the branch was deleted by GitHub.
-Two corrections landed after the merge — the claim about the boundary of the SDK, and the record of
-the commits — and they came back in a pull request of their own.
+The pull request was merged as a squash commit, `33eb9f7`. Two corrections landed after the merge —
+the claim about the boundary of the SDK, and the record of the commits — and they came back in a
+pull request of their own.
 
 ### L11 — The follow-up
 
@@ -206,3 +206,13 @@ providers.
 
 The dependency rule was checked with the imports: the domain, the application and the ports import
 nothing from OpenTelemetry.
+
+### L12 — The branch of the slice is gone
+
+The branch `feat/observability-tracing` was deleted from the origin. It held nothing that `main`
+does not hold: the pull request #22 was merged as the squash `33eb9f7`, and the tree of the branch
+and the tree of that squash are the same file by file.
+
+The identifiers of the work units are therefore not in the history of `main` and not in a branch
+anymore: they live in the head of the pull request, which the server keeps. The record of what
+happened is the pull request itself.

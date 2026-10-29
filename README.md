@@ -196,9 +196,11 @@ make all
 It writes the environment it needs, it runs the quality gate of every
 application and every package, the container tests of the packages, the
 container tests of the applications, the shellcheck of the scripts, the
-tests of the installer of the environment, the smoke test of every
-database, the smoke test of the collector of the traces, and finally the
-whole stack: it comes up, the schema is asserted, and it goes down.
+tests of the installer of the environment, the tests of the structure of the
+repository, the tests of the filters of the continuous integration, the
+smoke test of every database, the smoke test of the collector of the traces,
+and finally the whole stack: it comes up, the schema is asserted, and it
+goes down.
 
 A step that fails stops the gate, and the exit code says so. The gate
 leaves no container behind: the containers it started are stopped when it
@@ -242,16 +244,33 @@ make all                # the full gate of the repository, from nothing
 ```
 
 The workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on
-every push to `main` and on every pull request, with five jobs:
+every push to `main` and on every pull request, with five checks:
 
 | Job            | What it verifies                                                    |
 |----------------|---------------------------------------------------------------------|
-| `gate`         | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application and every package, and then the container tests of the shared libraries: the rules of the tables, asserted against a real PostgreSQL. |
+| `gate`         | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application and every package, and then the container tests of the shared libraries and of the applications: the rules of the tables, asserted against a real PostgreSQL. |
 | `database`     | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
 | `observability`| the collector of the traces starts, and its query API answers.       |
 | `stack`        | the whole monorepository comes up from nothing, and the schema of the database is there: it was written by the service that owns it. |
 | `shellcheck`   | the shell scripts of the repository pass shellcheck.                  |
 
-The container tests of the MCP server (`make -C apps/mcp-server
-test-integration`) stay a local gate: they need Docker and build the image
-of the server, so they are not part of the workflow.
+**A check runs only when the change can affect what it proves.** GitHub
+Actions filters the files of a run only at the level of the workflow, so
+the job `changes` computes the files of the run and the rules of
+[`scripts/ci/job-filters.txt`](scripts/ci/job-filters.txt) say which check
+each one needs. A check that is not needed is skipped, and the skip is a
+visible statement: the workflow always reaches a conclusion, and a pull
+request is green when every job is green.
+
+The rules live in the repository, in one file, so a rule is a change of the
+code and never a comment of the workflow. The tests of the filters prove
+them against a matrix of changes, and they run in the workflow itself:
+
+```sh
+make ci-filters-test   # the tests of the filters of the continuous integration
+```
+
+A change of the workflow, of the scripts of the continuous integration or
+of the root `Makefile` changes what every check proves, so every check runs
+when one of them changes. A manual run of the workflow (`workflow_dispatch`)
+runs every check too: it carries no change to compare.

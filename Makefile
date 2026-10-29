@@ -49,7 +49,7 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
         db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
         stack-up stack-schema stack-down \
-        env-init env-test structure-test
+        env-init env-test structure-test ci-filters-test
 
 help: ## Show this help
 	@echo "PACA — the targets of the monorepository"
@@ -76,6 +76,7 @@ help: ## Show this help
 	@echo "  make env-init           write the .env file of every stack (asks for the values)"
 	@echo "  make env-test           run the tests of the installer of the environment"
 	@echo "  make structure-test      run the tests of the structure of the repository"
+	@echo "  make ci-filters-test     run the tests of the filters of the continuous integration"
 	@echo ""
 	@echo "The applications of the monorepository:"
 	@for app in $(APPS); do \
@@ -125,6 +126,8 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 	$(MAKE) --no-print-directory env-test; \
 	echo "==> the tests of the structure of the repository"; \
 	$(MAKE) --no-print-directory structure-test; \
+	echo "==> the tests of the filters of the continuous integration"; \
+	$(MAKE) --no-print-directory ci-filters-test; \
 	echo "==> the database"; \
 	$(MAKE) --no-print-directory db-up; \
 	$(MAKE) --no-print-directory db-smoke; \
@@ -235,3 +238,10 @@ env-test: ## Run the tests of the installer of the environment
 # adapter, and only the composition root knows the adapters.
 structure-test: ## Run the tests of the structure of the repository
 	@./scripts/tests/structure-test.sh
+
+# The tests of the filters of the continuous integration: the rules of
+# scripts/ci/job-filters.txt say which job of the workflow a change needs,
+# and the tests prove it against a matrix of changes. A job runs only when
+# the change can affect what it proves.
+ci-filters-test: ## Run the tests of the filters of the continuous integration
+	@./scripts/tests/ci-filters-test.sh

@@ -17,7 +17,15 @@
 # The workflow never names a stack: a new application or a new database
 # joins the tree through the root Makefile alone.
 #
-# A pull request is green when every job is green.
+# Every job runs only when the files of the change can affect what it
+# proves. GitHub Actions filters the files of a run only at the level of the
+# workflow, so the job `changes` computes them here and the rules of
+# scripts/ci/job-filters.txt say which job each one needs. A job that is
+# skipped is a visible statement that its check was not needed: the
+# workflow always reaches a conclusion.
+#
+# A pull request is green when every job is green, and a skipped job is
+# green: it says that the change cannot affect what it proves.
 name: CI
 
 on:
@@ -36,10 +44,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The changes: the files of the run, and the jobs that need them.
+  #
+  # The rules live in the repository, in scripts/ci/job-filters.txt, so a
+  # rule is a change of the code and not a comment of the workflow. The
+  # tests of the filters (make ci-filters-test) prove them against a matrix
+  # of changes.
+  changes:
+    name: The changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      gate: ${{ steps.detect.outputs.gate }}
+      database: ${{ steps.detect.outputs.database }}
+      observability: ${{ steps.detect.outputs.observability }}
+      stack: ${{ steps.detect.outputs.stack }}
+      shellcheck: ${{ steps.detect.outputs.shellcheck }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          # The whole history: the base of the comparison is a commit of the
+          # repository, and it must be here to be diffed.
+          fetch-depth: 0
+
+      - name: Detect the changes
+        env:
+          # The base of the comparison is the commit the branch starts from,
+          # and the head is the commit the run carries. A manual run carries
+          # no change: every job runs.
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ./scripts/ci/changed-jobs.sh \
+            --filters scripts/ci/job-filters.txt \
+            --event "$EVENT" \
+            --base "$BASE" \
+            --head "$HEAD" >> "$GITHUB_OUTPUT"
+
   # The quality gate: fmt-check, vet, lint, build, test, race, cover and
   # vuln, over every application of the workspace.
   gate:
     name: The quality gate
+    needs: changes
+    if: needs.changes.outputs.gate == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -85,6 +134,8 @@ jobs:
   # vector search, checksums and isolation.
   database:
     name: The database
+    needs: changes
+    if: needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -118,6 +169,8 @@ jobs:
   # asserts that its query API answers.
   observability:
     name: The observability
+    needs: changes
+    if: needs.changes.outputs.observability == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -141,6 +194,8 @@ jobs:
   # that has no image, no container and no volume.
   stack:
     name: The stack
+    needs: changes
+    if: needs.changes.outputs.stack == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -167,6 +222,8 @@ jobs:
   # every script a stack brings.
   shellcheck:
     name: The shellcheck
+    needs: changes
+    if: needs.changes.outputs.shellcheck == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -194,3 +251,9 @@ jobs:
       # tests of the structure prove it.
       - name: Run the tests of the structure of the repository
         run: make structure-test
+
+      # The rules of the job filters are the promise of the workflow: a job
+      # runs only when the change can affect what it proves. The tests prove
+      # them against a matrix of changes.
+      - name: Run the tests of the filters of the continuous integration
+        run: make ci-filters-test

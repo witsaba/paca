@@ -1,0 +1,74 @@
+# The rules of the job filters of the continuous integration.
+#
+# One line per rule: the job that needs the paths, and the pattern of the
+# paths. The pattern is the syntax of the filters of GitHub Actions:
+#
+#   *  matches any character, the slash except
+#   ** matches any character, the slash included
+#   ?  matches one character, the slash except
+#
+# The job named "all" is the machinery of the filters themselves: a change
+# of the workflow, of the scripts of the continuous integration or of the
+# dispatcher of the targets changes what every job proves, so every job
+# runs.
+#
+# The rules are deliberately coarse. A path that is missing here skips a
+# proof that the change needed; a path that is too wide only costs a run
+# that was not needed. When in doubt, the wider rule is the safe one.
+
+# The machinery of the filters: a change of any of these paths changes what
+# every job of the workflow proves.
+all .github/workflows/**
+all scripts/ci/**
+all Makefile
+
+# The quality gate: the Go sources of every application and every package,
+# the modules they resolve, the workspace that ties them together and the
+# tools the gate runs with.
+gate apps/**
+gate packages/**
+gate go.work
+gate go.work.sum
+gate tools/go.mod
+gate tools/go.sum
+gate .golangci.yml
+gate .dockerignore
+gate **/go.mod
+gate **/go.sum
+
+# The database: the stack of PostgreSQL, the compose file of the project
+# that holds it and the installer that writes the credentials it reads.
+database db/**
+database compose.yaml
+database scripts/setup-env.sh
+database **/env.example
+
+# The collector of the traces: the stack of Jaeger and the telemetry of the
+# platform that feeds it.
+observability observability/**
+observability packages/platform/telemetry/**
+
+# The whole monorepository: the images it builds, the project it starts
+# from nothing and the schema it asserts.
+stack compose.yaml
+stack apps/**
+stack packages/**
+stack db/**
+stack observability/**
+stack .dockerignore
+stack scripts/stack-schema.sh
+stack scripts/setup-env.sh
+stack **/env.example
+
+# The shell scripts of the repository and the structure it promises: the
+# structure test reads the documentation, the modules and the images, so a
+# change of any of them needs it.
+shellcheck scripts/**
+shellcheck **/*.sh
+shellcheck **/go.mod
+shellcheck **/go.sum
+shellcheck **/README.md
+shellcheck **/AGENTS.md
+shellcheck **/Dockerfile
+shellcheck **/env.example
+shellcheck odd/**

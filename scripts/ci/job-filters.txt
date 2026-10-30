@@ -55,6 +55,7 @@ stack apps/**
 stack packages/**
 stack db/**
 stack observability/**
+stack hermes/**
 stack .dockerignore
 stack scripts/stack-schema.sh
 stack scripts/setup-env.sh

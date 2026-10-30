@@ -107,6 +107,8 @@ db/postgres/compose.yaml|database,stack
 db/postgres/Dockerfile|database,shellcheck,stack
 compose.yaml|database,stack
 observability/compose.yaml|observability,stack
+hermes/compose.yaml|stack
+hermes/README.md|shellcheck,stack
 .github/workflows/ci.yml|database,gate,observability,shellcheck,stack
 scripts/ci/job-filters.txt|database,gate,observability,shellcheck,stack
 scripts/ci/changed-jobs.sh|database,gate,observability,shellcheck,stack

@@ -11,6 +11,7 @@ support them, in one repository and one compose project.
 | `packages/`   | The libraries the services share, one directory and one Go module each.     |
 | `db/`         | The databases, one directory and one stack each.                           |
 | `observability/` | The traces: the collector and the backend that keeps them.              |
+| `hermes/`      | The agent: the unit that talks to the people who use PACA.             |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
 | `scripts/`    | The scripts of the repository: the installer of the environment.            |
 | `odd/tasks/`  | The feature documents: the specification of every piece of work.           |
@@ -37,6 +38,7 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
+| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, without a provider yet. | [hermes/README.md](hermes/README.md) |
 
 ## The installation
 
@@ -119,6 +121,7 @@ the port of another one.
 | `4317`| Jaeger (OTLP) | The containers of `paca_internal`, only.            |
 | `4318`| Jaeger (OTLP) | The containers of `paca_internal`, only.            |
 | `16686`| Jaeger UI    | The loopback interface of the host, only.           |
+| `8642` | Hermes agent | The container itself, only.                       |
 | `8080`| *reserved*    | For the REST backend.                               |
 | `50051`| *reserved*   | For the gRPC backend.                               |
 
@@ -153,6 +156,24 @@ The logs of the services stay on the standard output, where the runtime of
 the containers collects them. Every log record carries the identifiers of
 the trace it belongs to, so a line of the log opens the whole request it
 comes from.
+
+## The agent
+
+The agent is the unit of PACA that talks to the people who use the
+product. It is Hermes Agent, in the `hermes/` stack: one container, the
+gateway of the agent, with its state on a named volume.
+
+```sh
+make hermes-up       # start the agent and wait until it is healthy
+make hermes-smoke    # ask the agent whether it answers
+make hermes-down     # stop it
+```
+
+The agent joins `paca_internal` alone, so it reaches the services of the
+monorepository and nothing of the outside world. **No provider is
+configured yet**: the slice that adds the provider decides the outbound
+access of the agent, because that is the moment it starts to talk to the
+outside world.
 
 ## The schema of the database
 
@@ -199,8 +220,8 @@ container tests of the applications, the shellcheck of the scripts, the
 tests of the installer of the environment, the tests of the structure of the
 repository, the tests of the filters of the continuous integration, the
 smoke test of every database, the smoke test of the collector of the traces,
-and finally the whole stack: it comes up, the schema is asserted, and it
-goes down.
+the smoke test of the agent, and finally the whole stack: it comes up, the
+schema is asserted, and it goes down.
 
 A step that fails stops the gate, and the exit code says so. The gate
 leaves no container behind: the containers it started are stopped when it

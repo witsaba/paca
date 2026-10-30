@@ -7,6 +7,7 @@
 #   apps/db-admin/Makefile     the database admin: the writer of the schema
 #   db/Makefile                the databases, one directory and one stack each
 #   observability/Makefile     the traces: the collector and the backend
+#   hermes/Makefile            the agent: the unit that talks to the people
 #
 # The scripts of the root are the ones of the repository itself:
 #
@@ -48,6 +49,7 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
 .PHONY: help all gate packages-integration apps-integration shellcheck \
         db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
+        hermes-up hermes-smoke hermes-down \
         stack-up stack-schema stack-down \
         env-init env-test structure-test ci-filters-test
 
@@ -66,6 +68,9 @@ help: ## Show this help
 	@echo "  make observability-up    start the collector of the traces and wait until it is healthy"
 	@echo "  make observability-smoke run the smoke test of the collector (it must be running)"
 	@echo "  make observability-down  stop the collector of the traces (keeps the traces)"
+	@echo "  make hermes-up       start the agent and wait until it is healthy"
+	@echo "  make hermes-smoke    run the smoke test of the agent (it must be running)"
+	@echo "  make hermes-down     stop the agent (keeps the state of the agent)"
 	@echo ""
 	@echo "The whole monorepository:"
 	@echo "  make stack-up        start every stack and wait until the whole project is healthy"
@@ -109,6 +114,7 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 		$(MAKE) --no-print-directory stack-down; \
 		$(MAKE) --no-print-directory db-down; \
 		$(MAKE) --no-print-directory observability-down; \
+		$(MAKE) --no-print-directory hermes-down; \
 		exit $$status; \
 	}; \
 	trap cleanup EXIT INT TERM; \
@@ -136,6 +142,10 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 	$(MAKE) --no-print-directory observability-up; \
 	$(MAKE) --no-print-directory observability-smoke; \
 	$(MAKE) --no-print-directory observability-down; \
+	echo "==> the agent"; \
+	$(MAKE) --no-print-directory hermes-up; \
+	$(MAKE) --no-print-directory hermes-smoke; \
+	$(MAKE) --no-print-directory hermes-down; \
 	echo "==> the whole stack"; \
 	$(MAKE) --no-print-directory stack-up; \
 	$(MAKE) --no-print-directory stack-schema; \
@@ -198,6 +208,15 @@ observability-smoke: ## Run the smoke test of the collector (it must be running)
 
 observability-down: ## Stop the collector of the traces (keeps the traces)
 	$(MAKE) --no-print-directory -C observability down
+
+hermes-up: ## Start the agent and wait until it is healthy
+	$(MAKE) --no-print-directory -C hermes up
+
+hermes-smoke: ## Run the smoke test of the agent (it must be running)
+	$(MAKE) --no-print-directory -C hermes smoke
+
+hermes-down: ## Stop the agent (keeps the state of the agent)
+	$(MAKE) --no-print-directory -C hermes down
 
 # The whole monorepository: the root compose file includes every stack, so
 # the project comes up as a whole and the schema is written by the service

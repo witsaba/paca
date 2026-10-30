@@ -34,6 +34,14 @@ The slice adds the agent itself: no provider, no messaging platform, no MCP
 wiring yet. The container starts, the gateway runs and the health endpoint
 answers.
 
+S6. "the shellcheck is failing from previous changes, review it CI / The
+shellcheck (pull_request) and fix in this same PR despite was in a previous
+changes take this pr as an oportunity to fix this too"
+
+The failure of the job that the analyzer of the shell runs is fixed in this
+pull request, even though it belongs to an earlier slice: the job of the
+continuous integration must be green for the pull request to be reviewable.
+
 ## Tasks
 
 - T1 — the stack of the agent: `hermes/compose.yaml`, `hermes/Makefile`,
@@ -45,6 +53,8 @@ answers.
 - T3 — the proof: the stack comes up and answers, the whole monorepository
   comes up with it, and the gate of the repository is green.
   Route: inline. Evidence: L7. Commit: the record of this document.
+- T4 — the repair of the job of the analyzer of the shell, which the earlier
+  slice left red. Route: inline. Evidence: L11. Commit: `fix(ci)`.
 
 ## Log
 
@@ -155,3 +165,38 @@ L9. The slice ends here. The next one is the configuration of the agent — the
 provider, the messaging platform and the wiring of the MCP server — and it
 brings a document of its own, because each of those decisions is a decision
 of the product and not of the infrastructure.
+
+L10. "the shellcheck is failing from previous changes, review it CI / The
+shellcheck (pull_request) and fix in this same PR despite was in a previous
+changes take this pr as an oportunity to fix this too"
+
+L11. The diagnosis of the red job, and the repair.
+
+- The job that failed is the one that runs the analyzer of the shell over the
+  seven scripts of the repository, and it failed with 347 findings of
+  `SC2317` in `scripts/tests/structure-test.sh` alone: every line of every
+  rule of the gate was reported as unreachable.
+- The cause is the dispatch of the rules. `run_rule` receives the function of
+  a rule as an argument and calls it with `"$@"`, so the analyzer of the
+  shell sees the name of the function only as a word, and it concludes that
+  its body is never reached. The helpers the rules call are reported in turn,
+  and the finding cascades.
+- The analyzer of the continuous integration is the one of the distribution of
+  the runner (0.9.0 or 0.10.0), and it reports the false positive. The
+  analyzer of the machine of the maintainer (0.11.0) does not, which is why
+  the gate was green locally and red in the continuous integration.
+- The repair is the directive the file already carries for the same kind of
+  false positive: `# shellcheck disable=SC2317`, with the reason next to it.
+  The house style of the repository is a file-level directive with its
+  reason, and the file already had one (`SC2329`).
+- The evidence: the analyzer reports zero findings over the seven scripts with
+  0.9.0, 0.10.0 and 0.11.0; `make shellcheck` is green; the gate of the
+  structure is green (334 assertions, 0 failure); the tests of the installer
+  of the environment (90 assertions) and the tests of the filters of the
+  continuous integration (41 assertions) are green.
+- What is left for the maintainer: the analyzer of the continuous
+  integration is not pinned. The job installs the one of the distribution of
+  the runner, so the gate of the repository changes with the image of the
+  runner. The repository pins its Go tools and its images; pinning the
+  analyzer the same way (a version, or the digest of the image of the
+  analyzer) is a decision of its own.

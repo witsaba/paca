@@ -77,17 +77,38 @@ the platform owns.
   `/Users/braejan/workspace/witsaba/repositories/paca-worktrees/architecture-defects`,
   created from `main` at `c227110`.
 
+- **S12**: The fifth defect, found while the slice was being finished, as the
+  code proves it: the three container tests of the MCP server built the image
+  of the server inside each test, and the builder deletes the image and
+  creates it again with the same name. The failure, verbatim:
+
+  ```
+  create container: build image: failed to create an image
+  docker.io/paca/mcp-server:integration-test with target sha256:5c6551652717c77b883e5a389b40697204bfe4fddf1f5c01054ab535e3b30dd6
+  after deleting the existing one: AlreadyExists: image
+  "docker.io/paca/mcp-server:integration-test": already exists
+  ```
+
+- **S13**: The sixth defect, found by the review the maintainer asked for, as
+  the code proves it: the rule of the gate that says "the application layer
+  imports no adapter" forbade only the paths `/internal/adapters/` and
+  `/internal/platform/`, so an application layer that imported the adapter of
+  the shared library — `packages/database/postgres` — passed the gate with no
+  failure.
+
 ## Tasks
 
 | ID  | What | Links | Route | Commit |
 |-----|------|-------|-------|--------|
-| T1  | The feature document of the slice | S1 | inline | (this document) |
-| T2  | The identity of the email address belongs to the domain: the address is stored in its canonical form, and the rows that exist are brought to that form by a migration of the owner of the schema | S2, S3, S4, S10 | inline | (the fix) |
-| T3  | One capability, one door: the library that owns the database publishes the only handle of PostgreSQL, and both services ask the database through it | S5, S4 | inline | (the fix) |
-| T4  | The port of the users is narrow: the method that no use case calls leaves the port, and the adapter keeps the helper it needs for itself | S6 | inline | (the fix) |
-| T5  | The environment of the monorepository is read the same way everywhere: the parsers and the level of the logs live in the platform, and neither service writes them twice | S7, S8 | inline | (the fix) |
-| T6  | The configuration of the tracing belongs to the platform: the names, the shape, the reading and the rules live there, and both services read the same one | S7, S8, S9 | inline | (the fix) |
-| T7  | The evidence: the gate of the repository is green from nothing, and the review that the maintainer asked for says whether a defect is still open | S1 | inline | (the evidence is in L2) |
+| T1  | The feature document of the slice | S1 | inline | `3139c13` (the document) |
+| T2  | The identity of the email address belongs to the domain: the address is stored in its canonical form, and the rows that exist are brought to that form by a migration of the owner of the schema | S2, S3, S4, S10 | inline | `011a7d5` (the fix) |
+| T3  | One capability, one door: the library that owns the database publishes the only handle of PostgreSQL, and both services ask the database through it | S5, S4 | inline | `415cf5d` (the fix) |
+| T4  | The port of the users is narrow: the method that no use case calls leaves the port, and the adapter keeps the helper it needs for itself | S6 | inline | `8ed476c` (the fix) |
+| T5  | The environment of the monorepository is read the same way everywhere: the parsers and the level of the logs live in the platform, and neither service writes them twice | S7, S8 | inline | `451855d` (the fix) |
+| T6  | The configuration of the tracing belongs to the platform: the names, the shape, the reading and the rules live there, and both services read the same one | S7, S8, S9 | inline | `8b9abca` (the fix) |
+| T7  | The image of the server is built once, before the container tests run: the three parallel tests fought over the name of the image and the gate failed about one run in three | S12 | inline | `56350a1` (the fix) |
+| T8  | The gate refuses an application that names a concrete adapter: the rule forbade only the adapters of the service, and the adapter of the shared library passed | S13 | inline | `c75bd70` (the fix) |
+| T9  | The evidence: the gate of the repository is green from nothing, and the review that the maintainer asked for says what is still open | S1 | inline | (the evidence is in L2, the review in L3) |
 
 ## Log
 
@@ -111,5 +132,57 @@ the platform owns.
   into it, because the volume of PostgreSQL is shared by the clone and the
   credentials have to be the same.
 
-- **L2** (2026-10-30): The evidence of the slice, and the review that the
-  maintainer asked for. (pending)
+- **L2** (2026-10-30): The evidence of the slice.
+
+| Check | Result |
+| --- | --- |
+| `make all` (the gate of the repository, from nothing) | Green: the format, the analyzers, the linter with no issue, the build, the tests, the race detector, the coverage of every module at or above its floor, the vulnerability scan of every module, the container tests of the libraries and of the services, and the stack of the monorepository up and healthy. |
+| The migration of the identity, against a real PostgreSQL | Green: the version 3 is applied, the constraint of the canonical form refuses the writer that does not know the domain, the same mailbox in another case is the address of somebody else, and the migration brought the rows that existed to the canonical form. |
+| The door to the database | Green: the assertion of the structure refuses the adapters that name a handle, and both services reach the database through the pool of the library. |
+| The container tests of the MCP server, six times without the cache | Green, and each run takes a second and a half instead of the half minute the three builds took. |
+| The gate of the layers | Green with 337 assertions, against the 331 it proved before: the rule of the application layer is now stated as what the layer may name, and the probe proves it discriminates. |
+
+**Risk:** item 1 — the migration rewrites the rows that exist. It refuses a
+mailbox that two people carry, and it fails with it: which of the two rows
+keeps the address is a fact about the people, and only a human decides it.
+
+- **L3** (2026-10-30): The review the maintainer asked for: "review again in
+  order to check that there is not more defects to be fixed".
+
+  The review read the contract against the code, after the six work units.
+  It found that the four defects are closed, and it found what is still open.
+  Two of its findings were wrong and were proved wrong: the shared domain and
+  the shared platform were never unchecked — the pattern of the gate is
+  `././...`, and it reads every package of both modules. The other one was
+  right: the rule of the application layer let a concrete adapter of the
+  shared library through, and it is closed in T8.
+
+  What is still open, in the order the contract asks for it:
+
+  1. **The one writer of the schema is not pinned.** The code obeys the rule —
+     only the database admin applies the migrations — but no assertion says
+     so. A second writer would pass the gate.
+  2. **The dead API is not pinned, and there is dead API.**
+     `MigrateService.Status`, `State.IsUpToDate`, `State.AppliedVersions`,
+     `Status.IsHealthy`, `Providers.Propagator` and `SDKServer` have no
+     production caller.
+  3. **The middleware of the router is written twice.** The two services
+     carry the same tracing, the same security headers, the same log of the
+     requests, the same recovery of a panic and the same recorder of the
+     status. The platform owns the HTTP server, and the middleware belongs
+     with it.
+  4. **The names of the environment of the database are written twice.**
+     `PACA_DATABASE_*` and `POSTGRES_*` are declared in both services, and
+     the platform holds the names every service reads the same way.
+  5. **The wiring of the telemetry is written twice**, in the two `main`.
+  6. **The default branch of the mapping of the errors returns the raw
+     error.** A library error that is not in the table reaches the agent as
+     a Go string. It is unreachable today, because the composition root
+     holds no repository without a database.
+  7. **The rule of the domain layer of the applications proves nothing
+     today**, because neither application has a domain layer. The rule
+     discriminates the moment one appears — the probe proves it — but the
+     count of the assertions of the gate does not say so.
+
+  These are the next slices. They are the same shape as this one: one rule
+  of the contract, one owner, and an assertion that proves it.

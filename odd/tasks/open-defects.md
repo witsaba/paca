@@ -196,3 +196,62 @@ it. The rules still hold and the gate still proves no failure.
 authored lines and 191 removed ones: it is over the ~400 lines of the
 repository, and the exception is recorded here. The work units that follow
 stay under it.
+
+**L4** (2026-10-30): The errors, the debris and the gate.
+
+**The mapping of the errors** (`642c947`). Every error of the domain reaches
+the agent with a message of its own, and the text of a Go error never does.
+The catalogue of the errors of the domain (`user.Errors`) names them all, and
+a test proves that every one of them has a message: an error that no message
+explains would reach the agent as the text of a Go error, or as the message
+of a failure the service does not know. The library of the database speaks
+the vocabulary of the domain now: the error of a repository without a
+database behind it is `user.ErrNoStorage`, and the error that the mapping
+did not know is logged with its cause and answered with a message that does
+not carry it.
+
+**The dead API** (`1db2660`). The debris is gone: the state of the
+migrations of the use case, the state of the migrations of the port, of the
+adapter and of the library, the versions of the applied migrations, the
+health of the status, the propagator of the providers and the SDK server of
+the transport. The rule of the schema that was up to date moved where it
+belongs: the composition root of the database admin asks the domain and says
+what it says. The analysis of the dead code found two more functions that
+nothing called — the address of the application of the two services — and
+they found their caller: the log of the service now says the address of the
+server through them.
+
+**The gate** (`77e2b80`). The gate of the structure proves three more rules
+of the contract, and every rule says what it proved:
+
+- **No dead API.** The analysis starts at the entry point of every service,
+  so a function that only a test calls is dead. The tool is pinned in
+  `tools/go.mod` and it builds offline: the module is already in the cache
+  of the machine.
+- **One writer of the schema.** Only the composition root of the database
+  admin names the migrator of the library.
+- **No copy of a shared layer.** The bodies of the functions of the two
+  services are compared: a behavior that two services write is a behavior
+  that belongs to the shared layer. The copies that are known today are
+  listed in the gate and reported on every run: the use case of the health
+  and the endpoint of the health are written twice, and they wait for a
+  shared application layer and a shared adapter. They are the only two
+  copies left, and the gate says so every time it runs.
+
+The gate also says what each rule proved, and a rule that proves nothing
+without saying why is a failure: the rule of the domain of the applications
+runs over an empty set today — neither service has a domain layer — and it
+says so in the report.
+
+Every one of the three rules was proved with a probe: a function that
+nothing calls, a second writer of the schema, a copy of the code of the
+other service and a rule that proves nothing all make the gate fail.
+
+**The user that moved at the same time** (`ee2f4d3`). The branch of the
+adapter that reports a user that changed between the read and the write is
+proved by a container test: the other writer takes the row and changes its
+state without saying it yet, the adapter reads the state the row had before
+and its write waits for the lock, and the guard of the table refuses the
+write when the other writer says its change. The test waits for the lock
+instead of sleeping, and a mutation that maps the error to another one makes
+it fail.

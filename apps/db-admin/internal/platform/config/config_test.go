@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/platform/config"
+	"github.com/witsaba/paca/packages/platform/env"
+	"github.com/witsaba/paca/packages/platform/logging"
 )
 
 // clearEnvironment removes the settings of the environment, so the test sees
@@ -22,8 +24,8 @@ func clearEnvironment(t *testing.T) {
 		config.EnvShutdownTimeout,
 		config.EnvCheckTimeout,
 		config.EnvDatabaseWaitTimeout,
-		config.EnvLogLevel,
-		config.EnvServiceVersion,
+		logging.Level,
+		env.ServiceVersion,
 		config.EnvDatabaseURL,
 		config.EnvDatabaseHost,
 		config.EnvDatabasePort,
@@ -101,8 +103,8 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 	t.Setenv(config.EnvPort, "9000")
 	t.Setenv(config.EnvShutdownTimeout, "30s")
 	t.Setenv(config.EnvCheckTimeout, "5s")
-	t.Setenv(config.EnvLogLevel, "debug")
-	t.Setenv(config.EnvServiceVersion, "1.2.3")
+	t.Setenv(logging.Level, "debug")
+	t.Setenv(env.ServiceVersion, "1.2.3")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -407,7 +409,7 @@ func TestLoadFailsWithAnInvalidLogLevel(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvLogLevel, "shout")
+	t.Setenv(logging.Level, "shout")
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the level of the logs")
@@ -418,7 +420,7 @@ func TestLoadFailsWithAnEmptyVersion(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvServiceVersion, "  ")
+	t.Setenv(env.ServiceVersion, "  ")
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the version")

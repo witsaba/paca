@@ -2,7 +2,8 @@
 
 The platform holds the infrastructure every service of the monorepository
 needs and none of them should write twice: the clock, the logs, the
-telemetry, the HTTP server, and the health check the container runs.
+telemetry, the HTTP server, the health check the container runs, and the
+environment every service reads the same way.
 
 It is a **library**. It publishes no port on the network, it starts no
 process, and it reads no environment variable.
@@ -12,6 +13,8 @@ process, and it reads no environment variable.
 ```
 packages/platform/
   clock/         the clock of the service: the time it reports
+  env/           the environment of the monorepository: the names every
+                 service reads, and the way a value is read
   logging/       the logs of the service: the format, the level, the fields
   telemetry/     the traces of the service: the exporter, the sampler, the
                  propagation between the processes

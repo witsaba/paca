@@ -7,7 +7,8 @@ holds what is specific to this module.
 ## What this module is
 
 - A **library** of the infrastructure: the clock, the logs, the telemetry, the
-  HTTP server, and the health check of the container.
+  HTTP server, the health check of the container, and the environment every
+  service reads the same way.
 - The **single owner** of that infrastructure. Every service imports it; none
   of them forks it.
 

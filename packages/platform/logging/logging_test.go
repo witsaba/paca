@@ -24,6 +24,67 @@ func traceContext() context.Context {
 	return trace.ContextWithSpanContext(context.Background(), spanContext)
 }
 
+func TestTheLevelOfTheLogsHasOneName(t *testing.T) {
+	t.Parallel()
+
+	if logging.Level != "PACA_LOG_LEVEL" {
+		t.Fatalf("level = %q, want %q", logging.Level, "PACA_LOG_LEVEL")
+	}
+}
+
+func TestTheLogsOfAServiceThatNamesNoLevelAreTheOnesOfThePlatform(t *testing.T) {
+	t.Parallel()
+
+	if logging.DefaultLevel != slog.LevelInfo {
+		t.Fatalf("default level = %s, want %s", logging.DefaultLevel, slog.LevelInfo)
+	}
+}
+
+func TestParseLevelReadsTheLevels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		raw  string
+		want slog.Level
+	}{
+		{raw: "debug", want: slog.LevelDebug},
+		{raw: "info", want: slog.LevelInfo},
+		{raw: "warn", want: slog.LevelWarn},
+		{raw: "warning", want: slog.LevelWarn},
+		{raw: "error", want: slog.LevelError},
+		{raw: "DEBUG", want: slog.LevelDebug},
+		{raw: "  Info  ", want: slog.LevelInfo},
+	}
+
+	for _, test := range tests {
+		t.Run(test.raw, func(t *testing.T) {
+			t.Parallel()
+
+			level, err := logging.ParseLevel(test.raw)
+			if err != nil {
+				t.Fatalf("ParseLevel() = %v", err)
+			}
+			if level != test.want {
+				t.Fatalf("level = %s, want %s", level, test.want)
+			}
+		})
+	}
+}
+
+func TestParseLevelRejectsALevelThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	level, err := logging.ParseLevel("loud")
+	if err == nil {
+		t.Fatalf("ParseLevel() = %s, want an error", level)
+	}
+
+	want := `PACA_LOG_LEVEL: "loud" is not a log level`
+	if err.Error() != want {
+		t.Fatalf("error = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestTheLoggerWritesTheLogsAsJSON(t *testing.T) {
 	t.Parallel()
 

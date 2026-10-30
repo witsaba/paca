@@ -23,6 +23,8 @@ import (
 	"time"
 
 	dbconfig "github.com/witsaba/paca/packages/database/config"
+	"github.com/witsaba/paca/packages/platform/env"
+	"github.com/witsaba/paca/packages/platform/logging"
 )
 
 // The environment variables the service reads.
@@ -36,10 +38,6 @@ const (
 	EnvShutdownTimeout = "PACA_DB_ADMIN_SHUTDOWN_TIMEOUT"
 	// EnvCheckTimeout bounds how long a single health check may take.
 	EnvCheckTimeout = "PACA_DB_ADMIN_CHECK_TIMEOUT"
-	// EnvLogLevel is the verbosity of the logs.
-	EnvLogLevel = "PACA_LOG_LEVEL"
-	// EnvServiceVersion is the version reported in the health report.
-	EnvServiceVersion = "PACA_SERVICE_VERSION"
 )
 
 // The environment variables of the database.
@@ -107,8 +105,6 @@ const (
 	DefaultShutdownTimeout = 10 * time.Second
 	// DefaultCheckTimeout bounds a single health check.
 	DefaultCheckTimeout = 2 * time.Second
-	// DefaultLogLevel is the verbosity of the logs.
-	DefaultLogLevel = slog.LevelInfo
 	// DefaultDatabaseHost is the name of the container of the database of
 	// the monorepository.
 	DefaultDatabaseHost = "postgres"
@@ -224,7 +220,7 @@ func Load() (Config, error) {
 		Port:            DefaultPort,
 		ShutdownTimeout: DefaultShutdownTimeout,
 		CheckTimeout:    DefaultCheckTimeout,
-		LogLevel:        DefaultLogLevel,
+		LogLevel:        logging.DefaultLevel,
 	}
 
 	if raw, ok := os.LookupEnv(EnvHost); ok {
@@ -244,7 +240,7 @@ func Load() (Config, error) {
 	}
 
 	if raw, ok := os.LookupEnv(EnvShutdownTimeout); ok {
-		timeout, err := parseDuration(EnvShutdownTimeout, raw)
+		timeout, err := env.Duration(EnvShutdownTimeout, raw)
 		if err != nil {
 			return Config{}, err
 		}
@@ -252,25 +248,25 @@ func Load() (Config, error) {
 	}
 
 	if raw, ok := os.LookupEnv(EnvCheckTimeout); ok {
-		timeout, err := parseDuration(EnvCheckTimeout, raw)
+		timeout, err := env.Duration(EnvCheckTimeout, raw)
 		if err != nil {
 			return Config{}, err
 		}
 		cfg.CheckTimeout = timeout
 	}
 
-	if raw, ok := os.LookupEnv(EnvLogLevel); ok {
-		level, err := parseLogLevel(raw)
+	if raw, ok := os.LookupEnv(logging.Level); ok {
+		level, err := logging.ParseLevel(raw)
 		if err != nil {
 			return Config{}, err
 		}
 		cfg.LogLevel = level
 	}
 
-	if raw, ok := os.LookupEnv(EnvServiceVersion); ok {
+	if raw, ok := os.LookupEnv(env.ServiceVersion); ok {
 		version := strings.TrimSpace(raw)
 		if version == "" {
-			return Config{}, fmt.Errorf("%s: the version cannot be empty", EnvServiceVersion)
+			return Config{}, fmt.Errorf("%s: the version cannot be empty", env.ServiceVersion)
 		}
 		cfg.ServiceVersion = version
 	}
@@ -335,7 +331,7 @@ func LoadPort() (int, error) {
 func loadDatabase() (DatabaseConfig, error) {
 	waitTimeout := DefaultDatabaseWaitTimeout
 	if raw, ok := os.LookupEnv(EnvDatabaseWaitTimeout); ok {
-		timeout, err := parseDuration(EnvDatabaseWaitTimeout, raw)
+		timeout, err := env.Duration(EnvDatabaseWaitTimeout, raw)
 		if err != nil {
 			return DatabaseConfig{}, err
 		}
@@ -547,15 +543,6 @@ func validateEndpoint(endpoint, protocol string) error {
 	return nil
 }
 
-// parseDuration reads a duration from the environment.
-func parseDuration(name, raw string) (time.Duration, error) {
-	value, err := time.ParseDuration(strings.TrimSpace(raw))
-	if err != nil {
-		return 0, fmt.Errorf("%s: %q is not a duration", name, raw)
-	}
-	return value, nil
-}
-
 // parseBool reads a boolean from the environment.
 func parseBool(name, raw string) (bool, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
@@ -578,20 +565,4 @@ func parseRatio(name, raw string) (float64, error) {
 		return 0, fmt.Errorf("%s: %q is not a ratio between zero and one", name, raw)
 	}
 	return ratio, nil
-}
-
-// parseLogLevel reads the verbosity of the logs from the environment.
-func parseLogLevel(raw string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "debug":
-		return slog.LevelDebug, nil
-	case "info":
-		return slog.LevelInfo, nil
-	case "warn", "warning":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("%s: %q is not a log level", EnvLogLevel, raw)
-	}
 }

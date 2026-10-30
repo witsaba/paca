@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
+	"github.com/witsaba/paca/packages/platform/env"
+	"github.com/witsaba/paca/packages/platform/logging"
 )
 
 // clearEnvironment removes the settings of the environment, so the test sees
@@ -21,8 +23,8 @@ func clearEnvironment(t *testing.T) {
 		config.EnvShutdownTimeout,
 		config.EnvCheckTimeout,
 		config.EnvMaxRequestBytes,
-		config.EnvLogLevel,
-		config.EnvServiceVersion,
+		logging.Level,
+		env.ServiceVersion,
 		config.EnvDatabaseURL,
 		config.EnvDatabaseMaxConns,
 		config.EnvDatabaseConnectTimeout,
@@ -89,8 +91,8 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 	t.Setenv(config.EnvShutdownTimeout, "30s")
 	t.Setenv(config.EnvCheckTimeout, "5s")
 	t.Setenv(config.EnvMaxRequestBytes, "1024")
-	t.Setenv(config.EnvLogLevel, "debug")
-	t.Setenv(config.EnvServiceVersion, "1.2.3")
+	t.Setenv(logging.Level, "debug")
+	t.Setenv(env.ServiceVersion, "1.2.3")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -411,8 +413,8 @@ func TestLoadRejectsAnInvalidSetting(t *testing.T) {
 		{name: "a negative timeout", key: config.EnvCheckTimeout, value: "-1s"},
 		{name: "a body limit that is not a number", key: config.EnvMaxRequestBytes, value: "lots"},
 		{name: "a body limit that is zero", key: config.EnvMaxRequestBytes, value: "0"},
-		{name: "a log level that does not exist", key: config.EnvLogLevel, value: "loud"},
-		{name: "an empty version", key: config.EnvServiceVersion, value: " "},
+		{name: "a log level that does not exist", key: logging.Level, value: "loud"},
+		{name: "an empty version", key: env.ServiceVersion, value: " "},
 		{name: "an empty connection string", key: config.EnvDatabaseURL, value: " "},
 		{name: "a number of connections that is not a number", key: config.EnvDatabaseMaxConns, value: "many"},
 		{name: "a number of connections that is zero", key: config.EnvDatabaseMaxConns, value: "0"},

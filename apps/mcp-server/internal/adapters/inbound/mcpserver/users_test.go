@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -395,6 +396,29 @@ func TestTheToolExplainsAConcurrentChangeToTheAgent(t *testing.T) {
 	}
 }
 
+// lockedBuffer is a buffer that the goroutine of the request and the test
+// may write to and read at the same time.
+type lockedBuffer struct {
+	mutex  sync.Mutex
+	buffer bytes.Buffer
+}
+
+// Write keeps the bytes the server wrote.
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	return b.buffer.Write(p)
+}
+
+// String returns what the server wrote so far.
+func (b *lockedBuffer) String() string {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	return b.buffer.String()
+}
+
 // TestTheToolExplainsEveryErrorOfTheDomainToTheAgent proves that every
 // error the port of the storage can return reaches the agent with a message
 // of its own.
@@ -435,9 +459,9 @@ func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
 func theMessageOfTheFailure(t *testing.T, failure error) (string, string) {
 	t.Helper()
 
-	var logs bytes.Buffer
+	logs := &lockedBuffer{}
 	users := &stubUsers{err: failure}
-	session := connectWithLogger(t, users, slog.New(slog.NewTextHandler(&logs, nil)))
+	session := connectWithLogger(t, users, slog.New(slog.NewTextHandler(logs, nil)))
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
 		Name: mcpserver.ToolChangeUserStatus,
@@ -465,8 +489,8 @@ func theMessageOfTheFailure(t *testing.T, failure error) (string, string) {
 func TestTheToolDoesNotShowTheRawTextOfAnUnknownFailure(t *testing.T) {
 	t.Parallel()
 
-	var logs bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	logs := &lockedBuffer{}
+	logger := slog.New(slog.NewTextHandler(logs, nil))
 
 	users := &stubUsers{err: errors.New("the connection pool is closed")}
 	session := connectWithLogger(t, users, logger)

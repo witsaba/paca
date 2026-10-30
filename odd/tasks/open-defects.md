@@ -120,10 +120,10 @@ description of a tool promises what the tool does, and nothing it does not do.
 |------|----------------------------------------------------------------------|---------|---------|--------|
 | T1  | The feature document of the slice                                     | S8      | inline  | `94a002b` (the document) |
 | T2  | The middleware of the HTTP router belongs to the platform             | S3      | worker  | `32606be` (the fix) |
-| T3  | The names of the environment of the database belong to the platform   | S3      | inline  | — |
-| T4  | The wiring of the telemetry belongs to the platform                  | S3      | inline  | — |
-| T5  | The mapping of the errors of the MCP server maps every error         | S4      | inline  | — |
-| T6  | The dead API of the repository is removed                            | S2      | inline  | — |
+| T3  | The names of the environment of the database belong to the platform   | S3      | inline  | `f53c695` (the fix) |
+| T4  | The wiring of the telemetry belongs to the platform                  | S3      | inline  | `d523bcf` (the fix) |
+| T5  | The mapping of the errors of the MCP server maps every error         | S4      | inline  | `642c947` (the fix) |
+| T6  | The dead API of the repository is removed                            | S2      | inline  | `1db2660` (the fix) |
 | T7  | The gate pins the rules it claims: one writer, no dead API, no copy of a shared layer, no rule over an empty set | S1, S2, S3, S5 | inline | — |
 | T8  | The environment of the stack declares the variables it reads          | S10     | inline  | — |
 | T9  | The MCP server refuses an unsafe bind and checks the Host            | S9      | worker  | — |

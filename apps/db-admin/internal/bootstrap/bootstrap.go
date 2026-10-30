@@ -223,8 +223,5 @@ func Run(
 	if err != nil {
 		return err
 	}
-	if err := app.Listen(); err != nil {
-		return err
-	}
-	return app.Serve(ctx)
+	return server.Run(ctx, app)
 }

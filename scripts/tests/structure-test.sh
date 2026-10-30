@@ -229,6 +229,12 @@ test_the_domain_of_every_application_knows_nothing() {
 # The use cases speak in the model of the domain and in the ports. The day one
 # of them names a concrete technology, the technology decides what the use
 # case does.
+#
+# The rule is stated as what the layer may name, and not only as what it may
+# not: an application that imports the adapter of the shared library — the
+# pool of the database, for example — names no adapter of its own service,
+# and the rule that forbids only the adapters of the service would let it
+# through.
 test_the_application_of_every_application_knows_no_adapter() {
   local application
   while IFS= read -r application; do
@@ -248,6 +254,19 @@ test_the_application_of_every_application_knows_no_adapter() {
           "the application of $module imports no adapter: [$imported]"
         assert_not_contains "$imported" "/internal/platform/" \
           "the application of $module imports no infrastructure: [$imported]"
+
+        # The layer names the standard library, the ports of its service
+        # and the shared domain. Nothing else.
+        is_external "$imported" || continue
+
+        case "$imported" in
+        github.com/witsaba/paca/apps/"$module"/internal/ports*) ;;
+        github.com/witsaba/paca/packages/domain*) ;;
+        *)
+          fail "the application of $module names its ports and the domain, and nothing else: [$imported]"
+          ;;
+        esac
+        ASSERTIONS=$((ASSERTIONS + 1))
       done
     done < <(imports_of_the_layer "$application" internal/application)
   done < <(applications_of_the_repository)

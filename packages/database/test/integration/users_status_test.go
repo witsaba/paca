@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/witsaba/paca/packages/domain/user"
 )
@@ -333,3 +334,90 @@ func TestTheDatabaseRefusesWhatTheDomainRefuses(t *testing.T) {
 
 // usersRepository returns the repository of the users bound to the database
 // of the suite.
+
+// TestChangeStatusReportsAUserThatMovedAtTheSameTime proves that the
+// branch of the adapter that reports a user that changed between the read
+// and the write is reached, and that the row keeps the state the other
+// writer gave it.
+//
+// The other writer takes the row and changes its state without saying it
+// yet: the adapter reads the state the row had before, and its write waits
+// for the lock the other writer holds. When the other writer says it, the
+// guard of the table refuses the write, and the adapter says that the user
+// moved.
+//
+// The test does not run in parallel with the others: it waits for a writer
+// of the database, and two of them at once would wait for each other.
+func TestChangeStatusReportsAUserThatMovedAtTheSameTime(t *testing.T) {
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	id := nextIdentifier()
+	userInStatus(t, repo, id, "The Person Of The Race", user.StatusOnboarding)
+
+	other, err := theSuite.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("the transaction of the other writer could not start: %v", err)
+	}
+	defer other.Rollback()
+
+	if _, err := other.ExecContext(ctx,
+		`UPDATE users SET status = 'blocked', status_observations = $2 WHERE id = $1`,
+		id, testObservation,
+	); err != nil {
+		t.Fatalf("the other writer could not change the row: %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := repo.ChangeStatus(ctx, user.ID(id), user.StatusActive, "")
+		done <- err
+	}()
+
+	waitForAWriterThatWaitsForTheUsers(ctx, t)
+
+	if err := other.Commit(); err != nil {
+		t.Fatalf("the other writer could not say its change: %v", err)
+	}
+
+	err = <-done
+	if !errors.Is(err, user.ErrConcurrentChange) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrConcurrentChange)
+	}
+
+	row := readRow(ctx, t, id)
+	if row.status != "blocked" {
+		t.Errorf("the state of the row is %q, want the one the other writer gave it", row.status)
+	}
+}
+
+// waitForAWriterThatWaitsForTheUsers waits until a writer waits for the
+// lock of a row of the table of the users.
+//
+// The test needs to know that the write of the adapter is waiting: the read
+// of the row happens before the write, and the guard of the table can only
+// be proved when the read saw the row before the other writer changed it.
+func waitForAWriterThatWaitsForTheUsers(ctx context.Context, t *testing.T) {
+	t.Helper()
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		var waiting int
+		err := theSuite.db.QueryRowContext(ctx, `
+			SELECT count(*)
+			FROM pg_stat_activity
+			WHERE wait_event_type = 'Lock' AND query ILIKE '%users%'`,
+		).Scan(&waiting)
+		if err != nil {
+			t.Fatalf("the locks of the database could not be read: %v", err)
+		}
+
+		if waiting > 0 {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("no writer waited for the lock of the table of the users")
+}

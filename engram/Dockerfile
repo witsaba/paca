@@ -23,7 +23,16 @@ ARG TARGETARCH
 # curl is the client of the smoke test and of the healthcheck of the
 # container; tar unpacks the release; su-exec drops the privileges of the
 # process before the store runs.
-RUN apk add --no-cache ca-certificates curl su-exec tar
+#
+# The packages are pinned by version, like every other dependency of the
+# repository. The base image is pinned by digest, and the packages are the
+# ones of its release; when the release gets a security update, the pin is
+# bumped with it, on purpose, and the build fails until it is.
+RUN apk add --no-cache \
+      ca-certificates=20261020-r0 \
+      curl=8.14.1-r4 \
+      su-exec=0.2-r3 \
+      tar=1.35-r3
 
 # The release of the architecture, checked against the pinned checksum.
 RUN set -eu; \

@@ -26,6 +26,10 @@ document.
 - **The internal network only**: the store joins `paca_internal`, the
   service-to-service network of the monorepository, which has no outbound
   access at all.
+- **A token that guards the destructive writes**: the token of the stack
+  lives in `engram/.env` and the store refuses the writes that destroy
+  without it. The proof of the stack asserts that guard: it fails when the
+  token is missing or is still the placeholder of the manifest.
 
 ## Running it
 
@@ -61,6 +65,10 @@ lives in `engram/.env`, and the installer of the environment writes it:
 ```sh
 make env-init
 ```
+
+The manual fallback of the manifest leaves the placeholder of the token in
+place, and the proof of the stack fails while it is there: the token of a
+stack is a secret of its own, and the installer generates it.
 
 ## The ports
 
@@ -105,6 +113,10 @@ engram/
 - The image is built from the official release of Engram, and the checksum
   of the archive is pinned for both architectures of the repository, so the
   same image serves amd64 and arm64.
+- The packages of the base image are pinned by version too: the base image
+  is pinned by digest, and the packages are the ones of its release. When
+  the release gets a security update, the pin is bumped with it, on
+  purpose, and the build fails until it is.
 - The store runs as the user `10000` inside its container, not as root: the
   entrypoint of the image gives the state of the volume to that user and
   drops the privileges of the process before the store runs. It keeps only
@@ -120,5 +132,6 @@ engram/
   container of the agent (`10000`), so the agent reaches the socket when it
   mounts the volume. The token of the stack is the second lock of the door.
 - The proof of the stack is a round trip and not a heartbeat: it registers a
-  session, keeps a memory, searches it back, asserts the bytes, and removes
+  session, keeps a memory, searches it back, asserts the bytes, refuses
+  that the store accepted a destructive write without the token, and removes
   the record afterwards.

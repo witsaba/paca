@@ -16,11 +16,21 @@ set -eu
 socket="${ENGRAM_SOCKET:-/data/engram.sock}"
 project="${ENGRAM_PROJECT:-paca}"
 base="http://localhost"
+# The token of the stack guards the writes that destroy. The proof asserts
+# that the guard is there: a token that is missing, or the placeholder of the
+# manifest, would leave the store open, and the proof must fail in that case.
+token="${ENGRAM_HTTP_TOKEN:-}"
+placeholder="change-me-generate-a-strong-token"
+use_token=1
 
 fail() {
   printf 'engram: %s\n' "$1" >&2
   exit 1
 }
+
+if [ -z "$token" ] || [ "$token" = "$placeholder" ]; then
+  fail "the token of the stack is missing or is still the placeholder of the manifest"
+fi
 
 # request METHOD PATH [BODY]
 #
@@ -31,7 +41,7 @@ request() {
   path="$2"
   body="${3:-}"
   set -- --unix-socket "$socket" -X "$method" -H "Accept: application/json"
-  if [ -n "${ENGRAM_HTTP_TOKEN:-}" ]; then
+  if [ "$use_token" -eq 1 ] && [ -n "${ENGRAM_HTTP_TOKEN:-}" ]; then
     set -- "$@" -H "Authorization: Bearer ${ENGRAM_HTTP_TOKEN}"
   fi
   if [ -n "$body" ]; then
@@ -70,6 +80,14 @@ case "$found" in
   *'paca stack smoke'*) ;;
   *) fail "the store does not give the memory of the proof back" ;;
 esac
+
+# The guard of the store is enforced by the store and not only by a
+# convention: a destructive write without the token is refused.
+use_token=0
+if request DELETE "/observations/${observation}?expected_project=${project}" >/dev/null 2>&1; then
+  fail "the store accepted a destructive write without the token"
+fi
+use_token=1
 
 # The record of the proof is removed: the proof leaves no memory behind. The
 # deletion is a hard one, because a session that still holds observations

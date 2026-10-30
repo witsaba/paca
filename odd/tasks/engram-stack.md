@@ -33,6 +33,10 @@ S6. "Stack + full infra wiring + gate proof"
 - T3 — the proof: the image is built, the stack comes up healthy, the round
   trip of the memory is asserted and the gate of the repository is green.
   Route: inline. Evidence: L8. Commit: the record of this document.
+- T4 — the repair of the review: the proof of the stack asserts the guard
+  of the token, and the packages of the image are pinned like every other
+  dependency of the repository. Route: inline. Evidence: L9. Commit:
+  `PENDING`.
 
 ## Log
 
@@ -106,6 +110,10 @@ respect.
 - The proof is a round trip and not a heartbeat: the smoke test registers a
   session, writes a memory, searches it back and asserts the bytes. The
   difference is proved, not asserted.
+- The token of the stack guards the writes that destroy, and the proof says
+  so: it fails when the token is missing or is still the placeholder of the
+  manifest, and it refuses that the store accepted a destructive write
+  without the token.
 
 L6. The scope that this slice does not carry, and that the next one does.
 
@@ -168,3 +176,38 @@ L8. The evidence of the slice, observed and not asserted.
   runtime of Engram binds the loopback of its own container and refuses any
   other address.
 
+
+L9. The review of the candidate, and the repair it asked for.
+
+- The candidate was reviewed by the risk lens of the native review, over the
+  frozen view of the fifteen changed paths. The review was **approved**: no
+  finding opened a correction, and the receipt of the review stands. The
+  three findings it carries are informational, and the native says so:
+  they are separate work and never a reason to review the candidate again.
+- The findings, and what this slice did with them.
+  - `R1-001` (WARNING): the manifest of the credentials ships a literal
+    token value, and the manual copy of the manifest leaves that placeholder
+    in place, so a manual installation starts the store with a known token.
+    The repair: the proof of the stack now refuses the placeholder, so the
+    stack does not come up with a known token and say nothing about it.
+  - `R1-002` (WARNING): the proof added the token only when it was there,
+    so it never asserted that the guard exists. The repair: the proof fails
+    when the token is missing or is the placeholder, and it asserts that the
+    store refuses a destructive write that travels without the token. The
+    control that the documentation claims is now a control that the gate
+    proves.
+  - `R1-003` (SUGGESTION): the packages of the base image float, while the
+    base image and the payload of the store are pinned. The repair: the
+    packages are pinned by version, like every other dependency of the
+    repository, and the bump of the pin is a deliberate act.
+- The evidence of the repair, observed and not asserted.
+  - `make -C engram smoke` → `engram: the memory is kept and given back`.
+  - With the token of the stack removed from the environment of the
+    container, the same proof fails: `engram: the token of the stack is
+    missing or is still the placeholder of the manifest` (exit 1).
+  - With the placeholder of the manifest as the token, the same proof fails
+    the same way (exit 1).
+  - The proof itself asserts that the store refuses the destructive write
+    that travels without the token: the observation of the proof survives
+    that attempt and is removed afterwards with the token.
+  - `shellcheck` over the scripts of the stack is clean.

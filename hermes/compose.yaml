@@ -1,0 +1,99 @@
+# The stack of the agent of PACA: Hermes Agent.
+#
+# The agent is the unit of the monorepository that talks to the people who
+# use PACA. It is not a Go module: it is a container that brings its own
+# image, like the database and the collector of the traces, so it lives in
+# a directory of its own with its own compose file.
+#
+# The stack belongs to the root compose project, so it runs alone and with
+# the monorepository:
+#
+#   docker compose -f hermes/compose.yaml up --wait   # this stack alone
+#   docker compose up --wait                          # every stack
+
+name: paca
+
+services:
+  hermes:
+    # Pinned by digest, like every image of the repository. The digest is
+    # the one of the index of the multi-architecture image, so the same pin
+    # serves amd64 and arm64.
+    image: docker.io/nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+    container_name: paca-hermes
+    restart: unless-stopped
+    # The gateway is the long-running process of the agent: it serves the
+    # messaging platforms and the cron scheduler. Inside the image it is
+    # supervised by s6, so it restarts itself when it crashes, and the
+    # container stays up.
+    #
+    # The entrypoint of the image is left alone on purpose: it is the one
+    # that starts the supervision tree and the one that reaps the orphans
+    # the tools of the agent leave behind. A container that overrides it
+    # loses both.
+    command: ["gateway", "run"]
+    # The gateway writes its state on the way out, so it is given the time
+    # to do it before the container is killed.
+    stop_grace_period: 30s
+    volumes:
+      # The whole state of the agent lives under /opt/data: its
+      # configuration, its identity, its sessions, its skills, its memories
+      # and its logs. It is a named volume, so the state survives a restart
+      # of the stack and never touches the tree of the repository.
+      #
+      # A named volume and not a bind mount: the sessions live in a SQLite
+      # database in WAL mode, and WAL is not safe on a mount that crosses
+      # the boundary of the virtual machine — the pages of the database
+      # would be silently corrupted. The volume of Docker lives on the
+      # filesystem of the machine, and WAL is safe there.
+      - hermes-data:/opt/data
+    environment:
+      # The API server of the agent is the surface the health of the stack
+      # is asked on. It is gated on this variable, and it binds the
+      # loopback interface of the container: nothing outside the container
+      # reaches it, and it needs no key.
+      API_SERVER_ENABLED: "true"
+    # The browser of the agent needs more shared memory than the 64
+    # megabytes Docker gives by default.
+    shm_size: "1gb"
+    deploy:
+      resources:
+        limits:
+          # The limits the documentation of the image recommends: the agent
+          # is a Python runtime with a browser, and it must not starve the
+          # machine it runs on.
+          memory: 4G
+          cpus: "2.0"
+    networks:
+      # The agent talks to the other services of the monorepository — the
+      # MCP server, above all — on the internal network, which has no
+      # outbound access at all.
+      #
+      # The network of the outbound traffic is not joined yet: the slice
+      # that configures the provider of the agent decides it, because that
+      # is the moment the agent starts to talk to the outside world.
+      - internal
+    healthcheck:
+      # The API server of the agent answers a health request on the
+      # loopback interface of the container. The image ships curl, and the
+      # endpoint needs no key: it says whether the agent is alive, and
+      # nothing else.
+      test: ["CMD", "/usr/bin/curl", "-fsS", "-m", "5", "-o", "/dev/null", "http://127.0.0.1:8642/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # The image unpacks its bundled skills and starts the supervision
+      # tree before the gateway answers: the first answer takes a while.
+      start_period: 60s
+
+networks:
+  # Declared here with the same attributes as the root compose, so this
+  # stack also runs on its own. The name is fixed, so the network is the
+  # same one whichever way the stack is started.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true
+
+volumes:
+  hermes-data:
+    name: paca-hermes-data

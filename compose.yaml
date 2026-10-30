@@ -17,6 +17,7 @@ include:
   - path: ./apps/mcp-server/compose.yaml
   - path: ./apps/db-admin/compose.yaml
   - path: ./observability/compose.yaml
+  - path: ./hermes/compose.yaml
 
 networks:
   # Service-to-service traffic: the database and the services that talk to

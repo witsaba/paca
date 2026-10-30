@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 #
+# The rules of this gate are dispatched by name: run_rule receives the
+# function of a rule as an argument and calls it with "$@". The analyzer of
+# the shell cannot see that call, and it reports the body of every rule, and
+# of every helper they call, as unreachable. The call is there, and the run
+# of the gate proves it: every rule reports what it proved.
+#
+# shellcheck disable=SC2317
 # shellcheck disable=SC2329
 #
 # The tests of the structure of the monorepository.

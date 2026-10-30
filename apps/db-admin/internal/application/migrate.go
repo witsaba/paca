@@ -52,13 +52,3 @@ func (s *MigrateService) Migrate(ctx context.Context) (schema.State, error) {
 		Applied: applied,
 	}, nil
 }
-
-// Status returns the state of every migration of the schema, and changes
-// nothing.
-func (s *MigrateService) Status(ctx context.Context) ([]schema.Migration, error) {
-	migrations, err := s.migrator.Status(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("the state of the migrations could not be read: %w", err)
-	}
-	return migrations, nil
-}

@@ -25,9 +25,6 @@ type Migrator interface {
 	// already up to date.
 	Up(ctx context.Context) ([]schema.Migration, error)
 
-	// Status returns the state of every migration of the schema.
-	Status(ctx context.Context) ([]schema.Migration, error)
-
 	// Pending reports whether a migration is waiting to be applied.
 	Pending(ctx context.Context) (bool, error)
 

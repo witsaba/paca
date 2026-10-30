@@ -43,17 +43,3 @@ func TestTheTransportAnswersAnMCPClient(t *testing.T) {
 		t.Fatalf("the server exposes %d tools, want the three of the users", len(tools.Tools))
 	}
 }
-
-func TestTheTransportExposesTheSDKServer(t *testing.T) {
-	t.Parallel()
-
-	transport := mcpserver.New(mcpserver.Options{
-		ServiceName:    "paca-mcp-server",
-		ServiceVersion: "0.1.0",
-		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
-	})
-
-	if transport.SDKServer() == nil {
-		t.Fatal("the transport does not expose the SDK server")
-	}
-}

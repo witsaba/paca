@@ -50,13 +50,3 @@ type State struct {
 func (s State) IsUpToDate() bool {
 	return !s.Pending
 }
-
-// AppliedVersions returns the numbers of the migrations that the last run
-// applied, in the order they were applied.
-func (s State) AppliedVersions() []int64 {
-	versions := make([]int64, 0, len(s.Applied))
-	for _, migration := range s.Applied {
-		versions = append(versions, migration.Version)
-	}
-	return versions
-}

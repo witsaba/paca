@@ -34,14 +34,6 @@ func TestMigratorWithoutADatabase(t *testing.T) {
 		}
 	})
 
-	t.Run("the state cannot be read", func(t *testing.T) {
-		t.Parallel()
-
-		if _, err := migrator.Status(ctx); !errors.Is(err, database.ErrNoDatabase) {
-			t.Errorf("the error is %v, want it to wrap ErrNoDatabase", err)
-		}
-	})
-
 	t.Run("the pending migrations cannot be read", func(t *testing.T) {
 		t.Parallel()
 

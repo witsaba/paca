@@ -164,6 +164,14 @@ func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (
 // A run that applied nothing is not a failure: the schema was already up to
 // date, and the service says so.
 func logSchema(logger *slog.Logger, state schema.State) {
+	// The rule of the state of the schema belongs to the domain: the
+	// composition root asks it and says what it says.
+	if !state.IsUpToDate() {
+		logger.Warn("the schema still has a pending migration",
+			slog.Int64("version", state.Version),
+		)
+	}
+
 	if len(state.Applied) == 0 {
 		logger.Info("the schema was already up to date",
 			slog.Int64("version", state.Version),
@@ -195,7 +203,7 @@ func (a *App) Listen() error {
 // Serve serves the requests until the context is cancelled.
 func (a *App) Serve(ctx context.Context) error {
 	a.logger.Info("the database admin is serving",
-		slog.String("addr", a.server.Addr()),
+		slog.String("addr", a.Addr()),
 		slog.String("health_path", http.HealthPath),
 	)
 	defer a.pool.Close()

@@ -171,7 +171,7 @@ func (a *App) Listen() error {
 func (a *App) Serve(ctx context.Context) error {
 	a.transportChecker.SetServing(true)
 	a.logger.Info("the MCP server is serving",
-		slog.String("addr", a.server.Addr()),
+		slog.String("addr", a.Addr()),
 		slog.String("mcp_path", http.MCPPath),
 		slog.String("health_path", http.HealthPath),
 	)

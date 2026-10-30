@@ -93,9 +93,3 @@ func New(opts Options) *Server {
 func (s *Server) Handler() http.Handler {
 	return s.handler
 }
-
-// SDKServer returns the SDK server under the transport, so the composition
-// root and the tests can reach it.
-func (s *Server) SDKServer() *sdk.Server {
-	return s.server
-}

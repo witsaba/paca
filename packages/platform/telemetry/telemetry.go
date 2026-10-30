@@ -111,9 +111,6 @@ type Options struct {
 type Providers struct {
 	// TracerProvider creates the spans of the service.
 	TracerProvider trace.TracerProvider
-	// Propagator carries the trace context between the services.
-	Propagator propagation.TextMapPropagator
-
 	// shutdown flushes the spans that are still in the batcher. It is nil
 	// when the service does not trace.
 	shutdown func(context.Context) error
@@ -137,7 +134,7 @@ func Setup(ctx context.Context, opts Options) (*Providers, error) {
 		provider := noop.NewTracerProvider()
 		otel.SetTracerProvider(provider)
 		otel.SetTextMapPropagator(propagator)
-		return &Providers{TracerProvider: provider, Propagator: propagator}, nil
+		return &Providers{TracerProvider: provider}, nil
 	}
 
 	exporter := opts.Exporter
@@ -170,7 +167,6 @@ func Setup(ctx context.Context, opts Options) (*Providers, error) {
 
 	return &Providers{
 		TracerProvider: provider,
-		Propagator:     propagator,
 		shutdown:       provider.Shutdown,
 	}, nil
 }

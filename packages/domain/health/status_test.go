@@ -35,20 +35,6 @@ func TestStatusWorstKeepsTheSickestStatus(t *testing.T) {
 	}
 }
 
-func TestStatusIsHealthyOnlyWhenEverythingIsFine(t *testing.T) {
-	t.Parallel()
-
-	if !health.StatusOK.IsHealthy() {
-		t.Fatal("a healthy service must report itself as healthy")
-	}
-	if health.StatusDegraded.IsHealthy() {
-		t.Fatal("a degraded service is not completely healthy")
-	}
-	if health.StatusUnhealthy.IsHealthy() {
-		t.Fatal("an unhealthy service is not healthy")
-	}
-}
-
 func TestStatusIsServingWhileItIsNotUnhealthy(t *testing.T) {
 	t.Parallel()
 

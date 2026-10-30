@@ -61,11 +61,6 @@ func (s Status) String() string {
 	return string(s)
 }
 
-// IsHealthy reports whether the service is completely healthy.
-func (s Status) IsHealthy() bool {
-	return s == StatusOK
-}
-
 // IsServing reports whether the service is able to serve traffic. A degraded
 // service still serves; an unhealthy one does not.
 func (s Status) IsServing() bool {

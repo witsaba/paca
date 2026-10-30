@@ -110,6 +110,11 @@ the platform owns.
 | T8  | The gate refuses an application that names a concrete adapter: the rule forbade only the adapters of the service, and the adapter of the shared library passed | S13 | inline | `c75bd70` (the fix) |
 | T9  | The evidence: the gate of the repository is green from nothing, and the review that the maintainer asked for says what is still open | S1 | inline | (the evidence is in L2, the review in L3) |
 
+The slice was merged as a squash (`134ad00`), so the history of `main` holds one commit for the
+whole feature. The identifiers of the work units are not in the history of `main`: they live in the
+pull request #47, whose head the server keeps. The record of what happened is the pull request
+itself.
+
 ## Log
 
 - **L1** (2026-10-30): The request of the maintainer, verbatim: "open a new git
@@ -186,3 +191,14 @@ keeps the address is a fact about the people, and only a human decides it.
 
   These are the next slices. They are the same shape as this one: one rule
   of the contract, one owner, and an assertion that proves it.
+
+- **L4** (2026-10-30): The slice was merged as the squash `134ad00`, and the
+  pull request #47 is closed. The issue #46 is closed with it.
+
+  The history of `main` holds one commit for the whole slice. The
+  identifiers of the nine work units are not in it: they live in the head of
+  the pull request #47, whose head the server keeps, and the record of what
+  happened is the pull request itself.
+
+  The review of L3 is the state of the day it was written. The seven
+  findings it lists are still open, and they are the next slices.

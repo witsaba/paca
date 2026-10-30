@@ -10,6 +10,11 @@
 // purpose. The instrumentation of the transport and the bridge of the logger
 // read them from that registry, which is the contract every OpenTelemetry
 // library expects.
+//
+// The configuration of the tracing lives here as well: the names of the
+// variables, the reading of them and the rules they must obey. The package
+// reads no environment variable: a service hands it the reader of its own
+// environment.
 package telemetry
 
 import (
@@ -59,6 +64,13 @@ const (
 // batch is smaller and cheaper than one span per request, and five seconds
 // is short enough for a trace to show up while a developer waits for it.
 const batchTimeout = 5 * time.Second
+
+// samplerArgName is the name the error of the ratio of the traces carries
+// when the telemetry builds the sampler itself.
+//
+// The ratio comes from the options of the caller, not from the environment of
+// a service, and the error names the setting it belongs to.
+const samplerArgName = "the sampler argument"
 
 // Options configures the providers of the service.
 type Options struct {
@@ -228,14 +240,14 @@ func newSampler(opts Options) (sdktrace.Sampler, error) {
 		return sdktrace.NeverSample(), nil
 
 	case SamplerTraceIDRatio:
-		ratio, err := parseRatio(opts.SamplerArg)
+		ratio, err := parseRatio(samplerArgName, opts.SamplerArg)
 		if err != nil {
 			return nil, err
 		}
 		return sdktrace.TraceIDRatioBased(ratio), nil
 
 	case SamplerParentBasedTraceIDRatio:
-		ratio, err := parseRatio(opts.SamplerArg)
+		ratio, err := parseRatio(samplerArgName, opts.SamplerArg)
 		if err != nil {
 			return nil, err
 		}
@@ -247,16 +259,4 @@ func newSampler(opts Options) (sdktrace.Sampler, error) {
 	default:
 		return nil, fmt.Errorf("%q is not a sampler", opts.Sampler)
 	}
-}
-
-// parseRatio reads the ratio of the traces that are kept.
-func parseRatio(raw string) (float64, error) {
-	var ratio float64
-	if _, err := fmt.Sscanf(raw, "%g", &ratio); err != nil {
-		return 0, fmt.Errorf("%q is not a ratio", raw)
-	}
-	if ratio < 0 || ratio > 1 {
-		return 0, fmt.Errorf("%q is not a ratio between zero and one", raw)
-	}
-	return ratio, nil
 }

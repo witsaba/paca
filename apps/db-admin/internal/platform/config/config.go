@@ -16,13 +16,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	dbconfig "github.com/witsaba/paca/packages/database/config"
+	"github.com/witsaba/paca/packages/platform/env"
+	"github.com/witsaba/paca/packages/platform/logging"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // The environment variables the service reads.
@@ -36,10 +38,6 @@ const (
 	EnvShutdownTimeout = "PACA_DB_ADMIN_SHUTDOWN_TIMEOUT"
 	// EnvCheckTimeout bounds how long a single health check may take.
 	EnvCheckTimeout = "PACA_DB_ADMIN_CHECK_TIMEOUT"
-	// EnvLogLevel is the verbosity of the logs.
-	EnvLogLevel = "PACA_LOG_LEVEL"
-	// EnvServiceVersion is the version reported in the health report.
-	EnvServiceVersion = "PACA_SERVICE_VERSION"
 )
 
 // The environment variables of the database.
@@ -69,31 +67,6 @@ const (
 	EnvPostgresDB = "POSTGRES_DB"
 )
 
-// The environment variables of the tracing. They are the ones of the
-// OpenTelemetry specification, so an operator who knows the specification
-// knows how to turn the tracing on and off.
-const (
-	// EnvOtelDisabled turns the tracing off.
-	EnvOtelDisabled = "OTEL_SDK_DISABLED"
-	// EnvOtelEndpoint is the address of the collector that receives the
-	// traces.
-	EnvOtelEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"
-	// EnvOtelProtocol is the protocol the exporter speaks to the
-	// collector.
-	EnvOtelProtocol = "OTEL_EXPORTER_OTLP_PROTOCOL"
-	// EnvOtelInsecure tells whether the exporter speaks to the collector
-	// without TLS.
-	EnvOtelInsecure = "OTEL_EXPORTER_OTLP_INSECURE"
-	// EnvOtelSampler is the sampler that decides which traces are kept.
-	EnvOtelSampler = "OTEL_TRACES_SAMPLER"
-	// EnvOtelSamplerArg is the argument of the sampler: the ratio of the
-	// traces that are kept.
-	EnvOtelSamplerArg = "OTEL_TRACES_SAMPLER_ARG"
-	// EnvOtelServiceName is the name the telemetry carries. It overrides
-	// the name of the service when it is set.
-	EnvOtelServiceName = "OTEL_SERVICE_NAME"
-)
-
 // The defaults of the settings.
 const (
 	// DefaultHost binds the loopback interface only. A container overrides
@@ -107,8 +80,6 @@ const (
 	DefaultShutdownTimeout = 10 * time.Second
 	// DefaultCheckTimeout bounds a single health check.
 	DefaultCheckTimeout = 2 * time.Second
-	// DefaultLogLevel is the verbosity of the logs.
-	DefaultLogLevel = slog.LevelInfo
 	// DefaultDatabaseHost is the name of the container of the database of
 	// the monorepository.
 	DefaultDatabaseHost = "postgres"
@@ -125,32 +96,6 @@ const (
 	DefaultDatabaseWaitTimeout = 60 * time.Second
 	// ServiceName is the name the service reports in its health report.
 	ServiceName = "paca-db-admin"
-	// DefaultOtelProtocol is the protocol the exporter speaks to the
-	// collector. It is the protocol the collector of the monorepository
-	// listens on.
-	DefaultOtelProtocol = "grpc"
-	// DefaultOtelSampler keeps every trace. The traces of a service that
-	// is not under load are few, and a trace that is missing cannot be
-	// recovered.
-	DefaultOtelSampler = "parentbased_always_on"
-)
-
-// The samplers the service understands. They are the ones of the
-// OpenTelemetry specification.
-const (
-	// SamplerAlwaysOn keeps every trace.
-	SamplerAlwaysOn = "always_on"
-	// SamplerAlwaysOff drops every trace.
-	SamplerAlwaysOff = "always_off"
-	// SamplerTraceIDRatio keeps the ratio of the traces, decided by the
-	// identifiers of the traces themselves.
-	SamplerTraceIDRatio = "traceidratio"
-	// SamplerParentBasedAlwaysOn keeps every trace, and keeps whole the
-	// traces of the callers that sampled them.
-	SamplerParentBasedAlwaysOn = "parentbased_always_on"
-	// SamplerParentBasedTraceIDRatio keeps the ratio of the traces, and
-	// keeps whole the traces of the callers that sampled them.
-	SamplerParentBasedTraceIDRatio = "parentbased_traceidratio"
 )
 
 // Config is the validated configuration of the service.
@@ -170,7 +115,7 @@ type Config struct {
 	// Database holds the settings of the database.
 	Database DatabaseConfig
 	// Tracing holds the settings of the tracing.
-	Tracing TracingConfig
+	Tracing telemetry.TracingConfig
 }
 
 // DatabaseConfig holds the settings of the database.
@@ -183,29 +128,6 @@ type DatabaseConfig struct {
 	// WaitTimeout is how long the writer waits for the database to answer
 	// when it starts.
 	WaitTimeout time.Duration
-}
-
-// TracingConfig holds the settings of the tracing.
-type TracingConfig struct {
-	// Enabled tells whether the service traces. A service without a
-	// collector does not trace: there is nowhere to send the traces.
-	Enabled bool
-	// ServiceName is the name the telemetry carries. It is empty when the
-	// name of the service is the name of the telemetry.
-	ServiceName string
-	// Endpoint is the address of the collector that receives the traces.
-	Endpoint string
-	// Protocol is the protocol the exporter speaks to the collector.
-	Protocol string
-	// Insecure tells whether the exporter speaks to the collector without
-	// TLS.
-	Insecure bool
-	// Sampler is the name of the sampler that decides which traces are
-	// kept.
-	Sampler string
-	// SamplerArg is the argument of the sampler: the ratio of the traces
-	// that are kept.
-	SamplerArg string
 }
 
 // Addr returns the address the server listens on.
@@ -224,7 +146,7 @@ func Load() (Config, error) {
 		Port:            DefaultPort,
 		ShutdownTimeout: DefaultShutdownTimeout,
 		CheckTimeout:    DefaultCheckTimeout,
-		LogLevel:        DefaultLogLevel,
+		LogLevel:        logging.DefaultLevel,
 	}
 
 	if raw, ok := os.LookupEnv(EnvHost); ok {
@@ -244,7 +166,7 @@ func Load() (Config, error) {
 	}
 
 	if raw, ok := os.LookupEnv(EnvShutdownTimeout); ok {
-		timeout, err := parseDuration(EnvShutdownTimeout, raw)
+		timeout, err := env.Duration(EnvShutdownTimeout, raw)
 		if err != nil {
 			return Config{}, err
 		}
@@ -252,25 +174,25 @@ func Load() (Config, error) {
 	}
 
 	if raw, ok := os.LookupEnv(EnvCheckTimeout); ok {
-		timeout, err := parseDuration(EnvCheckTimeout, raw)
+		timeout, err := env.Duration(EnvCheckTimeout, raw)
 		if err != nil {
 			return Config{}, err
 		}
 		cfg.CheckTimeout = timeout
 	}
 
-	if raw, ok := os.LookupEnv(EnvLogLevel); ok {
-		level, err := parseLogLevel(raw)
+	if raw, ok := os.LookupEnv(logging.Level); ok {
+		level, err := logging.ParseLevel(raw)
 		if err != nil {
 			return Config{}, err
 		}
 		cfg.LogLevel = level
 	}
 
-	if raw, ok := os.LookupEnv(EnvServiceVersion); ok {
+	if raw, ok := os.LookupEnv(env.ServiceVersion); ok {
 		version := strings.TrimSpace(raw)
 		if version == "" {
-			return Config{}, fmt.Errorf("%s: the version cannot be empty", EnvServiceVersion)
+			return Config{}, fmt.Errorf("%s: the version cannot be empty", env.ServiceVersion)
 		}
 		cfg.ServiceVersion = version
 	}
@@ -281,7 +203,7 @@ func Load() (Config, error) {
 	}
 	cfg.Database = database
 
-	tracing, err := loadTracing()
+	tracing, err := telemetry.LoadTracing(os.LookupEnv)
 	if err != nil {
 		return Config{}, err
 	}
@@ -335,7 +257,7 @@ func LoadPort() (int, error) {
 func loadDatabase() (DatabaseConfig, error) {
 	waitTimeout := DefaultDatabaseWaitTimeout
 	if raw, ok := os.LookupEnv(EnvDatabaseWaitTimeout); ok {
-		timeout, err := parseDuration(EnvDatabaseWaitTimeout, raw)
+		timeout, err := env.Duration(EnvDatabaseWaitTimeout, raw)
 		if err != nil {
 			return DatabaseConfig{}, err
 		}
@@ -395,72 +317,6 @@ func loadDatabase() (DatabaseConfig, error) {
 	}, nil
 }
 
-// loadTracing reads the settings of the tracing from the environment.
-//
-// The tracing is on when a collector is configured and the specification
-// does not turn it off. A service without a collector does not trace: there
-// is nowhere to send the traces, and a service that tries anyway only fills
-// its own log with connection errors.
-func loadTracing() (TracingConfig, error) {
-	tracing := TracingConfig{
-		Protocol: DefaultOtelProtocol,
-		Sampler:  DefaultOtelSampler,
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelEndpoint); ok {
-		endpoint := strings.TrimSpace(raw)
-		if endpoint == "" {
-			return TracingConfig{}, fmt.Errorf("%s: the address cannot be empty", EnvOtelEndpoint)
-		}
-		tracing.Endpoint = endpoint
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelProtocol); ok {
-		tracing.Protocol = strings.TrimSpace(raw)
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelInsecure); ok {
-		insecure, err := parseBool(EnvOtelInsecure, raw)
-		if err != nil {
-			return TracingConfig{}, err
-		}
-		tracing.Insecure = insecure
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelSampler); ok {
-		tracing.Sampler = strings.TrimSpace(raw)
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelSamplerArg); ok {
-		tracing.SamplerArg = strings.TrimSpace(raw)
-	}
-
-	if raw, ok := os.LookupEnv(EnvOtelServiceName); ok {
-		name := strings.TrimSpace(raw)
-		if name == "" {
-			return TracingConfig{}, fmt.Errorf("%s: the name cannot be empty", EnvOtelServiceName)
-		}
-		tracing.ServiceName = name
-	}
-
-	disabled := false
-	if raw, ok := os.LookupEnv(EnvOtelDisabled); ok {
-		value, err := parseBool(EnvOtelDisabled, raw)
-		if err != nil {
-			return TracingConfig{}, err
-		}
-		disabled = value
-	}
-
-	tracing.Enabled = !disabled && tracing.Endpoint != ""
-
-	if err := tracing.validate(); err != nil {
-		return TracingConfig{}, err
-	}
-
-	return tracing, nil
-}
-
 // validate rejects the configurations that would make the server unsafe or
 // useless.
 func (c Config) validate() error {
@@ -480,118 +336,4 @@ func (c Config) validate() error {
 		return fmt.Errorf("%s: the timeout must be positive", EnvDatabaseWaitTimeout)
 	}
 	return nil
-}
-
-// validate rejects the tracing settings that would not work.
-func (t TracingConfig) validate() error {
-	switch t.Protocol {
-	case "grpc", "http/protobuf":
-	default:
-		return fmt.Errorf("%s: %q is not a protocol", EnvOtelProtocol, t.Protocol)
-	}
-
-	if t.Endpoint != "" {
-		if err := validateEndpoint(t.Endpoint, t.Protocol); err != nil {
-			return err
-		}
-	}
-
-	switch t.Sampler {
-	case SamplerAlwaysOn, SamplerAlwaysOff, SamplerParentBasedAlwaysOn:
-	case SamplerTraceIDRatio, SamplerParentBasedTraceIDRatio:
-	default:
-		return fmt.Errorf("%s: %q is not a sampler", EnvOtelSampler, t.Sampler)
-	}
-
-	// A ratio that cannot be read is an error even when the sampler does
-	// not take one: a setting that is silently ignored is a setting that
-	// nobody read.
-	if t.Sampler == SamplerTraceIDRatio || t.Sampler == SamplerParentBasedTraceIDRatio ||
-		t.SamplerArg != "" {
-		if _, err := parseRatio(EnvOtelSamplerArg, t.SamplerArg); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// validateEndpoint checks the address of the collector.
-//
-// The exporter takes the host and the port of the collector. The protocol
-// over HTTP also takes a full address.
-func validateEndpoint(endpoint, protocol string) error {
-	if strings.Contains(endpoint, "://") {
-		if protocol != "http/protobuf" {
-			return fmt.Errorf("%s: %q has a scheme, which the %s protocol does not take",
-				EnvOtelEndpoint, endpoint, protocol)
-		}
-		parsed, err := url.Parse(endpoint)
-		if err != nil {
-			return fmt.Errorf("%s: %q is not an address", EnvOtelEndpoint, endpoint)
-		}
-		if parsed.Host == "" {
-			return fmt.Errorf("%s: %q has no host", EnvOtelEndpoint, endpoint)
-		}
-		return nil
-	}
-
-	host, port, err := net.SplitHostPort(endpoint)
-	if err != nil {
-		return fmt.Errorf("%s: %q is not an address", EnvOtelEndpoint, endpoint)
-	}
-	if host == "" || port == "" {
-		return fmt.Errorf("%s: %q has no host or no port", EnvOtelEndpoint, endpoint)
-	}
-
-	return nil
-}
-
-// parseDuration reads a duration from the environment.
-func parseDuration(name, raw string) (time.Duration, error) {
-	value, err := time.ParseDuration(strings.TrimSpace(raw))
-	if err != nil {
-		return 0, fmt.Errorf("%s: %q is not a duration", name, raw)
-	}
-	return value, nil
-}
-
-// parseBool reads a boolean from the environment.
-func parseBool(name, raw string) (bool, error) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "true", "1":
-		return true, nil
-	case "false", "0":
-		return false, nil
-	default:
-		return false, fmt.Errorf("%s: %q is not a boolean", name, raw)
-	}
-}
-
-// parseRatio reads the ratio of the traces that are kept.
-func parseRatio(name, raw string) (float64, error) {
-	ratio, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %q is not a ratio", name, raw)
-	}
-	if ratio < 0 || ratio > 1 {
-		return 0, fmt.Errorf("%s: %q is not a ratio between zero and one", name, raw)
-	}
-	return ratio, nil
-}
-
-// parseLogLevel reads the verbosity of the logs from the environment.
-func parseLogLevel(raw string) (slog.Level, error) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "debug":
-		return slog.LevelDebug, nil
-	case "info":
-		return slog.LevelInfo, nil
-	case "warn", "warning":
-		return slog.LevelWarn, nil
-	case "error":
-		return slog.LevelError, nil
-	default:
-		return 0, fmt.Errorf("%s: %q is not a log level", EnvLogLevel, raw)
-	}
 }

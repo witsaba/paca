@@ -12,11 +12,37 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
 	"go.opentelemetry.io/otel/trace"
 )
+
+// Level is the name of the variable that carries the level of the logs.
+const Level = "PACA_LOG_LEVEL"
+
+// DefaultLevel is the level of the logs of a service that names none.
+const DefaultLevel = slog.LevelInfo
+
+// ParseLevel reads the level of the logs.
+//
+// The error says what the level must be.
+func ParseLevel(raw string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("%s: %q is not a log level", Level, raw)
+	}
+}
 
 // New builds the logger of the service.
 func New(w io.Writer, level slog.Level) *slog.Logger {

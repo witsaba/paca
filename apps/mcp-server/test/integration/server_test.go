@@ -11,9 +11,11 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -35,10 +37,12 @@ const (
 	imageTag = "integration-test"
 )
 
-// startServer builds the image of the server and starts it.
+// startServer starts the server from the image of the suite.
 //
-// The image is built from the Dockerfile of the project, so the tests prove
-// the image that ships works, not only the sources.
+// The image is built once, before the tests run, and every test starts a
+// container from it. A test that built the image itself would race with the
+// other tests: the builder deletes the image and creates it again with the
+// same name, and two builders at the same time fight over the name.
 func startServer(t *testing.T) string {
 	t.Helper()
 
@@ -46,13 +50,7 @@ func startServer(t *testing.T) string {
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    repositoryRoot(t),
-				Dockerfile: filepath.Join("apps", "mcp-server", "Dockerfile"),
-				Repo:       imageName,
-				Tag:        imageTag,
-				KeepImage:  true,
-			},
+			Image:        imageName + ":" + imageTag,
 			ExposedPorts: []string{containerPort + "/tcp"},
 			Env: map[string]string{
 				// The server binds the interface of the container, so the
@@ -90,12 +88,10 @@ func startServer(t *testing.T) string {
 
 // projectDir returns the directory of the project, so the tests build the
 // image whatever the working directory is.
-func projectDir(t *testing.T) string {
-	t.Helper()
-
+func projectDir() string {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Fatal("the test does not know its own location")
+		return ""
 	}
 
 	// The test lives in <project>/test/integration.
@@ -108,10 +104,31 @@ func projectDir(t *testing.T) string {
 // The image of the server is built from the root of the repository, the way
 // the stack of the monorepository builds it: the server imports the shared
 // libraries of the repository, and they are modules of their own next to it.
-func repositoryRoot(t *testing.T) string {
-	t.Helper()
+func repositoryRoot() string {
+	return filepath.Clean(filepath.Join(projectDir(), "..", ".."))
+}
 
-	return filepath.Clean(filepath.Join(projectDir(t), "..", ".."))
+// buildImage builds the image of the server from its Dockerfile.
+//
+// The image is built from the root of the monorepository, because the
+// server imports the shared libraries of the repository, and they are
+// modules of their own next to it.
+//
+// The build happens once, before the tests run: the tests prove the image
+// that ships works, and they prove it from one image.
+func buildImage(ctx context.Context) error {
+	command := exec.CommandContext(ctx, "docker", "build",
+		"-f", filepath.Join(repositoryRoot(), "apps", "mcp-server", "Dockerfile"),
+		"-t", imageName+":"+imageTag,
+		repositoryRoot(),
+	)
+
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("the image was not built: %w: %s", err, string(output))
+	}
+
+	return nil
 }
 
 func TestTheServerComesUpAndAnswersItsHealth(t *testing.T) {
@@ -222,6 +239,15 @@ func TestTheServerKeepsItsPortToItself(t *testing.T) {
 
 // TestMain keeps the output of the containers out of the way of the test
 // results, unless the test fails.
+//
+// The image of the server is built before the tests run: the tests are
+// parallel, and a build that happens inside a test fights with the builds
+// of the other tests over the name of the image.
 func TestMain(m *testing.M) {
+	if err := buildImage(context.Background()); err != nil {
+		fmt.Fprintf(os.Stderr, "the image of the server was not built: %v\n", err)
+		os.Exit(1)
+	}
+
 	os.Exit(m.Run())
 }

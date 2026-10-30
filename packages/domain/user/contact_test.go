@@ -62,7 +62,8 @@ func TestCleanEmail(t *testing.T) {
 	}{
 		{name: "an address stays as it is", raw: "ana@example.com", want: "ana@example.com"},
 		{name: "the spaces around the address are removed", raw: "  ana@example.com  ", want: "ana@example.com"},
-		{name: "the case of the address is kept", raw: "Ana@Example.com", want: "Ana@Example.com"},
+		{name: "the address is stored in its canonical form", raw: "Ana@Example.com", want: "ana@example.com"},
+		{name: "the canonical form of an address that is already canonical is the address", raw: "ana@example.com", want: "ana@example.com"},
 		{name: "an empty address is not an address", raw: "", want: ""},
 		{name: "an address without a name is refused", raw: "@example.com", wantErr: user.ErrInvalidEmail},
 		{name: "an address without a domain is refused", raw: "ana@", wantErr: user.ErrInvalidEmail},

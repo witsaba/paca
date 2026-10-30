@@ -10,55 +10,8 @@ import (
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-// This file holds the container tests of the reading and of the writing of
-// the data of a person.
-func TestGetByIDReturnsThePersonOfTheDocument(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	repo := usersRepository(t)
-	id := nextIdentifier()
-
-	registered := registerUser(t, repo, id, "The Person Of The Document")
-
-	found, err := repo.GetByID(ctx, user.ID(id))
-	if err != nil {
-		t.Fatalf("the person could not be read: %v", err)
-	}
-
-	if found.ID != registered.ID {
-		t.Errorf("the document of the person is %d, want %d", found.ID, registered.ID)
-	}
-	if found.FullName != registered.FullName {
-		t.Errorf("the name of the person is %q, want %q", found.FullName, registered.FullName)
-	}
-	if found.Status != registered.Status {
-		t.Errorf("the state of the person is %q, want %q", found.Status, registered.Status)
-	}
-	if found.Phone != registered.Phone {
-		t.Errorf("the phone of the person is %q, want %q", found.Phone, registered.Phone)
-	}
-	if found.Email != registered.Email {
-		t.Errorf("the address of the person is %q, want %q", found.Email, registered.Email)
-	}
-	if !found.CreatedAt.Equal(registered.CreatedAt) {
-		t.Errorf("the creation time of the person is %s, want %s", found.CreatedAt, registered.CreatedAt)
-	}
-}
-
-// TestGetByIDOfAMissingDocument proves that the read of a document nobody
-// carries says that the person does not exist.
-func TestGetByIDOfAMissingDocument(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	repo := usersRepository(t)
-
-	_, err := repo.GetByID(ctx, user.ID(nextIdentifier()))
-	if !errors.Is(err, user.ErrNotFound) {
-		t.Fatalf("the error is %v, want %v", err, user.ErrNotFound)
-	}
-}
+// This file holds the container tests of the writing of the data of a
+// person.
 
 // TestUpdateDetailsWritesOnlyTheFieldsThatCarryAValue proves that the
 // update writes the fields that carry a value and leaves the others as they

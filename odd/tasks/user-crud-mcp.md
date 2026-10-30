@@ -131,13 +131,15 @@ the same mailbox.
 
 ```
 Create(ctx, id, details) (user, error)
-GetByID(ctx, id) (user, error)
 UpdateDetails(ctx, id, details) (user, error)
 ChangeStatus(ctx, id, status, observation) (user, error)
 ```
 
 No delete: a person that must go is `blocked`. No list: nothing consumes it
 yet.
+
+The read left the port later: no use case called it, and a port holds the
+methods the use cases call. See L9.
 
 ### S16 — The three tools, and only three *(decided)*
 
@@ -317,3 +319,21 @@ Two things are known and open:
 contract of the table was the request itself, and the container tests prove
 the new rules against a real database.
 
+
+### L9 — The read left the port
+
+The port of the storage of the users carried a read that no use case called.
+The three tools of the MCP server write: they register a person, they move a
+state and they correct the data. None of them asks for a person by its
+document, so `GetByID` was a promise that nobody kept, and the contract
+forbids dead API.
+
+The read left the port. The adapter keeps the read it needs by itself — the
+change of the state reads the row it is about to write — and it keeps it to
+itself: the method is not exported any more, and the public interface of the
+adapter is the port and nothing else.
+
+The change landed in the slice `odd/tasks/architecture-defects.md`, which
+closes the last findings of the audit of the architecture. The proof that the
+read still works is the two methods of the port that read a row: the update
+of the data and the change of the state, against a real database.

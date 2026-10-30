@@ -57,7 +57,7 @@ carries the schema and the rules of the people.
 | `status`              | `text`       | Not null, default `onboarding`, checked against four states  |
 | `status_observations` | `text`       | The reason of the closed states; the open states carry none   |
 | `phone`               | `text`       | Optional, unique, digits only with the country code          |
-| `email`               | `text`       | Optional, unique without case, the shape of an address       |
+| `email`               | `text`       | Optional, unique without case, the shape of an address, canonical |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 | `updated_at`          | `timestamptz`| Not null, default `now()`                                     |
 
@@ -85,6 +85,11 @@ partial: a person may have no email and no phone, and two people without an
 email do not collide. The email is compared without case, because
 `Foo@x.com` and `foo@x.com` are the same mailbox.
 
+**The email is stored in its canonical form.** The domain owns that rule: it
+writes the lower case of the address, and the constraint of the table refuses
+an address that is not in it. The migration of the identity brought the rows
+that existed to that form.
+
 **The formats are checked by the database too.** The phone holds digits only
 and carries its country code — eleven to fifteen digits — and the email
 holds the shape of an address.
@@ -105,13 +110,15 @@ The adapter writes the people through the port of the domain
 
 ```go
 Create(ctx, id, details) (user.User, error)
-GetByID(ctx, id) (user.User, error)
 UpdateDetails(ctx, id, details) (user.User, error)
 ChangeStatus(ctx, id, status, observation) (user.User, error)
 ```
 
 There is no delete and no list: a person that must go is `blocked`, and
-nothing consumes a list yet.
+nothing consumes a list yet. There is no read either: the port holds the
+methods the use cases call, and none of them asks for a person by its
+document. The adapter reads the row it needs by itself, when the move of a
+state needs it.
 
 **The writes are direct.** The adapter does not read a row to find out
 whether it may write it: the insert tells the truth with its primary key,

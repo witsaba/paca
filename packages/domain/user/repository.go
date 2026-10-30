@@ -31,8 +31,7 @@ var ErrInvalidValue = errors.New("the database refused the row")
 // Repository is the port of the storage of the users.
 //
 // The port is what a use case needs, not the shape of the table: it creates,
-// reads, updates and moves a user, and it never asks for a row it does not
-// need.
+// updates and moves a user, and it never asks for a row it does not need.
 //
 // The rules of the domain travel with the port. An implementation refuses
 // what the domain refuses, and says so with the errors of this package.
@@ -42,11 +41,6 @@ type Repository interface {
 	//
 	// The error is ErrAlreadyExists when the document ID is taken.
 	Create(ctx context.Context, id ID, details Details) (User, error)
-
-	// GetByID returns the user of the document ID.
-	//
-	// The error is ErrNotFound when no user carries that document ID.
-	GetByID(ctx context.Context, id ID) (User, error)
 
 	// UpdateDetails writes the data of a user. A field that is empty is left
 	// as it is: the storage writes the fields that carry a value.

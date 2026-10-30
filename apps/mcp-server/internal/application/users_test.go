@@ -41,14 +41,6 @@ func (r *fakeRepository) Create(_ context.Context, id user.ID, details user.Deta
 	return created, nil
 }
 
-// GetByID answers the user of the document ID.
-func (r *fakeRepository) GetByID(_ context.Context, id user.ID) (user.User, error) {
-	if r.err != nil {
-		return user.User{}, r.err
-	}
-	return user.User{ID: id, Status: user.StatusOnboarding}, nil
-}
-
 // UpdateDetails remembers the data and answers it.
 func (r *fakeRepository) UpdateDetails(_ context.Context, id user.ID, details user.Details) (user.User, error) {
 	if r.err != nil {

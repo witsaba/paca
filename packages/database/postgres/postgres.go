@@ -11,11 +11,14 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 )
@@ -106,6 +109,12 @@ func (c Config) Validate() error {
 // on purpose: the services depend on the library, not on pgx.
 type Pool struct {
 	pool *pgxpool.Pool
+
+	// mu guards the view of the handle that the tools of the schema need.
+	mu sync.Mutex
+
+	// sql is the view of the pool that database/sql speaks to.
+	sql *sql.DB
 }
 
 // Open opens the pool of connections.
@@ -164,10 +173,44 @@ func (p *Pool) Queries() *db.Queries {
 	return db.New(p.pool)
 }
 
+// SQL returns the handle of the database that the tools of the schema need.
+//
+// The migrator of the library speaks through database/sql: goose is the tool
+// that applies the migrations, and it asks for a *sql.DB. The view is over
+// the same pool, so the migrations and the queries of the services share the
+// connections, the driver and the limits of the pool.
+//
+// The view is built once and kept: the pool closes it when the pool closes.
+// A pool that is not there has no view, and the caller says so.
+func (p *Pool) SQL() *sql.DB {
+	if p == nil || p.pool == nil {
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.sql == nil {
+		p.sql = stdlib.OpenDBFromPool(p.pool)
+	}
+
+	return p.sql
+}
+
 // Close closes the pool and waits for the connections to end.
 func (p *Pool) Close() {
 	if p == nil || p.pool == nil {
 		return
 	}
+
+	p.mu.Lock()
+	if p.sql != nil {
+		// The view shares the connections of the pool: closing it never
+		// closes a connection, and the pool closes them right after.
+		_ = p.sql.Close()
+		p.sql = nil
+	}
+	p.mu.Unlock()
+
 	p.pool.Close()
 }

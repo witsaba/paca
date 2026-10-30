@@ -229,6 +229,12 @@ test_the_domain_of_every_application_knows_nothing() {
 # The use cases speak in the model of the domain and in the ports. The day one
 # of them names a concrete technology, the technology decides what the use
 # case does.
+#
+# The rule is stated as what the layer may name, and not only as what it may
+# not: an application that imports the adapter of the shared library — the
+# pool of the database, for example — names no adapter of its own service,
+# and the rule that forbids only the adapters of the service would let it
+# through.
 test_the_application_of_every_application_knows_no_adapter() {
   local application
   while IFS= read -r application; do
@@ -248,6 +254,19 @@ test_the_application_of_every_application_knows_no_adapter() {
           "the application of $module imports no adapter: [$imported]"
         assert_not_contains "$imported" "/internal/platform/" \
           "the application of $module imports no infrastructure: [$imported]"
+
+        # The layer names the standard library, the ports of its service
+        # and the shared domain. Nothing else.
+        is_external "$imported" || continue
+
+        case "$imported" in
+        github.com/witsaba/paca/apps/"$module"/internal/ports*) ;;
+        github.com/witsaba/paca/packages/domain*) ;;
+        *)
+          fail "the application of $module names its ports and the domain, and nothing else: [$imported]"
+          ;;
+        esac
+        ASSERTIONS=$((ASSERTIONS + 1))
       done
     done < <(imports_of_the_layer "$application" internal/application)
   done < <(applications_of_the_repository)
@@ -275,6 +294,39 @@ test_the_adapters_of_every_application_know_no_use_case() {
       for imported in $imports; do
         assert_not_contains "$imported" "/internal/application/" \
           "the adapters of $module know no use case: [$imported]"
+      done
+    done < <(imports_of_the_layer "$application" internal/adapters)
+  done < <(applications_of_the_repository)
+}
+
+# test_the_adapters_of_every_application_know_no_handle_of_the_database
+# asserts that the adapters of an application name no handle of the
+# database.
+#
+# The capability "does the database answer?" has one owner: the library that
+# owns the database. An adapter that names the handle asks the question its
+# own way, and two services end up asking it in two ways. The adapters reach
+# the capability through the port of their application, and the composition
+# root binds the handle of the library to it.
+test_the_adapters_of_every_application_know_no_handle_of_the_database() {
+  local application
+  while IFS= read -r application; do
+    local module
+    module=$(basename "$application")
+
+    local line
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+
+      local imports
+      imports=${line#* }
+
+      local imported
+      for imported in $imports; do
+        assert_not_contains "$imported" "packages/database/postgres" \
+          "the adapters of $module name no handle of the database: [$imported]"
+        assert_not_contains "$imported" "database/sql" \
+          "the adapters of $module name no handle of the database: [$imported]"
       done
     done < <(imports_of_the_layer "$application" internal/adapters)
   done < <(applications_of_the_repository)
@@ -469,6 +521,7 @@ test_every_relative_link_points_at_a_file
 test_the_domain_of_every_application_knows_nothing
 test_the_application_of_every_application_knows_no_adapter
 test_the_adapters_of_every_application_know_no_use_case
+test_the_adapters_of_every_application_know_no_handle_of_the_database
 test_only_the_composition_root_knows_the_adapters
 test_the_shared_domain_knows_nothing_but_the_standard_library
 test_the_shared_platform_knows_no_model

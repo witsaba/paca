@@ -46,38 +46,18 @@ const (
 	EnvMaxRequestBytes = "PACA_MCP_MAX_REQUEST_BYTES"
 )
 
-// The environment variables of the database. They are the ones of the core,
-// and every service of the monorepository reads them the same way.
+// The environment variables of the database that belong to this service.
+//
+// The names of the database itself — the connection string, the host, the
+// port and the credentials of the PostgreSQL stack — live in the shared
+// platform (`packages/platform/env`): every service of the monorepository
+// reads them the same way.
 const (
-	// EnvDatabaseURL is the connection string of the database.
-	EnvDatabaseURL = "PACA_DATABASE_URL"
 	// EnvDatabaseMaxConns is the number of connections the pool may open at
 	// the same time.
 	EnvDatabaseMaxConns = "PACA_DATABASE_MAX_CONNS"
 	// EnvDatabaseConnectTimeout bounds the attempt to open a connection.
 	EnvDatabaseConnectTimeout = "PACA_DATABASE_CONNECT_TIMEOUT"
-	// EnvDatabaseHost is the host the database answers on. It is only
-	// read when the connection string is assembled from the credentials
-	// of the PostgreSQL stack.
-	EnvDatabaseHost = "PACA_DATABASE_HOST"
-	// EnvDatabasePort is the port the database answers on. It is only
-	// read when the connection string is assembled from the credentials
-	// of the PostgreSQL stack.
-	EnvDatabasePort = "PACA_DATABASE_PORT"
-)
-
-// The environment variables of the PostgreSQL stack. They are the ones of
-// the image of PostgreSQL, and they are the credentials that live in
-// `db/postgres/.env`: the stack that owns them is the only one that
-// writes them, and every service that talks to the database loads them
-// with `env_file`.
-const (
-	// EnvPostgresUser is the role that owns the application database.
-	EnvPostgresUser = "POSTGRES_USER"
-	// EnvPostgresPassword is the password of the role.
-	EnvPostgresPassword = "POSTGRES_PASSWORD" //nolint:gosec // the name of the environment variable, not a credential.
-	// EnvPostgresDB is the application database.
-	EnvPostgresDB = "POSTGRES_DB"
 )
 
 // The defaults of the settings.
@@ -102,12 +82,6 @@ const (
 	// DefaultDatabaseConnectTimeout bounds the attempt to reach the
 	// database.
 	DefaultDatabaseConnectTimeout = 5 * time.Second
-	// DefaultDatabaseHost is the host of the database of the
-	// monorepository: the container of the PostgreSQL stack.
-	DefaultDatabaseHost = "postgres"
-	// DefaultDatabasePort is the port the database of the monorepository
-	// answers on.
-	DefaultDatabasePort = 5432
 	// ServiceName is the name the MCP clients see.
 	ServiceName = "paca-mcp-server"
 )
@@ -277,11 +251,10 @@ func loadDatabase() (DatabaseConfig, error) {
 		ConnectTimeout: DefaultDatabaseConnectTimeout,
 	}
 
-	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
-		connection := strings.TrimSpace(raw)
-		if connection == "" {
-			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
-		}
+	// An empty value is no value: a connection string that is set to
+	// nothing is a connection string that is not set, and the credentials
+	// of the PostgreSQL stack are read instead.
+	if connection, ok := env.Value(os.LookupEnv, env.DatabaseURL); ok {
 		database.URL = connection
 	} else if err := loadDatabaseFromCredentials(&database); err != nil {
 		return DatabaseConfig{}, err
@@ -321,17 +294,17 @@ func loadDatabase() (DatabaseConfig, error) {
 // the behaviour of a service that runs alone. When some of them are there
 // and the others are not, the service still has no database, and it says so.
 func loadDatabaseFromCredentials(database *DatabaseConfig) error {
-	user, hasUser := os.LookupEnv(EnvPostgresUser)
-	password, hasPassword := os.LookupEnv(EnvPostgresPassword)
-	name, hasDatabase := os.LookupEnv(EnvPostgresDB)
+	user, hasUser := env.Value(os.LookupEnv, env.PostgresUser)
+	// The password is never trimmed: a password may hold a space, and a
+	// password that is trimmed is a password that is wrong.
+	password, hasPassword := env.Secret(os.LookupEnv, env.PostgresPassword)
+	name, hasDatabase := env.Value(os.LookupEnv, env.PostgresDB)
 
 	if !hasUser && !hasPassword && !hasDatabase {
 		return nil
 	}
 
-	if !hasUser || strings.TrimSpace(user) == "" ||
-		!hasPassword || password == "" ||
-		!hasDatabase || strings.TrimSpace(name) == "" {
+	if !hasUser || !hasPassword || !hasDatabase {
 		database.CredentialsIncomplete = true
 		return nil
 	}
@@ -346,9 +319,9 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 	}
 
 	database.URL = dbconfig.ConnectionString(dbconfig.Credentials{
-		User:     strings.TrimSpace(user),
+		User:     user,
 		Password: password,
-		Database: strings.TrimSpace(name),
+		Database: name,
 		Host:     host,
 		Port:     strconv.Itoa(port),
 	})
@@ -358,14 +331,9 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 
 // loadDatabaseHost reads the host the database answers on.
 func loadDatabaseHost() (string, error) {
-	raw, ok := os.LookupEnv(EnvDatabaseHost)
+	host, ok := env.Value(os.LookupEnv, env.DatabaseHost)
 	if !ok {
-		return DefaultDatabaseHost, nil
-	}
-
-	host := strings.TrimSpace(raw)
-	if host == "" {
-		return "", fmt.Errorf("%s: the host cannot be empty", EnvDatabaseHost)
+		return env.DefaultDatabaseHost, nil
 	}
 
 	return host, nil
@@ -373,17 +341,21 @@ func loadDatabaseHost() (string, error) {
 
 // loadDatabasePort reads the port the database answers on.
 func loadDatabasePort() (int, error) {
-	raw, ok := os.LookupEnv(EnvDatabasePort)
+	raw, ok := env.Value(os.LookupEnv, env.DatabasePort)
 	if !ok {
-		return DefaultDatabasePort, nil
+		port, err := strconv.Atoi(env.DefaultDatabasePort)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %q is not a port number", env.DatabasePort, env.DefaultDatabasePort)
+		}
+		return port, nil
 	}
 
-	port, err := strconv.Atoi(strings.TrimSpace(raw))
+	port, err := strconv.Atoi(raw)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %q is not a port number", EnvDatabasePort, raw)
+		return 0, fmt.Errorf("%s: %q is not a port number", env.DatabasePort, raw)
 	}
 	if port < 1 || port > 65535 {
-		return 0, fmt.Errorf("%s: %d is not a valid port", EnvDatabasePort, port)
+		return 0, fmt.Errorf("%s: %d is not a valid port", env.DatabasePort, port)
 	}
 
 	return port, nil

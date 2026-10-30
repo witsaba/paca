@@ -40,31 +40,16 @@ const (
 	EnvCheckTimeout = "PACA_DB_ADMIN_CHECK_TIMEOUT"
 )
 
-// The environment variables of the database.
+// The environment variables of the database that belong to this service.
 //
-// The connection string is named in two ways, and the first one wins: the
-// whole connection string, or the credentials of the PostgreSQL stack plus
-// the host and the port of it.
+// The names of the database itself — the connection string, the host, the
+// port and the credentials of the PostgreSQL stack — live in the shared
+// platform (`packages/platform/env`): every service of the monorepository
+// reads them the same way.
 const (
-	// EnvDatabaseURL is the whole connection string of the database. When
-	// it is set, it wins, and nothing else is read.
-	EnvDatabaseURL = "PACA_DATABASE_URL"
-	// EnvDatabaseHost is the host of the database, when the connection
-	// string is assembled from the credentials.
-	EnvDatabaseHost = "PACA_DATABASE_HOST"
-	// EnvDatabasePort is the port of the database, when the connection
-	// string is assembled from the credentials.
-	EnvDatabasePort = "PACA_DATABASE_PORT"
 	// EnvDatabaseWaitTimeout is how long the writer waits for the
 	// database to answer when it starts.
 	EnvDatabaseWaitTimeout = "PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT"
-	// EnvPostgresUser is the user of the database. It is the variable the
-	// stack of PostgreSQL writes its credentials to.
-	EnvPostgresUser = "POSTGRES_USER"
-	// EnvPostgresPassword is the password of the user of the database.
-	EnvPostgresPassword = "POSTGRES_PASSWORD" //nolint:gosec // the name of the environment variable, not a credential.
-	// EnvPostgresDB is the name of the database.
-	EnvPostgresDB = "POSTGRES_DB"
 )
 
 // The defaults of the settings.
@@ -80,11 +65,6 @@ const (
 	DefaultShutdownTimeout = 10 * time.Second
 	// DefaultCheckTimeout bounds a single health check.
 	DefaultCheckTimeout = 2 * time.Second
-	// DefaultDatabaseHost is the name of the container of the database of
-	// the monorepository.
-	DefaultDatabaseHost = "postgres"
-	// DefaultDatabasePort is the port of the database.
-	DefaultDatabasePort = "5432"
 	// DefaultDatabaseWaitTimeout is how long the writer waits for the
 	// database to answer before it gives up.
 	//
@@ -264,43 +244,39 @@ func loadDatabase() (DatabaseConfig, error) {
 		waitTimeout = timeout
 	}
 
-	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
-		connection := strings.TrimSpace(raw)
-		if connection == "" {
-			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
-		}
+	// An empty value is no value: a connection string that is set to
+	// nothing is a connection string that is not set, and the credentials
+	// of the PostgreSQL stack are read instead.
+	if connection, ok := env.Value(os.LookupEnv, env.DatabaseURL); ok {
 		return DatabaseConfig{URL: connection, WaitTimeout: waitTimeout}, nil
 	}
 
-	user := strings.TrimSpace(os.Getenv(EnvPostgresUser))
+	user, hasUser := env.Value(os.LookupEnv, env.PostgresUser)
 	// The password is never trimmed: a password may hold a space, and a
 	// password that is trimmed is a password that is wrong.
-	password := os.Getenv(EnvPostgresPassword)
-	database := strings.TrimSpace(os.Getenv(EnvPostgresDB))
+	password, hasPassword := env.Secret(os.LookupEnv, env.PostgresPassword)
+	database, hasDatabase := env.Value(os.LookupEnv, env.PostgresDB)
 
-	if user == "" || password == "" || database == "" {
+	if !hasUser || !hasPassword || !hasDatabase {
 		return DatabaseConfig{}, fmt.Errorf(
 			"%s is not set and %s, %s and %s are not complete: "+
 				"the service is the writer of the schema and it cannot run without a database",
-			EnvDatabaseURL, EnvPostgresUser, EnvPostgresPassword, EnvPostgresDB)
+			env.DatabaseURL, env.PostgresUser, env.PostgresPassword, env.PostgresDB)
 	}
 
-	host := DefaultDatabaseHost
-	if raw, ok := os.LookupEnv(EnvDatabaseHost); ok {
-		host = strings.TrimSpace(raw)
-		if host == "" {
-			return DatabaseConfig{}, fmt.Errorf("%s: the host cannot be empty", EnvDatabaseHost)
-		}
+	host := env.DefaultDatabaseHost
+	if value, ok := env.Value(os.LookupEnv, env.DatabaseHost); ok {
+		host = value
 	}
 
-	port := DefaultDatabasePort
-	if raw, ok := os.LookupEnv(EnvDatabasePort); ok {
-		number, err := strconv.Atoi(strings.TrimSpace(raw))
+	port := env.DefaultDatabasePort
+	if raw, ok := env.Value(os.LookupEnv, env.DatabasePort); ok {
+		number, err := strconv.Atoi(raw)
 		if err != nil {
-			return DatabaseConfig{}, fmt.Errorf("%s: %q is not a port number", EnvDatabasePort, raw)
+			return DatabaseConfig{}, fmt.Errorf("%s: %q is not a port number", env.DatabasePort, raw)
 		}
 		if number < 1 || number > 65535 {
-			return DatabaseConfig{}, fmt.Errorf("%s: %d is not a valid port", EnvDatabasePort, number)
+			return DatabaseConfig{}, fmt.Errorf("%s: %d is not a valid port", env.DatabasePort, number)
 		}
 		port = strconv.Itoa(number)
 	}
@@ -330,7 +306,7 @@ func (c Config) validate() error {
 		return fmt.Errorf("%s: the timeout must be positive", EnvCheckTimeout)
 	}
 	if c.Database.URL == "" {
-		return fmt.Errorf("%s: the connection string of the database is empty", EnvDatabaseURL)
+		return fmt.Errorf("%s: the connection string of the database is empty", env.DatabaseURL)
 	}
 	if c.Database.WaitTimeout <= 0 {
 		return fmt.Errorf("%s: the timeout must be positive", EnvDatabaseWaitTimeout)

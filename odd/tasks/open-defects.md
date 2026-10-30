@@ -118,8 +118,8 @@ description of a tool promises what the tool does, and nothing it does not do.
 
 | ID   | Task                                                                 | Specs   | Route   | Commit |
 |------|----------------------------------------------------------------------|---------|---------|--------|
-| T1  | The feature document of the slice                                     | S8      | inline  | (this document) |
-| T2  | The middleware of the HTTP router belongs to the platform             | S3      | worker  | — |
+| T1  | The feature document of the slice                                     | S8      | inline  | `94a002b` (the document) |
+| T2  | The middleware of the HTTP router belongs to the platform             | S3      | worker  | `32606be` (the fix) |
 | T3  | The names of the environment of the database belong to the platform   | S3      | inline  | — |
 | T4  | The wiring of the telemetry belongs to the platform                  | S3      | inline  | — |
 | T5  | The mapping of the errors of the MCP server maps every error         | S4      | inline  | — |
@@ -157,3 +157,42 @@ container test of the concurrent change. The exploration is in the observation
 The state of the repository when the slice starts: `main` at `1f12ede`, clean,
 in sync with the origin, no worktree, no branch, no stash, no container. The
 gate of the structure proves 337 assertions and no failure.
+
+**L3** (2026-10-30): The first three work units, and the boundary of the
+slice.
+
+The middleware of the HTTP router moved to the platform (`32606be`). The
+middleware is the same code, the same chain and the same order; it lives
+once now, in `packages/platform/server`, and the two routers call it. The
+tests of the routers of the two services passed untouched: they are the
+proof that the behavior did not change. The platform carries the promise and
+the test of it: the security headers, the line of the log, the recovery of a
+panic, the no-op provider and the paths that leave no span.
+
+The names of the environment of the database moved to the platform too, with
+the convention that goes with them: **an empty value is no value**. The
+installer of the environment of the monorepository never writes an empty
+value, and a variable that is set to nothing is a variable that is not set.
+Two services read the environment in two ways before this work unit — the
+MCP server failed to start when the connection string was empty, and the
+database admin did the same — and the README of the MCP server said that an
+empty connection string means a server without a database, which was not what
+the code did. The platform holds the names, the defaults of the host and the
+port, and the two readers (`Value` for a name, `Secret` for a password that
+may hold a space). The password is never trimmed: a password that is trimmed
+is a password that is wrong.
+
+The wiring of the telemetry moved to the platform as well: the options of the
+telemetry are built from the configuration of the tracing, the name of the
+service is resolved by the configuration itself, and the grace period of the
+shutdown belongs to the platform. Neither service writes them twice now.
+
+The count of the assertions of the gate of the structure moved from 337 to
+325: the count is a function of the number of imports of the tree, and the
+middleware that left the adapters of the two services took nine imports with
+it. The rules still hold and the gate still proves no failure.
+
+**The boundary of the slice.** The commit of the middleware carries 414
+authored lines and 191 removed ones: it is over the ~400 lines of the
+repository, and the exception is recorded here. The work units that follow
+stay under it.

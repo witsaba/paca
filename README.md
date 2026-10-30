@@ -12,6 +12,7 @@ support them, in one repository and one compose project.
 | `db/`         | The databases, one directory and one stack each.                           |
 | `observability/` | The traces: the collector and the backend that keeps them.              |
 | `hermes/`      | The agent: the unit that talks to the people who use PACA.             |
+| `engram/`      | The memory of the monorepository: the store of the memories.             |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
 | `scripts/`    | The scripts of the repository: the installer of the environment.            |
 | `odd/tasks/`  | The feature documents: the specification of every piece of work.           |
@@ -39,6 +40,7 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
 | `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, without a provider yet. | [hermes/README.md](hermes/README.md) |
+| `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port. | [engram/README.md](engram/README.md) |
 
 ## The installation
 
@@ -220,8 +222,8 @@ container tests of the applications, the shellcheck of the scripts, the
 tests of the installer of the environment, the tests of the structure of the
 repository, the tests of the filters of the continuous integration, the
 smoke test of every database, the smoke test of the collector of the traces,
-the smoke test of the agent, and finally the whole stack: it comes up, the
-schema is asserted, and it goes down.
+the smoke test of the agent, the smoke test of the memory, and finally the
+whole stack: it comes up, the schema is asserted, and it goes down.
 
 A step that fails stops the gate, and the exit code says so. The gate
 leaves no container behind: the containers it started are stopped when it
@@ -265,13 +267,14 @@ make all                # the full gate of the repository, from nothing
 ```
 
 The workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on
-every push to `main` and on every pull request, with five checks:
+every push to `main` and on every pull request, with six checks:
 
 | Job            | What it verifies                                                    |
 |----------------|---------------------------------------------------------------------|
 | `gate`         | fmt-check, vet, lint, build, test, race, the coverage floor and the vulnerability scan of every application and every package, and then the container tests of the shared libraries and of the applications: the rules of the tables, asserted against a real PostgreSQL. |
 | `database`     | the image of the stack builds, the cluster starts, and the smoke test asserts UTF-8, UTC, UUID, vector search, checksums and isolation. |
 | `observability`| the collector of the traces starts, and its query API answers.       |
+| `memory`       | the store of the memories starts, and its smoke test asserts that a memory is kept and given back. |
 | `stack`        | the whole monorepository comes up from nothing, and the schema of the database is there: it was written by the service that owns it. |
 | `shellcheck`   | the shell scripts of the repository pass shellcheck.                  |
 

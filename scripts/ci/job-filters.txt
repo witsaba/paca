@@ -48,6 +48,11 @@ database **/env.example
 observability observability/**
 observability packages/platform/telemetry/**
 
+# The memory of the monorepository: the stack that stores the memories, and
+# the installer that writes the credentials it reads.
+memory engram/**
+memory scripts/setup-env.sh
+
 # The whole monorepository: the images it builds, the project it starts
 # from nothing and the schema it asserts.
 stack compose.yaml
@@ -56,6 +61,7 @@ stack packages/**
 stack db/**
 stack observability/**
 stack hermes/**
+stack engram/**
 stack .dockerignore
 stack scripts/stack-schema.sh
 stack scripts/setup-env.sh

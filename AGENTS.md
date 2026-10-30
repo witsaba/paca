@@ -23,8 +23,8 @@ product. It holds:
   (`packages/domain`), the **database** (`packages/database`) and the **platform**
   (`packages/platform`);
 - the **databases** (`db/`), the **traces** (`observability/`), the **agent**
-  (`hermes/`), the pinned **tools** (`tools/`), the **scripts** (`scripts/`) and the
-  **feature documents** (`odd/tasks/`).
+  (`hermes/`), the **memory** (`engram/`), the pinned **tools** (`tools/`), the
+  **scripts** (`scripts/`) and the **feature documents** (`odd/tasks/`).
 
 The domain of PACA today is the *person*: a document ID, a name, a phone, an email, and a
 state that moves through a small state machine. The MCP server registers people, moves
@@ -217,6 +217,7 @@ workspace (`GOWORK=off go list -m all` must succeed).
 | `apps/*/README.md`                                | the service: its layers, its routes, its tools   |
 | `odd/tasks/*.md`                                  | the feature documents: the specs and the evidence |
 | `hermes/README.md`                                | the agent: the stack, its state and its network   |
+| `engram/README.md`                                | the memory: the stack, its state and its network   |
 | `.github/workflows/ci.yml`                        | what the continuous integration runs             |
 
 The entry files of the subprojects (`packages/*/AGENTS.md`, `apps/*/AGENTS.md`) add the

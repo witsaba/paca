@@ -23,8 +23,8 @@ S6. "Stack + full infra wiring + gate proof"
 ## Tasks
 
 - T1 — the stack of the memory: `engram/compose.yaml`, `engram/Dockerfile`,
-  `engram/Makefile`, `engram/README.md`, `engram/env.example`. Route: inline.
-  Commit: `PENDING`.
+  `engram/Makefile`, `engram/README.md`, `engram/env.example`.
+  Route: inline. Commit: `f7f0902`.
 - T2 — the wiring of the monorepository: the root `compose.yaml`, the root
   `Makefile`, the root `README.md`, the root `AGENTS.md`,
   `.github/workflows/ci.yml`, `scripts/ci/job-filters.txt` and

@@ -39,7 +39,7 @@ func TestTheTransportAnswersAnMCPClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 4 {
-		t.Fatalf("the server exposes %d tools, want the four of the users", len(tools.Tools))
+	if len(tools.Tools) != 5 {
+		t.Fatalf("the server exposes %d tools, want the five of the users", len(tools.Tools))
 	}
 }

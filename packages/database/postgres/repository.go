@@ -115,6 +115,32 @@ func (r *UserRepository) Find(ctx context.Context, id user.ID) (user.User, error
 	return userFromRow(row)
 }
 
+// List returns the people of the storage, in the order of their document ID.
+//
+// The limit is the number of people the caller wants to read: the storage
+// returns at most that many, and fewer when there are not that many.
+func (r *UserRepository) List(ctx context.Context, limit int) ([]user.User, error) {
+	if r == nil || r.queries == nil {
+		return nil, user.ErrNoStorage
+	}
+
+	rows, err := r.queries.ListUsers(ctx, int32(limit))
+	if err != nil {
+		return nil, writeError(err)
+	}
+
+	users := make([]user.User, 0, len(rows))
+	for _, row := range rows {
+		found, err := userFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, found)
+	}
+
+	return users, nil
+}
+
 // UpdateDetails writes the data of a user.
 //
 // The statement writes the fields that carry a value and leaves the others

@@ -27,6 +27,9 @@ const (
 	// ToolGetUser reads the data of a person who is already registered.
 	ToolGetUser = "get_user"
 
+	// ToolListUsers reads the people PACA knows.
+	ToolListUsers = "list_users"
+
 	// ToolChangeUserStatus moves a user to another status.
 	ToolChangeUserStatus = "change_user_status"
 
@@ -80,6 +83,14 @@ const (
 		"The phone must carry the country code (for example '+57 321 253 9984'); PACA cleans the number and stores " +
 		"the digits only ('573212539984'). The email must be a valid address.\n\n" +
 		"This tool never changes the status of the user: use " + ToolChangeUserStatus + " for that."
+
+	// descriptionListUsers tells the agent how to read the people.
+	descriptionListUsers = "Read the people PACA knows: their document ID, the full name, the phone, the email " +
+		"and the status.\n\n" +
+		"It answers with the people in the order of their document ID, and with as many of them as you ask for. " +
+		"Ask for the people you need, and ask again when the answer carries more people than you asked for.\n\n" +
+		"This tool changes nothing: use " + ToolGetUser + " to read one person, " + ToolUpdateUserContactData +
+		" to correct the data of a person, and " + ToolChangeUserStatus + " to move them to another status."
 
 	// descriptionGetUser tells the agent how to read the data of a person.
 	descriptionGetUser = "Read the data of a person who is already registered: the document ID, the full name, " +
@@ -138,6 +149,18 @@ type getUserInput struct {
 	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required."`
 }
 
+// listUsersInput is the input of the tool that reads the people.
+type listUsersInput struct {
+	// Limit is the number of people the agent wants to read.
+	Limit int `json:"limit,omitempty" jsonschema:"The number of people you want to read. It is optional: leave it out to read the default number of people."`
+}
+
+// listUsersOutput is what the tool that reads the people answers.
+type listUsersOutput struct {
+	// Users are the people PACA knows, in the order of their document ID.
+	Users []userOutput `json:"users"`
+}
+
 // userOutput is what the tools answer.
 //
 // The answer carries the row as it is now, so the agent can tell the person
@@ -183,6 +206,11 @@ func (s *Server) registerUserTools(users ports.UsersQuerier) {
 		Name:        ToolGetUser,
 		Description: descriptionGetUser,
 	}, s.getUser(users))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolListUsers,
+		Description: descriptionListUsers,
+	}, s.listUsers(users))
 
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolChangeUserStatus,
@@ -309,6 +337,30 @@ func (s *Server) getUser(users ports.UsersQuerier) sdk.ToolHandlerFor[getUserInp
 		}
 
 		return nil, outputOf(found), nil
+	}
+}
+
+// listUsers is the handler of the tool that reads the people.
+//
+// The tool reads the people PACA knows: it changes nothing, and it answers
+// with as many of them as the agent asked for.
+func (s *Server) listUsers(users ports.UsersQuerier) sdk.ToolHandlerFor[listUsersInput, listUsersOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input listUsersInput) (*sdk.CallToolResult, listUsersOutput, error) {
+		if users == nil {
+			return nil, listUsersOutput{}, ports.ErrNoDatabase
+		}
+
+		found, err := users.List(ctx, input.Limit)
+		if err != nil {
+			return nil, listUsersOutput{}, s.toolError(err)
+		}
+
+		answer := listUsersOutput{Users: make([]userOutput, 0, len(found))}
+		for _, person := range found {
+			answer.Users = append(answer.Users, outputOf(person))
+		}
+
+		return nil, answer, nil
 	}
 }
 

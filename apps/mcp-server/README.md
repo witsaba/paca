@@ -98,12 +98,14 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes three tools, and they are the three moments of the
-journey of a person inside PACA.
+The server exposes five tools: the three moments of the journey of a person
+inside PACA, and the two reads that tell the agent what PACA knows.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
 | `onboard_user`            | Registers a person and starts their onboarding.                  |
+| `get_user`                | Reads the data of a person who is already registered.            |
+| `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
 
@@ -117,7 +119,10 @@ valid address, and that it should gather as much as the person is willing to
 give. The description of `change_user_status` tells the agent the moves the
 map of the states allows and the rule of the observation. The description of
 `update_user_contact_data` tells the agent that an empty field is a field
-that stays as it is.
+that stays as it is. The description of `get_user` tells the agent that the
+tool answers with what PACA knows about the person, and the description of
+`list_users` tells the agent to ask for the people it needs and to ask again
+when the answer carries more people than it asked for.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
@@ -298,7 +303,7 @@ protocol, and that it keeps its transport to itself.
   read is timed out.
 - There is no authentication yet: the network is the boundary. The token and
   the TLS come with the first tool that needs them.
-- The three tools carry **personal data**: the document, the name, the phone
+- The five tools carry **personal data**: the document, the name, the phone
   and the email of a person. The boundary has not moved — it is still the
   network — and the hardening that was proposed for it (refusing a bind that
   is not loopback, a Host allowlist and the explicit Origin rule) is still

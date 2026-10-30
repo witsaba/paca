@@ -74,6 +74,13 @@ type UsersQuerier interface {
 	// nothing generates it.
 	Find(ctx context.Context, documentID string) (user.User, error)
 
+	// List returns the people of the storage, in the order of their
+	// document ID.
+	//
+	// The limit is the number of people the caller wants to read: the
+	// bound of the list belongs to the domain.
+	List(ctx context.Context, limit int) ([]user.User, error)
+
 	// ChangeStatus moves a user to another status and writes the
 	// observation of the move.
 	ChangeStatus(ctx context.Context, documentID, status, observation string) (user.User, error)

@@ -165,3 +165,29 @@ func TestParseStatusNamesTheStateInTheError(t *testing.T) {
 		t.Errorf("the error %q does not name the state %q", err, state)
 	}
 }
+
+func TestAListOfPeopleIsBoundedByTheDomain(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		limit int
+		want  int
+	}{
+		{name: "a limit that is not positive is the default", limit: 0, want: user.DefaultListedUsers},
+		{name: "a negative limit is the default", limit: -5, want: user.DefaultListedUsers},
+		{name: "a limit over the bound is the bound", limit: user.MaxListedUsers + 1, want: user.MaxListedUsers},
+		{name: "a limit under the bound is the limit", limit: 10, want: 10},
+		{name: "the bound is the bound", limit: user.MaxListedUsers, want: user.MaxListedUsers},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := user.ListedUsers(test.limit); got != test.want {
+				t.Errorf("ListedUsers(%d) = %d, want %d", test.limit, got, test.want)
+			}
+		})
+	}
+}

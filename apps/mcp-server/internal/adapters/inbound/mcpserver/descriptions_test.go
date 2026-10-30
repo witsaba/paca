@@ -22,6 +22,8 @@ import (
 type stubUsers struct {
 	created     user.User
 	found       user.User
+	listed      []user.User
+	listedLimit int
 	updated     user.User
 	moved       user.User
 	err         error
@@ -57,6 +59,17 @@ func (s *stubUsers) Find(_ context.Context, documentID string) (user.User, error
 		return user.User{}, s.err
 	}
 	return s.found, nil
+}
+
+// List answers the people and remembers the limit the caller asked for.
+func (s *stubUsers) List(_ context.Context, limit int) ([]user.User, error) {
+	s.calls++
+	s.listedLimit = limit
+
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.listed, nil
 }
 
 // ChangeStatus answers the move.
@@ -140,6 +153,7 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 	want := []string{
 		mcpserver.ToolOnboardUser,
 		mcpserver.ToolGetUser,
+		mcpserver.ToolListUsers,
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 	}

@@ -210,8 +210,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 4 {
-		t.Errorf("the server exposes %d tools, want 4", len(tools.Tools))
+	if len(tools.Tools) != 5 {
+		t.Errorf("the server exposes %d tools, want 5", len(tools.Tools))
 	}
 }
 
@@ -585,5 +585,42 @@ func TestTheToolSaysThatNoUserCarriesTheDocument(t *testing.T) {
 
 	if !strings.Contains(textOf(t, result), "no user with that document ID") {
 		t.Errorf("the message does not say that nobody carries the document: %s", textOf(t, result))
+	}
+}
+
+// TestTheToolAnswersThePeoplePACAKnows proves that the tool answers the
+// people PACA knows, and that it asks for as many of them as the agent
+// wants.
+func TestTheToolAnswersThePeoplePACAKnows(t *testing.T) {
+	t.Parallel()
+
+	users := &stubUsers{listed: []user.User{
+		{ID: 1234567, FullName: "Ana María Pérez", Status: user.StatusActive},
+		{ID: 7654321, FullName: "Luis Gómez", Status: user.StatusOnboarding},
+	}}
+	session := connect(t, users)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolListUsers,
+		Arguments: map[string]any{
+			"limit": 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if users.listedLimit != 2 {
+		t.Errorf("the limit is %d, want %d", users.listedLimit, 2)
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{"1234567", "Ana María Pérez", "7654321", "Luis Gómez"} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q: %s", want, answer)
+		}
 	}
 }

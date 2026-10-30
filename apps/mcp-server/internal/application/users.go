@@ -71,6 +71,19 @@ func (s *UsersService) Find(ctx context.Context, documentID string) (user.User, 
 	return s.repository.Find(ctx, id)
 }
 
+// List returns the people of the storage, in the order of their document ID.
+//
+// The limit is the number of people the caller wants to read: the bound of
+// the list belongs to the domain, and the core decides how many the list
+// answers.
+func (s *UsersService) List(ctx context.Context, limit int) ([]user.User, error) {
+	if s == nil || s.repository == nil {
+		return nil, ports.ErrNoDatabase
+	}
+
+	return s.repository.List(ctx, user.ListedUsers(limit))
+}
+
 // ChangeStatus moves a user to another status and writes the observation of
 // the move.
 //

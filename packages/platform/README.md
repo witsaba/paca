@@ -19,10 +19,45 @@ packages/platform/
   telemetry/     the traces of the service: the exporter, the sampler, the
                  propagation between the processes, and the configuration of
                  the tracing
-  server/        the HTTP server: the routes, the timeouts, the shutdown
+  server/        the HTTP server: the routes, the timeouts, the shutdown,
+                 and the middleware every request goes through
   healthcheck/   the health check of the container: it asks the service
                  whether it is alive
 ```
+
+## The middleware of the HTTP server
+
+The server owns the middleware of the requests, because it owns the server:
+every service that serves HTTP needs it the same way, and a copy of it in
+two services is two promises that drift apart. The middleware lives in
+`server/middleware.go` and is built by `server.NewMiddleware`.
+
+The chain is the same for every service:
+
+- **the tracing** is the outer layer, so the span of a request covers the
+  recovery of a panic and the line of the log. Every request leaves a span
+  behind, named after the route it took. The paths the caller names as
+  untraced leave none: the container runtime asks the health endpoint every
+  few seconds, and those spans would fill the traces of the work without
+  telling anything about it. A middleware without a tracer provider traces
+  nothing: the provider of the no-op implementation stands in for it.
+- **the recovery of a panic** turns a panic into a 500, so one broken request
+  never takes the server down. The panic is logged with its stack.
+- **the line of the log** writes one line per request, with the method, the
+  path, the status of the response and the duration of the request. The line
+  carries the context of the request, so the logger adds the identifiers of
+  the trace the request belongs to.
+- **the recorder of the status** remembers the status of the response, which
+  the line of the log reports and which defaults to 200.
+- **the security headers** keep a browser away from the responses of the
+  service: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and
+  `Referrer-Policy: no-referrer`.
+
+The middleware takes its settings as arguments, like the rest of the
+platform: the caller hands it the logger and the tracer provider of its own
+service, and it names the paths that leave no span behind. The routes
+themselves stay with the service: the platform never holds a route of an
+application.
 
 ## The rules of the module
 

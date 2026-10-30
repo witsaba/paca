@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -264,7 +265,7 @@ func (s *Server) onboardUser(users ports.UsersQuerier) sdk.ToolHandlerFor[onboar
 
 		created, err := users.Onboard(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(created), nil
@@ -280,7 +281,7 @@ func (s *Server) changeUserStatus(users ports.UsersQuerier) sdk.ToolHandlerFor[c
 
 		moved, err := users.ChangeStatus(ctx, input.DocumentID, input.Status, input.StatusObservations)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(moved), nil
@@ -297,7 +298,7 @@ func (s *Server) updateUserContactData(users ports.UsersQuerier) sdk.ToolHandler
 
 		updated, err := users.UpdateContactData(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(updated), nil
@@ -329,42 +330,72 @@ func timestamp(moment time.Time) string {
 	return moment.UTC().Format(time.RFC3339)
 }
 
+// The messages the agent reads when a tool fails.
+//
+// Every error of the domain has a message here, written in the words of the
+// caller: the agent reads the message, and it must know what to do about it.
+// The catalogue of the domain (`user.Errors`) names the errors that must be
+// here, and a test proves that every one of them is.
+var theMessages = map[error]string{
+	user.ErrInvalidID:             "the document ID is not a number: ask the person for the national document ID, with digits only",
+	user.ErrInvalidPhone:          "the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'",
+	user.ErrInvalidEmail:          "the email address is not valid: ask the person to confirm it",
+	user.ErrAlreadyExists:         "there is already a user with that document ID: do not register the person again",
+	user.ErrEmailTaken:            "that email address is already registered: ask the person for another one",
+	user.ErrPhoneTaken:            "that phone number is already registered: ask the person for another one",
+	user.ErrNotFound:              "there is no user with that document ID: check the document with the person before trying again",
+	user.ErrInvalidTransition:     "that status change is not allowed: a user never returns to the onboarding, and a status never changes to itself",
+	user.ErrObservationRequired:   "that status needs a reason: ask the person why, and send the observation",
+	user.ErrUnexpectedObservation: "that status takes no reason: send the observation only when the new status is inactive or blocked",
+	user.ErrUnknownStatus:         "the status must be active, inactive or blocked",
+	user.ErrConcurrentChange:      "the status of the user changed at the same time: read the user again and try the change once more",
+	user.ErrInvalidValue:          "the database refused the row: check the name, the phone and the email of the person",
+	user.ErrNoStorage:             "the service has no storage of the users: the users cannot be reached",
+	ports.ErrNoDatabase:           "the service has no database configured: the users cannot be reached",
+}
+
 // toolError turns the error of a use case into the message the agent reads.
 //
 // An agent cannot fix a protocol error, and it cannot fix a message that
 // says nothing: the message says what happened and what the agent has to do
 // about it.
-func toolError(err error) error {
-	switch {
-	case errors.Is(err, user.ErrInvalidID):
-		return errors.New("the document ID is not a number: ask the person for the national document ID, with digits only")
-	case errors.Is(err, user.ErrInvalidPhone):
-		return errors.New("the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'")
-	case errors.Is(err, user.ErrInvalidEmail):
-		return errors.New("the email address is not valid: ask the person to confirm it")
-	case errors.Is(err, user.ErrAlreadyExists):
-		return errors.New("there is already a user with that document ID: do not register the person again")
-	case errors.Is(err, user.ErrEmailTaken):
-		return errors.New("that email address is already registered: ask the person for another one")
-	case errors.Is(err, user.ErrPhoneTaken):
-		return errors.New("that phone number is already registered: ask the person for another one")
-	case errors.Is(err, user.ErrNotFound):
-		return errors.New("there is no user with that document ID: check the document with the person before trying again")
-	case errors.Is(err, user.ErrInvalidTransition):
-		return errors.New("that status change is not allowed: a user never returns to the onboarding, and a status never changes to itself")
-	case errors.Is(err, user.ErrObservationRequired):
-		return errors.New("that status needs a reason: ask the person why, and send the observation")
-	case errors.Is(err, user.ErrUnexpectedObservation):
-		return errors.New("that status takes no reason: send the observation only when the new status is inactive or blocked")
-	case errors.Is(err, user.ErrUnknownStatus):
-		return errors.New("the status must be active, inactive or blocked")
-	case errors.Is(err, user.ErrConcurrentChange):
-		return errors.New("the status of the user changed at the same time: read the user again and try the change once more")
-	case errors.Is(err, ports.ErrNoDatabase):
-		return errors.New("the service has no database configured: the users cannot be reached")
-	case errors.Is(err, user.ErrInvalidValue):
-		return errors.New("the database refused the row: check the name, the phone and the email of the person")
+//
+// The text of a Go error never reaches the agent. An error the service does
+// not know is logged, and the agent reads a message that says what happened
+// without saying how the service failed.
+func (s *Server) toolError(err error) error {
+	for known, message := range theMessages {
+		if errors.Is(err, known) {
+			return errors.New(message)
+		}
 	}
 
-	return err
+	// The error is one the domain carries, and nobody mapped it: that is a
+	// defect of the service, and the log says so.
+	if isErrorOfTheDomain(err) {
+		s.logger.Error("the error of the domain has no message for the agent",
+			slog.Any("error", err))
+		return errors.New("the service does not know this failure yet")
+	}
+
+	s.logger.Error("the tool failed for a reason the service does not know",
+		slog.Any("error", err))
+
+	return errors.New("the tool failed for a reason the service does not know")
+}
+
+// isErrorOfTheDomain tells whether the error is one the domain of the users
+// carries.
+//
+// The catalogue of the domain names them all. The service uses it to tell a
+// missing mapping from a failure it did not expect: the first one is a
+// defect of the service, the second one belongs to the library that failed.
+func isErrorOfTheDomain(err error) bool {
+	for _, known := range user.Errors() {
+		if errors.Is(err, known) {
+			return true
+		}
+	}
+
+	return false
 }

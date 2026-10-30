@@ -36,6 +36,7 @@ type Options struct {
 type Server struct {
 	server  *sdk.Server
 	handler http.Handler
+	logger  *slog.Logger
 }
 
 // New builds the MCP transport.
@@ -64,7 +65,10 @@ func New(opts Options) *Server {
 		},
 	)
 
-	transport := &Server{server: server}
+	transport := &Server{server: server, logger: opts.Logger}
+	if transport.logger == nil {
+		transport.logger = slog.Default()
+	}
 
 	transport.registerUserTools(opts.Users)
 

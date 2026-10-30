@@ -14,9 +14,6 @@ import (
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-// ErrNoRepository is the error of a repository without a database behind it.
-var ErrNoRepository = errors.New("the repository of the users is not open")
-
 // The codes of the errors PostgreSQL raises when it refuses a row.
 const (
 	// uniqueViolation is the code of a row that breaks a unique index.
@@ -83,7 +80,7 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
@@ -107,7 +104,7 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 // The error is user.ErrNotFound when no user carries that document ID.
 func (r *UserRepository) getByID(ctx context.Context, id user.ID) (user.User, error) {
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.GetUserByID(ctx, int64(id))
@@ -135,7 +132,7 @@ func (r *UserRepository) UpdateDetails(ctx context.Context, id user.ID, details 
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
@@ -174,7 +171,7 @@ func (r *UserRepository) ChangeStatus(ctx context.Context, id user.ID, status us
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	current, err := r.getByID(ctx, id)

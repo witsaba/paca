@@ -28,6 +28,13 @@ var ErrConcurrentChange = errors.New("the user changed at the same time")
 // breaks a rule of the table.
 var ErrInvalidValue = errors.New("the database refused the row")
 
+// ErrNoStorage is the error of a port of the storage that has no storage
+// behind it.
+//
+// The service that has no database still exposes the port, and the port
+// refuses to answer: it is the error of a storage that is not open.
+var ErrNoStorage = errors.New("the storage of the users is not open")
+
 // Repository is the port of the storage of the users.
 //
 // The port is what a use case needs, not the shape of the table: it creates,

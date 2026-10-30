@@ -176,17 +176,17 @@ func TestTheRepositoryWithoutADatabaseRefusesToWork(t *testing.T) {
 
 	repository := &UserRepository{}
 
-	if _, err := repository.Create(t.Context(), 1, user.Details{}); !errors.Is(err, ErrNoRepository) {
-		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
+	if _, err := repository.Create(t.Context(), 1, user.Details{}); !errors.Is(err, user.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, user.ErrNoStorage)
 	}
-	if _, err := repository.getByID(t.Context(), 1); !errors.Is(err, ErrNoRepository) {
-		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
+	if _, err := repository.getByID(t.Context(), 1); !errors.Is(err, user.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, user.ErrNoStorage)
 	}
-	if _, err := repository.UpdateDetails(t.Context(), 1, user.Details{}); !errors.Is(err, ErrNoRepository) {
-		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
+	if _, err := repository.UpdateDetails(t.Context(), 1, user.Details{}); !errors.Is(err, user.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, user.ErrNoStorage)
 	}
-	if _, err := repository.ChangeStatus(t.Context(), 1, user.StatusActive, ""); !errors.Is(err, ErrNoRepository) {
-		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
+	if _, err := repository.ChangeStatus(t.Context(), 1, user.StatusActive, ""); !errors.Is(err, user.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, user.ErrNoStorage)
 	}
 }
 

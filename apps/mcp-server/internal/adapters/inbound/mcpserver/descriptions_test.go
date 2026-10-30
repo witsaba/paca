@@ -81,11 +81,18 @@ func (s *stubUsers) UpdateContactData(_ context.Context, documentID, fullName, p
 func connect(t *testing.T, users ports.UsersQuerier) *sdk.ClientSession {
 	t.Helper()
 
+	return connectWithLogger(t, users, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// connectWithLogger starts the transport with a logger the test reads.
+func connectWithLogger(t *testing.T, users ports.UsersQuerier, logger *slog.Logger) *sdk.ClientSession {
+	t.Helper()
+
 	transport := mcpserver.New(mcpserver.Options{
 		ServiceName:         "paca-mcp-server",
 		ServiceVersion:      "0.1.0",
 		Instructions:        "The PACA MCP server.",
-		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:              logger,
 		MaxRequestBodyBytes: 1 << 20,
 		Users:               users,
 	})

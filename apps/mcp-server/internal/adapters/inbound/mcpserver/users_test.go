@@ -1,7 +1,10 @@
 package mcpserver_test
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -389,5 +392,107 @@ func TestTheToolExplainsAConcurrentChangeToTheAgent(t *testing.T) {
 	message := textOf(t, result)
 	if !strings.Contains(message, "at the same time") {
 		t.Errorf("the message does not tell the agent that the user changed: %s", message)
+	}
+}
+
+// TestTheToolExplainsEveryErrorOfTheDomainToTheAgent proves that every
+// error the port of the storage can return reaches the agent with a message
+// of its own.
+//
+// The catalogue of the domain names the errors. An error that no message
+// explains would reach the agent as the text of a Go error, or as the
+// message of a failure the service does not know: an agent cannot do
+// anything with either of them.
+func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
+	t.Parallel()
+
+	theUnknown, _ := theMessageOfTheFailure(t, errors.New("a failure the service does not know"))
+
+	for _, failure := range user.Errors() {
+		t.Run(failure.Error(), func(t *testing.T) {
+			t.Parallel()
+
+			message, logs := theMessageOfTheFailure(t, failure)
+
+			if message == "" {
+				t.Fatal("the tool answered no message")
+			}
+			if message == failure.Error() {
+				t.Fatalf("the message is the raw error: %s", message)
+			}
+			if message == theUnknown {
+				t.Fatalf("the error of the domain has no message of its own: %s", message)
+			}
+			if strings.Contains(logs, "has no message for the agent") {
+				t.Fatalf("the service did not map the error of the domain: %s", logs)
+			}
+		})
+	}
+}
+
+// theMessageOfTheFailure calls a tool that fails and returns the message the
+// agent reads.
+func theMessageOfTheFailure(t *testing.T, failure error) (string, string) {
+	t.Helper()
+
+	var logs bytes.Buffer
+	users := &stubUsers{err: failure}
+	session := connectWithLogger(t, users, slog.New(slog.NewTextHandler(&logs, nil)))
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolChangeUserStatus,
+		Arguments: map[string]any{
+			"document_id": "1234567",
+			"status":      "active",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	return textOf(t, result), logs.String()
+}
+
+// TestTheToolDoesNotShowTheRawTextOfAnUnknownFailure proves that the text of
+// a Go error never reaches the agent, and that the log of the service keeps
+// the cause.
+//
+// The agent reads a message in its own words; the operator reads the cause
+// in the log. Neither of them loses what it needs.
+func TestTheToolDoesNotShowTheRawTextOfAnUnknownFailure(t *testing.T) {
+	t.Parallel()
+
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	users := &stubUsers{err: errors.New("the connection pool is closed")}
+	session := connectWithLogger(t, users, logger)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolChangeUserStatus,
+		Arguments: map[string]any{
+			"document_id": "1234567",
+			"status":      "active",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	message := textOf(t, result)
+	if message == "" {
+		t.Fatal("the tool answered no message")
+	}
+	if strings.Contains(message, "connection pool") {
+		t.Errorf("the message carries the raw error: %s", message)
+	}
+	if !strings.Contains(logs.String(), "connection pool is closed") {
+		t.Errorf("the log does not carry the cause: %s", logs.String())
 	}
 }

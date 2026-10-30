@@ -69,6 +69,11 @@ jobs:
           fetch-depth: 0
 
       - name: Detect the changes
+        # The id of the step: the job reads what this step produces as
+        # `steps.detect.outputs.<job>`. A step without an id produces
+        # outputs that no job can read, and every job of the workflow is
+        # skipped forever.
+        id: detect
         env:
           # The base of the comparison is the commit the branch starts from,
           # and the head is the commit the run carries. A manual run carries

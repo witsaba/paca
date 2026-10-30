@@ -57,7 +57,7 @@ carries the schema and the rules of the people.
 | `status`              | `text`       | Not null, default `onboarding`, checked against four states  |
 | `status_observations` | `text`       | The reason of the closed states; the open states carry none   |
 | `phone`               | `text`       | Optional, unique, digits only with the country code          |
-| `email`               | `text`       | Optional, unique without case, the shape of an address       |
+| `email`               | `text`       | Optional, unique without case, the shape of an address, canonical |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 | `updated_at`          | `timestamptz`| Not null, default `now()`                                     |
 
@@ -84,6 +84,11 @@ empty string to the database.
 partial: a person may have no email and no phone, and two people without an
 email do not collide. The email is compared without case, because
 `Foo@x.com` and `foo@x.com` are the same mailbox.
+
+**The email is stored in its canonical form.** The domain owns that rule: it
+writes the lower case of the address, and the constraint of the table refuses
+an address that is not in it. The migration of the identity brought the rows
+that existed to that form.
 
 **The formats are checked by the database too.** The phone holds digits only
 and carries its country code — eleven to fifteen digits — and the email

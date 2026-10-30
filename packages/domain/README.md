@@ -65,8 +65,17 @@ and what is left are the digits: `+57 321-253-9984` is stored as
 digits are exactly the length of a Colombian number, and that is the number
 that must be written with its code.
 
-**The email is checked** and trimmed: an address that does not look like an
-address is refused, and the same rule is a CHECK of the table.
+**The email is checked** and stored in its canonical form: an address that
+does not look like an address is refused, and the canonical form of an
+address is its lower case. Two addresses that differ only in the case of the
+name are the same mailbox, and the mailbox belongs to one person, so the
+domain stores one value for them and never two.
+
+The table holds the same rules as a defense in depth: its unique index
+refuses two rows that carry the same mailbox, and its constraint refuses an
+address that is not in its canonical form. The table guards against the
+writer that does not know the domain; the domain is still the one that
+refuses.
 
 **The states move through a map.** The map of the transitions lives in the
 domain, and it is the only place that knows it:

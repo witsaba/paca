@@ -57,8 +57,8 @@ func TestCreateRegistersThePersonInOnboarding(t *testing.T) {
 	if details.Phone != "573212539984" {
 		t.Fatalf("the cleaned phone is %q, want %q", details.Phone, "573212539984")
 	}
-	if details.Email != "Ana.Torres@Example.com" {
-		t.Fatalf("the cleaned address is %q, want %q", details.Email, "Ana.Torres@Example.com")
+	if details.Email != "ana.torres@example.com" {
+		t.Fatalf("the cleaned address is %q, want %q", details.Email, "ana.torres@example.com")
 	}
 
 	before := time.Now().UTC()

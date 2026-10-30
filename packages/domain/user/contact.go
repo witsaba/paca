@@ -83,10 +83,18 @@ func CleanPhone(raw string) (string, error) {
 	return cleaned, nil
 }
 
-// CleanEmail returns an address without the spaces around it.
+// CleanEmail returns an address in its canonical form.
 //
 // An empty address is the absence of one, and it is not an error. An address
 // that does not look like an address is refused.
+//
+// The canonical form of an address is its lower case. Two addresses that
+// differ only in the case of the name are the same mailbox, and the mailbox
+// belongs to one person: the domain stores the canonical form, so the two
+// addresses are one value of the domain and never two.
+//
+// The table holds the same rule as a defense in depth: its unique index
+// refuses two rows that carry the same mailbox, whoever wrote them.
 func CleanEmail(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -97,7 +105,7 @@ func CleanEmail(raw string) (string, error) {
 		return "", fmt.Errorf("%w: %q", ErrInvalidEmail, raw)
 	}
 
-	return trimmed, nil
+	return strings.ToLower(trimmed), nil
 }
 
 // ParseID returns the ID of a document written as text.
@@ -154,8 +162,8 @@ type Details struct {
 // NewDetails cleans and validates the data of a person.
 //
 // The name loses the spaces around it, the phone loses the punctuation of the
-// way a person writes it, and the email is checked. The data that is not
-// given stays empty.
+// way a person writes it, and the email is checked and stored in its
+// canonical form. The data that is not given stays empty.
 func NewDetails(fullName, phone, email string) (Details, error) {
 	cleanPhone, err := CleanPhone(phone)
 	if err != nil {

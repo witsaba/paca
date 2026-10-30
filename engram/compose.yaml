@@ -1,0 +1,115 @@
+# The stack of the memory of PACA: Engram.
+#
+# The store of the memory of the monorepository. It is a container of its
+# own, with its own image and its own state, and it publishes no port: the
+# agent will reach it through the socket of its volume, when the slice of
+# the wiring of the agent comes.
+#
+# The stack belongs to the root compose project, so it runs alone and with
+# the monorepository:
+#
+#   docker compose -f engram/compose.yaml up --wait   # this stack alone
+#   docker compose up --wait                          # every stack
+
+name: paca
+
+services:
+  engram:
+    build:
+      # The context is the root of the monorepository, like the image of
+      # every other service that the repository builds.
+      context: ..
+      dockerfile: engram/Dockerfile
+      args:
+        # The base image is pinned by digest, like every image of the
+        # repository.
+        BASE_IMAGE: alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+        # The payload is the official release of Engram, pinned by version
+        # and verified by the checksum of its architecture: the build fails
+        # when the bytes are not the ones that were pinned.
+        ENGRAM_VERSION: "3.6.0"
+        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
+        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+    image: paca/engram:${PACA_VERSION:-dev}
+    container_name: paca-engram
+    restart: unless-stopped
+    stop_grace_period: 15s
+    # The credentials live with the stack that owns them: `engram/.env`. The
+    # file is written by the installer of the environment, which finds the
+    # manifest of the stack on its own.
+    env_file:
+      - .env
+    environment:
+      # The state of the store: the database of the memories, on the volume
+      # below.
+      ENGRAM_DATA_DIR: /data
+      # The socket of the volume is the only address of the store: the
+      # local runtime of Engram binds the loopback of its own container and
+      # refuses any other, so the socket is what leaves the container. The
+      # container that mounts the volume reaches it there.
+      ENGRAM_SOCKET: /data/engram.sock
+      # The project of the monorepository: the memories of PACA belong to
+      # it, and the stack names it once so that nothing has to guess it.
+      ENGRAM_PROJECT: paca
+    volumes:
+      # The whole state of the store: the database of the memories and the
+      # socket of the API. It is a named volume, so the state survives a
+      # restart of the stack and never touches the tree of the repository.
+      #
+      # A named volume and not a bind mount: the database is SQLite in WAL
+      # mode, and WAL is not safe on a mount that crosses the boundary of
+      # the virtual machine — the pages of the database would be silently
+      # corrupted. The volume of Docker lives on the filesystem of the
+      # machine, and WAL is safe there.
+      - engram-data:/data
+      # The proof of the stack lives in the repository, so the reviewer reads
+      # it there and not in the image.
+      - ./smoke.sh:/usr/local/bin/paca-engram-smoke:ro
+    # No `ports:` mapping on purpose, and no `expose:` either: the store
+    # answers on the socket of its volume and on nothing else.
+    networks:
+      # The service-to-service network, which has no outbound access at all.
+      - internal
+    healthcheck:
+      # The health of the store is the health endpoint of its API, asked
+      # through the socket of the volume: the endpoint needs no key, and it
+      # says whether the store answers, and nothing else.
+      #
+      # The check runs as the user of the store, because the socket of the
+      # volume is private to that user and the container keeps no capability
+      # that would let another user reach it.
+      test: ["CMD-SHELL", "su-exec 10000:10000 curl -fsS --unix-socket /data/engram.sock -o /dev/null http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    # The file system of the container is read-only: the store writes the
+    # database of the memories and nothing else, and it goes to the volume
+    # above.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop:
+      - ALL
+    cap_add:
+      # The entrypoint of the image gives the state of the volume to the
+      # user of the store and drops the privileges of the process before the
+      # store runs, exactly like the image of the agent does at boot.
+      - CHOWN
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # Declared here with the same attributes as the root compose, so this
+  # stack also runs on its own. The name is fixed, so the network is the
+  # same one whichever way the stack is started.
+  internal:
+    name: paca_internal
+    driver: bridge
+    internal: true
+
+volumes:
+  engram-data:
+    name: paca-engram-data

@@ -36,7 +36,7 @@ S6. "Stack + full infra wiring + gate proof"
 - T4 — the repair of the review: the proof of the stack asserts the guard
   of the token, and the packages of the image are pinned like every other
   dependency of the repository. Route: inline. Evidence: L9. Commit:
-  `PENDING`.
+  `1ef1eb8`.
 
 ## Log
 
@@ -211,3 +211,7 @@ L9. The review of the candidate, and the repair it asked for.
     that travels without the token: the observation of the proof survives
     that attempt and is removed afterwards with the token.
   - `shellcheck` over the scripts of the stack is clean.
+  - The whole gate of the repository is green with the repair:
+    `make all` → `All the steps of the gate passed.` (exit 0), with the
+    memory beside the agent, the database and the traces, and the schema of
+    the database asserted.

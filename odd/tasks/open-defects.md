@@ -124,12 +124,12 @@ description of a tool promises what the tool does, and nothing it does not do.
 | T4  | The wiring of the telemetry belongs to the platform                  | S3      | inline  | `d523bcf` (the fix) |
 | T5  | The mapping of the errors of the MCP server maps every error         | S4      | inline  | `642c947` (the fix) |
 | T6  | The dead API of the repository is removed                            | S2      | inline  | `1db2660` (the fix) |
-| T7  | The gate pins the rules it claims: one writer, no dead API, no copy of a shared layer, no rule over an empty set | S1, S2, S3, S5 | inline | — |
-| T8  | The environment of the stack declares the variables it reads          | S10     | inline  | — |
+| T7  | The gate pins the rules it claims: one writer, no dead API, no copy of a shared layer, no rule over an empty set | S1, S2, S3, S5 | inline | `77e2b80` (the gate) |
+| T8  | The environment of the stack declares the variables it reads          | S10     | inline  | `8b8d730` (the database admin) |
 | T9  | The MCP server refuses an unsafe bind and checks the Host            | S9      | worker  | — |
-| T10 | The concurrent change has a container test                           | S11     | inline  | — |
-| T11 | The read of a person reaches the agent through the port              | S6, S12 | inline  | — |
-| T12 | The list of the people reaches the agent through the port            | S6, S12 | inline  | — |
+| T10 | The concurrent change has a container test                           | S11     | inline  | `ee2f4d3` (the test) |
+| T11 | The read of a person reaches the agent through the port              | S6, S12 | inline  | `50e7031` (the fix) |
+| T12 | The list of the people reaches the agent through the port            | S6, S12 | inline  | `0cee5c1` (the fix) |
 | T13 | The evidence: the gate green from nothing, and the review            | S7      | inline  | — |
 
 ---
@@ -247,6 +247,14 @@ Every one of the three rules was proved with a probe: a function that
 nothing calls, a second writer of the schema, a copy of the code of the
 other service and a rule that proves nothing all make the gate fail.
 
+**The environment of the stack** (`8b8d730`). The variables of the database
+say where they come from: the manifest of the stack that owns the
+credentials writes them, the compose file of the service names the host and
+the port, and `PACA_DATABASE_URL` is the override of an operator — the stack
+does not set it, so a value that comes from outside is not shadowed by it.
+The rule of an empty value is now the same everywhere: an empty value is no
+value, and the credentials are read instead.
+
 **The user that moved at the same time** (`ee2f4d3`). The branch of the
 adapter that reports a user that changed between the read and the write is
 proved by a container test: the other writer takes the row and changes its
@@ -255,3 +263,21 @@ and its write waits for the lock, and the guard of the table refuses the
 write when the other writer says its change. The test waits for the lock
 instead of sleeping, and a mutation that maps the error to another one makes
 it fail.
+
+**L5** (2026-10-30): The read and the list of the people.
+
+The read is a new promise of the port of the storage, and it is a promise
+that a tool keeps: the tool `get_user` reads the person the document ID
+carries, and it changes nothing. The list is the same promise with a bound:
+the tool `list_users` answers with the people PACA knows, in the order of
+their document ID, and the number of people it answers is bounded by the
+domain — the caller asks for what it wants, the domain decides how many the
+list carries, and a limit that is over the bound is the bound.
+
+Both methods are narrow: `Find` and `List` are the two methods the use cases
+call, and the gate of the dead code proves that they are called.
+
+The list of the people was not in the findings of the audit: it was in the
+older list of the open items of the repository, and it came with the read,
+because a tool that reads one person and a tool that reads many people are
+the same promise with two shapes.

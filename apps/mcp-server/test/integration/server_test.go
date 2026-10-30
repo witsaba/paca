@@ -57,7 +57,10 @@ func startServer(t *testing.T) string {
 				// test reaches it the way the other containers of the stack
 				// do.
 				"PACA_MCP_HOST": "0.0.0.0",
-				"PACA_MCP_PORT": containerPort,
+				// The container is the deployment where the server binds an
+				// address that is not the loopback interface.
+				"PACA_MCP_ALLOW_NON_LOOPBACK": "true",
+				"PACA_MCP_PORT":               containerPort,
 			},
 			WaitingFor: wait.ForHTTP("/healthz").
 				WithPort(containerPort + "/tcp").
@@ -201,7 +204,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 
 	// The server speaks the protocol and it serves the tools that its
 	// documentation promises.
-	want := []string{"change_user_status", "onboard_user", "update_user_contact_data"}
+	want := []string{"change_user_status", "get_user", "list_users", "onboard_user", "update_user_contact_data"}
 	got := make([]string, 0, len(tools.Tools))
 	for _, tool := range tools.Tools {
 		got = append(got, tool.Name)

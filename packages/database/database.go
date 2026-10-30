@@ -34,7 +34,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"path"
-	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
@@ -128,33 +127,6 @@ func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
 	}
 
 	return applied, nil
-}
-
-// Status returns the state of every migration of the schema.
-func (m *Migrator) Status(ctx context.Context) ([]schema.Migration, error) {
-	if m == nil || m.provider == nil {
-		return nil, ErrNoDatabase
-	}
-
-	statuses, err := m.provider.Status(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("the state of the migrations could not be read: %w", err)
-	}
-
-	migrations := make([]schema.Migration, 0, len(statuses))
-	for _, status := range statuses {
-		if status == nil || status.Source == nil {
-			continue
-		}
-		migrations = append(migrations, schema.Migration{
-			Version:   status.Source.Version,
-			Name:      migrationName(status.Source.Path),
-			Applied:   status.AppliedAt.After(time.Time{}),
-			AppliedAt: status.AppliedAt,
-		})
-	}
-
-	return migrations, nil
 }
 
 // Pending reports whether a migration is waiting to be applied.

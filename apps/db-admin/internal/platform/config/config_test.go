@@ -27,12 +27,12 @@ func clearEnvironment(t *testing.T) {
 		config.EnvDatabaseWaitTimeout,
 		logging.Level,
 		env.ServiceVersion,
-		config.EnvDatabaseURL,
-		config.EnvDatabaseHost,
-		config.EnvDatabasePort,
-		config.EnvPostgresUser,
-		config.EnvPostgresPassword,
-		config.EnvPostgresDB,
+		env.DatabaseURL,
+		env.DatabaseHost,
+		env.DatabasePort,
+		env.PostgresUser,
+		env.PostgresPassword,
+		env.PostgresDB,
 		telemetry.EnvDisabled,
 		telemetry.EnvEndpoint,
 		telemetry.EnvProtocol,
@@ -56,9 +56,9 @@ func clearEnvironment(t *testing.T) {
 func setCredentials(t *testing.T) {
 	t.Helper()
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, "secret")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "secret")
+	t.Setenv(env.PostgresDB, "paca")
 }
 
 func TestLoadUsesTheSafeDefaults(t *testing.T) {
@@ -133,7 +133,7 @@ func TestLoadUsesTheConnectionStringAsItIs(t *testing.T) {
 	clearEnvironment(t)
 
 	const connection = "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable"
-	t.Setenv(config.EnvDatabaseURL, connection)
+	t.Setenv(env.DatabaseURL, connection)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -148,12 +148,12 @@ func TestLoadUsesTheConnectionStringAsItIs(t *testing.T) {
 func TestLoadUsesTheConnectionStringOverTheCredentials(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
-	t.Setenv(config.EnvPostgresUser, "other")
-	t.Setenv(config.EnvPostgresPassword, "other-secret")
-	t.Setenv(config.EnvPostgresDB, "other")
-	t.Setenv(config.EnvDatabaseHost, "other-host")
-	t.Setenv(config.EnvDatabasePort, "6543")
+	t.Setenv(env.DatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(env.PostgresUser, "other")
+	t.Setenv(env.PostgresPassword, "other-secret")
+	t.Setenv(env.PostgresDB, "other")
+	t.Setenv(env.DatabaseHost, "other-host")
+	t.Setenv(env.DatabasePort, "6543")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -169,8 +169,8 @@ func TestLoadUsesTheConnectionStringOverTheCredentials(t *testing.T) {
 func TestLoadReadsNothingElseWhenTheConnectionStringIsSet(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
-	t.Setenv(config.EnvDatabasePort, "not-a-port")
+	t.Setenv(env.DatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(env.DatabasePort, "not-a-port")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -202,8 +202,8 @@ func TestLoadReadsTheHostAndThePortOfTheDatabase(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvDatabaseHost, "database.internal")
-	t.Setenv(config.EnvDatabasePort, "6543")
+	t.Setenv(env.DatabaseHost, "database.internal")
+	t.Setenv(env.DatabasePort, "6543")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -219,9 +219,9 @@ func TestLoadReadsTheHostAndThePortOfTheDatabase(t *testing.T) {
 func TestLoadEscapesThePasswordOfTheDatabase(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, "p@ss word")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "p@ss word")
+	t.Setenv(env.PostgresDB, "paca")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -236,9 +236,9 @@ func TestLoadEscapesThePasswordOfTheDatabase(t *testing.T) {
 func TestLoadKeepsTheSpacesOfThePassword(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, " s3cr3t ")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, " s3cr3t ")
+	t.Setenv(env.PostgresDB, "paca")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -273,32 +273,51 @@ func TestLoadFailsWithoutADatabase(t *testing.T) {
 func TestLoadFailsWhenTheCredentialsAreIncomplete(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresDB, "paca")
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the password")
 	}
 }
 
-func TestLoadFailsWhenTheConnectionStringIsEmpty(t *testing.T) {
-	clearEnvironment(t)
-
-	t.Setenv(config.EnvDatabaseURL, "   ")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the connection string")
-	}
-}
-
-func TestLoadFailsWhenTheHostOfTheDatabaseIsEmpty(t *testing.T) {
+func TestLoadReadsTheCredentialsWhenTheConnectionStringIsEmpty(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvDatabaseHost, "  ")
+	t.Setenv(env.DatabaseURL, "   ")
 
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the host of the database")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	if parsed.Host != env.DefaultDatabaseHost+":"+env.DefaultDatabasePort {
+		t.Fatalf("host = %q, want the host of the credentials", parsed.Host)
+	}
+}
+
+func TestLoadUsesTheDefaultHostOfTheDatabaseWhenTheHostIsEmpty(t *testing.T) {
+	clearEnvironment(t)
+	setCredentials(t)
+
+	t.Setenv(env.DatabaseHost, "  ")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	if parsed.Host != env.DefaultDatabaseHost+":"+env.DefaultDatabasePort {
+		t.Fatalf("host = %q, want the default host of the database", parsed.Host)
 	}
 }
 
@@ -306,7 +325,7 @@ func TestLoadFailsWhenThePortOfTheDatabaseIsNotANumber(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvDatabasePort, "the port of the database")
+	t.Setenv(env.DatabasePort, "the port of the database")
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the port of the database")
@@ -317,7 +336,7 @@ func TestLoadFailsWhenThePortOfTheDatabaseIsOutOfBounds(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvDatabasePort, "70000")
+	t.Setenv(env.DatabasePort, "70000")
 
 	if _, err := config.Load(); err == nil {
 		t.Fatal("Load() = nil, want an error about the port of the database")

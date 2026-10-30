@@ -14,9 +14,6 @@ import (
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-// ErrNoRepository is the error of a repository without a database behind it.
-var ErrNoRepository = errors.New("the repository of the users is not open")
-
 // The codes of the errors PostgreSQL raises when it refuses a row.
 const (
 	// uniqueViolation is the code of a row that breaks a unique index.
@@ -83,7 +80,7 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
@@ -99,15 +96,15 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 	return userFromRow(row)
 }
 
-// getByID returns the user of the document ID.
+// Find returns the user of the document ID.
 //
 // The read is a helper of the adapter: the change of the status reads the row
 // it is about to write, and no use case asks for a row by itself.
 //
 // The error is user.ErrNotFound when no user carries that document ID.
-func (r *UserRepository) getByID(ctx context.Context, id user.ID) (user.User, error) {
+func (r *UserRepository) Find(ctx context.Context, id user.ID) (user.User, error) {
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.GetUserByID(ctx, int64(id))
@@ -116,6 +113,32 @@ func (r *UserRepository) getByID(ctx context.Context, id user.ID) (user.User, er
 	}
 
 	return userFromRow(row)
+}
+
+// List returns the people of the storage, in the order of their document ID.
+//
+// The limit is the number of people the caller wants to read: the storage
+// returns at most that many, and fewer when there are not that many.
+func (r *UserRepository) List(ctx context.Context, limit int) ([]user.User, error) {
+	if r == nil || r.queries == nil {
+		return nil, user.ErrNoStorage
+	}
+
+	rows, err := r.queries.ListUsers(ctx, int64(limit))
+	if err != nil {
+		return nil, writeError(err)
+	}
+
+	users := make([]user.User, 0, len(rows))
+	for _, row := range rows {
+		found, err := userFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, found)
+	}
+
+	return users, nil
 }
 
 // UpdateDetails writes the data of a user.
@@ -135,7 +158,7 @@ func (r *UserRepository) UpdateDetails(ctx context.Context, id user.ID, details 
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
 	row, err := r.queries.UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
@@ -174,10 +197,10 @@ func (r *UserRepository) ChangeStatus(ctx context.Context, id user.ID, status us
 	}
 
 	if r == nil || r.queries == nil {
-		return user.User{}, ErrNoRepository
+		return user.User{}, user.ErrNoStorage
 	}
 
-	current, err := r.getByID(ctx, id)
+	current, err := r.Find(ctx, id)
 	if err != nil {
 		return user.User{}, err
 	}

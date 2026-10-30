@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -44,40 +45,29 @@ const (
 	EnvCheckTimeout = "PACA_MCP_CHECK_TIMEOUT"
 	// EnvMaxRequestBytes is the largest body the MCP transport accepts.
 	EnvMaxRequestBytes = "PACA_MCP_MAX_REQUEST_BYTES"
+	// EnvAllowNonLoopback tells the server that it may bind an address
+	// that is not the loopback interface.
+	EnvAllowNonLoopback = "PACA_MCP_ALLOW_NON_LOOPBACK"
+	// EnvAllowedHosts are the hosts the server answers for. The names are
+	// separated by commas.
+	EnvAllowedHosts = "PACA_MCP_ALLOWED_HOSTS"
+	// EnvTrustedOrigins are the origins the server trusts. The names are
+	// separated by commas.
+	EnvTrustedOrigins = "PACA_MCP_TRUSTED_ORIGINS"
 )
 
-// The environment variables of the database. They are the ones of the core,
-// and every service of the monorepository reads them the same way.
+// The environment variables of the database that belong to this service.
+//
+// The names of the database itself — the connection string, the host, the
+// port and the credentials of the PostgreSQL stack — live in the shared
+// platform (`packages/platform/env`): every service of the monorepository
+// reads them the same way.
 const (
-	// EnvDatabaseURL is the connection string of the database.
-	EnvDatabaseURL = "PACA_DATABASE_URL"
 	// EnvDatabaseMaxConns is the number of connections the pool may open at
 	// the same time.
 	EnvDatabaseMaxConns = "PACA_DATABASE_MAX_CONNS"
 	// EnvDatabaseConnectTimeout bounds the attempt to open a connection.
 	EnvDatabaseConnectTimeout = "PACA_DATABASE_CONNECT_TIMEOUT"
-	// EnvDatabaseHost is the host the database answers on. It is only
-	// read when the connection string is assembled from the credentials
-	// of the PostgreSQL stack.
-	EnvDatabaseHost = "PACA_DATABASE_HOST"
-	// EnvDatabasePort is the port the database answers on. It is only
-	// read when the connection string is assembled from the credentials
-	// of the PostgreSQL stack.
-	EnvDatabasePort = "PACA_DATABASE_PORT"
-)
-
-// The environment variables of the PostgreSQL stack. They are the ones of
-// the image of PostgreSQL, and they are the credentials that live in
-// `db/postgres/.env`: the stack that owns them is the only one that
-// writes them, and every service that talks to the database loads them
-// with `env_file`.
-const (
-	// EnvPostgresUser is the role that owns the application database.
-	EnvPostgresUser = "POSTGRES_USER"
-	// EnvPostgresPassword is the password of the role.
-	EnvPostgresPassword = "POSTGRES_PASSWORD" //nolint:gosec // the name of the environment variable, not a credential.
-	// EnvPostgresDB is the application database.
-	EnvPostgresDB = "POSTGRES_DB"
 )
 
 // The defaults of the settings.
@@ -102,14 +92,12 @@ const (
 	// DefaultDatabaseConnectTimeout bounds the attempt to reach the
 	// database.
 	DefaultDatabaseConnectTimeout = 5 * time.Second
-	// DefaultDatabaseHost is the host of the database of the
-	// monorepository: the container of the PostgreSQL stack.
-	DefaultDatabaseHost = "postgres"
-	// DefaultDatabasePort is the port the database of the monorepository
-	// answers on.
-	DefaultDatabasePort = 5432
 	// ServiceName is the name the MCP clients see.
 	ServiceName = "paca-mcp-server"
+	// DefaultAllowedHosts are the hosts the server answers for when the
+	// environment does not name another one: the loopback interface, which
+	// the machine reaches itself through.
+	DefaultAllowedHosts = "localhost,127.0.0.1,[::1]"
 )
 
 // Config is the validated configuration of the service.
@@ -124,6 +112,13 @@ type Config struct {
 	CheckTimeout time.Duration
 	// MaxRequestBytes is the largest body the MCP transport accepts.
 	MaxRequestBytes int64
+	// AllowedHosts are the hosts the server answers for. The Host header
+	// of a request that names another one is refused.
+	AllowedHosts []string
+	// TrustedOrigins are the origins the server trusts. The rule of the
+	// cross-origin protection is the same origin as the Host header when
+	// there are none.
+	TrustedOrigins []string
 	// LogLevel is the verbosity of the logs.
 	LogLevel slog.Level
 	// ServiceVersion is the version reported to the MCP clients.
@@ -191,6 +186,39 @@ func Load() (Config, error) {
 		cfg.Port = port
 	}
 
+	allowNonLoopback, err := env.Bool(os.LookupEnv, EnvAllowNonLoopback)
+	if err != nil {
+		return Config{}, err
+	}
+
+	// The server carries the data of the people, and it refuses to be
+	// reachable from the network of the machine unless the operator says
+	// so: a bind that is not the loopback interface is a bind that the
+	// network of the machine reaches.
+	if !allowNonLoopback && !isLoopback(cfg.Host) {
+		return Config{}, fmt.Errorf(
+			"%s: the server refuses to bind %q, which is not the loopback interface: %s allows it",
+			EnvHost, cfg.Host, EnvAllowNonLoopback,
+		)
+	}
+
+	allowed, err := listOfTheEnvironment(EnvAllowedHosts, DefaultAllowedHosts)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.AllowedHosts = allowed
+
+	trusted, err := listOfTheEnvironment(EnvTrustedOrigins, "")
+	if err != nil {
+		return Config{}, err
+	}
+	for _, origin := range trusted {
+		if err := validateOrigin(origin); err != nil {
+			return Config{}, fmt.Errorf("%s: %w", EnvTrustedOrigins, err)
+		}
+	}
+	cfg.TrustedOrigins = trusted
+
 	if raw, ok := os.LookupEnv(EnvShutdownTimeout); ok {
 		timeout, err := env.Duration(EnvShutdownTimeout, raw)
 		if err != nil {
@@ -250,6 +278,61 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// isLoopback tells whether the address is the loopback interface.
+//
+// The loopback is the interface the machine reaches itself through: a server
+// that binds it is reachable from the machine and from nowhere else.
+func isLoopback(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+
+	address := net.ParseIP(host)
+
+	return address != nil && address.IsLoopback()
+}
+
+// listOfTheEnvironment reads a list of names of the environment.
+//
+// The names are separated by commas. The list of the environment is not a
+// value that the code holds: it is a value that the environment holds, and
+// the environment is the only place it lives.
+func listOfTheEnvironment(name, fallback string) ([]string, error) {
+	raw, ok := os.LookupEnv(name)
+	if !ok {
+		raw = fallback
+	}
+
+	names := make([]string, 0)
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			names = append(names, part)
+		}
+	}
+
+	return names, nil
+}
+
+// validateOrigin refuses an origin that the standard library would not
+// trust.
+//
+// An origin is a scheme and a host: "https://example.com". The protection of
+// the standard library panics on an origin it cannot read, and a service
+// that panics on its configuration is a service that nobody asked for.
+func validateOrigin(origin string) error {
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return fmt.Errorf("%q is not an origin", origin)
+	}
+
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("%q is not an origin: an origin is a scheme and a host", origin)
+	}
+
+	return nil
+}
+
 // loadDatabase reads the settings of the database from the environment.
 //
 // The database is optional. A service that does not name it runs without
@@ -277,11 +360,10 @@ func loadDatabase() (DatabaseConfig, error) {
 		ConnectTimeout: DefaultDatabaseConnectTimeout,
 	}
 
-	if raw, ok := os.LookupEnv(EnvDatabaseURL); ok {
-		connection := strings.TrimSpace(raw)
-		if connection == "" {
-			return DatabaseConfig{}, fmt.Errorf("%s: the connection string cannot be empty", EnvDatabaseURL)
-		}
+	// An empty value is no value: a connection string that is set to
+	// nothing is a connection string that is not set, and the credentials
+	// of the PostgreSQL stack are read instead.
+	if connection, ok := env.Value(os.LookupEnv, env.DatabaseURL); ok {
 		database.URL = connection
 	} else if err := loadDatabaseFromCredentials(&database); err != nil {
 		return DatabaseConfig{}, err
@@ -321,17 +403,17 @@ func loadDatabase() (DatabaseConfig, error) {
 // the behaviour of a service that runs alone. When some of them are there
 // and the others are not, the service still has no database, and it says so.
 func loadDatabaseFromCredentials(database *DatabaseConfig) error {
-	user, hasUser := os.LookupEnv(EnvPostgresUser)
-	password, hasPassword := os.LookupEnv(EnvPostgresPassword)
-	name, hasDatabase := os.LookupEnv(EnvPostgresDB)
+	user, hasUser := env.Value(os.LookupEnv, env.PostgresUser)
+	// The password is never trimmed: a password may hold a space, and a
+	// password that is trimmed is a password that is wrong.
+	password, hasPassword := env.Secret(os.LookupEnv, env.PostgresPassword)
+	name, hasDatabase := env.Value(os.LookupEnv, env.PostgresDB)
 
 	if !hasUser && !hasPassword && !hasDatabase {
 		return nil
 	}
 
-	if !hasUser || strings.TrimSpace(user) == "" ||
-		!hasPassword || password == "" ||
-		!hasDatabase || strings.TrimSpace(name) == "" {
+	if !hasUser || !hasPassword || !hasDatabase {
 		database.CredentialsIncomplete = true
 		return nil
 	}
@@ -346,9 +428,9 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 	}
 
 	database.URL = dbconfig.ConnectionString(dbconfig.Credentials{
-		User:     strings.TrimSpace(user),
+		User:     user,
 		Password: password,
-		Database: strings.TrimSpace(name),
+		Database: name,
 		Host:     host,
 		Port:     strconv.Itoa(port),
 	})
@@ -358,14 +440,9 @@ func loadDatabaseFromCredentials(database *DatabaseConfig) error {
 
 // loadDatabaseHost reads the host the database answers on.
 func loadDatabaseHost() (string, error) {
-	raw, ok := os.LookupEnv(EnvDatabaseHost)
+	host, ok := env.Value(os.LookupEnv, env.DatabaseHost)
 	if !ok {
-		return DefaultDatabaseHost, nil
-	}
-
-	host := strings.TrimSpace(raw)
-	if host == "" {
-		return "", fmt.Errorf("%s: the host cannot be empty", EnvDatabaseHost)
+		return env.DefaultDatabaseHost, nil
 	}
 
 	return host, nil
@@ -373,17 +450,21 @@ func loadDatabaseHost() (string, error) {
 
 // loadDatabasePort reads the port the database answers on.
 func loadDatabasePort() (int, error) {
-	raw, ok := os.LookupEnv(EnvDatabasePort)
+	raw, ok := env.Value(os.LookupEnv, env.DatabasePort)
 	if !ok {
-		return DefaultDatabasePort, nil
+		port, err := strconv.Atoi(env.DefaultDatabasePort)
+		if err != nil {
+			return 0, fmt.Errorf("%s: %q is not a port number", env.DatabasePort, env.DefaultDatabasePort)
+		}
+		return port, nil
 	}
 
-	port, err := strconv.Atoi(strings.TrimSpace(raw))
+	port, err := strconv.Atoi(raw)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %q is not a port number", EnvDatabasePort, raw)
+		return 0, fmt.Errorf("%s: %q is not a port number", env.DatabasePort, raw)
 	}
 	if port < 1 || port > 65535 {
-		return 0, fmt.Errorf("%s: %d is not a valid port", EnvDatabasePort, port)
+		return 0, fmt.Errorf("%s: %d is not a valid port", env.DatabasePort, port)
 	}
 
 	return port, nil

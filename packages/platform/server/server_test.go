@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -70,5 +71,53 @@ func TestTheServerFailsToListenOnABusyPort(t *testing.T) {
 	srv := server.New(busy.Addr().String(), http.NewServeMux(), discardLogger(), time.Second)
 	if err := srv.Listen(); err == nil {
 		t.Fatal("Listen() = nil, want an error")
+	}
+}
+
+// recordingApp is the application of the tests: it remembers what the
+// platform asked of it.
+type recordingApp struct {
+	listened  bool
+	served    bool
+	listenErr error
+}
+
+func (a *recordingApp) Listen() error {
+	a.listened = true
+	return a.listenErr
+}
+
+func (a *recordingApp) Serve(context.Context) error {
+	a.served = true
+	return nil
+}
+
+func TestRunBindsTheListenerBeforeItServesTheRequests(t *testing.T) {
+	t.Parallel()
+
+	app := &recordingApp{}
+
+	if err := server.Run(t.Context(), app); err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+
+	if !app.listened {
+		t.Error("the listener was not bound")
+	}
+	if !app.served {
+		t.Error("the requests were not served")
+	}
+}
+
+func TestRunDoesNotServeTheRequestsWhenTheListenerFails(t *testing.T) {
+	t.Parallel()
+
+	app := &recordingApp{listenErr: errors.New("the port is busy")}
+
+	if err := server.Run(t.Context(), app); err == nil {
+		t.Fatal("Run() = nil, want the failure of the listener")
+	}
+	if app.served {
+		t.Error("the requests were served, want the service to fail before that")
 	}
 }

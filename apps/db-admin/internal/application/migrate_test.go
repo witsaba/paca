@@ -15,8 +15,6 @@ type fakeMigrator struct {
 	applied    []schema.Migration
 	upErr      error
 	upCalls    int
-	statuses   []schema.Migration
-	statusErr  error
 	pending    bool
 	pendingErr error
 	version    int64
@@ -30,14 +28,6 @@ func (m *fakeMigrator) Up(context.Context) ([]schema.Migration, error) {
 		return nil, m.upErr
 	}
 	return m.applied, nil
-}
-
-// Status returns the state of the migrations of the test.
-func (m *fakeMigrator) Status(context.Context) ([]schema.Migration, error) {
-	if m.statusErr != nil {
-		return nil, m.statusErr
-	}
-	return m.statuses, nil
 }
 
 // Pending tells whether a migration is waiting.
@@ -184,42 +174,5 @@ func TestTheMigrationServiceFailsWhenThePendingMigrationsCannotBeRead(t *testing
 
 	if _, err := service.Migrate(context.Background()); err == nil {
 		t.Fatal("Migrate() = nil, want the failure of the pending migrations")
-	}
-}
-
-func TestTheMigrationServiceReadsTheStateOfTheMigrations(t *testing.T) {
-	t.Parallel()
-
-	migrator := &fakeMigrator{
-		statuses: []schema.Migration{{Version: 1, Name: "00001_users.sql", Applied: true}},
-	}
-
-	service, err := application.NewMigrateService(migrator)
-	if err != nil {
-		t.Fatalf("NewMigrateService() = %v", err)
-	}
-
-	migrations, err := service.Status(context.Background())
-	if err != nil {
-		t.Fatalf("Status() = %v", err)
-	}
-
-	if len(migrations) != 1 || migrations[0].Name != "00001_users.sql" {
-		t.Fatalf("migrations = %+v, want the one of the test", migrations)
-	}
-}
-
-func TestTheMigrationServiceFailsWhenTheStateCannotBeRead(t *testing.T) {
-	t.Parallel()
-
-	service, err := application.NewMigrateService(&fakeMigrator{
-		statusErr: errors.New("the state could not be read"),
-	})
-	if err != nil {
-		t.Fatalf("NewMigrateService() = %v", err)
-	}
-
-	if _, err := service.Status(context.Background()); err == nil {
-		t.Fatal("Status() = nil, want the failure of the state")
 	}
 }

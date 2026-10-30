@@ -115,6 +115,39 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	return i, err
 }
 
+const listUsers = `-- name: ListUsers :many
+SELECT id, full_name, status, status_observations, phone, email, created_at, updated_at FROM users ORDER BY id LIMIT $1::bigint
+`
+
+func (q *Queries) ListUsers(ctx context.Context, rowLimit int64) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsers, rowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Status,
+			&i.StatusObservations,
+			&i.Phone,
+			&i.Email,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateUserDetails = `-- name: UpdateUserDetails :one
 UPDATE users
    SET full_name  = COALESCE($1::text, full_name),

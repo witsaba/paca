@@ -36,6 +36,7 @@ func startService(t *testing.T, version string, mutate func(*config.Config)) str
 		CheckTimeout:    time.Second,
 		MaxRequestBytes: 1 << 20,
 		LogLevel:        slog.LevelInfo,
+		AllowedHosts:    []string{"127.0.0.1", "localhost"},
 	}
 	if mutate != nil {
 		mutate(&cfg)
@@ -235,7 +236,7 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 3 {
-		t.Fatalf("the server exposes %d tools, want the three of the users", len(tools.Tools))
+	if len(tools.Tools) != 5 {
+		t.Fatalf("the server exposes %d tools, want the five of the users", len(tools.Tools))
 	}
 }

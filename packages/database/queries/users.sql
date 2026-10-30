@@ -18,6 +18,9 @@ RETURNING *;
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = sqlc.arg(id);
 
+-- name: ListUsers :many
+SELECT * FROM users ORDER BY id LIMIT sqlc.arg(row_limit)::bigint;
+
 -- name: UpdateUserDetails :one
 UPDATE users
    SET full_name  = COALESCE(sqlc.narg(full_name)::text, full_name),

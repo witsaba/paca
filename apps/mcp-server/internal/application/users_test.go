@@ -17,6 +17,8 @@ import (
 // use case cleaned the data before it reached the storage.
 type fakeRepository struct {
 	created      []user.User
+	listed       []user.User
+	listedLimit  int
 	updated      []user.Details
 	movedTo      []user.Status
 	observations []string
@@ -39,6 +41,26 @@ func (r *fakeRepository) Create(_ context.Context, id user.ID, details user.Deta
 	r.created = append(r.created, created)
 
 	return created, nil
+}
+
+// Find answers the person of the document, or the error of the test.
+func (r *fakeRepository) Find(_ context.Context, id user.ID) (user.User, error) {
+	if r.err != nil {
+		return user.User{}, r.err
+	}
+
+	return user.User{ID: id, FullName: "The Person Of The Test", Status: user.StatusActive}, nil
+}
+
+// List answers the people and remembers the limit the caller asked for.
+func (r *fakeRepository) List(_ context.Context, limit int) ([]user.User, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+
+	r.listedLimit = limit
+
+	return r.listed, nil
 }
 
 // UpdateDetails remembers the data and answers it.
@@ -232,5 +254,95 @@ func TestTheUseCaseKeepsTheTimestampsOfTheStorage(t *testing.T) {
 
 	if !created.CreatedAt.Equal(time.Time{}) {
 		t.Errorf("the moment of the creation is %v, want the zero time", created.CreatedAt)
+	}
+}
+
+func TestFindAnswersThePersonOfTheDocument(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	found, err := service.Find(t.Context(), "1.234.567")
+	if err != nil {
+		t.Fatalf("the person was not read: %v", err)
+	}
+
+	if found.ID != 1234567 {
+		t.Errorf("the document is %d, want %d", found.ID, 1234567)
+	}
+	if found.FullName != "The Person Of The Test" {
+		t.Errorf("the name is %q, want %q", found.FullName, "The Person Of The Test")
+	}
+}
+
+func TestFindRefusesADocumentThatIsNotANumber(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	if _, err := service.Find(t.Context(), "CC"); !errors.Is(err, user.ErrInvalidID) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidID)
+	}
+}
+
+func TestFindSaysThatThereIsNoDatabase(t *testing.T) {
+	t.Parallel()
+
+	service := application.NewUsersService(nil)
+
+	if _, err := service.Find(t.Context(), "1234567"); !errors.Is(err, ports.ErrNoDatabase) {
+		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
+	}
+}
+
+func TestListAnswersThePeopleTheStorageHolds(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{listed: []user.User{
+		{ID: 1234567, FullName: "Ana María Pérez", Status: user.StatusActive},
+		{ID: 7654321, FullName: "Luis Gómez", Status: user.StatusOnboarding},
+	}}
+	service := application.NewUsersService(repository)
+
+	listed, err := service.List(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("the people were not read: %v", err)
+	}
+
+	if len(listed) != 2 {
+		t.Fatalf("the list holds %d people, want 2", len(listed))
+	}
+	if listed[0].ID != 1234567 {
+		t.Errorf("the first document is %d, want %d", listed[0].ID, 1234567)
+	}
+	if repository.listedLimit != 10 {
+		t.Errorf("the limit is %d, want %d", repository.listedLimit, 10)
+	}
+}
+
+func TestListAsksTheDomainForTheBoundOfTheList(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	if _, err := service.List(t.Context(), user.MaxListedUsers+100); err != nil {
+		t.Fatalf("the people were not read: %v", err)
+	}
+
+	if repository.listedLimit != user.MaxListedUsers {
+		t.Errorf("the limit is %d, want the bound of the domain %d", repository.listedLimit, user.MaxListedUsers)
+	}
+}
+
+func TestListSaysThatThereIsNoDatabase(t *testing.T) {
+	t.Parallel()
+
+	service := application.NewUsersService(nil)
+
+	if _, err := service.List(t.Context(), 10); !errors.Is(err, ports.ErrNoDatabase) {
+		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
 	}
 }

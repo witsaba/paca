@@ -77,6 +77,8 @@ EXPOSE 8081
 USER nonroot:nonroot
 
 ENV PACA_MCP_HOST=0.0.0.0 \
+    PACA_MCP_ALLOW_NON_LOOPBACK=true \
+    PACA_MCP_ALLOWED_HOSTS=paca-mcp-server,localhost,127.0.0.1,[::1] \
     PACA_MCP_PORT=8081 \
     PACA_LOG_LEVEL=info
 

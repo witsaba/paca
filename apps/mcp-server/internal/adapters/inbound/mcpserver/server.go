@@ -25,6 +25,9 @@ type Options struct {
 	Logger *slog.Logger
 	// MaxRequestBodyBytes is the largest request body the transport accepts.
 	MaxRequestBodyBytes int64
+	// TrustedOrigins are the origins the transport trusts. The rule of the
+	// Origin is the same origin as the Host header when there are none.
+	TrustedOrigins []string
 	// Users is the use case of the users, the one behind the three tools.
 	//
 	// It may be nil: a server without a database still exposes the tools,
@@ -36,6 +39,7 @@ type Options struct {
 type Server struct {
 	server  *sdk.Server
 	handler http.Handler
+	logger  *slog.Logger
 }
 
 // New builds the MCP transport.
@@ -52,6 +56,11 @@ type Server struct {
 // The three tools of the users are registered here: the list of the tools is
 // a property of the transport, and it does not depend on the database.
 func New(opts Options) *Server {
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	server := sdk.NewServer(
 		&sdk.Implementation{
 			Name:    opts.ServiceName,
@@ -64,7 +73,10 @@ func New(opts Options) *Server {
 		},
 	)
 
-	transport := &Server{server: server}
+	transport := &Server{server: server, logger: opts.Logger}
+	if transport.logger == nil {
+		transport.logger = slog.Default()
+	}
 
 	transport.registerUserTools(opts.Users)
 
@@ -78,7 +90,24 @@ func New(opts Options) *Server {
 		},
 	)
 
+	// The rule of the Origin is stated here and not left to the default:
+	// the protection of the standard library trusts the same origin as the
+	// Host header of the request, and the origins the service trusts are
+	// the ones the operator named.
+	//
+	// The origins are validated by the configuration of the service: an
+	// origin that the protection of the standard library cannot read is
+	// refused there, and the transport says so in its log instead of
+	// trusting it.
 	protection := http.NewCrossOriginProtection()
+	for _, origin := range opts.TrustedOrigins {
+		if err := protection.AddTrustedOrigin(origin); err != nil {
+			logger.Error("the origin is not one the transport can trust",
+				slog.String("origin", origin),
+				slog.Any("error", err),
+			)
+		}
+	}
 
 	transport.handler = protection.Handler(handler)
 
@@ -88,10 +117,4 @@ func New(opts Options) *Server {
 // Handler returns the HTTP handler of the transport.
 func (s *Server) Handler() http.Handler {
 	return s.handler
-}
-
-// SDKServer returns the SDK server under the transport, so the composition
-// root and the tests can reach it.
-func (s *Server) SDKServer() *sdk.Server {
-	return s.server
 }

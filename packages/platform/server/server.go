@@ -90,3 +90,29 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	return <-served
 }
+
+// App is the service the server of the platform runs.
+//
+// The composition root of a service builds its own application and hands it
+// over: the platform binds the listener and serves the requests, and it
+// knows nothing about what the service does with them.
+type App interface {
+	// Listen binds the listener of the server.
+	Listen() error
+	// Serve serves the requests until the context is cancelled.
+	Serve(context.Context) error
+}
+
+// Run binds the listener of the application and serves the requests until
+// the context is cancelled.
+//
+// The sequence is the same in every service: the listener is bound before
+// the requests are served, so a service that cannot bind fails before it
+// accepts anything. A service that writes the sequence itself writes it
+// twice.
+func Run(ctx context.Context, app App) error {
+	if err := app.Listen(); err != nil {
+		return err
+	}
+	return app.Serve(ctx)
+}

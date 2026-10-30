@@ -58,11 +58,6 @@ func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
 	return m.migrator.Up(ctx)
 }
 
-// Status returns the state of every migration of the schema.
-func (m *Migrator) Status(ctx context.Context) ([]schema.Migration, error) {
-	return m.migrator.Status(ctx)
-}
-
 // Pending reports whether a migration is waiting to be applied.
 func (m *Migrator) Pending(ctx context.Context) (bool, error) {
 	return m.migrator.Pending(ctx)

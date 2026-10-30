@@ -111,6 +111,7 @@ func New(
 		Instructions:        Instructions,
 		Logger:              logger,
 		MaxRequestBodyBytes: cfg.MaxRequestBytes,
+		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
 	})
 
@@ -119,6 +120,7 @@ func New(
 		MCP:            mcpServer.Handler(),
 		Logger:         logger,
 		TracerProvider: tracerProvider,
+		AllowedHosts:   cfg.AllowedHosts,
 	})
 
 	return &App{
@@ -171,7 +173,7 @@ func (a *App) Listen() error {
 func (a *App) Serve(ctx context.Context) error {
 	a.transportChecker.SetServing(true)
 	a.logger.Info("the MCP server is serving",
-		slog.String("addr", a.server.Addr()),
+		slog.String("addr", a.Addr()),
 		slog.String("mcp_path", http.MCPPath),
 		slog.String("health_path", http.HealthPath),
 	)
@@ -193,8 +195,5 @@ func Run(
 	if err != nil {
 		return err
 	}
-	if err := app.Listen(); err != nil {
-		return err
-	}
-	return app.Serve(ctx)
+	return server.Run(ctx, app)
 }

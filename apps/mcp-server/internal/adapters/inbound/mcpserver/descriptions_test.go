@@ -21,6 +21,9 @@ import (
 // tools asked it.
 type stubUsers struct {
 	created     user.User
+	found       user.User
+	listed      []user.User
+	listedLimit int
 	updated     user.User
 	moved       user.User
 	err         error
@@ -45,6 +48,28 @@ func (s *stubUsers) Onboard(_ context.Context, documentID, fullName, phone, emai
 		return user.User{}, s.err
 	}
 	return s.created, nil
+}
+
+// Find answers the person that was read.
+func (s *stubUsers) Find(_ context.Context, documentID string) (user.User, error) {
+	s.calls++
+	s.gotDocument = documentID
+
+	if s.err != nil {
+		return user.User{}, s.err
+	}
+	return s.found, nil
+}
+
+// List answers the people and remembers the limit the caller asked for.
+func (s *stubUsers) List(_ context.Context, limit int) ([]user.User, error) {
+	s.calls++
+	s.listedLimit = limit
+
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.listed, nil
 }
 
 // ChangeStatus answers the move.
@@ -81,11 +106,18 @@ func (s *stubUsers) UpdateContactData(_ context.Context, documentID, fullName, p
 func connect(t *testing.T, users ports.UsersQuerier) *sdk.ClientSession {
 	t.Helper()
 
+	return connectWithLogger(t, users, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// connectWithLogger starts the transport with a logger the test reads.
+func connectWithLogger(t *testing.T, users ports.UsersQuerier, logger *slog.Logger) *sdk.ClientSession {
+	t.Helper()
+
 	transport := mcpserver.New(mcpserver.Options{
 		ServiceName:         "paca-mcp-server",
 		ServiceVersion:      "0.1.0",
 		Instructions:        "The PACA MCP server.",
-		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:              logger,
 		MaxRequestBodyBytes: 1 << 20,
 		Users:               users,
 	})
@@ -120,6 +152,8 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 
 	want := []string{
 		mcpserver.ToolOnboardUser,
+		mcpserver.ToolGetUser,
+		mcpserver.ToolListUsers,
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 	}

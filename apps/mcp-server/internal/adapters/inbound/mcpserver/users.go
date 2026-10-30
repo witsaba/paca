@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -23,6 +24,12 @@ const (
 	// ToolOnboardUser registers a person and starts their onboarding.
 	ToolOnboardUser = "onboard_user"
 
+	// ToolGetUser reads the data of a person who is already registered.
+	ToolGetUser = "get_user"
+
+	// ToolListUsers reads the people PACA knows.
+	ToolListUsers = "list_users"
+
 	// ToolChangeUserStatus moves a user to another status.
 	ToolChangeUserStatus = "change_user_status"
 
@@ -30,7 +37,7 @@ const (
 	ToolUpdateUserContactData = "update_user_contact_data"
 )
 
-// The descriptions of the three tools.
+// The descriptions of the tools of the users.
 //
 // A description is not a comment: it is the instruction the agent reads
 // before it calls the tool. It says what the tool needs, what it does with
@@ -76,6 +83,21 @@ const (
 		"The phone must carry the country code (for example '+57 321 253 9984'); PACA cleans the number and stores " +
 		"the digits only ('573212539984'). The email must be a valid address.\n\n" +
 		"This tool never changes the status of the user: use " + ToolChangeUserStatus + " for that."
+
+	// descriptionListUsers tells the agent how to read the people.
+	descriptionListUsers = "Read the people PACA knows: their document ID, the full name, the phone, the email " +
+		"and the status.\n\n" +
+		"It answers with the people in the order of their document ID, and with as many of them as you ask for. " +
+		"Ask for the people you need, and ask again when the answer carries more people than you asked for.\n\n" +
+		"This tool changes nothing: use " + ToolGetUser + " to read one person, " + ToolUpdateUserContactData +
+		" to correct the data of a person, and " + ToolChangeUserStatus + " to move them to another status."
+
+	// descriptionGetUser tells the agent how to read the data of a person.
+	descriptionGetUser = "Read the data of a person who is already registered: the document ID, the full name, " +
+		"the phone, the email and the status.\n\n" +
+		"It answers with what PACA knows about the person, and it fails when no user carries that document ID.\n\n" +
+		"This tool changes nothing: use " + ToolUpdateUserContactData + " to correct the data of the person, and " +
+		ToolChangeUserStatus + " to move them to another status."
 )
 
 // onboardUserInput is the input of the tool that starts an onboarding.
@@ -121,7 +143,25 @@ type updateUserContactDataInput struct {
 	Email string `json:"email,omitempty" jsonschema:"The email address of the person. Leave it empty when it does not change."`
 }
 
-// userOutput is what the three tools answer.
+// getUserInput is the input of the tool that reads the data of a user.
+type getUserInput struct {
+	// DocumentID is the national document ID of the person.
+	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required."`
+}
+
+// listUsersInput is the input of the tool that reads the people.
+type listUsersInput struct {
+	// Limit is the number of people the agent wants to read.
+	Limit int `json:"limit,omitempty" jsonschema:"The number of people you want to read. It is optional: leave it out to read the default number of people."`
+}
+
+// listUsersOutput is what the tool that reads the people answers.
+type listUsersOutput struct {
+	// Users are the people PACA knows, in the order of their document ID.
+	Users []userOutput `json:"users"`
+}
+
+// userOutput is what the tools answer.
 //
 // The answer carries the row as it is now, so the agent can tell the person
 // what PACA knows about them.
@@ -161,6 +201,16 @@ func (s *Server) registerUserTools(users ports.UsersQuerier) {
 		Name:        ToolOnboardUser,
 		Description: descriptionOnboardUser,
 	}, s.onboardUser(users))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolGetUser,
+		Description: descriptionGetUser,
+	}, s.getUser(users))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolListUsers,
+		Description: descriptionListUsers,
+	}, s.listUsers(users))
 
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolChangeUserStatus,
@@ -264,10 +314,53 @@ func (s *Server) onboardUser(users ports.UsersQuerier) sdk.ToolHandlerFor[onboar
 
 		created, err := users.Onboard(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(created), nil
+	}
+}
+
+// getUser is the handler of the tool that reads the data of a user.
+//
+// The tool reads the person the document ID carries: it changes nothing, and
+// it answers with what PACA knows about the person.
+func (s *Server) getUser(users ports.UsersQuerier) sdk.ToolHandlerFor[getUserInput, userOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input getUserInput) (*sdk.CallToolResult, userOutput, error) {
+		if users == nil {
+			return nil, userOutput{}, ports.ErrNoDatabase
+		}
+
+		found, err := users.Find(ctx, input.DocumentID)
+		if err != nil {
+			return nil, userOutput{}, s.toolError(err)
+		}
+
+		return nil, outputOf(found), nil
+	}
+}
+
+// listUsers is the handler of the tool that reads the people.
+//
+// The tool reads the people PACA knows: it changes nothing, and it answers
+// with as many of them as the agent asked for.
+func (s *Server) listUsers(users ports.UsersQuerier) sdk.ToolHandlerFor[listUsersInput, listUsersOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input listUsersInput) (*sdk.CallToolResult, listUsersOutput, error) {
+		if users == nil {
+			return nil, listUsersOutput{}, ports.ErrNoDatabase
+		}
+
+		found, err := users.List(ctx, input.Limit)
+		if err != nil {
+			return nil, listUsersOutput{}, s.toolError(err)
+		}
+
+		answer := listUsersOutput{Users: make([]userOutput, 0, len(found))}
+		for _, person := range found {
+			answer.Users = append(answer.Users, outputOf(person))
+		}
+
+		return nil, answer, nil
 	}
 }
 
@@ -280,7 +373,7 @@ func (s *Server) changeUserStatus(users ports.UsersQuerier) sdk.ToolHandlerFor[c
 
 		moved, err := users.ChangeStatus(ctx, input.DocumentID, input.Status, input.StatusObservations)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(moved), nil
@@ -297,7 +390,7 @@ func (s *Server) updateUserContactData(users ports.UsersQuerier) sdk.ToolHandler
 
 		updated, err := users.UpdateContactData(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
 		if err != nil {
-			return nil, userOutput{}, toolError(err)
+			return nil, userOutput{}, s.toolError(err)
 		}
 
 		return nil, outputOf(updated), nil
@@ -329,42 +422,72 @@ func timestamp(moment time.Time) string {
 	return moment.UTC().Format(time.RFC3339)
 }
 
+// The messages the agent reads when a tool fails.
+//
+// Every error of the domain has a message here, written in the words of the
+// caller: the agent reads the message, and it must know what to do about it.
+// The catalogue of the domain (`user.Errors`) names the errors that must be
+// here, and a test proves that every one of them is.
+var theMessages = map[error]string{
+	user.ErrInvalidID:             "the document ID is not a number: ask the person for the national document ID, with digits only",
+	user.ErrInvalidPhone:          "the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'",
+	user.ErrInvalidEmail:          "the email address is not valid: ask the person to confirm it",
+	user.ErrAlreadyExists:         "there is already a user with that document ID: do not register the person again",
+	user.ErrEmailTaken:            "that email address is already registered: ask the person for another one",
+	user.ErrPhoneTaken:            "that phone number is already registered: ask the person for another one",
+	user.ErrNotFound:              "there is no user with that document ID: check the document with the person before trying again",
+	user.ErrInvalidTransition:     "that status change is not allowed: a user never returns to the onboarding, and a status never changes to itself",
+	user.ErrObservationRequired:   "that status needs a reason: ask the person why, and send the observation",
+	user.ErrUnexpectedObservation: "that status takes no reason: send the observation only when the new status is inactive or blocked",
+	user.ErrUnknownStatus:         "the status must be active, inactive or blocked",
+	user.ErrConcurrentChange:      "the status of the user changed at the same time: read the user again and try the change once more",
+	user.ErrInvalidValue:          "the database refused the row: check the name, the phone and the email of the person",
+	user.ErrNoStorage:             "the service has no storage of the users: the users cannot be reached",
+	ports.ErrNoDatabase:           "the service has no database configured: the users cannot be reached",
+}
+
 // toolError turns the error of a use case into the message the agent reads.
 //
 // An agent cannot fix a protocol error, and it cannot fix a message that
 // says nothing: the message says what happened and what the agent has to do
 // about it.
-func toolError(err error) error {
-	switch {
-	case errors.Is(err, user.ErrInvalidID):
-		return errors.New("the document ID is not a number: ask the person for the national document ID, with digits only")
-	case errors.Is(err, user.ErrInvalidPhone):
-		return errors.New("the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'")
-	case errors.Is(err, user.ErrInvalidEmail):
-		return errors.New("the email address is not valid: ask the person to confirm it")
-	case errors.Is(err, user.ErrAlreadyExists):
-		return errors.New("there is already a user with that document ID: do not register the person again")
-	case errors.Is(err, user.ErrEmailTaken):
-		return errors.New("that email address is already registered: ask the person for another one")
-	case errors.Is(err, user.ErrPhoneTaken):
-		return errors.New("that phone number is already registered: ask the person for another one")
-	case errors.Is(err, user.ErrNotFound):
-		return errors.New("there is no user with that document ID: check the document with the person before trying again")
-	case errors.Is(err, user.ErrInvalidTransition):
-		return errors.New("that status change is not allowed: a user never returns to the onboarding, and a status never changes to itself")
-	case errors.Is(err, user.ErrObservationRequired):
-		return errors.New("that status needs a reason: ask the person why, and send the observation")
-	case errors.Is(err, user.ErrUnexpectedObservation):
-		return errors.New("that status takes no reason: send the observation only when the new status is inactive or blocked")
-	case errors.Is(err, user.ErrUnknownStatus):
-		return errors.New("the status must be active, inactive or blocked")
-	case errors.Is(err, user.ErrConcurrentChange):
-		return errors.New("the status of the user changed at the same time: read the user again and try the change once more")
-	case errors.Is(err, ports.ErrNoDatabase):
-		return errors.New("the service has no database configured: the users cannot be reached")
-	case errors.Is(err, user.ErrInvalidValue):
-		return errors.New("the database refused the row: check the name, the phone and the email of the person")
+//
+// The text of a Go error never reaches the agent. An error the service does
+// not know is logged, and the agent reads a message that says what happened
+// without saying how the service failed.
+func (s *Server) toolError(err error) error {
+	for known, message := range theMessages {
+		if errors.Is(err, known) {
+			return errors.New(message)
+		}
 	}
 
-	return err
+	// The error is one the domain carries, and nobody mapped it: that is a
+	// defect of the service, and the log says so.
+	if isErrorOfTheDomain(err) {
+		s.logger.Error("the error of the domain has no message for the agent",
+			slog.Any("error", err))
+		return errors.New("the service does not know this failure yet")
+	}
+
+	s.logger.Error("the tool failed for a reason the service does not know",
+		slog.Any("error", err))
+
+	return errors.New("the tool failed for a reason the service does not know")
+}
+
+// isErrorOfTheDomain tells whether the error is one the domain of the users
+// carries.
+//
+// The catalogue of the domain names them all. The service uses it to tell a
+// missing mapping from a failure it did not expect: the first one is a
+// defect of the service, the second one belongs to the library that failed.
+func isErrorOfTheDomain(err error) bool {
+	for _, known := range user.Errors() {
+		if errors.Is(err, known) {
+			return true
+		}
+	}
+
+	return false
 }

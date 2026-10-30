@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,14 +28,14 @@ func clearEnvironment(t *testing.T) {
 		config.EnvMaxRequestBytes,
 		logging.Level,
 		env.ServiceVersion,
-		config.EnvDatabaseURL,
+		env.DatabaseURL,
 		config.EnvDatabaseMaxConns,
 		config.EnvDatabaseConnectTimeout,
-		config.EnvDatabaseHost,
-		config.EnvDatabasePort,
-		config.EnvPostgresUser,
-		config.EnvPostgresPassword,
-		config.EnvPostgresDB,
+		env.DatabaseHost,
+		env.DatabasePort,
+		env.PostgresUser,
+		env.PostgresPassword,
+		env.PostgresDB,
 		telemetry.EnvDisabled,
 		telemetry.EnvEndpoint,
 		telemetry.EnvProtocol,
@@ -88,6 +90,7 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 	clearEnvironment(t)
 
 	t.Setenv(config.EnvHost, "0.0.0.0")
+	t.Setenv(config.EnvAllowNonLoopback, "true")
 	t.Setenv(config.EnvPort, "9000")
 	t.Setenv(config.EnvShutdownTimeout, "30s")
 	t.Setenv(config.EnvCheckTimeout, "5s")
@@ -123,7 +126,7 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 func TestLoadReadsTheSettingsOfTheDatabase(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvDatabaseURL, "postgres://paca:paca@postgres:5432/paca?sslmode=disable")
+	t.Setenv(env.DatabaseURL, "postgres://paca:paca@postgres:5432/paca?sslmode=disable")
 	t.Setenv(config.EnvDatabaseMaxConns, "8")
 	t.Setenv(config.EnvDatabaseConnectTimeout, "3s")
 
@@ -147,7 +150,7 @@ func TestLoadUsesTheDatabaseURLAsItIs(t *testing.T) {
 	clearEnvironment(t)
 
 	const connection = "postgres://paca:secret@postgres:5432/paca?sslmode=disable"
-	t.Setenv(config.EnvDatabaseURL, connection)
+	t.Setenv(env.DatabaseURL, connection)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -162,12 +165,12 @@ func TestLoadUsesTheDatabaseURLAsItIs(t *testing.T) {
 func TestLoadUsesTheDatabaseURLOverTheCredentials(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
-	t.Setenv(config.EnvPostgresUser, "other")
-	t.Setenv(config.EnvPostgresPassword, "other-secret")
-	t.Setenv(config.EnvPostgresDB, "other")
-	t.Setenv(config.EnvDatabaseHost, "other-host")
-	t.Setenv(config.EnvDatabasePort, "6543")
+	t.Setenv(env.DatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(env.PostgresUser, "other")
+	t.Setenv(env.PostgresPassword, "other-secret")
+	t.Setenv(env.PostgresDB, "other")
+	t.Setenv(env.DatabaseHost, "other-host")
+	t.Setenv(env.DatabasePort, "6543")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -183,8 +186,8 @@ func TestLoadUsesTheDatabaseURLOverTheCredentials(t *testing.T) {
 func TestLoadReadsNothingElseWhenTheDatabaseURLIsSet(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvDatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
-	t.Setenv(config.EnvDatabasePort, "not-a-port")
+	t.Setenv(env.DatabaseURL, "postgres://paca:secret@elsewhere:5432/paca?sslmode=disable")
+	t.Setenv(env.DatabasePort, "not-a-port")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -200,11 +203,11 @@ func TestLoadReadsNothingElseWhenTheDatabaseURLIsSet(t *testing.T) {
 func TestLoadAssemblesTheDatabaseURLFromTheCredentials(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, "s3cr3t")
-	t.Setenv(config.EnvPostgresDB, "paca")
-	t.Setenv(config.EnvDatabaseHost, "db.internal")
-	t.Setenv(config.EnvDatabasePort, "6543")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "s3cr3t")
+	t.Setenv(env.PostgresDB, "paca")
+	t.Setenv(env.DatabaseHost, "db.internal")
+	t.Setenv(env.DatabasePort, "6543")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -220,9 +223,9 @@ func TestLoadAssemblesTheDatabaseURLFromTheCredentials(t *testing.T) {
 func TestLoadUsesTheDefaultHostAndPortOfTheDatabase(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, "s3cr3t")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "s3cr3t")
+	t.Setenv(env.PostgresDB, "paca")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -238,9 +241,9 @@ func TestLoadUsesTheDefaultHostAndPortOfTheDatabase(t *testing.T) {
 func TestLoadEscapesTheCredentialsOfTheDatabaseURL(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, "p@ss/wor d")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "p@ss/wor d")
+	t.Setenv(env.PostgresDB, "paca")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -280,31 +283,75 @@ func TestLoadRejectsAnInvalidDatabasePort(t *testing.T) {
 		{name: "a port that is not a number", value: "not-a-port"},
 		{name: "a port that is zero", value: "0"},
 		{name: "a port out of range", value: "70000"},
-		{name: "an empty port", value: " "},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			clearEnvironment(t)
-			t.Setenv(config.EnvPostgresUser, "paca")
-			t.Setenv(config.EnvPostgresPassword, "s3cr3t")
-			t.Setenv(config.EnvPostgresDB, "paca")
-			t.Setenv(config.EnvDatabasePort, test.value)
+			t.Setenv(env.PostgresUser, "paca")
+			t.Setenv(env.PostgresPassword, "s3cr3t")
+			t.Setenv(env.PostgresDB, "paca")
+			t.Setenv(env.DatabasePort, test.value)
 
 			if _, err := config.Load(); err == nil {
 				t.Fatalf("Load() with %s=%q = nil, want an error",
-					config.EnvDatabasePort, test.value)
+					env.DatabasePort, test.value)
 			}
 		})
+	}
+}
+
+func TestLoadUsesTheDefaultPortOfTheDatabaseWhenThePortIsEmpty(t *testing.T) {
+	clearEnvironment(t)
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "s3cr3t")
+	t.Setenv(env.PostgresDB, "paca")
+	t.Setenv(env.DatabasePort, "  ")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	if parsed.Port() != env.DefaultDatabasePort {
+		t.Fatalf("port = %q, want the default %q", parsed.Port(), env.DefaultDatabasePort)
+	}
+}
+
+func TestLoadReadsTheCredentialsWhenTheConnectionStringIsEmpty(t *testing.T) {
+	clearEnvironment(t)
+	t.Setenv(env.DatabaseURL, "  ")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, "s3cr3t")
+	t.Setenv(env.PostgresDB, "paca")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	parsed, err := url.Parse(cfg.Database.URL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", cfg.Database.URL, err)
+	}
+	if parsed.Host != env.DefaultDatabaseHost+":"+env.DefaultDatabasePort {
+		t.Fatalf("host = %q, want the host of the credentials", parsed.Host)
+	}
+	if cfg.Database.CredentialsIncomplete {
+		t.Fatal("the credentials are incomplete, want the ones that were read")
 	}
 }
 
 func TestLoadKeepsTheSpacesOfThePassword(t *testing.T) {
 	clearEnvironment(t)
 
-	t.Setenv(config.EnvPostgresUser, "paca")
-	t.Setenv(config.EnvPostgresPassword, " s3cr3t ")
-	t.Setenv(config.EnvPostgresDB, "paca")
+	t.Setenv(env.PostgresUser, "paca")
+	t.Setenv(env.PostgresPassword, " s3cr3t ")
+	t.Setenv(env.PostgresDB, "paca")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -344,13 +391,13 @@ func TestLoadRunsWithoutADatabaseWhenTheCredentialsAreIncomplete(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			clearEnvironment(t)
 			if test.user != nil {
-				t.Setenv(config.EnvPostgresUser, *test.user)
+				t.Setenv(env.PostgresUser, *test.user)
 			}
 			if test.password != nil {
-				t.Setenv(config.EnvPostgresPassword, *test.password)
+				t.Setenv(env.PostgresPassword, *test.password)
 			}
 			if test.database != nil {
-				t.Setenv(config.EnvPostgresDB, *test.database)
+				t.Setenv(env.PostgresDB, *test.database)
 			}
 
 			cfg, err := config.Load()
@@ -416,7 +463,6 @@ func TestLoadRejectsAnInvalidSetting(t *testing.T) {
 		{name: "a body limit that is zero", key: config.EnvMaxRequestBytes, value: "0"},
 		{name: "a log level that does not exist", key: logging.Level, value: "loud"},
 		{name: "an empty version", key: env.ServiceVersion, value: " "},
-		{name: "an empty connection string", key: config.EnvDatabaseURL, value: " "},
 		{name: "a number of connections that is not a number", key: config.EnvDatabaseMaxConns, value: "many"},
 		{name: "a number of connections that is zero", key: config.EnvDatabaseMaxConns, value: "0"},
 		{name: "a negative number of connections", key: config.EnvDatabaseMaxConns, value: "-1"},
@@ -592,5 +638,95 @@ func TestLoadRejectsAnInvalidTracing(t *testing.T) {
 					test.key, test.value, err.Error(), test.message)
 			}
 		})
+	}
+}
+
+// TestLoadRefusesABindThatIsNotTheLoopback proves that the server refuses
+// to be reachable from the network of the machine unless the operator says
+// so.
+//
+// The tools of the server carry the data of the people: a bind that is not
+// the loopback interface is a bind that the network of the machine reaches.
+func TestLoadRefusesABindThatIsNotTheLoopback(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvHost, "0.0.0.0")
+
+	_, err := config.Load()
+	if err == nil {
+		t.Fatal("Load() = nil, want the refusal of the bind")
+	}
+	if !strings.Contains(err.Error(), config.EnvAllowNonLoopback) {
+		t.Errorf("the error does not name the variable that allows it: %v", err)
+	}
+}
+
+// TestLoadAcceptsTheLoopback proves that the server binds the loopback
+// interface without asking for anything.
+func TestLoadAcceptsTheLoopback(t *testing.T) {
+	clearEnvironment(t)
+
+	for _, host := range []string{"127.0.0.1", "::1", "localhost"} {
+		t.Setenv(config.EnvHost, host)
+
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatalf("Load() with the host %q = %v", host, err)
+		}
+		if cfg.Host != host {
+			t.Errorf("the host is %q, want %q", cfg.Host, host)
+		}
+	}
+}
+
+// TestLoadReadsTheHostsTheServerAnswersFor proves that the allowlist of the
+// hosts comes from the environment, and that the loopback is the default.
+func TestLoadReadsTheHostsTheServerAnswersFor(t *testing.T) {
+	clearEnvironment(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if len(cfg.AllowedHosts) != 3 {
+		t.Fatalf("the hosts are %v, want the three of the loopback", cfg.AllowedHosts)
+	}
+
+	t.Setenv(config.EnvAllowedHosts, "paca-mcp-server, localhost ")
+
+	cfg, err = config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := []string{"paca-mcp-server", "localhost"}
+	if !slices.Equal(cfg.AllowedHosts, want) {
+		t.Errorf("the hosts are %v, want %v", cfg.AllowedHosts, want)
+	}
+}
+
+// TestLoadReadsTheOriginsTheServerTrusts proves that the origins come from
+// the environment, and that an origin the standard library would not read is
+// an error and not a panic.
+func TestLoadReadsTheOriginsTheServerTrusts(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvTrustedOrigins, "https://console.example.com")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := []string{"https://console.example.com"}
+	if !slices.Equal(cfg.TrustedOrigins, want) {
+		t.Errorf("the origins are %v, want %v", cfg.TrustedOrigins, want)
+	}
+
+	t.Setenv(config.EnvTrustedOrigins, "console.example.com")
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load() = nil, want the error of the origin")
 	}
 }

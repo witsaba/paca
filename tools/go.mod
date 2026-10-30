@@ -13,6 +13,7 @@ tool (
 	github.com/pressly/goose/v3/cmd/goose
 	github.com/sqlc-dev/sqlc/cmd/sqlc
 	golang.org/x/vuln/cmd/govulncheck
+	golang.org/x/tools/cmd/deadcode
 )
 
 require (

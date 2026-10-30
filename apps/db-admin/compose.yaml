@@ -39,6 +39,10 @@ services:
     stop_grace_period: 15s
     # The credentials of the database live with the stack that owns them.
     # They are written once, and they travel to the service from there.
+    #
+    # The stack does not set `PACA_DATABASE_URL`: the connection string is
+    # assembled by the service out of the credentials above, and a value
+    # that an operator sets outside the stack is not shadowed by it.
     env_file:
       - path: ../../db/postgres/.env
         required: false

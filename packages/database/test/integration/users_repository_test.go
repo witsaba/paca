@@ -386,3 +386,86 @@ func guardDefinition(ctx context.Context, t *testing.T, name string) string {
 
 	return definition
 }
+
+// TestTheRepositoryReadsThePersonOfTheDocument proves that the adapter
+// reads the person that the document ID carries.
+//
+// The read is a method of the port of the storage: the tool that reads the
+// data of a person needs it, and the port holds the methods the use cases
+// call.
+func TestTheRepositoryReadsThePersonOfTheDocument(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	id := nextIdentifier()
+	registered := registerUser(t, repo, id, "The Person Of The Read")
+
+	found, err := repo.Find(ctx, user.ID(id))
+	if err != nil {
+		t.Fatalf("the person could not be read: %v", err)
+	}
+
+	if found.ID != registered.ID {
+		t.Errorf("the document is %d, want %d", found.ID, registered.ID)
+	}
+	if found.FullName != registered.FullName {
+		t.Errorf("the name is %q, want %q", found.FullName, registered.FullName)
+	}
+	if found.Status != registered.Status {
+		t.Errorf("the state is %q, want %q", found.Status, registered.Status)
+	}
+}
+
+// TestTheRepositorySaysThatNoUserCarriesTheDocument proves that the read of
+// a document that nobody carries is the error of the domain, and not an
+// error of the database.
+func TestTheRepositorySaysThatNoUserCarriesTheDocument(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	if _, err := repo.Find(ctx, user.ID(nextIdentifier())); !errors.Is(err, user.ErrNotFound) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrNotFound)
+	}
+}
+
+// TestTheRepositoryListsThePeopleItHolds proves that the adapter lists the
+// people of the storage, in the order of their document ID, and that it
+// answers at most the number of people the caller asked for.
+func TestTheRepositoryListsThePeopleItHolds(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	first := nextIdentifier()
+	second := nextIdentifier()
+	registerUser(t, repo, first, "The First Of The List")
+	registerUser(t, repo, second, "The Second Of The List")
+
+	listed, err := repo.List(ctx, 1)
+	if err != nil {
+		t.Fatalf("the people could not be listed: %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("the list holds %d people, want 1", len(listed))
+	}
+
+	every, err := repo.List(ctx, 10)
+	if err != nil {
+		t.Fatalf("the people could not be listed: %v", err)
+	}
+	if len(every) < 2 {
+		t.Fatalf("the list holds %d people, want the two of the test", len(every))
+	}
+
+	for index := 1; index < len(every); index++ {
+		if every[index-1].ID > every[index].ID {
+			t.Errorf("the list is not in the order of the document ID: %d before %d",
+				every[index-1].ID, every[index].ID)
+		}
+	}
+}

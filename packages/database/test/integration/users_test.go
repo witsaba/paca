@@ -696,28 +696,49 @@ func TestApplyingTheMigrationsTwiceChangesNothing(t *testing.T) {
 	}
 }
 
-// TestTheMigratorReportsTheStateOfTheSchema proves that the single writer
-// tells the truth about the schema it wrote.
+// TestTheSchemaWasWrittenByTheSingleWriter proves that the single writer
+// wrote the schema it says it wrote.
+//
+// The test reads the table of the migrations of the database itself: the
+// writer is the only one that writes it, and the table is the proof that it
+// did.
 //
 // The test does not run in parallel with the others: the single writer takes
 // a lock of the database, and two of them at once would wait for each other.
-func TestTheMigratorReportsTheStateOfTheSchema(t *testing.T) {
+func TestTheSchemaWasWrittenByTheSingleWriter(t *testing.T) {
 	ctx := context.Background()
 
-	status, err := theSuite.migrator.Status(ctx)
+	rows, err := theSuite.db.QueryContext(ctx, `
+		SELECT version_id, is_applied, tstamp
+		FROM goose_db_version
+		ORDER BY version_id`)
 	if err != nil {
-		t.Fatalf("the state of the migrations could not be read: %v", err)
+		t.Fatalf("the migrations of the database could not be read: %v", err)
 	}
-	if len(status) == 0 {
-		t.Fatal("the migrator reports no migration, want the one of the users table")
+	defer rows.Close()
+
+	applied := 0
+	for rows.Next() {
+		var version int64
+		var isApplied bool
+		var moment time.Time
+		if err := rows.Scan(&version, &isApplied, &moment); err != nil {
+			t.Fatalf("a migration of the database could not be read: %v", err)
+		}
+
+		if !isApplied {
+			t.Errorf("the migration %d is not applied, want it applied", version)
+		}
+		if moment.IsZero() {
+			t.Errorf("the migration %d has no moment of application, want one", version)
+		}
+		applied++
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("the migrations of the database could not be read: %v", err)
 	}
 
-	for _, migration := range status {
-		if !migration.Applied {
-			t.Errorf("the migration %d is not applied, want it applied", migration.Version)
-		}
-		if migration.AppliedAt.IsZero() {
-			t.Errorf("the migration %d has no moment of application, want one", migration.Version)
-		}
+	if applied == 0 {
+		t.Fatal("the database holds no migration, want the ones of the users table")
 	}
 }

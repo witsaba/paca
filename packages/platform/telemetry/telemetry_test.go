@@ -1,10 +1,13 @@
 package telemetry_test
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"sync"
 	"testing"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -272,8 +275,7 @@ func TestTheShutdownOfAServiceThatDoesNotTraceIsQuiet(t *testing.T) {
 }
 
 func TestThePropagatorCarriesTheTraceContext(t *testing.T) {
-	providers, err := telemetry.Setup(context.Background(), telemetry.Options{Enabled: false})
-	if err != nil {
+	if _, err := telemetry.Setup(context.Background(), telemetry.Options{Enabled: false}); err != nil {
 		t.Fatalf("Setup() = %v", err)
 	}
 
@@ -285,9 +287,25 @@ func TestThePropagatorCarriesTheTraceContext(t *testing.T) {
 	ctx := trace.ContextWithSpanContext(context.Background(), spanContext)
 
 	carrier := propagation.MapCarrier{}
-	providers.Propagator.Inject(ctx, carrier)
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
 
 	if _, ok := carrier["traceparent"]; !ok {
 		t.Fatalf("the carrier holds %v, want a trace context", carrier)
+	}
+}
+
+func TestStoppingTheTelemetryOfAServiceThatDoesNotTraceIsClean(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	providers, err := telemetry.Setup(context.Background(), telemetry.Options{})
+	if err != nil {
+		t.Fatalf("Setup() = %v", err)
+	}
+
+	telemetry.Stop(logger, providers)
+
+	if logs.Len() != 0 {
+		t.Fatalf("the log of the shutdown = %q, want nothing", logs.String())
 	}
 }

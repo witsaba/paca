@@ -78,16 +78,28 @@ The credentials of the database live with the stack that owns them —
 compose file of the service loads that file with `env_file`, and the service
 assembles the connection string out of it. The rules are, in this order:
 
-1. `PACA_DATABASE_URL` — the whole connection string. When it is set, it
-   wins, and **nothing else is read**: a hosted database, or a URL built by
-   hand, needs nothing else.
+1. `PACA_DATABASE_URL` — the whole connection string. When it carries a
+   value, it wins, and **nothing else is read**: a hosted database, or a URL
+   built by hand, needs nothing else.
 2. Otherwise the connection string is assembled from the credentials of the
    PostgreSQL stack — `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`
    — with `PACA_DATABASE_HOST` (default `postgres`) and `PACA_DATABASE_PORT`
    (default `5432`).
 
+**An empty value is no value.** The installer of the environment never
+writes one, so `PACA_DATABASE_URL=` is a variable that is not set: the
+credentials are read instead.
+
 Credentials that are half there are an error: the service says which of them
 is missing and exits. An invalid value is an error, never a silent fallback.
+
+### Where the variables of the database come from
+
+| Variable                    | Who writes it                                                  |
+|-----------------------------|-----------------------------------------------------------------|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | The stack that owns the credentials: the manifest `db/postgres/env.example`, written by `make env-init` into `db/postgres/.env` and carried to the service by the `env_file` of its compose file. |
+| `PACA_DATABASE_HOST`, `PACA_DATABASE_PORT` | The compose file of the service: the container of the database of the monorepository. |
+| `PACA_DATABASE_URL`         | The operator, when the database is not the one of the stack. The stack does not set it, so a value that comes from outside is not shadowed. |
 
 ### The migrations
 
@@ -165,7 +177,7 @@ silent fallback.
 | `PACA_DB_ADMIN_DATABASE_WAIT_TIMEOUT` | `60s` | How long the writer waits for the database to answer when it starts. |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the health report carries.   |
-| `PACA_DATABASE_URL`         | *empty*     | The whole connection string of the database. When it is set, it wins and nothing else is read. |
+| `PACA_DATABASE_URL`         | *empty*     | The whole connection string of the database. When it carries a value, it wins and nothing else is read. An empty value is no value: the credentials are read instead. |
 | `PACA_DATABASE_HOST`        | `postgres`  | The host of the database, when the connection string is assembled. |
 | `PACA_DATABASE_PORT`        | `5432`      | The port of the database, when the connection string is assembled. |
 | `POSTGRES_USER`             | *empty*     | The role that owns the database.                      |

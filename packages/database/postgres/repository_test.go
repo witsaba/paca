@@ -179,7 +179,7 @@ func TestTheRepositoryWithoutADatabaseRefusesToWork(t *testing.T) {
 	if _, err := repository.Create(t.Context(), 1, user.Details{}); !errors.Is(err, ErrNoRepository) {
 		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
 	}
-	if _, err := repository.GetByID(t.Context(), 1); !errors.Is(err, ErrNoRepository) {
+	if _, err := repository.getByID(t.Context(), 1); !errors.Is(err, ErrNoRepository) {
 		t.Errorf("the error is %v, want %v", err, ErrNoRepository)
 	}
 	if _, err := repository.UpdateDetails(t.Context(), 1, user.Details{}); !errors.Is(err, ErrNoRepository) {

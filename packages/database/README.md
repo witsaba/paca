@@ -110,13 +110,15 @@ The adapter writes the people through the port of the domain
 
 ```go
 Create(ctx, id, details) (user.User, error)
-GetByID(ctx, id) (user.User, error)
 UpdateDetails(ctx, id, details) (user.User, error)
 ChangeStatus(ctx, id, status, observation) (user.User, error)
 ```
 
 There is no delete and no list: a person that must go is `blocked`, and
-nothing consumes a list yet.
+nothing consumes a list yet. There is no read either: the port holds the
+methods the use cases call, and none of them asks for a person by its
+document. The adapter reads the row it needs by itself, when the move of a
+state needs it.
 
 **The writes are direct.** The adapter does not read a row to find out
 whether it may write it: the insert tells the truth with its primary key,

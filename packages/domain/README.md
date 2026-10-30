@@ -106,13 +106,15 @@ The domain publishes the port of the storage of the people:
 
 ```go
 Create(ctx, id, details) (user.User, error)
-GetByID(ctx, id) (user.User, error)
 UpdateDetails(ctx, id, details) (user.User, error)
 ChangeStatus(ctx, id, status, observation) (user.User, error)
 ```
 
 There is no delete and no list: a person that must go is `blocked`, and
-nothing consumes a list yet.
+nothing consumes a list yet. There is no read either: no use case asks for
+a person by its document, and a port holds the methods the use cases call.
+The adapter reads the row it needs by itself, when the move of a state
+needs it.
 
 The port is what a use case needs, not the shape of a table. It lives here,
 in the module of the models, because both sides of it need it: the service

@@ -174,3 +174,64 @@ func TestDurationRejectsAValueThatIsNotADuration(t *testing.T) {
 		t.Fatalf("error = %q, want %q", err.Error(), want)
 	}
 }
+
+func TestBoolReadsABoolean(t *testing.T) {
+	t.Parallel()
+
+	value, err := env.Bool(func(string) (string, bool) {
+		return "true", true
+	}, "PACA_TEST_SWITCH")
+
+	if err != nil {
+		t.Fatalf("Bool() = %v", err)
+	}
+	if !value {
+		t.Fatal("Bool() = false, want true")
+	}
+}
+
+func TestBoolReadsAFalse(t *testing.T) {
+	t.Parallel()
+
+	value, err := env.Bool(func(string) (string, bool) {
+		return "FALSE", true
+	}, "PACA_TEST_SWITCH")
+
+	if err != nil {
+		t.Fatalf("Bool() = %v", err)
+	}
+	if value {
+		t.Fatal("Bool() = true, want false")
+	}
+}
+
+func TestBoolReadsAVariableThatIsNotSetAsFalse(t *testing.T) {
+	t.Parallel()
+
+	value, err := env.Bool(func(string) (string, bool) {
+		return "", false
+	}, "PACA_TEST_SWITCH")
+
+	if err != nil {
+		t.Fatalf("Bool() = %v", err)
+	}
+	if value {
+		t.Fatal("Bool() = true, want false")
+	}
+}
+
+func TestBoolRejectsAValueThatIsNotABoolean(t *testing.T) {
+	t.Parallel()
+
+	_, err := env.Bool(func(string) (string, bool) {
+		return "maybe", true
+	}, "PACA_TEST_SWITCH")
+	if err == nil {
+		t.Fatal("Bool() = nil, want an error")
+	}
+
+	want := `PACA_TEST_SWITCH: "maybe" is not true or false`
+	if err.Error() != want {
+		t.Fatalf("error = %q, want %q", err.Error(), want)
+	}
+}

@@ -43,6 +43,14 @@ services:
       # containers of the stack reach it. It publishes no port, so the host
       # does not.
       PACA_MCP_HOST: "0.0.0.0"
+      # The server refuses to bind an address that is not the loopback
+      # interface, because it carries the data of the people. The container
+      # is the deployment where the other containers of the stack reach it,
+      # over a network that has no route to the internet.
+      PACA_MCP_ALLOW_NON_LOOPBACK: "true"
+      # The hosts the server answers for: the name of the container, and
+      # the loopback for the requests that come from the machine itself.
+      PACA_MCP_ALLOWED_HOSTS: "paca-mcp-server,localhost,127.0.0.1,[::1]"
       # The port reserved for the MCP server of the monorepository.
       PACA_MCP_PORT: "8081"
       PACA_LOG_LEVEL: "info"

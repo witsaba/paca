@@ -165,6 +165,9 @@ silent fallback.
 | `PACA_MCP_SHUTDOWN_TIMEOUT` | `10s`       | The grace period of the shutdown.                     |
 | `PACA_MCP_CHECK_TIMEOUT`    | `2s`        | The bound of a single health check.                   |
 | `PACA_MCP_MAX_REQUEST_BYTES`| `4MiB`      | The largest body the MCP transport accepts.           |
+| `PACA_MCP_ALLOW_NON_LOOPBACK` | `false`  | The server may bind an address that is not the loopback interface. The container sets it: it is the deployment where the other containers of the stack reach the server. |
+| `PACA_MCP_ALLOWED_HOSTS`    | `localhost,127.0.0.1,[::1]` | The hosts the server answers for. The `Host` header of a request that names another one is refused. The container names itself. |
+| `PACA_MCP_TRUSTED_ORIGINS`  | *empty*     | The origins the server trusts. The rule of the standard library — the same origin as the `Host` header — is the rule when the list is empty. |
 | `PACA_LOG_LEVEL`            | `info`      | The verbosity of the logs: `debug`, `info`, `warn`, `error`. |
 | `PACA_SERVICE_VERSION`      | the version of the binary | The version the clients see.             |
 | `PACA_DATABASE_URL`         | *empty*     | The connection string of the database. When it is set, it wins and nothing else is read. Empty means the server runs without one. |
@@ -296,7 +299,21 @@ protocol, and that it keeps its transport to itself.
 - The DNS-rebinding protection of the MCP SDK stays on: a request that
   arrives through the loopback interface with a foreign `Host` header is
   rejected.
-- The cross-origin protection of the standard library stays on: a
+- The server **refuses a bind that is not the loopback interface**, unless
+  the operator allows it with `PACA_MCP_ALLOW_NON_LOOPBACK`. The tools
+  carry the data of the people, and a bind that the network of the machine
+  reaches is a bind that anybody on the network reaches. The container is
+  the deployment where the other containers of the stack reach the server,
+  over a network that has no route to the internet, and the compose file of
+  the service says so.
+- The server **answers only for the hosts of its allowlist**
+  (`PACA_MCP_ALLOWED_HOSTS`): the `Host` header of a request that names
+  another host is refused with a `403`, and the refusal never reaches the
+  tools. The default is the loopback, and the container names itself.
+- The cross-origin protection of the standard library stays on, and its rule
+  is **stated and not left to the default**: the service trusts the origins
+  of `PACA_MCP_TRUSTED_ORIGINS`, and the rule of the standard library — the
+  same origin as the `Host` header — is the rule when the list is empty. A
   cross-origin request from a browser is rejected, and the requests of a
   client that is not a browser are let through.
 - The body of a request is bounded, the headers are bounded, and the header
@@ -306,8 +323,9 @@ protocol, and that it keeps its transport to itself.
 - The five tools carry **personal data**: the document, the name, the phone
   and the email of a person. The boundary has not moved — it is still the
   network — and the hardening that was proposed for it (refusing a bind that
-  is not loopback, a Host allowlist and the explicit Origin rule) is still
-  open. It is now worth more than it was.
+  is not loopback, a Host allowlist and the explicit Origin rule) is closed.
+  There is still no authentication: the token and the TLS come with the
+  first tool that needs them.
 
 ## The versions
 

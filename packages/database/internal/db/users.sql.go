@@ -116,10 +116,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, full_name, status, status_observations, phone, email, created_at, updated_at FROM users ORDER BY id LIMIT $1
+SELECT id, full_name, status, status_observations, phone, email, created_at, updated_at FROM users ORDER BY id LIMIT $1::bigint
 `
 
-func (q *Queries) ListUsers(ctx context.Context, rowLimit int32) ([]User, error) {
+func (q *Queries) ListUsers(ctx context.Context, rowLimit int64) ([]User, error) {
 	rows, err := q.db.Query(ctx, listUsers, rowLimit)
 	if err != nil {
 		return nil, err

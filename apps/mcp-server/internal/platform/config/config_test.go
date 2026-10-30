@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +90,7 @@ func TestLoadReadsTheEnvironment(t *testing.T) {
 	clearEnvironment(t)
 
 	t.Setenv(config.EnvHost, "0.0.0.0")
+	t.Setenv(config.EnvAllowNonLoopback, "true")
 	t.Setenv(config.EnvPort, "9000")
 	t.Setenv(config.EnvShutdownTimeout, "30s")
 	t.Setenv(config.EnvCheckTimeout, "5s")
@@ -635,5 +638,95 @@ func TestLoadRejectsAnInvalidTracing(t *testing.T) {
 					test.key, test.value, err.Error(), test.message)
 			}
 		})
+	}
+}
+
+// TestLoadRefusesABindThatIsNotTheLoopback proves that the server refuses
+// to be reachable from the network of the machine unless the operator says
+// so.
+//
+// The tools of the server carry the data of the people: a bind that is not
+// the loopback interface is a bind that the network of the machine reaches.
+func TestLoadRefusesABindThatIsNotTheLoopback(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvHost, "0.0.0.0")
+
+	_, err := config.Load()
+	if err == nil {
+		t.Fatal("Load() = nil, want the refusal of the bind")
+	}
+	if !strings.Contains(err.Error(), config.EnvAllowNonLoopback) {
+		t.Errorf("the error does not name the variable that allows it: %v", err)
+	}
+}
+
+// TestLoadAcceptsTheLoopback proves that the server binds the loopback
+// interface without asking for anything.
+func TestLoadAcceptsTheLoopback(t *testing.T) {
+	clearEnvironment(t)
+
+	for _, host := range []string{"127.0.0.1", "::1", "localhost"} {
+		t.Setenv(config.EnvHost, host)
+
+		cfg, err := config.Load()
+		if err != nil {
+			t.Fatalf("Load() with the host %q = %v", host, err)
+		}
+		if cfg.Host != host {
+			t.Errorf("the host is %q, want %q", cfg.Host, host)
+		}
+	}
+}
+
+// TestLoadReadsTheHostsTheServerAnswersFor proves that the allowlist of the
+// hosts comes from the environment, and that the loopback is the default.
+func TestLoadReadsTheHostsTheServerAnswersFor(t *testing.T) {
+	clearEnvironment(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	if len(cfg.AllowedHosts) != 3 {
+		t.Fatalf("the hosts are %v, want the three of the loopback", cfg.AllowedHosts)
+	}
+
+	t.Setenv(config.EnvAllowedHosts, "paca-mcp-server, localhost ")
+
+	cfg, err = config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := []string{"paca-mcp-server", "localhost"}
+	if !slices.Equal(cfg.AllowedHosts, want) {
+		t.Errorf("the hosts are %v, want %v", cfg.AllowedHosts, want)
+	}
+}
+
+// TestLoadReadsTheOriginsTheServerTrusts proves that the origins come from
+// the environment, and that an origin the standard library would not read is
+// an error and not a panic.
+func TestLoadReadsTheOriginsTheServerTrusts(t *testing.T) {
+	clearEnvironment(t)
+
+	t.Setenv(config.EnvTrustedOrigins, "https://console.example.com")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() = %v", err)
+	}
+
+	want := []string{"https://console.example.com"}
+	if !slices.Equal(cfg.TrustedOrigins, want) {
+		t.Errorf("the origins are %v, want %v", cfg.TrustedOrigins, want)
+	}
+
+	t.Setenv(config.EnvTrustedOrigins, "console.example.com")
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("Load() = nil, want the error of the origin")
 	}
 }

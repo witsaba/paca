@@ -111,6 +111,7 @@ func New(
 		Instructions:        Instructions,
 		Logger:              logger,
 		MaxRequestBodyBytes: cfg.MaxRequestBytes,
+		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
 	})
 
@@ -119,6 +120,7 @@ func New(
 		MCP:            mcpServer.Handler(),
 		Logger:         logger,
 		TracerProvider: tracerProvider,
+		AllowedHosts:   cfg.AllowedHosts,
 	})
 
 	return &App{

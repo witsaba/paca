@@ -36,6 +36,7 @@ func startService(t *testing.T, version string, mutate func(*config.Config)) str
 		CheckTimeout:    time.Second,
 		MaxRequestBytes: 1 << 20,
 		LogLevel:        slog.LevelInfo,
+		AllowedHosts:    []string{"127.0.0.1", "localhost"},
 	}
 	if mutate != nil {
 		mutate(&cfg)

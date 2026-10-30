@@ -57,7 +57,10 @@ func startServer(t *testing.T) string {
 				// test reaches it the way the other containers of the stack
 				// do.
 				"PACA_MCP_HOST": "0.0.0.0",
-				"PACA_MCP_PORT": containerPort,
+				// The container is the deployment where the server binds an
+				// address that is not the loopback interface.
+				"PACA_MCP_ALLOW_NON_LOOPBACK": "true",
+				"PACA_MCP_PORT":               containerPort,
 			},
 			WaitingFor: wait.ForHTTP("/healthz").
 				WithPort(containerPort + "/tcp").

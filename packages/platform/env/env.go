@@ -105,6 +105,27 @@ func Secret(lookup Lookup, name string) (string, bool) {
 	return raw, true
 }
 
+// Bool reads a boolean from the raw value of a variable.
+//
+// The value is "true" or "false", in any case. Anything else is an error,
+// and the error names the variable: a setting that is half understood is a
+// setting nobody asked for.
+func Bool(lookup Lookup, name string) (bool, error) {
+	raw, ok := lookup(name)
+	if !ok {
+		return false, nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%s: %q is not true or false", name, raw)
+	}
+}
+
 // Duration reads a duration from the raw value of a variable.
 //
 // The error names the variable, so an operator knows which one to fix.

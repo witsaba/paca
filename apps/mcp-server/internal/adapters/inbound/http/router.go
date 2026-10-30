@@ -28,6 +28,9 @@ type RouterConfig struct {
 	// TracerProvider creates the spans of the requests. A router without
 	// one does not trace the requests it serves.
 	TracerProvider trace.TracerProvider
+	// AllowedHosts are the hosts the router answers for. The Host header
+	// of a request that names another one is refused.
+	AllowedHosts []string
 }
 
 // NewRouter builds the HTTP handler of the service.
@@ -49,9 +52,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("GET "+HealthPath, NewHealthHandler(cfg.Health))
 	mux.Handle(MCPPath, cfg.MCP)
 
-	return server.NewMiddleware(server.MiddlewareConfig{
+	// The filter of the host is the outer layer: a request that names a
+	// host the service does not answer for never reaches the service, and
+	// it leaves no trace behind.
+	handler := server.NewMiddleware(server.MiddlewareConfig{
 		Logger:         cfg.Logger,
 		TracerProvider: cfg.TracerProvider,
 		UntracedPaths:  []string{HealthPath},
 	}, mux)
+
+	return server.HostFilter(cfg.AllowedHosts)(handler)
 }

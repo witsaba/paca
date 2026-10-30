@@ -50,8 +50,9 @@ func TestTheRouterServesTheHealthEndpoint(t *testing.T) {
 			Identity: health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 			Status:   health.StatusOK,
 		}},
-		MCP:    &countingHandler{},
-		Logger: discardLogger(),
+		MCP:          &countingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -66,9 +67,10 @@ func TestTheRouterRejectsTheWrongMethodOnTheHealthEndpoint(t *testing.T) {
 	t.Parallel()
 
 	router := adapter.NewRouter(adapter.RouterConfig{
-		Health: &fakeQuerier{},
-		MCP:    &countingHandler{},
-		Logger: discardLogger(),
+		Health:       &fakeQuerier{},
+		MCP:          &countingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -83,9 +85,10 @@ func TestTheRouterAnswersNotFoundForAnUnknownPath(t *testing.T) {
 	t.Parallel()
 
 	router := adapter.NewRouter(adapter.RouterConfig{
-		Health: &fakeQuerier{},
-		MCP:    &countingHandler{},
-		Logger: discardLogger(),
+		Health:       &fakeQuerier{},
+		MCP:          &countingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -101,9 +104,10 @@ func TestTheRouterForwardsTheMCPTransport(t *testing.T) {
 
 	transport := &countingHandler{}
 	router := adapter.NewRouter(adapter.RouterConfig{
-		Health: &fakeQuerier{},
-		MCP:    transport,
-		Logger: discardLogger(),
+		Health:       &fakeQuerier{},
+		MCP:          transport,
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -121,9 +125,10 @@ func TestTheRouterTurnsABrokenTransportIntoAnInternalServerError(t *testing.T) {
 	t.Parallel()
 
 	router := adapter.NewRouter(adapter.RouterConfig{
-		Health: &fakeQuerier{},
-		MCP:    &panickingHandler{},
-		Logger: discardLogger(),
+		Health:       &fakeQuerier{},
+		MCP:          &panickingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -146,6 +151,7 @@ func TestTheRouterTracesTheRequest(t *testing.T) {
 		MCP:            &countingHandler{},
 		Logger:         discardLogger(),
 		TracerProvider: provider,
+		AllowedHosts:   []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -175,6 +181,7 @@ func TestTheRouterDoesNotTraceTheHealthEndpoint(t *testing.T) {
 		MCP:            &countingHandler{},
 		Logger:         discardLogger(),
 		TracerProvider: provider,
+		AllowedHosts:   []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -202,6 +209,7 @@ func TestTheRouterKeepsTheTraceOfTheCaller(t *testing.T) {
 		MCP:            &countingHandler{},
 		Logger:         discardLogger(),
 		TracerProvider: provider,
+		AllowedHosts:   []string{"example.com"},
 	})
 
 	request := httptest.NewRequest(http.MethodPost, adapter.MCPPath, nil)
@@ -223,9 +231,10 @@ func TestTheRouterSetsTheSecurityHeaders(t *testing.T) {
 	t.Parallel()
 
 	router := adapter.NewRouter(adapter.RouterConfig{
-		Health: &fakeQuerier{},
-		MCP:    &countingHandler{},
-		Logger: discardLogger(),
+		Health:       &fakeQuerier{},
+		MCP:          &countingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"example.com"},
 	})
 
 	recorder := httptest.NewRecorder()
@@ -239,5 +248,28 @@ func TestTheRouterSetsTheSecurityHeaders(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Referrer-Policy"); got != "no-referrer" {
 		t.Fatalf("Referrer-Policy = %q, want %q", got, "no-referrer")
+	}
+}
+
+// TestTheRouterRefusesAHostItDoesNotAnswerFor proves that the router
+// refuses the requests that name a host the service does not answer for.
+//
+// The tools of the server carry the data of the people, and a request that
+// was meant for another service must not reach them.
+func TestTheRouterRefusesAHostItDoesNotAnswerFor(t *testing.T) {
+	t.Parallel()
+
+	router := adapter.NewRouter(adapter.RouterConfig{
+		Health:       &fakeQuerier{},
+		MCP:          &countingHandler{},
+		Logger:       discardLogger(),
+		AllowedHosts: []string{"paca-mcp-server"},
+	})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, adapter.MCPPath, nil))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
 	}
 }

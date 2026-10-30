@@ -19,7 +19,7 @@ RETURNING *;
 SELECT * FROM users WHERE id = sqlc.arg(id);
 
 -- name: ListUsers :many
-SELECT * FROM users ORDER BY id LIMIT sqlc.arg(row_limit);
+SELECT * FROM users ORDER BY id LIMIT sqlc.arg(row_limit)::bigint;
 
 -- name: UpdateUserDetails :one
 UPDATE users

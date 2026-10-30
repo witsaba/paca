@@ -124,7 +124,7 @@ func (r *UserRepository) List(ctx context.Context, limit int) ([]user.User, erro
 		return nil, user.ErrNoStorage
 	}
 
-	rows, err := r.queries.ListUsers(ctx, int32(limit))
+	rows, err := r.queries.ListUsers(ctx, int64(limit))
 	if err != nil {
 		return nil, writeError(err)
 	}

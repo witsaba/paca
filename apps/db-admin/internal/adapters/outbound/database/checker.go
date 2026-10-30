@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -34,31 +33,6 @@ func (pendingError) Is(target error) bool {
 	return target == health.ErrDegraded || target == ErrPendingMigrations
 }
 
-// Pinger asks the database whether it answers.
-//
-// The pinger holds the same handle of the database as the migrator: the
-// service opens one connection to the database, and both the migrations and
-// the health check go through it.
-type Pinger struct {
-	db *sql.DB
-}
-
-// NewPinger builds the pinger of the database.
-func NewPinger(db *sql.DB) *Pinger {
-	return &Pinger{db: db}
-}
-
-// Ping asks the database whether it answers.
-func (p *Pinger) Ping(ctx context.Context) error {
-	if p == nil || p.db == nil {
-		return ports.ErrNoDatabase
-	}
-	if err := p.db.PingContext(ctx); err != nil {
-		return fmt.Errorf("the database did not answer: %w", err)
-	}
-	return nil
-}
-
 // Checker reports whether the database answers and whether the schema of it
 // is up to date.
 //
@@ -70,6 +44,9 @@ type Checker struct {
 }
 
 // NewChecker builds the checker of the database.
+//
+// The pinger is the port of the capability: the pool of the library answers
+// the question, and the adapter never names the handle that answers it.
 func NewChecker(pinger ports.Pinger, migrator ports.Migrator) *Checker {
 	return &Checker{pinger: pinger, migrator: migrator}
 }

@@ -13,12 +13,10 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
@@ -26,6 +24,8 @@ import (
 	"github.com/witsaba/paca/apps/db-admin/internal/application"
 	"github.com/witsaba/paca/apps/db-admin/internal/platform/config"
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	core "github.com/witsaba/paca/packages/database"
+	"github.com/witsaba/paca/packages/database/postgres"
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/schema"
 	"github.com/witsaba/paca/packages/platform/clock"
@@ -33,11 +33,11 @@ import (
 )
 
 // App is the assembled service: the HTTP server that hosts the health
-// endpoint, and the connection to the database it wrote the schema with.
+// endpoint, and the pool of connections it wrote the schema with.
 type App struct {
 	server *server.Server
 	logger *slog.Logger
-	db     *sql.DB
+	pool   *postgres.Pool
 }
 
 // New assembles the service.
@@ -61,35 +61,39 @@ func New(
 
 	startedAt := time.Now()
 
-	db, err := openDatabase(ctx, cfg, logger)
+	pool, err := openDatabase(ctx, cfg, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	// The migrator of the core is the single writer of the schema: the
-	// service never writes a migration of its own.
-	migrator, err := database.NewMigrator(db, logger)
+	// The migrator of the library is the single writer of the schema: the
+	// service never writes a migration of its own. It is built here, over
+	// the pool of the library, because this is the only place that knows
+	// every layer.
+	libraryMigrator, err := core.NewMigrator(pool.SQL(), logger)
 	if err != nil {
-		closeDatabase(logger, db)
-		return nil, err
+		pool.Close()
+		return nil, fmt.Errorf("the migrator of the database library could not be created: %w", err)
 	}
+	migrator := database.NewMigrator(libraryMigrator)
 
 	migrateService, err := application.NewMigrateService(migrator)
 	if err != nil {
-		closeDatabase(logger, db)
+		pool.Close()
 		return nil, err
 	}
 
 	state, err := migrateService.Migrate(ctx)
 	if err != nil {
-		closeDatabase(logger, db)
+		pool.Close()
 		return nil, fmt.Errorf("the migrations could not be applied: %w", err)
 	}
 	logSchema(logger, state)
 
 	// The database is the only component of the service: the service does
 	// nothing but the database, so the health report carries one check.
-	checker := database.NewChecker(database.NewPinger(db), migrator)
+	// The pool of the library answers whether the database answers.
+	checker := database.NewChecker(pool, migrator)
 
 	healthService, err := application.NewHealthService(
 		health.Identity{Name: config.ServiceName, Version: serviceVersion},
@@ -99,7 +103,7 @@ func New(
 		cfg.CheckTimeout,
 	)
 	if err != nil {
-		closeDatabase(logger, db)
+		pool.Close()
 		return nil, err
 	}
 
@@ -112,16 +116,15 @@ func New(
 	return &App{
 		server: server.New(cfg.Addr(), router, logger, cfg.ShutdownTimeout),
 		logger: logger,
-		db:     db,
+		pool:   pool,
 	}, nil
 }
 
-// openDatabase opens the connection of the service to the database, and it
-// waits for the database to answer.
+// openDatabase opens the pool of connections of the library, and it waits
+// for the database to answer.
 //
-// The connection is opened with the driver of the core, the same one the
-// migrator of the core uses: the service and the schema speak the same
-// protocol.
+// The pool is the only door to PostgreSQL: the library owns it, and the
+// service never opens a connection of its own.
 //
 // The wait is the rule: the database of the monorepository and the writer
 // that owns its schema start at the same moment, and the database accepts
@@ -129,38 +132,31 @@ func New(
 // writer waits for it instead of asking once and exiting: a container that
 // exits is restarted by the runtime of Docker, and the health check of the
 // container declares it unhealthy before the restart succeeds.
-func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.Database.URL)
+func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*postgres.Pool, error) {
+	poolCfg := postgres.DefaultConfig()
+	poolCfg.URL = cfg.Database.URL
+
+	pool, err := postgres.Open(ctx, poolCfg)
 	if err != nil {
-		return nil, fmt.Errorf("the database could not be opened: %w", err)
+		return nil, fmt.Errorf("the pool of connections could not be opened: %w", err)
 	}
 
 	waitCtx, cancel := context.WithTimeout(ctx, cfg.Database.WaitTimeout)
 	defer cancel()
 
 	waiter := database.NewWaiter(
-		database.NewPinger(db),
+		pool,
 		logger,
 		database.WaitInterval,
 		database.Sleep,
 	)
 
 	if err := waiter.Wait(waitCtx); err != nil {
-		_ = db.Close()
+		pool.Close()
 		return nil, err
 	}
 
-	return db, nil
-}
-
-// closeDatabase closes the connection of the service to the database.
-func closeDatabase(logger *slog.Logger, db *sql.DB) {
-	if db == nil {
-		return
-	}
-	if err := db.Close(); err != nil {
-		logger.Error("the database did not close cleanly", slog.Any("error", err))
-	}
+	return pool, nil
 }
 
 // logSchema says what the migrations did.
@@ -202,7 +198,7 @@ func (a *App) Serve(ctx context.Context) error {
 		slog.String("addr", a.server.Addr()),
 		slog.String("health_path", http.HealthPath),
 	)
-	defer closeDatabase(a.logger, a.db)
+	defer a.pool.Close()
 
 	return a.server.Serve(ctx)
 }

@@ -8,19 +8,11 @@ package ports
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/schema"
 )
-
-// ErrNoDatabase is the error of a use case with no database behind it.
-//
-// The database admin service is the writer of the schema: it cannot run
-// without one. The error exists so a caller can tell the difference between
-// a database that is down and a database that was never configured.
-var ErrNoDatabase = errors.New("the service has no database configured")
 
 // Migrator is the outbound port of the migration use case: it applies the
 // migrations of the schema and reads its state.

@@ -1,17 +1,16 @@
 // Package database provides the adapters that talk to the database: the
-// migrator that applies the schema through the core, the pinger that asks
-// the database whether it answers, and the checker that gathers the two into
-// the single health check of the service.
+// migrator that applies the schema through the library, and the checker that
+// gathers the health of the database into the single check of the service.
 //
 // It is an outbound adapter: the application asks it about the database, and
-// the answer comes from the database itself.
+// the answer comes from the database itself. The pool and the driver belong
+// to the library that owns the database, so this package names neither:
+// the composition root binds the pool of the library to the port of the
+// pinger.
 package database
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"log/slog"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
 	"github.com/witsaba/paca/packages/database"
@@ -21,7 +20,6 @@ import (
 // The adapters of this package are the ones the application talks to.
 var (
 	_ ports.Migrator = (*Migrator)(nil)
-	_ ports.Pinger   = (*Pinger)(nil)
 	_ ports.Checker  = (*Checker)(nil)
 )
 
@@ -40,12 +38,12 @@ type Migrator struct {
 // The migrator of the library takes the lock of the database while it
 // applies a migration, so two replicas of the service take turns instead of
 // writing the same table twice.
-func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
-	migrator, err := database.NewMigrator(db, logger)
-	if err != nil {
-		return nil, fmt.Errorf("the migrator of the database library could not be created: %w", err)
-	}
-	return &Migrator{migrator: migrator}, nil
+//
+// The migrator of the library is built by the composition root, over the
+// pool of the library: the adapter names the migrator, never the handle it
+// applies the schema with.
+func NewMigrator(migrator *database.Migrator) *Migrator {
+	return &Migrator{migrator: migrator}
 }
 
 // Up applies every migration that has not been applied yet, and returns the

@@ -114,11 +114,3 @@ func TestTheCheckerFailsWhenTheStateOfTheSchemaCannotBeRead(t *testing.T) {
 		t.Fatal("Check() = nil, want the failure of the state of the schema")
 	}
 }
-
-func TestThePingerWithoutADatabaseFails(t *testing.T) {
-	t.Parallel()
-
-	if err := database.NewPinger(nil).Ping(context.Background()); err == nil {
-		t.Fatal("Ping() = nil, want an error about the database")
-	}
-}

@@ -23,7 +23,7 @@ internal/
   ports/                      the contracts between the layers
   adapters/
     inbound/http/              the HTTP adapter: the health endpoint
-    outbound/database/         the migrator, the pinger and the checker of the database
+    outbound/database/         the migrator over the library, the checker of the database
   platform/config/             the configuration of this service: the only
                                infrastructure the service owns
   bootstrap/                   the wiring of every layer
@@ -42,8 +42,10 @@ than one service needs lives in `packages/domain`, and it is never copied.
 - **The service waits for the database, it does not exit.** A container that exits is
   restarted by the runtime, and the health check of the container declares it unhealthy
   before the restart succeeds.
-- **The service opens one connection**, and both the migrations and the health check go
-  through it. It does not open a second stack of connections of its own.
+- **The service opens one pool, and the library owns it.** The pool of connections of
+  the shared library (`packages/database/postgres`) is the only door to PostgreSQL: the
+  composition root opens it, the migrations and the health check go through it, and no
+  adapter names the handle. The service opens no second stack of connections of its own.
 - **The state of the schema is one model, in one place.** The model of a migration
   lives in `packages/domain/schema`, and both the service and the library speak it: the
   adapter between them maps nothing. Two copies of the same record drift.

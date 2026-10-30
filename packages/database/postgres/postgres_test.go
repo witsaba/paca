@@ -140,7 +140,37 @@ func TestPoolPingWithoutAPool(t *testing.T) {
 	if pool.Queries() != nil {
 		t.Error("the queries of a pool that is not open are not nil")
 	}
+	if pool.SQL() != nil {
+		t.Error("the view of the schema of a pool that is not open is not nil")
+	}
 	pool.Close()
+}
+
+// TestSQLGivesTheSameViewEveryTime proves that the view of the schema is
+// built once: the tools of the schema and the queries of the services share
+// the connections of the pool, and a second view would open a second set.
+func TestSQLGivesTheSameViewEveryTime(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	cfg := postgres.DefaultConfig()
+	// Nothing listens on this port: the pool is lazy, so it opens anyway.
+	cfg.URL = "postgres://paca:paca@127.0.0.1:1/paca?sslmode=disable"
+	cfg.ConnectTimeout = 2 * time.Second
+
+	pool, err := postgres.Open(ctx, cfg)
+	if err != nil {
+		t.Fatalf("the pool did not open: %v", err)
+	}
+	defer pool.Close()
+
+	view := pool.SQL()
+	if view == nil {
+		t.Fatal("the view of the schema of an open pool is nil")
+	}
+	if pool.SQL() != view {
+		t.Error("the view of the schema is built twice, want the same one")
+	}
 }
 
 func TestOpenOpensThePoolWithoutADatabase(t *testing.T) {

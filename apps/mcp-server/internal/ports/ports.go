@@ -40,6 +40,16 @@ type Checker interface {
 	Check(ctx context.Context) error
 }
 
+// Pinger is the outbound port that asks the database whether it answers.
+//
+// The capability has one owner: the library that owns the database publishes
+// the pool, and the pool answers the question. The service depends on the
+// question and never on the handle that answers it.
+type Pinger interface {
+	// Ping returns nil when the database answers.
+	Ping(ctx context.Context) error
+}
+
 // Clock is the outbound port that tells the application what time it is.
 type Clock interface {
 	// Now returns the current time.

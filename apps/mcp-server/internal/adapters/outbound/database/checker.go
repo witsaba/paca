@@ -9,17 +9,20 @@ package database
 import (
 	"context"
 
-	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 )
 
 // Checker reports whether the database answers.
 type Checker struct {
-	pool *postgres.Pool
+	pinger ports.Pinger
 }
 
 // NewChecker builds the checker of the database.
-func NewChecker(pool *postgres.Pool) *Checker {
-	return &Checker{pool: pool}
+//
+// The pinger is the port of the capability: the pool of the core answers the
+// question, and the adapter never names the handle that answers it.
+func NewChecker(pinger ports.Pinger) *Checker {
+	return &Checker{pinger: pinger}
 }
 
 // Name identifies the component the checker watches.
@@ -33,5 +36,5 @@ func (c *Checker) Name() string {
 // and with the same driver as everything else the service does with the
 // database.
 func (c *Checker) Check(ctx context.Context) error {
-	return c.pool.Ping(ctx)
+	return c.pinger.Ping(ctx)
 }

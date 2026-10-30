@@ -280,6 +280,39 @@ test_the_adapters_of_every_application_know_no_use_case() {
   done < <(applications_of_the_repository)
 }
 
+# test_the_adapters_of_every_application_know_no_handle_of_the_database
+# asserts that the adapters of an application name no handle of the
+# database.
+#
+# The capability "does the database answer?" has one owner: the library that
+# owns the database. An adapter that names the handle asks the question its
+# own way, and two services end up asking it in two ways. The adapters reach
+# the capability through the port of their application, and the composition
+# root binds the handle of the library to it.
+test_the_adapters_of_every_application_know_no_handle_of_the_database() {
+  local application
+  while IFS= read -r application; do
+    local module
+    module=$(basename "$application")
+
+    local line
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+
+      local imports
+      imports=${line#* }
+
+      local imported
+      for imported in $imports; do
+        assert_not_contains "$imported" "packages/database/postgres" \
+          "the adapters of $module name no handle of the database: [$imported]"
+        assert_not_contains "$imported" "database/sql" \
+          "the adapters of $module name no handle of the database: [$imported]"
+      done
+    done < <(imports_of_the_layer "$application" internal/adapters)
+  done < <(applications_of_the_repository)
+}
+
 # test_the_shared_domain_knows_nothing_but_the_standard_library asserts that
 # the shared domain module imports nothing outside itself.
 #
@@ -469,6 +502,7 @@ test_every_relative_link_points_at_a_file
 test_the_domain_of_every_application_knows_nothing
 test_the_application_of_every_application_knows_no_adapter
 test_the_adapters_of_every_application_know_no_use_case
+test_the_adapters_of_every_application_know_no_handle_of_the_database
 test_only_the_composition_root_knows_the_adapters
 test_the_shared_domain_knows_nothing_but_the_standard_library
 test_the_shared_platform_knows_no_model

@@ -66,6 +66,11 @@ writes a migration of its own. The library reads no environment variable —
 the mapping of the environment onto the configuration lives here, in the
 configuration of this service.
 
+The door to PostgreSQL is the pool of connections of the library
+([packages/database/postgres](../../packages/database/postgres)). The
+composition root opens it and binds it to the ports of the service: no
+adapter names the pool, and the service opens no connection of its own.
+
 ### The credentials
 
 The credentials of the database live with the stack that owns them —

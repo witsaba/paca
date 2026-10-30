@@ -17,7 +17,8 @@ packages/platform/
                  service reads, and the way a value is read
   logging/       the logs of the service: the format, the level, the fields
   telemetry/     the traces of the service: the exporter, the sampler, the
-                 propagation between the processes
+                 propagation between the processes, and the configuration of
+                 the tracing
   server/        the HTTP server: the routes, the timeouts, the shutdown
   healthcheck/   the health check of the container: it asks the service
                  whether it is alive
@@ -36,7 +37,11 @@ packages/platform/
 - **The configuration stays with the service.** The platform takes its
   settings as arguments, and the service that owns the settings reads them
   from its own environment. A library that reads the environment of another
-  service is a hidden dependency.
+  service is a hidden dependency. The configuration of the tracing is the
+  exception: it is shared by every service, so it lives in the platform —
+  and the platform still reads no variable of the environment. The service
+  hands the platform the reader of its own environment, and the reader is
+  the one that knows where the variables live.
 - **The module is a boundary.** The packages of the platform are ordinary Go
   packages, but the module is a `go.mod`: a service that imports the
   platform cannot reach into its internals by accident, and the platform

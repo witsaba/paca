@@ -10,6 +10,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 	"github.com/witsaba/paca/packages/platform/env"
 	"github.com/witsaba/paca/packages/platform/logging"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // clearEnvironment removes the settings of the environment, so the test sees
@@ -33,13 +34,13 @@ func clearEnvironment(t *testing.T) {
 		config.EnvPostgresUser,
 		config.EnvPostgresPassword,
 		config.EnvPostgresDB,
-		config.EnvOtelDisabled,
-		config.EnvOtelEndpoint,
-		config.EnvOtelProtocol,
-		config.EnvOtelInsecure,
-		config.EnvOtelSampler,
-		config.EnvOtelSamplerArg,
-		config.EnvOtelServiceName,
+		telemetry.EnvDisabled,
+		telemetry.EnvEndpoint,
+		telemetry.EnvProtocol,
+		telemetry.EnvInsecure,
+		telemetry.EnvSampler,
+		telemetry.EnvSamplerArg,
+		telemetry.EnvServiceName,
 	} {
 		if value, ok := os.LookupEnv(name); ok {
 			if err := os.Unsetenv(name); err != nil {
@@ -445,17 +446,17 @@ func TestLoadKeepsTheTracingOffWithoutACollector(t *testing.T) {
 	if cfg.Tracing.Enabled {
 		t.Fatal("the tracing is on, want it off without a collector")
 	}
-	if cfg.Tracing.Protocol != config.DefaultOtelProtocol {
-		t.Fatalf("protocol = %q, want %q", cfg.Tracing.Protocol, config.DefaultOtelProtocol)
+	if cfg.Tracing.Protocol != telemetry.DefaultProtocol {
+		t.Fatalf("protocol = %q, want %q", cfg.Tracing.Protocol, telemetry.DefaultProtocol)
 	}
-	if cfg.Tracing.Sampler != config.DefaultOtelSampler {
-		t.Fatalf("sampler = %q, want %q", cfg.Tracing.Sampler, config.DefaultOtelSampler)
+	if cfg.Tracing.Sampler != telemetry.DefaultSampler {
+		t.Fatalf("sampler = %q, want %q", cfg.Tracing.Sampler, telemetry.DefaultSampler)
 	}
 }
 
 func TestLoadTurnsTheTracingOnWithACollector(t *testing.T) {
 	clearEnvironment(t)
-	t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
+	t.Setenv(telemetry.EnvEndpoint, "jaeger:4317")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -472,8 +473,8 @@ func TestLoadTurnsTheTracingOnWithACollector(t *testing.T) {
 
 func TestLoadTurnsTheTracingOffWhenTheSpecificationDoes(t *testing.T) {
 	clearEnvironment(t)
-	t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
-	t.Setenv(config.EnvOtelDisabled, "true")
+	t.Setenv(telemetry.EnvEndpoint, "jaeger:4317")
+	t.Setenv(telemetry.EnvDisabled, "true")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -487,12 +488,12 @@ func TestLoadTurnsTheTracingOffWhenTheSpecificationDoes(t *testing.T) {
 
 func TestLoadReadsTheSettingsOfTheExporter(t *testing.T) {
 	clearEnvironment(t)
-	t.Setenv(config.EnvOtelEndpoint, "http://jaeger:4318")
-	t.Setenv(config.EnvOtelProtocol, "http/protobuf")
-	t.Setenv(config.EnvOtelInsecure, "true")
-	t.Setenv(config.EnvOtelSampler, config.SamplerParentBasedTraceIDRatio)
-	t.Setenv(config.EnvOtelSamplerArg, "0.25")
-	t.Setenv(config.EnvOtelServiceName, "paca-mcp-server-canary")
+	t.Setenv(telemetry.EnvEndpoint, "http://jaeger:4318")
+	t.Setenv(telemetry.EnvProtocol, "http/protobuf")
+	t.Setenv(telemetry.EnvInsecure, "true")
+	t.Setenv(telemetry.EnvSampler, telemetry.SamplerParentBasedTraceIDRatio)
+	t.Setenv(telemetry.EnvSamplerArg, "0.25")
+	t.Setenv(telemetry.EnvServiceName, "paca-mcp-server-canary")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -505,9 +506,9 @@ func TestLoadReadsTheSettingsOfTheExporter(t *testing.T) {
 	if !cfg.Tracing.Insecure {
 		t.Fatal("the exporter is not insecure, want it insecure")
 	}
-	if cfg.Tracing.Sampler != config.SamplerParentBasedTraceIDRatio {
+	if cfg.Tracing.Sampler != telemetry.SamplerParentBasedTraceIDRatio {
 		t.Fatalf("sampler = %q, want %q",
-			cfg.Tracing.Sampler, config.SamplerParentBasedTraceIDRatio)
+			cfg.Tracing.Sampler, telemetry.SamplerParentBasedTraceIDRatio)
 	}
 	if cfg.Tracing.SamplerArg != "0.25" {
 		t.Fatalf("sampler argument = %q, want %q", cfg.Tracing.SamplerArg, "0.25")
@@ -518,31 +519,77 @@ func TestLoadReadsTheSettingsOfTheExporter(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsTheTracingSettingsThatWouldNotWork(t *testing.T) {
+func TestLoadRejectsAnInvalidTracing(t *testing.T) {
 	tests := []struct {
-		name  string
-		key   string
-		value string
+		name    string
+		key     string
+		value   string
+		message string
 	}{
-		{name: "a protocol that does not exist", key: config.EnvOtelProtocol, value: "smoke signals"},
-		{name: "an address that is not an address", key: config.EnvOtelEndpoint, value: "jaeger"},
-		{name: "an address with a scheme the protocol does not take",
-			key: config.EnvOtelEndpoint, value: "http://jaeger:4317"},
-		{name: "a sampler that does not exist", key: config.EnvOtelSampler, value: "whenever"},
-		{name: "a ratio that is not a number", key: config.EnvOtelSamplerArg, value: "half"},
-		{name: "a ratio out of bounds", key: config.EnvOtelSamplerArg, value: "1.5"},
-		{name: "a boolean that is not a boolean", key: config.EnvOtelInsecure, value: "maybe"},
-		{name: "an empty name", key: config.EnvOtelServiceName, value: " "},
+		{
+			name:    "a protocol that does not exist",
+			key:     telemetry.EnvProtocol,
+			value:   "smoke signals",
+			message: `OTEL_EXPORTER_OTLP_PROTOCOL: "smoke signals" is not a protocol`,
+		},
+		{
+			name:    "an address that is not an address",
+			key:     telemetry.EnvEndpoint,
+			value:   "jaeger",
+			message: `OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger" is not an address`,
+		},
+		{
+			name:  "an address with a scheme the protocol does not take",
+			key:   telemetry.EnvEndpoint,
+			value: "http://jaeger:4317",
+			message: `OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger:4317" has a scheme, ` +
+				`which the grpc protocol does not take`,
+		},
+		{
+			name:    "a sampler that does not exist",
+			key:     telemetry.EnvSampler,
+			value:   "whenever",
+			message: `OTEL_TRACES_SAMPLER: "whenever" is not a sampler`,
+		},
+		{
+			name:    "a ratio that is not a number",
+			key:     telemetry.EnvSamplerArg,
+			value:   "half",
+			message: `OTEL_TRACES_SAMPLER_ARG: "half" is not a ratio`,
+		},
+		{
+			name:    "a ratio out of bounds",
+			key:     telemetry.EnvSamplerArg,
+			value:   "1.5",
+			message: `OTEL_TRACES_SAMPLER_ARG: "1.5" is not a ratio between zero and one`,
+		},
+		{
+			name:    "a boolean that is not a boolean",
+			key:     telemetry.EnvInsecure,
+			value:   "maybe",
+			message: `OTEL_EXPORTER_OTLP_INSECURE: "maybe" is not a boolean`,
+		},
+		{
+			name:    "an empty name",
+			key:     telemetry.EnvServiceName,
+			value:   " ",
+			message: "OTEL_SERVICE_NAME: the name cannot be empty",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			clearEnvironment(t)
-			t.Setenv(config.EnvOtelEndpoint, "jaeger:4317")
+			t.Setenv(telemetry.EnvEndpoint, "jaeger:4317")
 			t.Setenv(test.key, test.value)
 
-			if _, err := config.Load(); err == nil {
+			_, err := config.Load()
+			if err == nil {
 				t.Fatalf("Load() with %s=%q = nil, want an error", test.key, test.value)
+			}
+			if err.Error() != test.message {
+				t.Fatalf("Load() with %s=%q = %q, want %q",
+					test.key, test.value, err.Error(), test.message)
 			}
 		})
 	}

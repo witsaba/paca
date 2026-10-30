@@ -16,6 +16,12 @@ import (
 // service.
 const ServiceVersion = "PACA_SERVICE_VERSION"
 
+// Lookup is how a service reads one variable of its environment.
+//
+// The platform reads no environment variable: a service hands it the
+// reader, and the reader is the one that knows where the variables live.
+type Lookup func(name string) (string, bool)
+
 // Duration reads a duration from the raw value of a variable.
 //
 // The error names the variable, so an operator knows which one to fix.

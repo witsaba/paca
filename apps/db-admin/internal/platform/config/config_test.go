@@ -11,6 +11,7 @@ import (
 	"github.com/witsaba/paca/apps/db-admin/internal/platform/config"
 	"github.com/witsaba/paca/packages/platform/env"
 	"github.com/witsaba/paca/packages/platform/logging"
+	"github.com/witsaba/paca/packages/platform/telemetry"
 )
 
 // clearEnvironment removes the settings of the environment, so the test sees
@@ -32,13 +33,13 @@ func clearEnvironment(t *testing.T) {
 		config.EnvPostgresUser,
 		config.EnvPostgresPassword,
 		config.EnvPostgresDB,
-		config.EnvOtelDisabled,
-		config.EnvOtelEndpoint,
-		config.EnvOtelProtocol,
-		config.EnvOtelInsecure,
-		config.EnvOtelSampler,
-		config.EnvOtelSamplerArg,
-		config.EnvOtelServiceName,
+		telemetry.EnvDisabled,
+		telemetry.EnvEndpoint,
+		telemetry.EnvProtocol,
+		telemetry.EnvInsecure,
+		telemetry.EnvSampler,
+		telemetry.EnvSamplerArg,
+		telemetry.EnvServiceName,
 	} {
 		if value, ok := os.LookupEnv(name); ok {
 			if err := os.Unsetenv(name); err != nil {
@@ -431,12 +432,12 @@ func TestLoadReadsTheTracing(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvOtelEndpoint, "collector:4317")
-	t.Setenv(config.EnvOtelProtocol, "grpc")
-	t.Setenv(config.EnvOtelInsecure, "true")
-	t.Setenv(config.EnvOtelSampler, "always_on")
-	t.Setenv(config.EnvOtelSamplerArg, "0.5")
-	t.Setenv(config.EnvOtelServiceName, "paca-db-admin-test")
+	t.Setenv(telemetry.EnvEndpoint, "collector:4317")
+	t.Setenv(telemetry.EnvProtocol, "grpc")
+	t.Setenv(telemetry.EnvInsecure, "true")
+	t.Setenv(telemetry.EnvSampler, telemetry.SamplerAlwaysOn)
+	t.Setenv(telemetry.EnvSamplerArg, "0.5")
+	t.Setenv(telemetry.EnvServiceName, "paca-db-admin-test")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -452,8 +453,8 @@ func TestLoadReadsTheTracing(t *testing.T) {
 	if !cfg.Tracing.Insecure {
 		t.Fatal("the exporter wants TLS, want it to be insecure")
 	}
-	if cfg.Tracing.Sampler != "always_on" {
-		t.Fatalf("sampler = %q, want %q", cfg.Tracing.Sampler, "always_on")
+	if cfg.Tracing.Sampler != telemetry.SamplerAlwaysOn {
+		t.Fatalf("sampler = %q, want %q", cfg.Tracing.Sampler, telemetry.SamplerAlwaysOn)
 	}
 	if cfg.Tracing.SamplerArg != "0.5" {
 		t.Fatalf("sampler arg = %q, want %q", cfg.Tracing.SamplerArg, "0.5")
@@ -467,8 +468,8 @@ func TestLoadTurnsTheTracingOff(t *testing.T) {
 	clearEnvironment(t)
 	setCredentials(t)
 
-	t.Setenv(config.EnvOtelEndpoint, "collector:4317")
-	t.Setenv(config.EnvOtelDisabled, "true")
+	t.Setenv(telemetry.EnvEndpoint, "collector:4317")
+	t.Setenv(telemetry.EnvDisabled, "true")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -480,95 +481,81 @@ func TestLoadTurnsTheTracingOff(t *testing.T) {
 	}
 }
 
-func TestLoadFailsWithAnInvalidProtocolOfTheTracing(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelEndpoint, "collector:4317")
-	t.Setenv(config.EnvOtelProtocol, "smoke signals")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the protocol")
+func TestLoadRejectsAnInvalidTracing(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		value   string
+		message string
+	}{
+		{
+			name:    "a protocol that does not exist",
+			key:     telemetry.EnvProtocol,
+			value:   "smoke signals",
+			message: `OTEL_EXPORTER_OTLP_PROTOCOL: "smoke signals" is not a protocol`,
+		},
+		{
+			name:    "a sampler that does not exist",
+			key:     telemetry.EnvSampler,
+			value:   "whenever",
+			message: `OTEL_TRACES_SAMPLER: "whenever" is not a sampler`,
+		},
+		{
+			name:    "a ratio out of bounds",
+			key:     telemetry.EnvSamplerArg,
+			value:   "1.5",
+			message: `OTEL_TRACES_SAMPLER_ARG: "1.5" is not a ratio between zero and one`,
+		},
+		{
+			name:    "a collector that is not an address",
+			key:     telemetry.EnvEndpoint,
+			value:   "collector",
+			message: `OTEL_EXPORTER_OTLP_ENDPOINT: "collector" is not an address`,
+		},
+		{
+			name:  "a collector that has a scheme",
+			key:   telemetry.EnvEndpoint,
+			value: "http://collector:4317",
+			message: `OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector:4317" has a scheme, ` +
+				`which the grpc protocol does not take`,
+		},
+		{
+			name:    "an empty collector",
+			key:     telemetry.EnvEndpoint,
+			value:   "  ",
+			message: "OTEL_EXPORTER_OTLP_ENDPOINT: the address cannot be empty",
+		},
+		{
+			name:    "an empty name of the tracing",
+			key:     telemetry.EnvServiceName,
+			value:   "  ",
+			message: "OTEL_SERVICE_NAME: the name cannot be empty",
+		},
+		{
+			name:    "an invalid boolean",
+			key:     telemetry.EnvInsecure,
+			value:   "perhaps",
+			message: `OTEL_EXPORTER_OTLP_INSECURE: "perhaps" is not a boolean`,
+		},
 	}
-}
 
-func TestLoadFailsWithAnInvalidSamplerOfTheTracing(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clearEnvironment(t)
+			setCredentials(t)
 
-	t.Setenv(config.EnvOtelEndpoint, "collector:4317")
-	t.Setenv(config.EnvOtelSampler, "whenever")
+			t.Setenv(telemetry.EnvEndpoint, "collector:4317")
+			t.Setenv(test.key, test.value)
 
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the sampler")
-	}
-}
-
-func TestLoadFailsWithARatioOutOfBounds(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelEndpoint, "collector:4317")
-	t.Setenv(config.EnvOtelSampler, "traceidratio")
-	t.Setenv(config.EnvOtelSamplerArg, "1.5")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the ratio")
-	}
-}
-
-func TestLoadFailsWithACollectorThatIsNotAnAddress(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelEndpoint, "collector")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the address of the collector")
-	}
-}
-
-func TestLoadFailsWithACollectorThatHasAScheme(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelEndpoint, "http://collector:4317")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the scheme of the collector")
-	}
-}
-
-func TestLoadFailsWithAnEmptyCollector(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelEndpoint, "  ")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the address of the collector")
-	}
-}
-
-func TestLoadFailsWithAnEmptyNameOfTheTracing(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelServiceName, "  ")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the name of the telemetry")
-	}
-}
-
-func TestLoadFailsWithAnInvalidBoolean(t *testing.T) {
-	clearEnvironment(t)
-	setCredentials(t)
-
-	t.Setenv(config.EnvOtelInsecure, "perhaps")
-
-	if _, err := config.Load(); err == nil {
-		t.Fatal("Load() = nil, want an error about the boolean")
+			_, err := config.Load()
+			if err == nil {
+				t.Fatalf("Load() with %s=%q = nil, want an error", test.key, test.value)
+			}
+			if err.Error() != test.message {
+				t.Fatalf("Load() with %s=%q = %q, want %q",
+					test.key, test.value, err.Error(), test.message)
+			}
+		})
 	}
 }
 

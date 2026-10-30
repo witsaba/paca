@@ -34,10 +34,15 @@ run was green because nothing had failed.
 
 | ID  | What | Links | Route | Commit |
 |-----|------|-------|-------|--------|
-| T1  | The feature document of the slice | S1, S2 | inline | (the document) |
-| T2  | The workflow: the step that detects the changes carries the id `detect`, the name the job reads its outputs by | S1, S3, S4 | inline | (the fix) |
-| T3  | The regression test: the test of the filters proves that every output the workflow reads is produced by a step that carries the id, and that the job declares an output for every job the rules name | S1, S2, S4 | inline | (the test) |
-| T4  | The evidence: the test of the filters observes the defect before the fix and passes after it, and the whole gate of the repository is green | S1, S2 | inline | (the evidence is in L2) |
+| T1  | The feature document of the slice | S1, S2 | inline | `01fec58` (the document) |
+| T2  | The workflow: the step that detects the changes carries the id `detect`, the name the job reads its outputs by | S1, S3, S4 | inline | `01fec58` (the fix) |
+| T3  | The regression test: the test of the filters proves that every output the workflow reads is produced by a step that carries the id, and that the job declares an output for every job the rules name | S1, S2, S4 | inline | `01fec58` (the test) |
+| T4  | The evidence: the test of the filters observes the defect before the fix and passes after it, and the whole gate of the repository is green | S1, S2 | inline | `01fec58` (the evidence is in L2) |
+
+The slice was merged as a squash (`9bc9e50`), so the history of `main` holds one commit for the
+whole feature. The identifiers of the work units are not in the history of `main`: they live in the
+pull request #43, whose head the server keeps. The record of what happened is the pull request
+itself.
 
 ## Log
 
@@ -80,3 +85,20 @@ run was green because nothing had failed.
   so the rules of `scripts/ci/job-filters.txt` decide that every job of the
   workflow runs in the pull request of this slice: the change of the workflow
   is the machinery of the filters.
+
+- **L3** (2026-10-30): The slice was merged as the squash `9bc9e50`, and the
+  pull request #43 is closed. Its run is the first run of the repository that
+  proves the filters work: the five jobs of the workflow ran, and the run of
+  the merge into `main` runs the whole gate.
+
+  The defect of L1 was invisible in the conclusion of the runs, because a run
+  whose jobs are all skipped is green. The conclusion of the jobs is what shows
+  it, and it is the conclusion that the repository must read: a run is green
+  when every job is green, and a job that is skipped is green because the
+  change cannot affect what it proves — a skip that is not a decision is a
+  proof of nothing.
+
+  This record is the first change that proves the filters are worth their cost:
+  it touches a document under `odd/tasks/` and nothing else, so the rules of
+  `scripts/ci/job-filters.txt` decide that the job `shellcheck` runs and the
+  other four are skipped.

@@ -20,6 +20,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -64,6 +65,11 @@ const (
 // batch is smaller and cheaper than one span per request, and five seconds
 // is short enough for a trace to show up while a developer waits for it.
 const batchTimeout = 5 * time.Second
+
+// shutdownTimeout is how long the telemetry has to leave the process. The
+// spans that are still in the batcher are sent during the shutdown; a
+// collector that does not answer must not hold the process forever.
+const shutdownTimeout = 5 * time.Second
 
 // samplerArgName is the name the error of the ratio of the traces carries
 // when the telemetry builds the sampler itself.
@@ -178,6 +184,23 @@ func (p *Providers) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return p.shutdown(ctx)
+}
+
+// Stop sends the spans that are still in the batcher and waits for the
+// exporter to flush.
+//
+// The grace period is the one of the platform: a collector that does not
+// answer must not hold the process forever. The failure is reported in the
+// log of the caller: the telemetry that does not leave the process cleanly
+// is a warning, not a crash.
+func Stop(logger *slog.Logger, providers *Providers) {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := providers.Shutdown(ctx); err != nil {
+		logger.Error("the telemetry did not leave the process cleanly",
+			slog.Any("error", err))
+	}
 }
 
 // newExporter builds the exporter that sends the spans to the collector.

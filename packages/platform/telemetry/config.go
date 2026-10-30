@@ -70,6 +70,39 @@ type TracingConfig struct {
 	SamplerArg string
 }
 
+// OptionsOf builds the options of the telemetry from the configuration of a
+// service.
+//
+// The configuration of the tracing is the same in every service of the
+// monorepository, and the options of the telemetry have the same shape
+// everywhere: the service hands its configuration, its name and its version
+// over, and the platform builds what the setup needs. A service that writes
+// the options itself writes them twice.
+func OptionsOf(config TracingConfig, serviceName, serviceVersion string) Options {
+	return Options{
+		Enabled:        config.Enabled,
+		ServiceName:    serviceName,
+		ServiceVersion: serviceVersion,
+		Endpoint:       config.Endpoint,
+		Protocol:       config.Protocol,
+		Insecure:       config.Insecure,
+		Sampler:        config.Sampler,
+		SamplerArg:     config.SamplerArg,
+	}
+}
+
+// ResolveServiceName returns the name the telemetry carries.
+//
+// It is the name of the service, unless the environment of the
+// OpenTelemetry specification names it otherwise: an operator that renames
+// the service in the collector sees the traces under that name.
+func (t TracingConfig) ResolveServiceName(serviceName string) string {
+	if t.ServiceName != "" {
+		return t.ServiceName
+	}
+	return serviceName
+}
+
 // LoadTracing reads the settings of the tracing from the environment of the
 // service.
 //

@@ -1,7 +1,9 @@
 package telemetry_test
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"sync"
 	"testing"
 
@@ -289,5 +291,21 @@ func TestThePropagatorCarriesTheTraceContext(t *testing.T) {
 
 	if _, ok := carrier["traceparent"]; !ok {
 		t.Fatalf("the carrier holds %v, want a trace context", carrier)
+	}
+}
+
+func TestStoppingTheTelemetryOfAServiceThatDoesNotTraceIsClean(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	providers, err := telemetry.Setup(context.Background(), telemetry.Options{})
+	if err != nil {
+		t.Fatalf("Setup() = %v", err)
+	}
+
+	telemetry.Stop(logger, providers)
+
+	if logs.Len() != 0 {
+		t.Fatalf("the log of the shutdown = %q, want nothing", logs.String())
 	}
 }

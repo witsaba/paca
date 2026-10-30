@@ -216,3 +216,61 @@ func TestTheValidationOfTheTracingRejectsTheSettingsThatWouldNotWork(t *testing.
 		t.Fatalf("Validate() = %q, want %q", err.Error(), want)
 	}
 }
+
+func TestTheOptionsOfTheTelemetryComeFromTheConfigurationOfTheTracing(t *testing.T) {
+	tracing := telemetry.TracingConfig{
+		Enabled:    true,
+		Endpoint:   "collector:4317",
+		Protocol:   telemetry.ProtocolHTTP,
+		Insecure:   true,
+		Sampler:    telemetry.SamplerTraceIDRatio,
+		SamplerArg: "0.5",
+	}
+
+	options := telemetry.OptionsOf(tracing, "paca-mcp-server", "1.2.3")
+
+	if !options.Enabled {
+		t.Error("the telemetry is off, want it on")
+	}
+	if options.ServiceName != "paca-mcp-server" {
+		t.Errorf("service name = %q, want %q", options.ServiceName, "paca-mcp-server")
+	}
+	if options.ServiceVersion != "1.2.3" {
+		t.Errorf("service version = %q, want %q", options.ServiceVersion, "1.2.3")
+	}
+	if options.Endpoint != "collector:4317" {
+		t.Errorf("endpoint = %q, want %q", options.Endpoint, "collector:4317")
+	}
+	if options.Protocol != telemetry.ProtocolHTTP {
+		t.Errorf("protocol = %q, want %q", options.Protocol, telemetry.ProtocolHTTP)
+	}
+	if !options.Insecure {
+		t.Error("the exporter is not insecure, want it insecure")
+	}
+	if options.Sampler != telemetry.SamplerTraceIDRatio {
+		t.Errorf("sampler = %q, want %q", options.Sampler, telemetry.SamplerTraceIDRatio)
+	}
+	if options.SamplerArg != "0.5" {
+		t.Errorf("sampler argument = %q, want %q", options.SamplerArg, "0.5")
+	}
+}
+
+func TestTheNameOfTheTelemetryIsTheNameOfTheServiceWhenTheEnvironmentNamesNone(t *testing.T) {
+	tracing := telemetry.TracingConfig{}
+
+	name := tracing.ResolveServiceName("paca-db-admin")
+
+	if name != "paca-db-admin" {
+		t.Fatalf("name = %q, want %q", name, "paca-db-admin")
+	}
+}
+
+func TestTheNameOfTheTelemetryIsTheNameOfTheEnvironmentWhenItNamesOne(t *testing.T) {
+	tracing := telemetry.TracingConfig{ServiceName: "renamed-by-the-operator"}
+
+	name := tracing.ResolveServiceName("paca-db-admin")
+
+	if name != "renamed-by-the-operator" {
+		t.Fatalf("name = %q, want %q", name, "renamed-by-the-operator")
+	}
+}

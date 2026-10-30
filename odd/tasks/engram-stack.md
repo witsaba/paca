@@ -29,7 +29,7 @@ S6. "Stack + full infra wiring + gate proof"
   `Makefile`, the root `README.md`, the root `AGENTS.md`,
   `.github/workflows/ci.yml`, `scripts/ci/job-filters.txt` and
   `scripts/tests/ci-filters-test.sh`. Route: delegated writer, diff read by
-  the parent. Commit: `PENDING`.
+  the parent. Commit: `5578352`.
 - T3 — the proof: the image is built, the stack comes up healthy, the round
   trip of the memory is asserted and the gate of the repository is green.
   Route: inline. Evidence: L8. Commit: the record of this document.
@@ -117,4 +117,54 @@ L6. The scope that this slice does not carry, and that the next one does.
 
 L7. The slice is on the branch `feat/engram-stack`; `main` is not touched.
 
-L8. The evidence of the slice, observed and not asserted. PENDING.
+L8. The evidence of the slice, observed and not asserted.
+
+- The image of the stack builds from the release of Engram `3.6.0`: the
+  archive of the architecture is checked against the sha256 that is pinned
+  (`945fb471…` for amd64, `00a2d764…` for arm64) and the build fails when
+  the bytes are not the ones that were pinned. The base image is
+  `alpine:3.22` pinned by digest.
+- `docker compose -f engram/compose.yaml up -d --wait engram` → `Container
+  paca-engram Healthy`. The socket of the volume is `srw-------` and it
+  belongs to the user `10000`: the store runs as that user and the consumer
+  that mounts the volume reaches it as that user.
+- `make -C engram smoke` → `engram: the memory is kept and given back`. The
+  proof runs as the user `10000`, the same user the container of the agent
+  runs as, and it registers a session, keeps a memory, searches it back,
+  removes it and removes the session: the proof leaves no memory behind.
+- With the container of the store stopped, the same target fails
+  (`service "engram" is not running`), so the proof proves something.
+- `make all` → `All the steps of the gate passed.` (exit 0). Inside it: the
+  quality gate of the five modules, the container tests of the packages and
+  of the applications, the shellcheck of the nine scripts, the tests of the
+  installer of the environment, the tests of the structure of the repository
+  (335 assertions) and the tests of the filters of the continuous
+  integration (44 assertions) — all green — then the database and its smoke
+  test, the collector of the traces and its smoke test, the agent
+  (`hermes: the health endpoint answers`), the memory (`engram: the memory is
+  kept and given back`) and, at the end, the whole project: `Container
+  paca-postgres Started`, `Container paca-mcp-server Started`, `Container
+  paca-db-admin Started`, `Container paca-hermes Started`, `Container
+  paca-jaeger Started`, `Container paca-engram Started`, all of them
+  `Healthy`, and the assertion of the schema written by the service that
+  owns it (`All assertions passed.`).
+- The gate left no container behind: the cleanup stopped the five stacks and
+  removed their containers.
+- Two defects of the machine, and not of this slice, that the gate found.
+  Both are the credential drift of the volume of PostgreSQL, the same class
+  of defect that L8 of the slice of the agent recorded: the `.env` of the
+  stack of the database named a database that the cluster did not hold
+  (`paca-pg` against `paca`), and the password of the role did not match
+  the one the stack declares. The cluster was aligned with the stack, and
+  not the other way around: the database name of the `.env` was corrected,
+  and the password of the role `paca` was set to the one the installer
+  declares. The rows of the database were not touched, and the cluster was
+  not dropped. The slice of the agent had done the same repair before.
+- The socket of the volume is the only door of the store, and it is bound to
+  the user of the process. The container of the agent runs as the user
+  `10000`, and the store runs as that same user, so the consumer reaches the
+  socket when it mounts the volume. If the agent ever runs as another user,
+  the transport has to change and not only the configuration: the local
+  runtime of Engram binds the loopback of its own container and refuses any
+  other address.
+

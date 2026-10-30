@@ -126,7 +126,7 @@ description of a tool promises what the tool does, and nothing it does not do.
 | T6  | The dead API of the repository is removed                            | S2      | inline  | `1db2660` (the fix) |
 | T7  | The gate pins the rules it claims: one writer, no dead API, no copy of a shared layer, no rule over an empty set | S1, S2, S3, S5 | inline | `77e2b80` (the gate) |
 | T8  | The environment of the stack declares the variables it reads          | S10     | inline  | `8b8d730` (the database admin) |
-| T9  | The MCP server refuses an unsafe bind and checks the Host            | S9      | worker  | — |
+| T9  | The MCP server refuses an unsafe bind and checks the Host            | S9      | inline  | `9d51e6c` (the fix) |
 | T10 | The concurrent change has a container test                           | S11     | inline  | `ee2f4d3` (the test) |
 | T11 | The read of a person reaches the agent through the port              | S6, S12 | inline  | `50e7031` (the fix) |
 | T12 | The list of the people reaches the agent through the port            | S6, S12 | inline  | `0cee5c1` (the fix) |
@@ -281,3 +281,77 @@ The list of the people was not in the findings of the audit: it was in the
 older list of the open items of the repository, and it came with the read,
 because a tool that reads one person and a tool that reads many people are
 the same promise with two shapes.
+
+**L6** (2026-10-30): The hardening of the MCP server.
+
+The hardening that the README of the service named as open is closed:
+
+- **The bind.** The server refuses a bind that is not the loopback
+  interface, and the operator allows it with one variable
+  (`PACA_MCP_ALLOW_NON_LOOPBACK`) that is false by default. The tools carry
+  the data of the people, and a bind that the network of the machine reaches
+  is a bind that anybody on the network reaches. The container is the
+  deployment where the other containers of the stack reach the server, over
+  a network that has no route to the internet, and the compose file and the
+  image of the service say so.
+- **The hosts.** The server answers only for the hosts of its allowlist
+  (`PACA_MCP_ALLOWED_HOSTS`): the `Host` header of a request that names
+  another host is refused with a `403`, and the refusal never reaches the
+  tools. The filter lives in the platform, next to the middleware of the
+  HTTP server, and the platform does not read the environment: the service
+  hands it the hosts it answers for.
+- **The origins.** The rule of the `Origin` is stated and not left to the
+  default: the service trusts the origins of `PACA_MCP_TRUSTED_ORIGINS`,
+  and the rule of the standard library — the same origin as the `Host`
+  header — is the rule when the list is empty. An origin that the
+  protection of the standard library cannot read is an error of the
+  configuration and not a panic of the process.
+
+The worker that was to write this work unit died with the rate limit of the
+provider before it wrote a line, and the work unit was written here.
+
+**L7** (2026-10-30): The evidence, and what the review found.
+
+The gate of the repository is **green from nothing**: the format check, the
+analyzers, the linter, the build, the tests, the race detector, the coverage
+floor and the vulnerability scan of every module, the container tests of the
+packages and of the applications, the shellcheck of the scripts, the tests of
+the structure, the tests of the filters of the continuous integration, the
+database, the collector of the traces, and the whole stack with the schema
+written by the service that owns it. It took two minutes and it left no
+container behind.
+
+The gate of the structure proves 332 assertions and no failure, and it says
+what every rule proved. The rules it added are proved with a probe each: a
+function that nothing calls, a second writer of the schema, a copy of the
+code of the other service, and a rule that proves nothing without saying
+why — the four make the gate fail.
+
+**What the slice changed, in one list:**
+
+| The defect | What it is now |
+|------------|----------------|
+| The one writer of the schema is not pinned | The gate refuses a second writer. |
+| The dead API is not pinned, and there is dead API | The debris is gone and the gate refuses the next one. |
+| The middleware of the router is written twice | It lives in the platform, and the gate compares the bodies of the two services. |
+| The names of the environment of the database are written twice | They live in the platform, with the rule of an empty value. |
+| The wiring of the telemetry is written twice | It lives in the platform. |
+| The default branch of the mapping of the errors returns the raw error | Every error has a message, and the catalogue of the domain proves it. |
+| The rule of the domain layer of the applications proves nothing today | Every rule says what it proved, and a rule that proves nothing says why. |
+| The environment of the stack does not say where its variables come from | Every variable says who writes it. |
+| The hardening of the MCP server is open | The bind, the hosts and the origins are closed. |
+| The read and the list of the people are not there | They are, through the port of the domain. |
+| The branch of the concurrent change has no test | It has a container test that waits for the lock. |
+
+**What is still open.** The gate reports two copies on every run: the use
+case of the health and the endpoint of the health are written twice, one in
+each service. They wait for a shared application layer and a shared adapter,
+which the repository does not have yet. The gate names them, so they cannot
+be forgotten, and any other copy is a failure.
+
+**Risk:** item 2 — the hardening of the MCP server is a change of the
+boundary of the service. The bind of the container is the same as it was,
+the allowlist of the hosts names the container itself, and the whole stack
+comes up healthy with the new variables. The rule of the ports is untouched:
+the service publishes no port and it sits on the network that has no route to
+the internet.

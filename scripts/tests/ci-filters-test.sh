@@ -59,6 +59,18 @@ assert_contains() {
   esac
 }
 
+# A line of a list, exactly: a needle that is a part of another line is
+# not the line.
+assert_has_line() {
+  local haystack="$1"
+  local needle="$2"
+  local message="$3"
+  ASSERTIONS=$((ASSERTIONS + 1))
+  if ! printf '%s\n' "$haystack" | grep -qx -- "$needle"; then
+    fail "$message: [$needle] is not one of the lines"
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # The matrix of the changes
 # ---------------------------------------------------------------------------
@@ -163,6 +175,51 @@ assert_equals "$workflow_jobs" "$rules_jobs" \
 printf '%s\n' '.github/workflows/ci.yml' > "$WORK_DIR/changed"
 assert_equals "database,gate,observability,shellcheck,stack" "$(jobs_for "$WORK_DIR/changed")" \
   "a change of the workflow runs every job"
+
+# ---------------------------------------------------------------------------
+# The outputs reach the jobs
+# ---------------------------------------------------------------------------
+
+printf '==> the outputs reach the jobs\n'
+
+# The ids of the steps of the workflow. A step without an id cannot be read
+# by the job that needs what it produces.
+workflow_step_ids=$(grep -oE '^[[:space:]]+id:[[:space:]]*[A-Za-z0-9_-]+[[:space:]]*$' "$WORKFLOW" |
+  sed -E 's/^[[:space:]]+id:[[:space:]]*//' | LC_ALL=C sort -u)
+
+# The steps the workflow reads the outputs of: `steps.<id>.outputs.<name>`.
+workflow_output_steps=$(grep -oE 'steps\.[A-Za-z0-9_-]+\.outputs\.' "$WORKFLOW" |
+  sed -E 's/^steps\.([A-Za-z0-9_-]+)\.outputs\.$/\1/' | LC_ALL=C sort -u)
+
+for step in $workflow_output_steps; do
+  assert_has_line "$workflow_step_ids" "$step" \
+    "the workflow reads the outputs of the step [$step], and a step of the workflow carries that id"
+done
+
+# The outputs the job that detects the changes declares.
+declared_outputs=$(awk '
+  /^    outputs:[[:space:]]*$/ { in_outputs = 1; next }
+  in_outputs && /^      [A-Za-z0-9_-]+:/ {
+    key = $1
+    sub(/:$/, "", key)
+    print key
+    next
+  }
+  in_outputs { in_outputs = 0 }
+' "$WORKFLOW" | LC_ALL=C sort -u | paste -sd, -)
+
+# The outputs the jobs of the workflow wait for.
+consumed_outputs=$(grep -oE 'needs\.changes\.outputs\.[A-Za-z0-9_-]+' "$WORKFLOW" |
+  sed -E 's/^needs\.changes\.outputs\.//' | LC_ALL=C sort -u | paste -sd, -)
+
+assert_equals "$declared_outputs" "$consumed_outputs" \
+  "the job that detects the changes declares the outputs the jobs of the workflow wait for"
+
+# The jobs the rules name are the jobs the workflow decides: an output that
+# the workflow does not declare is an output that never reaches its job, and
+# the job that waits for it is skipped forever.
+assert_equals "$rules_jobs" "$declared_outputs" \
+  "the job that detects the changes declares an output for every job the rules name"
 
 # ---------------------------------------------------------------------------
 # The safe default

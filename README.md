@@ -270,6 +270,13 @@ them against a matrix of changes, and they run in the workflow itself:
 make ci-filters-test   # the tests of the filters of the continuous integration
 ```
 
+The tests also prove that the decision reaches the jobs: the workflow reads
+what the job `changes` produces through the id of its step, and a step
+without an id produces outputs that no job can read. The tests fail if the
+workflow reads the outputs of a step that carries no id, or if the job does
+not declare an output for every check the rules name. A run that skips every
+check because a decision never arrived is green, and it proves nothing.
+
 A change of the workflow, of the scripts of the continuous integration or
 of the root `Makefile` changes what every check proves, so every check runs
 when one of them changes. A manual run of the workflow (`workflow_dispatch`)

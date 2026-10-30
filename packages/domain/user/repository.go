@@ -38,7 +38,8 @@ var ErrNoStorage = errors.New("the storage of the users is not open")
 // Repository is the port of the storage of the users.
 //
 // The port is what a use case needs, not the shape of the table: it creates,
-// updates and moves a user, and it never asks for a row it does not need.
+// reads, updates and moves a user, and it never asks for a row it does not
+// need.
 //
 // The rules of the domain travel with the port. An implementation refuses
 // what the domain refuses, and says so with the errors of this package.
@@ -55,6 +56,11 @@ type Repository interface {
 	// The error is ErrNotFound when no user carries that document ID, and
 	// ErrEmailTaken or ErrPhoneTaken when the value is already registered.
 	UpdateDetails(ctx context.Context, id ID, details Details) (User, error)
+
+	// Find returns the person who carries that document ID.
+	//
+	// The error is ErrNotFound when no user carries that document ID.
+	Find(ctx context.Context, id ID) (User, error)
 
 	// ChangeStatus moves a user to another status and writes the observation
 	// of the move.

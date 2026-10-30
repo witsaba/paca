@@ -24,6 +24,9 @@ const (
 	// ToolOnboardUser registers a person and starts their onboarding.
 	ToolOnboardUser = "onboard_user"
 
+	// ToolGetUser reads the data of a person who is already registered.
+	ToolGetUser = "get_user"
+
 	// ToolChangeUserStatus moves a user to another status.
 	ToolChangeUserStatus = "change_user_status"
 
@@ -31,7 +34,7 @@ const (
 	ToolUpdateUserContactData = "update_user_contact_data"
 )
 
-// The descriptions of the three tools.
+// The descriptions of the tools of the users.
 //
 // A description is not a comment: it is the instruction the agent reads
 // before it calls the tool. It says what the tool needs, what it does with
@@ -77,6 +80,13 @@ const (
 		"The phone must carry the country code (for example '+57 321 253 9984'); PACA cleans the number and stores " +
 		"the digits only ('573212539984'). The email must be a valid address.\n\n" +
 		"This tool never changes the status of the user: use " + ToolChangeUserStatus + " for that."
+
+	// descriptionGetUser tells the agent how to read the data of a person.
+	descriptionGetUser = "Read the data of a person who is already registered: the document ID, the full name, " +
+		"the phone, the email and the status.\n\n" +
+		"It answers with what PACA knows about the person, and it fails when no user carries that document ID.\n\n" +
+		"This tool changes nothing: use " + ToolUpdateUserContactData + " to correct the data of the person, and " +
+		ToolChangeUserStatus + " to move them to another status."
 )
 
 // onboardUserInput is the input of the tool that starts an onboarding.
@@ -122,7 +132,13 @@ type updateUserContactDataInput struct {
 	Email string `json:"email,omitempty" jsonschema:"The email address of the person. Leave it empty when it does not change."`
 }
 
-// userOutput is what the three tools answer.
+// getUserInput is the input of the tool that reads the data of a user.
+type getUserInput struct {
+	// DocumentID is the national document ID of the person.
+	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required."`
+}
+
+// userOutput is what the tools answer.
 //
 // The answer carries the row as it is now, so the agent can tell the person
 // what PACA knows about them.
@@ -162,6 +178,11 @@ func (s *Server) registerUserTools(users ports.UsersQuerier) {
 		Name:        ToolOnboardUser,
 		Description: descriptionOnboardUser,
 	}, s.onboardUser(users))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolGetUser,
+		Description: descriptionGetUser,
+	}, s.getUser(users))
 
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolChangeUserStatus,
@@ -269,6 +290,25 @@ func (s *Server) onboardUser(users ports.UsersQuerier) sdk.ToolHandlerFor[onboar
 		}
 
 		return nil, outputOf(created), nil
+	}
+}
+
+// getUser is the handler of the tool that reads the data of a user.
+//
+// The tool reads the person the document ID carries: it changes nothing, and
+// it answers with what PACA knows about the person.
+func (s *Server) getUser(users ports.UsersQuerier) sdk.ToolHandlerFor[getUserInput, userOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input getUserInput) (*sdk.CallToolResult, userOutput, error) {
+		if users == nil {
+			return nil, userOutput{}, ports.ErrNoDatabase
+		}
+
+		found, err := users.Find(ctx, input.DocumentID)
+		if err != nil {
+			return nil, userOutput{}, s.toolError(err)
+		}
+
+		return nil, outputOf(found), nil
 	}
 }
 

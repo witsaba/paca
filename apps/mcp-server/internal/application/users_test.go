@@ -41,6 +41,15 @@ func (r *fakeRepository) Create(_ context.Context, id user.ID, details user.Deta
 	return created, nil
 }
 
+// Find answers the person of the document, or the error of the test.
+func (r *fakeRepository) Find(_ context.Context, id user.ID) (user.User, error) {
+	if r.err != nil {
+		return user.User{}, r.err
+	}
+
+	return user.User{ID: id, FullName: "The Person Of The Test", Status: user.StatusActive}, nil
+}
+
 // UpdateDetails remembers the data and answers it.
 func (r *fakeRepository) UpdateDetails(_ context.Context, id user.ID, details user.Details) (user.User, error) {
 	if r.err != nil {
@@ -232,5 +241,45 @@ func TestTheUseCaseKeepsTheTimestampsOfTheStorage(t *testing.T) {
 
 	if !created.CreatedAt.Equal(time.Time{}) {
 		t.Errorf("the moment of the creation is %v, want the zero time", created.CreatedAt)
+	}
+}
+
+func TestFindAnswersThePersonOfTheDocument(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	found, err := service.Find(t.Context(), "1.234.567")
+	if err != nil {
+		t.Fatalf("the person was not read: %v", err)
+	}
+
+	if found.ID != 1234567 {
+		t.Errorf("the document is %d, want %d", found.ID, 1234567)
+	}
+	if found.FullName != "The Person Of The Test" {
+		t.Errorf("the name is %q, want %q", found.FullName, "The Person Of The Test")
+	}
+}
+
+func TestFindRefusesADocumentThatIsNotANumber(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	if _, err := service.Find(t.Context(), "CC"); !errors.Is(err, user.ErrInvalidID) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidID)
+	}
+}
+
+func TestFindSaysThatThereIsNoDatabase(t *testing.T) {
+	t.Parallel()
+
+	service := application.NewUsersService(nil)
+
+	if _, err := service.Find(t.Context(), "1234567"); !errors.Is(err, ports.ErrNoDatabase) {
+		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
 	}
 }

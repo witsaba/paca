@@ -21,6 +21,7 @@ import (
 // tools asked it.
 type stubUsers struct {
 	created     user.User
+	found       user.User
 	updated     user.User
 	moved       user.User
 	err         error
@@ -45,6 +46,17 @@ func (s *stubUsers) Onboard(_ context.Context, documentID, fullName, phone, emai
 		return user.User{}, s.err
 	}
 	return s.created, nil
+}
+
+// Find answers the person that was read.
+func (s *stubUsers) Find(_ context.Context, documentID string) (user.User, error) {
+	s.calls++
+	s.gotDocument = documentID
+
+	if s.err != nil {
+		return user.User{}, s.err
+	}
+	return s.found, nil
 }
 
 // ChangeStatus answers the move.
@@ -127,6 +139,7 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 
 	want := []string{
 		mcpserver.ToolOnboardUser,
+		mcpserver.ToolGetUser,
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 	}

@@ -386,3 +386,48 @@ func guardDefinition(ctx context.Context, t *testing.T, name string) string {
 
 	return definition
 }
+
+// TestTheRepositoryReadsThePersonOfTheDocument proves that the adapter
+// reads the person that the document ID carries.
+//
+// The read is a method of the port of the storage: the tool that reads the
+// data of a person needs it, and the port holds the methods the use cases
+// call.
+func TestTheRepositoryReadsThePersonOfTheDocument(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	id := nextIdentifier()
+	registered := registerUser(t, repo, id, "The Person Of The Read")
+
+	found, err := repo.Find(ctx, user.ID(id))
+	if err != nil {
+		t.Fatalf("the person could not be read: %v", err)
+	}
+
+	if found.ID != registered.ID {
+		t.Errorf("the document is %d, want %d", found.ID, registered.ID)
+	}
+	if found.FullName != registered.FullName {
+		t.Errorf("the name is %q, want %q", found.FullName, registered.FullName)
+	}
+	if found.Status != registered.Status {
+		t.Errorf("the state is %q, want %q", found.Status, registered.Status)
+	}
+}
+
+// TestTheRepositorySaysThatNoUserCarriesTheDocument proves that the read of
+// a document that nobody carries is the error of the domain, and not an
+// error of the database.
+func TestTheRepositorySaysThatNoUserCarriesTheDocument(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := usersRepository(t)
+
+	if _, err := repo.Find(ctx, user.ID(nextIdentifier())); !errors.Is(err, user.ErrNotFound) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrNotFound)
+	}
+}

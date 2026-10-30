@@ -210,8 +210,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 3 {
-		t.Errorf("the server exposes %d tools, want 3", len(tools.Tools))
+	if len(tools.Tools) != 4 {
+		t.Errorf("the server exposes %d tools, want 4", len(tools.Tools))
 	}
 }
 
@@ -518,5 +518,72 @@ func TestTheToolDoesNotShowTheRawTextOfAnUnknownFailure(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "connection pool is closed") {
 		t.Errorf("the log does not carry the cause: %s", logs.String())
+	}
+}
+
+// TestTheToolReadsTheDataOfThePerson proves that the tool answers what
+// PACA knows about the person, and that it changes nothing.
+func TestTheToolReadsTheDataOfThePerson(t *testing.T) {
+	t.Parallel()
+
+	users := &stubUsers{found: user.User{
+		ID:        1234567,
+		FullName:  "Ana María Pérez",
+		Phone:     "573212539984",
+		Email:     "ana@example.com",
+		Status:    user.StatusActive,
+		CreatedAt: time.Date(2026, time.October, 29, 10, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, time.October, 29, 11, 0, 0, 0, time.UTC),
+	}}
+	session := connect(t, users)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolGetUser,
+		Arguments: map[string]any{
+			"document_id": "1234567",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if users.gotDocument != "1234567" {
+		t.Errorf("the document is %q, want %q", users.gotDocument, "1234567")
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{"1234567", "Ana María Pérez", "573212539984", "ana@example.com", "active"} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q: %s", want, answer)
+		}
+	}
+}
+
+// TestTheToolSaysThatNoUserCarriesTheDocument proves that the read of a
+// document that nobody carries is an error the agent understands.
+func TestTheToolSaysThatNoUserCarriesTheDocument(t *testing.T) {
+	t.Parallel()
+
+	users := &stubUsers{err: user.ErrNotFound}
+	session := connect(t, users)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolGetUser,
+		Arguments: map[string]any{
+			"document_id": "1234567",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	if !strings.Contains(textOf(t, result), "no user with that document ID") {
+		t.Errorf("the message does not say that nobody carries the document: %s", textOf(t, result))
 	}
 }

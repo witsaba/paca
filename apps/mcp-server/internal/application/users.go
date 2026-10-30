@@ -52,6 +52,25 @@ func (s *UsersService) Onboard(ctx context.Context, documentID, fullName, phone,
 	return s.repository.Create(ctx, id, details)
 }
 
+// Find returns the person who carries that document ID.
+//
+// The document ID is the national document of the person, and it is
+// required: the use case refuses a call that does not bring it. The core of
+// the monorepository refuses a document ID that is not a number, and it says
+// that no user carries that document ID.
+func (s *UsersService) Find(ctx context.Context, documentID string) (user.User, error) {
+	if s == nil || s.repository == nil {
+		return user.User{}, ports.ErrNoDatabase
+	}
+
+	id, err := user.ParseID(documentID)
+	if err != nil {
+		return user.User{}, err
+	}
+
+	return s.repository.Find(ctx, id)
+}
+
 // ChangeStatus moves a user to another status and writes the observation of
 // the move.
 //

@@ -68,6 +68,12 @@ type UsersQuerier interface {
 	// nothing generates it. The name, the phone and the email are optional.
 	Onboard(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
 
+	// Find returns the person who carries that document ID.
+	//
+	// The document ID is required: it is the number the person carries, and
+	// nothing generates it.
+	Find(ctx context.Context, documentID string) (user.User, error)
+
 	// ChangeStatus moves a user to another status and writes the
 	// observation of the move.
 	ChangeStatus(ctx context.Context, documentID, status, observation string) (user.User, error)

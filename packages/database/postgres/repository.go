@@ -96,13 +96,13 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 	return userFromRow(row)
 }
 
-// getByID returns the user of the document ID.
+// Find returns the user of the document ID.
 //
 // The read is a helper of the adapter: the change of the status reads the row
 // it is about to write, and no use case asks for a row by itself.
 //
 // The error is user.ErrNotFound when no user carries that document ID.
-func (r *UserRepository) getByID(ctx context.Context, id user.ID) (user.User, error) {
+func (r *UserRepository) Find(ctx context.Context, id user.ID) (user.User, error) {
 	if r == nil || r.queries == nil {
 		return user.User{}, user.ErrNoStorage
 	}
@@ -174,7 +174,7 @@ func (r *UserRepository) ChangeStatus(ctx context.Context, id user.ID, status us
 		return user.User{}, user.ErrNoStorage
 	}
 
-	current, err := r.getByID(ctx, id)
+	current, err := r.Find(ctx, id)
 	if err != nil {
 		return user.User{}, err
 	}

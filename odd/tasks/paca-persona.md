@@ -149,28 +149,29 @@ targets, and the agent identifies as Paca.
   the personality of Paca, the truthfulness (no invention, the web with its
   biases questioned, the validation with the user, the last word of the user),
   the voice, and the negations (no sycophancy, no imitation of a human, no
-  sentiment, no "Hermes"). Route: parent. Commit: pending.
+  sentiment, no "Hermes"). Route: parent. Commit: `c261abf`.
 - T2 — The soul reaches the container. `hermes/Dockerfile` copies
   `hermes/soul.md` into the image, and `hermes/init.sh` seeds it into
   `HERMES_HOME/SOUL.md`: when the file is missing, and when it still holds the
   identity the runtime seeds by itself, and never when the maintainer wrote
-  one. Route: parent. Commit: pending.
+  one. Route: parent. Commit: `c261abf`.
 - T3 — Telegram is the first channel and its credentials are mandatory.
   `hermes/env.example` declares `TELEGRAM_BOT_TOKEN` (secret, required) and
   `TELEGRAM_ALLOWED_USERS` (required); `hermes/compose.yaml` passes both to
   the seeding and to the gateway; `hermes/init.sh` refuses the stack without
-  them, naming the command that writes them. Route: parent. Commit: pending.
+  them, naming the command that writes them. Route: parent. Commit: `c261abf`.
 - T4 — The proof of the identity. `hermes/smoke.sh` asserts that the state of
   the agent carries the soul of Paca and that the credential of the channel
-  reached the container, without printing it. Route: parent. Commit: pending.
+  reached the container, without printing it. Route: parent. Commit: `c261abf`.
 - T5 — The gate pins the change. `scripts/tests/structure-test.sh` gains the
   rule that the stack of the agent carries the soul of Paca, copies it into the
   image, seeds it into the state, and that the soul names Paca instead of
-  Hermes. Route: parent. Commit: pending.
+  Hermes. Route: parent. Commit: `c261abf`.
 - T6 — The documentation of the product. The root `README.md`,
   `hermes/README.md` and `AGENTS.md` say who Paca is, what the seven
   principles are, how the Telegram channel is brought up, and what the residual
-  of the runtime is. Route: parent. Commit: pending.
+  of the runtime is. Route: parent (the root documentation was written by a
+  delegated writer and reviewed by the parent). Commit: `cec6ad8`.
 
 ## Log
 
@@ -237,3 +238,34 @@ targets, and the agent identifies as Paca.
   `../paca-worktrees/paca-persona`, on the branch `feat/paca-persona`. The
   compose stack is not started by the agent; the maintainer initializes the
   `.env` of the stack in the worktree and builds it.
+- L7 — The work units, and the boundary of the slice:
+
+  | Commit | What it holds | Authored lines |
+  |--------|---------------|----------------|
+  | `c261abf` | The soul, the seeding, the channel, the smoke and the rule of the gate. | 480 |
+  | `cec6ad8` | The documentation of the product. | 337 |
+  | `dc8bbe8` | The record of the slice. | 122 |
+
+  The first work unit crossed the boundary of four hundred authored lines on
+  its own: the identity of the agent and the channel that carries it are one
+  behavior, and splitting the files they share (`init.sh`, the smoke and the
+  rule of the gate) would have made the unit less reviewable, not more. The
+  documentation and the record follow in their own units.
+- L8 — The evidence of the slice:
+  - The gate of the repository is green in the worktree: `make gate` (fmt,
+    vet, lint, build, test, race, coverage at 91.4% and the scan of the
+    vulnerabilities), `make shellcheck`, the tests of the installer of the
+    environment (114 assertions) and the tests of the structure (362
+    assertions).
+  - The rule of the gate discriminates: the soul renamed to the identity of
+    the runtime fails the rule, and a key of the manifest that loses its
+    directive `# @required` fails it too.
+  - The image carries the soul: the build of `hermes/Dockerfile` copies it to
+    `/opt/hermes/soul.md`.
+  - The seeding of the stack was proved against the image, with a state of
+    the agent in a temporary directory: a fresh state gets the soul of Paca,
+    a state that carries the identity the runtime seeds by itself gets it
+    replaced, a state with a soul the maintainer wrote keeps it, and the
+    stack is refused without the credentials of the channel.
+  - The soul holds 11,004 characters (the runtime truncates it above 20,000)
+    and it passes the scanner of the runtime of the image unchanged.

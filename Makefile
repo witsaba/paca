@@ -51,7 +51,7 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
         db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
         hermes-up hermes-smoke hermes-down \
-        engram-up engram-smoke engram-down \
+        engram-up engram-smoke engram-down engram-payload \
         stack-up stack-schema stack-down \
         env-init env-test structure-test ci-filters-test
 
@@ -76,6 +76,7 @@ help: ## Show this help
 	@echo "  make engram-up       start the memory and wait until it is healthy"
 	@echo "  make engram-smoke    run the smoke test of the memory (it must be running)"
 	@echo "  make engram-down     stop the memory (keeps the memories)"
+	@echo "  make engram-payload  publish the payload of the memory on the volume the agent mounts"
 	@echo ""
 	@echo "The whole monorepository:"
 	@echo "  make stack-up        start every stack and wait until the whole project is healthy"
@@ -220,7 +221,11 @@ observability-smoke: ## Run the smoke test of the collector (it must be running)
 observability-down: ## Stop the collector of the traces (keeps the traces)
 	$(MAKE) --no-print-directory -C observability down
 
-hermes-up: ## Start the agent and wait until it is healthy
+# The agent needs the payload of the memory: the executable of the store
+# is published by the stack of the memory, and the agent mounts it
+# read-only. The payload is published before the agent starts, so the
+# agent never waits for nothing.
+hermes-up: engram-payload ## Start the agent and wait until it is healthy
 	$(MAKE) --no-print-directory -C hermes up
 
 hermes-smoke: ## Run the smoke test of the agent (it must be running)
@@ -237,6 +242,13 @@ engram-smoke: ## Run the smoke test of the memory (it must be running)
 
 engram-down: ## Stop the memory (keeps the memories)
 	$(MAKE) --no-print-directory -C engram down
+
+# The publication of the payload of the memory: the verified executable of
+# the store is written on the volume `paca-engram-payload`, which the
+# stack of the agent mounts read-only. The target of the stack of the
+# memory does the work, and it is safe to run it twice.
+engram-payload: ## Publish the payload of the memory on the volume the agent mounts
+	$(MAKE) --no-print-directory -C engram payload
 
 # The whole monorepository: the root compose file includes every stack, so
 # the project comes up as a whole and the schema is written by the service

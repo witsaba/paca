@@ -884,43 +884,43 @@ build_arg_values() {
   ' "$file"
 }
 
-# test_the_payload_of_the_memory_is_pinned_once asserts that the payload
-# of the memory is pinned the same way in the image of the memory and in
-# the image of the agent.
+# test_the_stack_of_the_agent_carries_no_payload asserts that the stack of
+# the agent carries no payload of the store of its own.
 #
-# The image of the agent carries the binary of the store, so the release
-# and its checksums are declared in two compose files. Two declarations
-# that drift apart are two different payloads: the agent would carry a
-# store that the stack of the memory does not run, and the proof of the
-# memory would prove a version that nobody else uses.
-test_the_payload_of_the_memory_is_pinned_once() {
+# The payload of the memory has one owner: the stack of the memory builds
+# it, verifies it and publishes it on the volume `paca-engram-payload`,
+# and the stack of the agent mounts that volume read-only and points its
+# MCP configuration at the executable, the way the documentation of the
+# store prescribes for any other MCP agent.
+#
+# So the stack of the agent must not declare a pin of the payload, and the
+# image of the agent must not download the store: a second copy of the
+# payload is a second thing to drift, and the executable that the agent
+# would spawn would not be the one the store published.
+test_the_stack_of_the_agent_carries_no_payload() {
   local hermes_compose="$REPO_ROOT/hermes/compose.yaml"
-  local engram_compose="$REPO_ROOT/engram/compose.yaml"
+  local hermes_dockerfile="$REPO_ROOT/hermes/Dockerfile"
 
   [ -f "$hermes_compose" ] || return 0
-  [ -f "$engram_compose" ] || return 0
+  [ -f "$hermes_dockerfile" ] || return 0
 
+  # No pin of the payload in the stack of the agent: the pins live in the
+  # compose file of the stack of the memory, and nowhere else.
   local pin
   for pin in ENGRAM_VERSION ENGRAM_SHA256_AMD64 ENGRAM_SHA256_ARM64; do
-    local expected
-    expected=$(build_arg_values "$engram_compose" "$pin" | head -n 1)
-    assert_not_equals "" "$expected" "the stack of the memory pins $pin"
-
-    local values
-    values=$(build_arg_values "$hermes_compose" "$pin")
-    assert_not_equals "" "$values" "the stack of the agent pins $pin"
-
-    # Every declaration of the pin is the same one: the services of the
-    # stack of the agent build the same image.
-    local value
-    while IFS= read -r value; do
-      [ -n "$value" ] || continue
-      assert_equals "$expected" "$value" \
-        "every declaration of $pin in the stack of the agent is the pin of the stack of the memory"
-    done <<EOF
-$values
-EOF
+    assert_equals "" "$(build_arg_values "$hermes_compose" "$pin")" \
+      "the stack of the agent declares no build argument $pin"
   done
+
+  # No download of the store in the image of the agent: the executable
+  # comes from the volume that the stack of the memory publishes.
+  local dockerfile
+  dockerfile=$(cat "$hermes_dockerfile")
+
+  assert_not_contains "$dockerfile" "releases/download" \
+    "the image of the agent downloads no release of the store"
+  assert_not_contains "$dockerfile" "sha256sum" \
+    "the image of the agent verifies no checksum of the store"
 }
 
 # ---------------------------------------------------------------------------
@@ -940,7 +940,7 @@ run_rule "every image copies the modules it imports" test_every_image_copies_the
 run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
-run_rule "the payload of the memory is pinned once" test_the_payload_of_the_memory_is_pinned_once
+run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 
 report_the_rules
 

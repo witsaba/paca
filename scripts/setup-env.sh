@@ -7,6 +7,10 @@
 # default, the values that are already configured are kept, and the secrets
 # get a strong password that is never printed.
 #
+# The environment of the process is a source of values: a key that the stack
+# does not configure takes the value of the environment. A key marked
+# `# @required` is the one thing that stops a stack from running without it.
+#
 # The usage:
 #
 #   scripts/setup-env.sh [options]
@@ -48,12 +52,18 @@ TARGET=''
 TARGET_REL=''
 
 # The manifest, parsed: the keys in the order of the file, their value, their
-# description and the two directives.
+# description and the three directives.
 MF_KEYS=()
 MF_VALUES=()
 MF_DESCRIPTIONS=()
 MF_SECRET=()
 MF_GENERATE=()
+MF_REQUIRED=()
+
+# Where the value of every key comes from: the `.env` of the stack, the
+# environment of the process, the manifest, the answer of the person or the
+# generated password.
+MF_SOURCE=()
 
 # Whether the value of a key was asked to the person. A key that was not
 # asked is reported with its description, because nobody saw it.
@@ -62,6 +72,9 @@ MF_ASKED=()
 # The `.env` that is already on disk.
 ENV_KEYS=()
 ENV_VALUES=()
+
+# The keys that are required and hold no value at all.
+MISSING_REQUIRED=()
 
 # The values of the run: the keys of the manifest, then the keys that were
 # configured by hand.
@@ -82,6 +95,9 @@ TMP_FILE=''
 
 # The number of the files that were written.
 WRITTEN=0
+
+# Whether a stack was refused because a required value was missing.
+FAILED=0
 
 # ---------------------------------------------------------------------------
 # The messages
@@ -116,6 +132,20 @@ The answers of the interactive mode are read from the standard input:
   the answer `g` generates a strong value for a secret marked `# @generate`
   any other answer replaces the value
 
+The manifest of a stack is its `env.example` file. The directives of a key
+are written in the comments above it:
+  # @secret     the value is a secret: it is never printed and the file
+                that holds it is written with the mode 600
+  # @generate   a strong value can be generated for the key
+  # @required   the stack cannot run without the value: the interactive run
+                refuses to finish without it, and the run without a person
+                only warns about it
+
+The value of a key comes from the first place that holds one:
+  the `.env` of the stack   the configuration of the stack
+  the environment           the environment of the process
+  the manifest              the default of the key
+
 Exit codes:
   0  the run succeeded
   1  a usage error or a write error
@@ -125,6 +155,10 @@ EOF
 
 warn() {
   printf 'setup-env: %s\n' "$1" >&2
+}
+
+error() {
+  printf 'setup-env: error: %s\n' "$1" >&2
 }
 
 die() {
@@ -401,12 +435,14 @@ parse_manifest() {
   local description=()
   local secret=0
   local generate=0
+  local required=0
 
   MF_KEYS=()
   MF_VALUES=()
   MF_DESCRIPTIONS=()
   MF_SECRET=()
   MF_GENERATE=()
+  MF_REQUIRED=()
   MF_ASKED=()
 
   while IFS= read -r line || [ -n "$line" ]; do
@@ -417,6 +453,7 @@ parse_manifest() {
         case "$text" in
           '@secret') secret=1 ;;
           '@generate') generate=1 ;;
+          '@required') required=1 ;;
           *) description+=("$text") ;;
         esac
         continue
@@ -427,6 +464,7 @@ parse_manifest() {
         description=()
         secret=0
         generate=0
+        required=0
         continue
         ;;
       *=*)
@@ -437,9 +475,11 @@ parse_manifest() {
         MF_DESCRIPTIONS+=("${description[*]}")
         MF_SECRET+=("$secret")
         MF_GENERATE+=("$generate")
+        MF_REQUIRED+=("$required")
         description=()
         secret=0
         generate=0
+        required=0
         continue
         ;;
     esac
@@ -505,6 +545,21 @@ manifest_declares() {
     fi
   done
   return 1
+}
+
+# environment_value KEY
+#
+# Prints the value of a key of the environment of the process. It fails when
+# the environment does not hold the key, or holds it empty: an empty value
+# is no value.
+environment_value() {
+  local wanted="$1"
+  local value
+  value=$(printenv "$wanted" 2>/dev/null || true)
+  if [ -z "$value" ]; then
+    return 1
+  fi
+  printf '%s' "$value"
 }
 
 # ---------------------------------------------------------------------------
@@ -580,8 +635,12 @@ ask_value() {
 # resolve_values
 #
 # Fills VALUES with the value of every key of the manifest, in the order of
-# the manifest: the value already configured, else the value of the
-# manifest, else a strong password for a secret that can be generated.
+# the manifest: the value already configured in the `.env`, else the value of
+# the environment, else the value of the manifest, else a strong password
+# for a secret that can be generated.
+#
+# A key that is required and holds no value at all is collected in
+# MISSING_REQUIRED: the stack cannot run without it.
 resolve_values() {
   local index
   local key
@@ -590,20 +649,25 @@ resolve_values() {
   local configured
   local secret
   local generate
+  local required
   local value
   local source
   local answer
   local asked
   local existing_bare
+  local from_environment
 
   VALUES=()
   MF_ASKED=()
+  MF_SOURCE=()
+  MISSING_REQUIRED=()
 
   for index in "${!MF_KEYS[@]}"; do
     key="${MF_KEYS[$index]}"
     manifest_value="${MF_VALUES[$index]}"
     secret="${MF_SECRET[$index]}"
     generate="${MF_GENERATE[$index]}"
+    required="${MF_REQUIRED[$index]}"
 
     configured=0
     existing=''
@@ -634,7 +698,22 @@ resolve_values() {
       existing_bare=''
     fi
 
-    if [ "$configured" -eq 1 ]; then
+    # The environment of the process is a source of values: it fills a key
+    # that the stack does not configure. It never overrides a value that the
+    # stack does configure: the file is the configuration of the stack.
+    from_environment=''
+    if [ "$configured" -eq 0 ]; then
+      if from_environment=$(environment_value "$key"); then
+        configured=1
+      else
+        from_environment=''
+      fi
+    fi
+
+    if [ "$configured" -eq 1 ] && [ -n "$from_environment" ]; then
+      value="$from_environment"
+      source='environment'
+    elif [ "$configured" -eq 1 ]; then
       value="$existing"
       source='configured'
     else
@@ -658,7 +737,9 @@ resolve_values() {
     fi
 
     asked=0
-    if should_ask "$secret"; then
+    # A value that comes from the environment is configured: the person is
+    # not asked about it again.
+    if [ "$source" != 'environment' ] && should_ask "$secret"; then
       asked=1
       if ask_value "$key" "${MF_DESCRIPTIONS[$index]}" "$value" "$secret" "$generate" "$source"; then
         answer="$ANSWER"
@@ -678,7 +759,14 @@ resolve_values() {
     fi
 
     MF_ASKED+=("$asked")
+    MF_SOURCE+=("$source")
     VALUES+=("$value")
+
+    # A required key that holds no value at all is the one thing that stops
+    # the stack from running.
+    if [ "$required" -eq 1 ] && [ -z "$(bare_value "$value")" ]; then
+      MISSING_REQUIRED+=("$key")
+    fi
   done
 }
 
@@ -733,6 +821,7 @@ build_content() {
 # Prints what the file holds. The secrets are hidden.
 report_values() {
   local index
+  local line
   printf '  %s\n' "$TARGET_REL"
   for index in "${!MF_KEYS[@]}"; do
     # A key that was asked carries its description in the question itself.
@@ -741,9 +830,16 @@ report_values() {
       printf '    %s\n' "${MF_DESCRIPTIONS[$index]}"
     fi
     if [ "${MF_SECRET[$index]}" -eq 1 ]; then
-      printf '    %s=%s\n' "${MF_KEYS[$index]}" "$MASK"
+      line="${MF_KEYS[$index]}=$MASK"
     else
-      printf '    %s=%s\n' "${MF_KEYS[$index]}" "${VALUES[$index]}"
+      line="${MF_KEYS[$index]}=${VALUES[$index]}"
+    fi
+    # A value that did not come from the `.env` of the stack says where it
+    # came from, so the person knows what the run decided.
+    if [ "${MF_SOURCE[$index]}" = 'environment' ]; then
+      printf '    %s (from the environment)\n' "$line"
+    else
+      printf '    %s\n' "$line"
     fi
   done
   for index in "${!EXTRA_KEYS[@]}"; do
@@ -813,6 +909,24 @@ write_target() {
 # The stack
 # ---------------------------------------------------------------------------
 
+# report_missing_required
+#
+# Reports the keys that are required and hold no value. The run without a
+# person only warns: the stack refuses to start later, and the run ends
+# with the code of a success. The interactive run reports the failure: the
+# stack cannot run without the value, and the run ends with the code of an
+# error.
+report_missing_required() {
+  local key
+  for key in "${MISSING_REQUIRED[@]}"; do
+    if [ "$OPT_YES" -eq 1 ]; then
+      warn "$key is required and has no value: the stack will refuse to start without it"
+    else
+      error "$key is required and has no value: the stack cannot run without it"
+    fi
+  done
+}
+
 # process_manifest MANIFEST
 #
 # Installs one stack: the manifest is read, the values are resolved and the
@@ -838,6 +952,17 @@ process_manifest() {
 
   resolve_values
   collect_extra_keys
+
+  # A stack that is missing a required value is written all the same: the
+  # Compose file of the stack reads its `.env` and refuses to start when
+  # that file does not exist. The empty value is honest: the key was never
+  # given, and the stack itself says which value is missing.
+  if [ "${#MISSING_REQUIRED[@]}" -gt 0 ]; then
+    report_missing_required
+    if [ "$OPT_YES" -ne 1 ]; then
+      FAILED=1
+    fi
+  fi
 
   # A key that the manifest does not declare may be a secret: the file that
   # holds it is private either way.
@@ -888,6 +1013,12 @@ main() {
   done
 
   printf '%s file(s) written.\n' "$WRITTEN"
+
+  if [ "$FAILED" -eq 1 ]; then
+    error "the run failed: a required value is missing"
+    return "$EXIT_ERROR"
+  fi
+
   return "$EXIT_OK"
 }
 

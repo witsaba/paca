@@ -34,6 +34,13 @@ services:
     container_name: paca-engram
     restart: unless-stopped
     stop_grace_period: 15s
+    # The payload of the store is published before the store runs: the
+    # publication is the first step of the lifecycle of the stack of the
+    # memory, and the store waits for it because it is the very executable
+    # that the agent of PACA spawns.
+    depends_on:
+      engram-payload:
+        condition: service_completed_successfully
     # The credentials live with the stack that owns them: `engram/.env`. The
     # file is written by the installer of the environment, which finds the
     # manifest of the stack on its own.
@@ -101,6 +108,62 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # The one-shot service that publishes the payload of the store: the
+  # verified executable of the store, written on the volume that the stack
+  # of the agent mounts read-only.
+  #
+  # The payload has one owner: the stack of the memory builds it, verifies
+  # it and publishes it. The image of the agent carries no payload of the
+  # store anymore — it mounts the volume below and points its MCP
+  # configuration at the executable, the way any other MCP agent does.
+  #
+  # It is built from the image of the store, with the same context, the
+  # same dockerfile and the same build arguments, so the payload it
+  # publishes is the very executable that the store runs.
+  #
+  # It runs as the root of the container, because the volume is created by
+  # Docker owned by root, and it overrides the entrypoint of the image: the
+  # entrypoint of the image owns the state of the store, and the
+  # publication owns the payload instead.
+  engram-payload:
+    build:
+      # The context is the root of the monorepository, like the image of
+      # every other service that the repository builds.
+      context: ..
+      dockerfile: engram/Dockerfile
+      args:
+        # The base image is pinned by digest, like every image of the
+        # repository.
+        BASE_IMAGE: alpine:3.22@sha256:2e0b81d60597f449baa56dc25d355367869d2dca4cd57e866f1e2b52af3eb55f
+        # The payload is the official release of Engram, pinned by version
+        # and verified by the checksum of its architecture: the build fails
+        # when the bytes are not the ones that were pinned.
+        ENGRAM_VERSION: "3.6.0"
+        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
+        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+    image: paca/engram:${PACA_VERSION:-dev}
+    container_name: paca-engram-payload
+    # The service runs once and it ends: it is not restarted.
+    restart: "no"
+    # The volume is owned by root, so the publication runs as root.
+    user: "0:0"
+    # The entrypoint of the image is replaced here, and only here: it owns
+    # the state of the store, and the publication owns the payload.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        cp /opt/engram/engram /payload/engram
+        chmod 0755 /payload/engram
+    volumes:
+      # The volume that carries the payload of the store: the stack of the
+      # agent mounts it read-only and names the executable in it.
+      - engram-payload:/payload
+    networks:
+      # The publication talks to nothing: it stays on the internal network,
+      # which has no outbound access at all.
+      - internal
+
 networks:
   # Declared here with the same attributes as the root compose, so this
   # stack also runs on its own. The name is fixed, so the network is the
@@ -113,3 +176,8 @@ networks:
 volumes:
   engram-data:
     name: paca-engram-data
+  # The payload of the store: the verified executable, published by the
+  # service above and mounted read-only by the stack of the agent. The name
+  # is the contract between the two stacks.
+  engram-payload:
+    name: paca-engram-payload

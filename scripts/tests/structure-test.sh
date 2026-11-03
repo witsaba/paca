@@ -197,6 +197,16 @@ assert_not_contains() {
   esac
 }
 
+assert_not_equals() {
+  local unexpected="$1"
+  local actual="$2"
+  local message="$3"
+  ASSERTIONS=$((ASSERTIONS + 1))
+  if [ "$unexpected" = "$actual" ]; then
+    fail "$message: the value [$actual] was not expected"
+  fi
+}
+
 assert_file_exists() {
   local path="$1"
   local message="$2"
@@ -852,6 +862,68 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# The stacks
+# ---------------------------------------------------------------------------
+
+# build_arg_values COMPOSE_FILE ARG
+#
+# Every value of a build argument of a compose file, one per line and
+# without the quotes. The arguments of a build are declared as they are
+# in the file, so the value is what is between the colon and the end of
+# the line.
+build_arg_values() {
+  local file="$1" name="$2"
+  awk -v name="$name" '
+    $0 ~ ("^[[:space:]]+" name ":[[:space:]]*") {
+      value = $0
+      sub("^[[:space:]]+" name ":[[:space:]]*", "", value)
+      gsub(/"/, "", value)
+      gsub(/[[:space:]]/, "", value)
+      print value
+    }
+  ' "$file"
+}
+
+# test_the_stack_of_the_agent_carries_no_payload asserts that the stack of
+# the agent carries no payload of the store of its own.
+#
+# The payload of the memory has one owner: the stack of the memory builds
+# it, verifies it and publishes it on the volume `paca-engram-payload`,
+# and the stack of the agent mounts that volume read-only and points its
+# MCP configuration at the executable, the way the documentation of the
+# store prescribes for any other MCP agent.
+#
+# So the stack of the agent must not declare a pin of the payload, and the
+# image of the agent must not download the store: a second copy of the
+# payload is a second thing to drift, and the executable that the agent
+# would spawn would not be the one the store published.
+test_the_stack_of_the_agent_carries_no_payload() {
+  local hermes_compose="$REPO_ROOT/hermes/compose.yaml"
+  local hermes_dockerfile="$REPO_ROOT/hermes/Dockerfile"
+
+  [ -f "$hermes_compose" ] || return 0
+  [ -f "$hermes_dockerfile" ] || return 0
+
+  # No pin of the payload in the stack of the agent: the pins live in the
+  # compose file of the stack of the memory, and nowhere else.
+  local pin
+  for pin in ENGRAM_VERSION ENGRAM_SHA256_AMD64 ENGRAM_SHA256_ARM64; do
+    assert_equals "" "$(build_arg_values "$hermes_compose" "$pin")" \
+      "the stack of the agent declares no build argument $pin"
+  done
+
+  # No download of the store in the image of the agent: the executable
+  # comes from the volume that the stack of the memory publishes.
+  local dockerfile
+  dockerfile=$(cat "$hermes_dockerfile")
+
+  assert_not_contains "$dockerfile" "releases/download" \
+    "the image of the agent downloads no release of the store"
+  assert_not_contains "$dockerfile" "sha256sum" \
+    "the image of the agent verifies no checksum of the store"
+}
+
+# ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
 
@@ -868,6 +940,7 @@ run_rule "every image copies the modules it imports" test_every_image_copies_the
 run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
+run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 
 report_the_rules
 

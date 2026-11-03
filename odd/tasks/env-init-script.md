@@ -59,12 +59,33 @@ The answer to the question about the scope of the installer, verbatim:
 
 **S23 — The secrets of the installation stay out of the repository.** The generated `.env` files are never committed: the root `.env` is added to `.gitignore`, next to `db/postgres/.env`.
 
+The request of this change, verbatim:
+
+> A manifest key may carry the directive `# @required` (read hermes/env.example: it already uses the directive for OPENROUTER_API_KEY and describes it in its header comment).
+>
+> Interactive mode (the default), a required key that has NO value at all (not in the `.env` of the stack, not in the environment, not a non-empty default in the manifest) and an EMPTY answer (the empty answer normally keeps the default): the script refuses. It prints a message that names the key and says the stack cannot run without it, and the run ends with the exit code 1 (EXIT_ERROR). The `.env` files of the OTHER stacks must still be written: the run must not lose them.
+>
+> When the process environment defines a key of the manifest with a non-empty value, and the `.env` of the stack does NOT define that key, the value of the environment is used. Such a value counts as configured: it is not asked again in the interactive mode.
+>
+> The precedence is: the value already in the `.env` wins over the value of the environment (the file is the configuration of the stack), and the value of the environment wins over the value of the manifest.
+
+**S24 — A key can be required.** The directive `# @required` marks a key the stack cannot run without. The value of a required key is asked like the value of any other key. The directive is independent of `# @secret`: a required key that is not a secret is required all the same.
+
+**S25 — The interactive run refuses a required key that holds no value.** A required key holds no value when the `.env` of the stack does not hold it, when the environment does not hold it and when the manifest offers no non-empty default for it. When such a key gets the empty answer — the answer that normally keeps the default — the script refuses: it names the key, says that the stack cannot run without it, and the run ends with the exit code `1`. The `.env` of the stack is written all the same, with the empty value of the key: the Compose file of the stack reads that file and refuses to start when it does not exist. The `.env` files of the other stacks are written too: the run must not lose them.
+
+**S26 — The run without a person only warns about a required key.** The mode `--yes` does not fail when a required key holds no value: it warns that the stack will refuse to start without the key, writes the key with the value it has — empty when it has none — and the run ends with the exit code `0`.
+
+**S27 — The environment is a source of values.** When the environment of the process holds a key of the manifest with a non-empty value, and the `.env` of the stack does not hold that key, the value of the environment is the value of the key and it is written to the `.env`. Such a value counts as configured: the person is not asked about it again in the interactive mode.
+
+**S28 — The precedence of the values.** The value that the `.env` of the stack already holds wins over the value of the environment — the file is the configuration of the stack — and the value of the environment wins over the value of the manifest. The report of the values says where a value came from when it did not come from the `.env` of the stack: the value is printed as coming from the environment. A secret stays masked.
+
 ## Tasks
 
 - **T1** (S3, S4, S5) — The manifest format: the directives of `db/postgres/env.example`, the descriptions, and the root `env.example` with the version of the images. Commit: `feat(env): the manifest of the environment of every stack`.
 - **T2** (S2, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19) — `scripts/setup-env.sh`: the discovery, the parsing of the manifest, the resolution of the defaults, the interactive mode, `--yes`, `--dry-run`, `--password`, the generation of the strong password, the atomic write. Commit: `feat(scripts): the installer of the environment of the monorepository`.
 - **T3** (S21) — `scripts/tests/setup-env-test.sh`: the fixtures and the assertions. Commit: `test(scripts): the tests of the installer of the environment`.
 - **T4** (S20, S22, S23) — The wiring: the root `Makefile` (`env-init`, `env-test`), the continuous integration, the `.gitignore`, the root README and the README of the database stack. Commit: `chore(env): the installer in the Makefile, the CI and the documentation`.
+- **T5** (S24, S25, S26, S27, S28) — `scripts/setup-env.sh` and `scripts/tests/setup-env-test.sh`: the directive `# @required` and the environment as a source of values. Commit: the work unit of this change.
 
 ## Log
 
@@ -95,3 +116,8 @@ The answer to the question about the scope of the installer, verbatim:
 - **L13** — The verification also found that S4 asked for the continuous integration to keep copying the example. The clause was rewritten: the continuous integration now creates its credentials with the installer, so the weak placeholder never reaches a running cluster. The change is in the commit `chore(env)`, and the manual copy stays documented as the fallback.
 - **L14** — The verification found that the description of a key was shown only when the value was asked. It is now shown for every key that nobody was asked about, so the report of the non-interactive modes carries the description of every value it installs.
 - **L15** — The second verification (`gentle-ai-verify`, over the first fix commit) found that three of the new tests did not discriminate: the case of the hand written key used a stack that already declared a secret, the case of the link used a target with a different content, so the run never reached the branch of the defect, and the case of the temporary file ran the installer only once. The three cases are now the ones that reach the behaviour, and the suite fails when the behaviour is broken (checked by mutation). Two behaviours were refined by the same round: the mode of a link that points inside the root is corrected again (only a link that points outside of the root is left alone), and a value that is empty between quotes (`POSTGRES_PASSWORD=""`) counts as empty, because that is what Compose reads.
+- **L16** — The directive `# @required` and the environment as a source of values. The manifest of the stack of the agent (`hermes/env.example`) already declared `# @required` for `OPENROUTER_API_KEY`, and the installer did not know the directive: the header comment of the manifest described a behaviour that did not exist.
+- **L17** — The decision on the refusal of a required key: the interactive run reports the key that is missing, writes the `.env` of the stack with the empty value and ends with the exit code `1` after the other stacks are written. The file is written all the same because the Compose file of the stack reads it with `env_file` and refuses to start when it does not exist: the operator must read the failure of the stack itself, not the failure of a missing file.
+- **L18** — The decision on the mode without a person: `--yes` only warns about a required key that holds no value, writes it empty and ends with `0`. The mode exists for the continuous integration and for a scripted installation, where nobody can answer a question: failing there would block an installation that the person can complete later.
+- **L19** — The decision on the environment as a source of values: it fills a key that the stack does not configure, and it never overrides a value that the stack does configure — the file is the configuration of the stack. A value that comes from the environment is configured, so the person is not asked about it again; the report says where such a value came from, and a secret stays masked.
+- **L20** — The decision on the empty value of the `.env`: an empty value is no value (S9), so the environment of the process fills it instead of the default of the manifest.

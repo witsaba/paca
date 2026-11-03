@@ -39,8 +39,8 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
-| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, without a provider yet. | [hermes/README.md](hermes/README.md) |
-| `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port. | [engram/README.md](engram/README.md) |
+| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, with the provider of the models and the memory of the monorepository on the stdio MCP transport. Its image carries no payload of the store: it mounts the published payload read-only. | [hermes/README.md](hermes/README.md) |
+| `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port, and the owner of the payload of the store: it builds the official release, verifies it against the pinned sha256 and publishes it on the volume `paca-engram-payload`. | [engram/README.md](engram/README.md) |
 
 ## The installation
 
@@ -56,6 +56,18 @@ It asks one question per value and offers the default of each one: the value
 already configured when the file exists, the value of the manifest otherwise.
 The empty answer keeps the default, any other answer replaces it, and `g`
 generates a strong password for the secrets.
+
+A value can also come from the environment of the shell: when the
+environment holds a key of a manifest and the `.env` of the stack does not
+hold it yet, the environment answers the question. The file that is already
+on disk wins over the environment, because the file is the configuration of
+the stack.
+
+A key marked `# @required` in its manifest is a key the stack cannot run
+without: the interactive installation refuses to finish without it, and the
+`--yes` mode warns about it and continues. The credential of the provider
+of the models of the agent is one of them, and it belongs to the DevOps
+engineer who runs the project.
 
 Running it again keeps what is configured, so a value can be changed at any
 time without losing the rest of the file. The secrets are never printed, and
@@ -93,6 +105,10 @@ make stack-schema    # assert that the schema was written by the service that ow
 make stack-down      # stop every container of the project, keeping the named volumes
 ```
 
+The payload of the memory belongs to the stack of the memory: it is
+published there, on the volume `paca-engram-payload`, and the stack of the
+agent mounts it read-only. `make -C engram payload` publishes it by hand.
+
 A single stack also runs on its own, from its own directory:
 
 ```sh
@@ -108,7 +124,9 @@ make -C apps/mcp-server smoke
 | `paca_egress`   | plain bridge     | Outbound traffic for the services that need the internet.                |
 
 A service that only talks to the other services joins `paca_internal` alone.
-A service that needs the internet joins `paca_egress` as well.
+A service that needs the internet joins `paca_egress` as well. The agent of
+PACA joins both: it reaches the services of the monorepository and the
+provider of the models, and nothing else of PACA leaves the machine.
 
 ## The ports
 
@@ -167,15 +185,33 @@ gateway of the agent, with its state on a named volume.
 
 ```sh
 make hermes-up       # start the agent and wait until it is healthy
-make hermes-smoke    # ask the agent whether it answers
+make hermes-smoke    # ask the agent whether it answers and whether it reaches the memory
 make hermes-down     # stop it
 ```
 
-The agent joins `paca_internal` alone, so it reaches the services of the
-monorepository and nothing of the outside world. **No provider is
-configured yet**: the slice that adds the provider decides the outbound
-access of the agent, because that is the moment it starts to talk to the
-outside world.
+The agent reads the memory of the monorepository: the stack of the memory
+owns the payload of the store — it builds the official release, verifies it
+against the pinned sha256 and publishes it on the volume
+`paca-engram-payload` — and the agent mounts that volume read-only at
+`/opt/engram`. The configuration of the agent names the store as an MCP
+server over the stdio transport, at `/opt/engram/engram mcp --tools=agent`:
+the MCP server of the store is a process of the agent, and it reads and
+writes the state of the store on the volume the two stacks already share.
+The agent waits, with a bound, for the payload to be published, and it
+refuses the stack with a message that names `make -C engram payload` when it
+is not there. A memory that the agent writes belongs to the project `paca`,
+and it is the same store the `engram/` stack runs.
+
+The agent needs a provider: the key of OpenRouter, written by the installer
+of the environment, and the model it calls, `minimax/minimax-m3.1-flash` by
+default. **The stack refuses to come up without the key**: the agent cannot
+answer anyone without it. The key belongs to the DevOps engineer who runs
+the project, and nobody else reads it.
+
+The agent joins `paca_internal` and `paca_egress`: it reaches the services
+of the monorepository, and it reaches the provider of the models, which is
+the moment it starts to talk to the outside world. Nothing else of PACA
+leaves the machine.
 
 ## The schema of the database
 

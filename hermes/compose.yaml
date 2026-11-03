@@ -14,11 +14,91 @@
 name: paca
 
 services:
+  # The one-shot service that prepares the state of the agent. It runs
+  # before the gateway comes up, it writes the configuration of the agent
+  # into the volume of its state, and it gives the state of the memory to
+  # the user of the agent.
+  #
+  # It is a service of its own because the configuration of the agent
+  # cannot be a read-only mount: Hermes rewrites `config.yaml` at boot (it
+  # migrates it and it keeps timestamped backups of it), so the file is
+  # seeded into the volume, once, and it is left to Hermes afterwards.
+  #
+  # It also refuses the stack when the credential of the provider of the
+  # models is missing: the agent cannot call a model without it, and the
+  # credential belongs to the DevOps engineer who runs the project.
+  hermes-init:
+    build:
+      # The context is the root of the monorepository, like the image of
+      # every other service that the repository builds.
+      context: ..
+      dockerfile: hermes/Dockerfile
+      args:
+        # The image of the agent is pinned by digest, like every image of
+        # the repository. The digest is the one of the index of the
+        # multi-architecture image, so the same pin serves amd64 and arm64.
+        HERMES_IMAGE: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+        # The payload of the memory is pinned by version and by checksum:
+        # the build fails when the bytes are not the ones that were pinned.
+        # The pins are the pins of the stack of the memory itself, and the
+        # gate of the repository asserts that they never drift apart.
+        ENGRAM_VERSION: "3.6.0"
+        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
+        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+    image: paca/hermes:${PACA_VERSION:-dev}
+    container_name: paca-hermes-init
+    # The service runs once and it ends: it is not restarted.
+    restart: "no"
+    command: ["sh", "/opt/hermes/init.sh"]
+    # The credentials of the stack live with the stack that owns them:
+    # `hermes/.env`. The file is written by the installer of the
+    # environment, which finds the manifest of the stack on its own.
+    env_file:
+      - .env
+    environment:
+      # The state of the memory: the database of the memories, on the
+      # volume of the stack of the memory. The MCP server of the store is a
+      # process of the agent, so the agent mounts the volume of the store.
+      - ENGRAM_DATA_DIR=/opt/engram-data
+      # The project of the monorepository: the memories of PACA belong to
+      # it, and the stack names it once so that nothing has to guess it.
+      - ENGRAM_PROJECT=paca
+      # The credential of the provider of the models: the value of the
+      # `.env` of the stack, and the value of the environment of the host
+      # when it has one (the continuous integration and the gate of the
+      # repository use that: a placeholder, never a real credential).
+      - OPENROUTER_API_KEY
+    volumes:
+      # The state of the agent: the configuration that is seeded, the
+      # identity, the sessions and the logs.
+      - hermes-data:/opt/data
+      # The state of the memory, so the seeding can give it to the user of
+      # the agent before the gateway comes up.
+      - engram-data:/opt/engram-data
+    networks:
+      # The seeding talks to nothing: it stays on the internal network,
+      # which has no outbound access at all.
+      - internal
+
   hermes:
-    # Pinned by digest, like every image of the repository. The digest is
-    # the one of the index of the multi-architecture image, so the same pin
-    # serves amd64 and arm64.
-    image: docker.io/nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+    build:
+      # The context is the root of the monorepository, like the image of
+      # every other service that the repository builds.
+      context: ..
+      dockerfile: hermes/Dockerfile
+      args:
+        # The image of the agent is pinned by digest, like every image of
+        # the repository. The digest is the one of the index of the
+        # multi-architecture image, so the same pin serves amd64 and arm64.
+        HERMES_IMAGE: nousresearch/hermes-agent:stable@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+        # The payload of the memory is pinned by version and by checksum:
+        # the build fails when the bytes are not the ones that were pinned.
+        # The pins are the pins of the stack of the memory itself, and the
+        # gate of the repository asserts that they never drift apart.
+        ENGRAM_VERSION: "3.6.0"
+        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
+        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+    image: paca/hermes:${PACA_VERSION:-dev}
     container_name: paca-hermes
     restart: unless-stopped
     # The gateway is the long-running process of the agent: it serves the
@@ -34,6 +114,12 @@ services:
     # The gateway writes its state on the way out, so it is given the time
     # to do it before the container is killed.
     stop_grace_period: 30s
+    # The state of the agent is prepared before the gateway comes up: the
+    # configuration of the agent is seeded into the volume, and the stack
+    # refuses to come up when the credential of the provider is missing.
+    depends_on:
+      hermes-init:
+        condition: service_completed_successfully
     volumes:
       # The whole state of the agent lives under /opt/data: its
       # configuration, its identity, its sessions, its skills, its memories
@@ -46,12 +132,41 @@ services:
       # would be silently corrupted. The volume of Docker lives on the
       # filesystem of the machine, and WAL is safe there.
       - hermes-data:/opt/data
+      # The state of the memory: the database of the memories and the
+      # socket of the API of the store. The MCP server of the store is a
+      # process of the agent — the agent spawns it over the stdio
+      # transport — and it opens the state of the store directly, because
+      # the local runtime of Engram is local first: the store and the
+      # agent share the volume, and both run as the same user.
+      - engram-data:/opt/engram-data
+    # The credentials of the stack live with the stack that owns them:
+    # `hermes/.env`. They travel to the container from there.
+    #
+    # The `environment:` block names the credential of the provider
+    # WITHOUT a value, so the container keeps the value of the `.env` when
+    # the host has none, and takes the value of the host when it has one.
+    # A value written there (`OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"`)
+    # would be interpolated from the `.env` of the ROOT in the root
+    # compose project, and it would replace the real credential with an
+    # empty string.
+    env_file:
+      - .env
     environment:
       # The API server of the agent is the surface the health of the stack
       # is asked on. It is gated on this variable, and it binds the
       # loopback interface of the container: nothing outside the container
       # reaches it, and it needs no key.
-      API_SERVER_ENABLED: "true"
+      - API_SERVER_ENABLED=true
+      # The state of the memory and the project of the monorepository. The
+      # MCP server of the store is spawned with them, so the memories it
+      # writes belong to the project of PACA.
+      - ENGRAM_DATA_DIR=/opt/engram-data
+      - ENGRAM_PROJECT=paca
+      # The credential of the provider of the models: the value of the
+      # `.env` of the stack, and the value of the environment of the host
+      # when it has one (the continuous integration and the gate of the
+      # repository use that: a placeholder, never a real credential).
+      - OPENROUTER_API_KEY
     # The browser of the agent needs more shared memory than the 64
     # megabytes Docker gives by default.
     shm_size: "1gb"
@@ -65,13 +180,14 @@ services:
           cpus: "2.0"
     networks:
       # The agent talks to the other services of the monorepository — the
-      # MCP server, above all — on the internal network, which has no
-      # outbound access at all.
-      #
-      # The network of the outbound traffic is not joined yet: the slice
-      # that configures the provider of the agent decides it, because that
-      # is the moment the agent starts to talk to the outside world.
+      # MCP server, above all — on the internal network.
       - internal
+      # The agent talks to the provider of the models, and to nothing else
+      # of PACA: it carries the personal data of the people to the model,
+      # and the internal network is the one that has no outbound access.
+      # This is the decision the stack of the agent deferred, and the
+      # credential of the provider makes it unavoidable.
+      - egress
     healthcheck:
       # The API server of the agent answers a health request on the
       # loopback interface of the container. The image ships curl, and the
@@ -93,7 +209,17 @@ networks:
     name: paca_internal
     driver: bridge
     internal: true
+  # The outbound traffic of the agent: the provider of the models. The
+  # network is the plain bridge of the root compose, so it is the same one
+  # whichever way the stack is started.
+  egress:
+    name: paca_egress
+    driver: bridge
 
 volumes:
   hermes-data:
     name: paca-hermes-data
+  # The state of the memory: the same volume the stack of the memory
+  # owns, with the same name, so the agent and the store share it.
+  engram-data:
+    name: paca-engram-data

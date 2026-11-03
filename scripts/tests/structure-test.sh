@@ -197,6 +197,16 @@ assert_not_contains() {
   esac
 }
 
+assert_not_equals() {
+  local unexpected="$1"
+  local actual="$2"
+  local message="$3"
+  ASSERTIONS=$((ASSERTIONS + 1))
+  if [ "$unexpected" = "$actual" ]; then
+    fail "$message: the value [$actual] was not expected"
+  fi
+}
+
 assert_file_exists() {
   local path="$1"
   local message="$2"
@@ -852,6 +862,68 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# The stacks
+# ---------------------------------------------------------------------------
+
+# build_arg_values COMPOSE_FILE ARG
+#
+# Every value of a build argument of a compose file, one per line and
+# without the quotes. The arguments of a build are declared as they are
+# in the file, so the value is what is between the colon and the end of
+# the line.
+build_arg_values() {
+  local file="$1" name="$2"
+  awk -v name="$name" '
+    $0 ~ ("^[[:space:]]+" name ":[[:space:]]*") {
+      value = $0
+      sub("^[[:space:]]+" name ":[[:space:]]*", "", value)
+      gsub(/"/, "", value)
+      gsub(/[[:space:]]/, "", value)
+      print value
+    }
+  ' "$file"
+}
+
+# test_the_payload_of_the_memory_is_pinned_once asserts that the payload
+# of the memory is pinned the same way in the image of the memory and in
+# the image of the agent.
+#
+# The image of the agent carries the binary of the store, so the release
+# and its checksums are declared in two compose files. Two declarations
+# that drift apart are two different payloads: the agent would carry a
+# store that the stack of the memory does not run, and the proof of the
+# memory would prove a version that nobody else uses.
+test_the_payload_of_the_memory_is_pinned_once() {
+  local hermes_compose="$REPO_ROOT/hermes/compose.yaml"
+  local engram_compose="$REPO_ROOT/engram/compose.yaml"
+
+  [ -f "$hermes_compose" ] || return 0
+  [ -f "$engram_compose" ] || return 0
+
+  local pin
+  for pin in ENGRAM_VERSION ENGRAM_SHA256_AMD64 ENGRAM_SHA256_ARM64; do
+    local expected
+    expected=$(build_arg_values "$engram_compose" "$pin" | head -n 1)
+    assert_not_equals "" "$expected" "the stack of the memory pins $pin"
+
+    local values
+    values=$(build_arg_values "$hermes_compose" "$pin")
+    assert_not_equals "" "$values" "the stack of the agent pins $pin"
+
+    # Every declaration of the pin is the same one: the services of the
+    # stack of the agent build the same image.
+    local value
+    while IFS= read -r value; do
+      [ -n "$value" ] || continue
+      assert_equals "$expected" "$value" \
+        "every declaration of $pin in the stack of the agent is the pin of the stack of the memory"
+    done <<EOF
+$values
+EOF
+  done
+}
+
+# ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
 
@@ -868,6 +940,7 @@ run_rule "every image copies the modules it imports" test_every_image_copies_the
 run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
+run_rule "the payload of the memory is pinned once" test_the_payload_of_the_memory_is_pinned_once
 
 report_the_rules
 

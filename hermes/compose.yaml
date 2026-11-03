@@ -49,7 +49,12 @@ services:
     container_name: paca-hermes-init
     # The service runs once and it ends: it is not restarted.
     restart: "no"
-    command: ["sh", "/opt/hermes/init.sh"]
+    # The entrypoint of the image is replaced here, and only here: the
+    # seeding needs the root of the container to give the ownership of the
+    # volumes to the user of the agent, and a process without capabilities
+    # cannot do it. Every command of Hermes drops to the user of the agent
+    # on its own.
+    entrypoint: ["/bin/sh", "/opt/hermes/init.sh"]
     # The credentials of the stack live with the stack that owns them:
     # `hermes/.env`. The file is written by the installer of the
     # environment, which finds the manifest of the stack on its own.

@@ -4,7 +4,7 @@
 #
 # This script is the one-shot service of the stack of the agent: it runs
 # once, before the gateway comes up, and it prepares the state that the
-# agent finds when it starts. Three things happen here, in this order.
+# agent finds when it starts. Four things happen here, in this order.
 #
 # 1. The credential of the provider of the models is checked. The agent
 #    cannot call a model without it, so the stack refuses to come up when
@@ -12,9 +12,10 @@
 #    worse than an agent that is not there at all. The refusal names the
 #    command that writes the credential, because the credential belongs to
 #    the DevOps engineer who runs the project.
-# 2. The state of the memory is given to the user of the agent. The MCP
-#    server of the store is a process of the agent, and it writes the state
-#    of the store, which lives on the volume of the memory.
+# 2. The state of the agent and the state of the memory are given to the
+#    user of the agent. The MCP server of the store is a process of the
+#    agent, and it writes the state of the store, which lives on the
+#    volume of the memory.
 # 3. The configuration of the agent is written into the volume of its
 #    state. The file cannot be a read-only mount: Hermes rewrites it at
 #    boot (it migrates it and it keeps timestamped backups of it), so it is
@@ -22,6 +23,11 @@
 #
 # The keys are written with the writer of Hermes itself, so the file keeps
 # the schema of the version of the image, and Hermes migrates it at boot.
+#
+# The service runs as the root of the container, because the ownership of
+# the volumes is the one thing a process without capabilities cannot do.
+# Every command of Hermes drops to the user of the agent on its own, so
+# the files it writes belong to that user.
 
 set -eu
 
@@ -40,9 +46,10 @@ if [ -z "${OPENROUTER_API_KEY:-}" ]; then
   exit 1
 fi
 
-# 2. The state of the memory belongs to the user of the agent: the store
-# writes it as that user, and so does the MCP server of the store that the
-# agent spawns.
+# 2. The state of the agent and the state of the memory belong to the user
+# of the agent: the store writes it as that user, and so does the MCP
+# server of the store that the agent spawns.
+chown 10000:10000 "${home}" || true
 if [ -d "${memory_dir}" ]; then
   chown -R 10000:10000 "${memory_dir}" || true
 fi

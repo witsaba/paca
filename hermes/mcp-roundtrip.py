@@ -47,7 +47,10 @@ def server_args(tool_profile):
 
 def payload_of(result, what):
     """The JSON envelope of the answer of a tool of the store."""
-    if result.isError:
+    failed = getattr(result, "is_error", None)
+    if failed is None:
+        failed = getattr(result, "isError", False)
+    if failed:
         fail("the store refuses %s: %s" % (what, result.content[0].text if result.content else "no answer"))
     if not result.content:
         fail("the store answers nothing to %s" % what)
@@ -55,6 +58,19 @@ def payload_of(result, what):
         return json.loads(result.content[0].text)
     except json.JSONDecodeError:
         fail("the store answers something that is not JSON to %s: %s" % (what, result.content[0].text))
+
+
+def text_of(result, what):
+    """The text of the answer of a tool of the store that does not answer
+    with an envelope."""
+    failed = getattr(result, "is_error", None)
+    if failed is None:
+        failed = getattr(result, "isError", False)
+    if failed:
+        fail("the store refuses %s: %s" % (what, result.content[0].text if result.content else "no answer"))
+    if not result.content:
+        fail("the store answers nothing to %s" % what)
+    return result.content[0].text
 
 
 async def with_session(tool_profile, body):
@@ -112,16 +128,19 @@ async def round_trip():
         fail("the store does not give the memory of the proof back")
 
     async def remove(session):
-        deleted = payload_of(
+        # The removal answers with a sentence and not with an envelope: the
+        # proof only needs to know that the store removed the memory.
+        return text_of(
             await session.call_tool(
                 "mem_delete",
                 {"id": observation, "expected_project": os.environ.get("ENGRAM_PROJECT", "paca"), "hard_delete": True},
             ),
             "the removal of the proof",
         )
-        return deleted
 
-    await with_session(ADMIN_TOOLS, remove)
+    removed = await with_session(ADMIN_TOOLS, remove)
+    if "deleted" not in removed.lower():
+        fail("the store does not remove the memory of the proof: %s" % removed)
     print("hermes: the memory is written and given back over the stdio MCP")
 
 

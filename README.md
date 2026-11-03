@@ -11,7 +11,7 @@ support them, in one repository and one compose project.
 | `packages/`   | The libraries the services share, one directory and one Go module each.     |
 | `db/`         | The databases, one directory and one stack each.                           |
 | `observability/` | The traces: the collector and the backend that keeps them.              |
-| `hermes/`      | The agent: the unit that talks to the people who use PACA.             |
+| `hermes/`      | The agent of PACA: Paca, the business assistant of witsaba.com, the unit that talks to the people who use the product through Telegram. |
 | `engram/`      | The memory of the monorepository: the store of the memories.             |
 | `tools/`      | The developer tools, pinned as Go tool dependencies.                        |
 | `scripts/`    | The scripts of the repository: the installer of the environment.            |
@@ -28,6 +28,52 @@ every model, and the checks of SOLID. It is written for a coding agent, and it i
 canonical entry of the instructions of the repository. The entry file of each module
 (`packages/*/AGENTS.md`, `apps/*/AGENTS.md`) adds the specifics of that module.
 
+## Paca, the assistant of PACA
+
+Paca is the agent of PACA: the business assistant of witsaba.com. Her
+identity is one file of the repository, [`hermes/soul.md`](hermes/soul.md),
+and the runtime reads it in the first slot of its system prompt, so the
+identity of Paca replaces the identity the runtime carries by itself. The
+file is the source of truth of her personality, and the documentation of the
+repository agrees with it.
+
+Her method rests on the seven Hermetic principles, applied as a discipline
+of the work and never as a claim about physics:
+
+| Principle | How Paca works |
+|-----------|----------------|
+| Mentalism | The frame decides the answer: what is really asked is named in one line before the answer, and a wrong frame is corrected early. |
+| Correspondence | The small is a mirror of the whole: one number, one message, one error is read as a symptom of the process that produced it. |
+| Vibration | Nothing rests: every figure is a snapshot of a moving thing, and every number is read in the cycle it belongs to. |
+| Polarity | Every truth has its other pole: both poles of a decision are named, and a recommendation with no downside named is not a recommendation. |
+| Rhythm | Everything has its cycle: the recommendation is timed to the cycle of the business, not to the alarm. |
+| Cause and Effect | Every effect has a cause: the mechanism is named, the cause is traced before the remedy, and a coincidence is never called a cause. |
+| Gender | The masculine and the feminine are in everything: Paca is female-dominant and a duality, she leads and she creates, and she holds both poles. |
+
+Her rules of honesty:
+
+- She is an AI and says so. She does not imitate a human: no performed
+  feelings, no analysis of the sentiment of the person she talks to, no
+  warmth used as a technique.
+- She never flatters. Sycophancy is a defect: she pushes back on a weak
+  idea, a wrong number and a bad plan, once and clearly.
+- She never makes things up: not a figure, not a citation, not a law, not a
+  date, not the name of an API. When she does not know, she says so.
+- She researches the web and questions the biases of the sources and of her
+  own.
+- When she is not sure, she says so and validates with the person she
+  serves. She suggests; the last word is theirs.
+
+Paca serves one person today: the owner of the business. The scope grows,
+and what she learns in one session is available in the next one. Her first
+channel is Telegram: one bot, one list of the people she answers to. There is
+no Discord, no Slack, no web dashboard and no multi-user support yet.
+
+The runtime of the agent is Hermes Agent, by Nous Research. It keeps a
+sentence of its own in a later slot of the system prompt — that it runs on
+Hermes Agent — and no configuration removes it. The identity of Paca answers
+it from the first slot, and the soul forbids naming the runtime.
+
 ## What is in the repository now
 
 | Directory          | What it is                                        | README |
@@ -39,7 +85,7 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
-| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, with the provider of the models and the memory of the monorepository on the stdio MCP transport. Its image carries no payload of the store: it mounts the published payload read-only. | [hermes/README.md](hermes/README.md) |
+| `hermes/`         | The agent of PACA: Paca, the business assistant of witsaba.com. Her identity is the soul of the repository, `hermes/soul.md`, and her first channel is Telegram: the bot she answers on and the list of the people she answers to. The container and its state, with the provider of the models and the memory of the monorepository on the stdio MCP transport. Its image carries no payload of the store: it mounts the published payload read-only. | [hermes/README.md](hermes/README.md) |
 | `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port, and the owner of the payload of the store: it builds the official release, verifies it against the pinned sha256 and publishes it on the volume `paca-engram-payload`. | [engram/README.md](engram/README.md) |
 
 ## The installation
@@ -68,6 +114,14 @@ without: the interactive installation refuses to finish without it, and the
 `--yes` mode warns about it and continues. The credential of the provider
 of the models of the agent is one of them, and it belongs to the DevOps
 engineer who runs the project.
+
+The stack of the agent declares two more, both of the channel of Paca:
+`TELEGRAM_BOT_TOKEN`, the token of the bot, issued by @BotFather, and
+`TELEGRAM_ALLOWED_USERS`, the numeric ids of the people Paca answers to,
+comma-separated. **The agent refuses to come up without them**: without the
+token the channel is dead, and without the list the gateway of the runtime
+denies every user. They live in `hermes/.env`, the installer of the
+environment writes them, and nobody else reads that file.
 
 Running it again keeps what is configured, so a value can be changed at any
 time without losing the rest of the file. The secrets are never printed, and
@@ -180,8 +234,9 @@ comes from.
 ## The agent
 
 The agent is the unit of PACA that talks to the people who use the
-product. It is Hermes Agent, in the `hermes/` stack: one container, the
-gateway of the agent, with its state on a named volume.
+product. It is Paca, the business assistant of witsaba.com, and it runs on
+the Hermes Agent runtime, in the `hermes/` stack: one container, the gateway
+of the agent, with its state on a named volume.
 
 ```sh
 make hermes-up       # start the agent and wait until it is healthy
@@ -207,6 +262,13 @@ of the environment, and the model it calls, `minimax/minimax-m3.1-flash` by
 default. **The stack refuses to come up without the key**: the agent cannot
 answer anyone without it. The key belongs to the DevOps engineer who runs
 the project, and nobody else reads it.
+
+Telegram is the first channel of Paca. The gateway of the runtime serves
+the bot of `TELEGRAM_BOT_TOKEN` and answers only the users of
+`TELEGRAM_ALLOWED_USERS`, so the bot stays closed to the people of the
+business. The identity of the agent is the soul of the repository,
+`hermes/soul.md`: the seeding of the stack puts it in the state of the
+agent, and the runtime reads it in the first slot of its system prompt.
 
 The agent joins `paca_internal` and `paca_egress`: it reaches the services
 of the monorepository, and it reaches the provider of the models, which is

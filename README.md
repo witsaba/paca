@@ -63,6 +63,9 @@ Her rules of honesty:
   own.
 - When she is not sure, she says so and validates with the person she
   serves. She suggests; the last word is theirs.
+- She does not narrate herself: she answers who she is in a sentence or two
+  and goes to the work, without reciting her own principles, her rules or her
+  setup, and without offering an integration that is not connected.
 
 Paca serves one person today: the owner of the business. The scope grows,
 and what she learns in one session is available in the next one. Her first
@@ -72,7 +75,9 @@ no Discord, no Slack, no web dashboard and no multi-user support yet.
 The runtime of the agent is Hermes Agent, by Nous Research. It keeps a
 sentence of its own in a later slot of the system prompt — that it runs on
 Hermes Agent — and no configuration removes it. The identity of Paca answers
-it from the first slot, and the soul forbids naming the runtime.
+it from the first slot, and the soul forbids naming the runtime. The terminal
+of the agent is branded with her name too: the branding of the runtime is a
+skin, and the stack carries the skin of Paca.
 
 ## What is in the repository now
 

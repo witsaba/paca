@@ -33,8 +33,10 @@
 #    not one layer of it.
 #
 #    The runtime never overwrites a soul the maintainer wrote, and neither
-#    does this seeding: the soul of the volume is replaced only while it
-#    still holds the identity that the runtime seeds by itself.
+#    does this seeding: the soul of the volume is replaced while it holds a
+#    soul this stack seeded — the identity of the runtime, the soul of the
+#    image, or a soul of a previous version of the image, which the record
+#    of the hash tells apart — and it is kept the moment it is edited.
 #
 # The keys are written with the writer of Hermes itself, so the file keeps
 # the schema of the version of the image, and Hermes migrates it at boot.
@@ -119,6 +121,25 @@ fi
 
 hermes config set model.default "${model}"
 hermes config set model.provider openrouter
+
+# The skin of Paca. The runtime brands the terminal of the agent with its
+# own name, and the file is seeded into the state of the agent before the
+# configuration points at it.
+skin_source="/opt/hermes/skin.yaml"
+skin_dir="${home}/skins"
+skin_file="${skin_dir}/paca.yaml"
+
+if [ ! -f "${skin_source}" ]; then
+  printf 'hermes: the skin of Paca is missing from the image: %s\n' "${skin_source}" >&2
+  exit 1
+fi
+
+mkdir -p "${skin_dir}"
+cp "${skin_source}" "${skin_file}"
+chown -R 10000:10000 "${skin_dir}" || true
+chmod 0644 "${skin_file}" || true
+
+hermes config set display.skin paca
 hermes config set mcp_servers.engram.command /opt/engram/engram
 hermes config set mcp_servers.engram.args '["mcp","--tools=agent"]'
 hermes config set mcp_servers.engram.env "{\"ENGRAM_DATA_DIR\":\"${memory_dir}\",\"ENGRAM_PROJECT\":\"${project}\"}"
@@ -126,36 +147,74 @@ hermes config set mcp_servers.engram.enabled true
 
 printf 'hermes: the configuration of the agent is seeded (model %s, memory %s)\n' "${model}" "${project}"
 
-# soul_is_the_identity_of_the_runtime answers whether the file still holds
-# the identity that the runtime seeds by itself when there is none.
+# soul_is_a_seeded_identity answers whether the soul of the state of the
+# agent is one that this stack seeded, and nobody edited.
 #
-# The runtime seeds that identity once and never overwrites it afterwards,
-# so a volume that already carries it would keep the identity of the
-# runtime forever. The seeding of the stack replaces it with the soul of
-# Paca, and leaves alone everything the maintainer wrote.
-soul_is_the_identity_of_the_runtime() {
-  SOUL_PATH="$1" python3 -c '
+# Three cases are ours: the identity the runtime seeds by itself, the soul of
+# the image, and the soul that a previous start of the stack seeded — the
+# record of the hash tells the last one apart from a soul the maintainer
+# wrote.
+#
+# Anything else is the work of the maintainer, and it is kept.
+soul_is_a_seeded_identity() {
+  SOUL_PATH="$1" SOUL_SOURCE="$2" SOUL_RECORD="$3" python3 -c '
+import hashlib
 import os
 import sys
 
 from hermes_cli import default_soul
-
-templates = [default_soul.DEFAULT_SOUL_MD]
-templates += list(getattr(default_soul, "_LEGACY_TEMPLATE_SOULS", ()))
 
 
 def normalize(text):
     return text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff").strip()
 
 
-path = os.environ["SOUL_PATH"]
-try:
-    with open(path, encoding="utf-8") as handle:
-        current = normalize(handle.read())
-except OSError:
+def digest(text):
+    return hashlib.sha256(normalize(text).encode("utf-8")).hexdigest()
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return normalize(handle.read())
+    except OSError:
+        return None
+
+
+current = read(os.environ["SOUL_PATH"])
+if current is None:
     sys.exit(1)
 
-sys.exit(0 if any(current == normalize(t) for t in templates) else 1)
+templates = [default_soul.DEFAULT_SOUL_MD]
+templates += list(getattr(default_soul, "_LEGACY_TEMPLATE_SOULS", ()))
+if any(current == normalize(t) for t in templates):
+    sys.exit(0)
+
+source = read(os.environ["SOUL_SOURCE"])
+if source is not None and current == source:
+    sys.exit(0)
+
+recorded = read(os.environ["SOUL_RECORD"])
+if recorded is not None and recorded.strip() == digest(current):
+    sys.exit(0)
+
+sys.exit(1)
+'
+}
+
+# soul_digest prints the hash of a soul, the record that tells a soul this
+# stack seeded apart from a soul the maintainer wrote.
+soul_digest() {
+  SOUL_PATH="$1" python3 -c '
+import hashlib
+import os
+import sys
+
+with open(os.environ["SOUL_PATH"], encoding="utf-8") as handle:
+    text = handle.read()
+
+text = text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff").strip()
+sys.stdout.write(hashlib.sha256(text.encode("utf-8")).hexdigest())
 '
 }
 
@@ -163,17 +222,20 @@ sys.exit(0 if any(current == normalize(t) for t in templates) else 1)
 #    volume is the identity the agent reads.
 soul_source="/opt/hermes/soul.md"
 soul="${home}/SOUL.md"
+soul_record="${home}/.paca-soul.sha256"
 
 if [ ! -f "${soul_source}" ]; then
   printf 'hermes: the soul of Paca is missing from the image: %s\n' "${soul_source}" >&2
   exit 1
 fi
 
-if [ -f "${soul}" ] && ! soul_is_the_identity_of_the_runtime "${soul}"; then
+if [ -f "${soul}" ] && ! soul_is_a_seeded_identity "${soul}" "${soul_source}" "${soul_record}"; then
   printf 'hermes: the identity of the agent is kept: %s was edited\n' "${soul}"
 else
   cp "${soul_source}" "${soul}"
-  chown 10000:10000 "${soul}" || true
+  soul_digest "${soul}" >"${soul_record}"
+  chown 10000:10000 "${soul}" "${soul_record}" || true
   chmod 0644 "${soul}" || true
+  chmod 0600 "${soul_record}" || true
   printf 'hermes: the identity of the agent is seeded (Paca)\n'
 fi

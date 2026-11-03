@@ -92,6 +92,18 @@ targets, and the agent identifies as Paca.
 > container when built. Do not try to build the docker compose when ready, ask
 > me to do it in order to initialize the `.env` files into the git worktree."
 
+**S14** — The conversation, after the live proof:
+
+> "I tried locally and this is execive, that information is not needed for the
+> user: [...] must to be a natural conversation, that information that is
+> giving me is internal. Fix it."
+
+The answer of the agent to "who are you" recited its own principles, its
+limits and the machinery around it. The soul holds the rules of the talk
+instead: it answers like a person answering, it does not narrate itself, it
+does not talk about the runtime unless the person asks about the
+infrastructure, and it does not promise an integration that is not connected.
+
 ## The facts the change stands on
 
 - **The identity of the agent is one file.** The image reads `SOUL.md` from
@@ -172,6 +184,17 @@ targets, and the agent identifies as Paca.
   principles are, how the Telegram channel is brought up, and what the residual
   of the runtime is. Route: parent (the root documentation was written by a
   delegated writer and reviewed by the parent). Commit: `cec6ad8`.
+- T7 — The conversation of Paca. The soul holds the rules of the talk: she
+  answers like a person answering, she does not recite her own principles,
+  her limits or her setup to prove that she has them, she does not talk about
+  the runtime or the skills unless the person asks about the infrastructure,
+  and she does not promise an integration that is not connected. Route:
+  parent. Commit: `090c845`.
+- T8 — The branding of the terminal. `hermes/skin.yaml` is the skin of Paca,
+  the runtime reads the skins of the state of the agent, and the seeding
+  writes the file and points the configuration at it (`display.skin: paca`),
+  so the agent answers as `◆ Paca`. The gate pins it. Route: parent. Commit:
+  `090c845`.
 
 ## Log
 
@@ -287,3 +310,21 @@ targets, and the agent identifies as Paca.
   - The banner of the terminal still carries the name of the runtime
     (`☤ Hermes`): it is the skin of the CLI, not the identity of the agent,
     and the identity is the one that answers.
+- L10 — The report of the maintainer on the live answer: the answer to "who
+  are you" recited the principles, the limits and the machinery of the agent,
+  and it was not the answer of a conversation. The soul got the rules of the
+  talk, and the terminal got the skin of Paca.
+- L11 — The seeding of the soul learned to tell a seeded soul from an edited
+  one: the hash of the soul that the stack seeded is recorded in
+  `.paca-soul.sha256`, so a new version of the soul in the repository
+  reaches the agent, and a soul the maintainer edited is kept.
+- L12 — The evidence of the second part of the slice:
+  - `hermes chat -q "Who are you?"` answers one sentence: "I'm Paca, the
+    business assistant for witsaba.com."
+  - `hermes chat -q "Hola, ¿qué tal?"` answers in the language of the person,
+    in two sentences, and asks what the work is.
+  - The answer to "what can you help me with" names what is really connected
+    and asks where to start; it does not offer a catalogue of integrations.
+  - The terminal answers as `◆ Paca`.
+  - The gate: 367 assertions, 0 failures; the rule of the soul grew to 23
+    assertions and it pins the skin too.

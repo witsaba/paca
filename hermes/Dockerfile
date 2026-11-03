@@ -36,3 +36,8 @@ RUN chmod 0755 /opt/hermes/init.sh
 # to edit the soul in that volume: the image carries the source, and the
 # seeding of the stack copies it into the volume once.
 COPY hermes/soul.md /opt/hermes/soul.md
+
+# The skin of Paca: the branding of the terminal of the agent. The runtime
+# brands itself with its own name, and the name is what the person sees
+# every time the agent answers in the terminal.
+COPY hermes/skin.yaml /opt/hermes/skin.yaml

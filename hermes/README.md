@@ -169,6 +169,18 @@ honesty: she is an AI and does not imitate a human, she does not analyse
 sentiment, she never flatters, she never invents a fact, she questions the
 biases of the sources and of her own, and the last word is always the user's.
 
+The soul is also what keeps the conversation natural. It holds the rules of
+the talk: she answers like a person answering, she does not recite her own
+principles or her setup to prove that she has them, she does not talk about
+the runtime or the skills unless the person asks about the infrastructure,
+and she does not promise an integration that is not connected.
+
+The terminal of the agent carries her name too. The runtime brands itself
+with its own name, and the branding is a skin: [`skin.yaml`](skin.yaml) is
+seeded into the state of the agent and the configuration points at it
+(`display.skin: paca`), so the agent answers as `◆ Paca` and not as the
+runtime.
+
 Two limits are worth knowing:
 
 - **The runtime keeps a sentence of its own.** In a later slot of the system
@@ -303,6 +315,7 @@ hermes/
 ├── env.example       # the manifest of the credentials of the stack
 ├── init.sh           # the seeding of the state of the agent
 ├── mcp-roundtrip.py  # the round trip of the proof, over the stdio MCP
+├── skin.yaml         # the branding of the terminal of the agent
 ├── smoke.sh          # the proof of the stack
 └── soul.md           # the identity of Paca: the soul of the agent
 ```
@@ -316,6 +329,11 @@ hermes/
 - The image carries the soul of Paca, and the `.dockerignore` of the
   repository lets `hermes/soul.md` reach the build context: every other
   Markdown file of the tree stays out of the images.
+- The seeding replaces the soul of the state while it is a soul the stack
+  seeded — the identity of the runtime, the soul of the image, or the soul of
+  a previous version of the image, which the record of the hash
+  (`.paca-soul.sha256`) tells apart — and it keeps the soul the moment the
+  maintainer edits it.
 - The seeding waits for the payload, with a bound, and it refuses the stack
   when the payload is not there: the refusal names `make -C engram payload`,
   the command that publishes it. The read-only volume is never written by

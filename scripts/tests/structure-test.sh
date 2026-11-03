@@ -961,6 +961,7 @@ manifest_declares_required() {
 # answers nobody.
 test_the_agent_carries_the_soul_of_paca() {
   local soul="$REPO_ROOT/hermes/soul.md"
+  local skin="$REPO_ROOT/hermes/skin.yaml"
   local dockerfile="$REPO_ROOT/hermes/Dockerfile"
   local init="$REPO_ROOT/hermes/init.sh"
   local manifest="$REPO_ROOT/hermes/env.example"
@@ -996,6 +997,19 @@ test_the_agent_carries_the_soul_of_paca() {
     "the image of the agent carries the soul of Paca"
   assert_contains "$(cat "$init")" "soul=\"\${home}/SOUL.md\"" \
     "the seeding of the agent writes the soul of Paca into its state"
+
+  # The skin of Paca: the branding of the terminal of the agent. The runtime
+  # brands itself with its own name, and the name is what the person sees
+  # every time the agent answers in the terminal.
+  assert_file_exists "$skin" "the stack of the agent carries the skin of Paca"
+  assert_contains "$(cat "$skin")" "agent_name: Paca" \
+    "the skin of Paca names Paca"
+  assert_not_contains "$(cat "$skin")" "Hermes" \
+    "the skin of Paca does not carry the name of the runtime"
+  assert_contains "$(cat "$dockerfile")" "COPY hermes/skin.yaml" \
+    "the image of the agent carries the skin of Paca"
+  assert_contains "$(cat "$init")" "display.skin paca" \
+    "the seeding of the agent points the configuration at the skin of Paca"
 
   local key
   for key in "TELEGRAM_BOT_TOKEN" "TELEGRAM_ALLOWED_USERS"; do

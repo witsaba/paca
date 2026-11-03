@@ -97,7 +97,7 @@ tools/go.sum|gate,shellcheck
 README.md|shellcheck
 AGENTS.md|shellcheck
 odd/tasks/ci-job-filters.md|shellcheck
-scripts/setup-env.sh|database,shellcheck,stack
+scripts/setup-env.sh|database,memory,shellcheck,stack
 scripts/stack-schema.sh|shellcheck,stack
 scripts/tests/structure-test.sh|shellcheck
 env.example|database,shellcheck,stack
@@ -109,10 +109,13 @@ compose.yaml|database,stack
 observability/compose.yaml|observability,stack
 hermes/compose.yaml|stack
 hermes/README.md|shellcheck,stack
-.github/workflows/ci.yml|database,gate,observability,shellcheck,stack
-scripts/ci/job-filters.txt|database,gate,observability,shellcheck,stack
-scripts/ci/changed-jobs.sh|database,gate,observability,shellcheck,stack
-Makefile|database,gate,observability,shellcheck,stack
+engram/compose.yaml|memory,stack
+engram/smoke.sh|memory,shellcheck,stack
+engram/README.md|memory,shellcheck,stack
+.github/workflows/ci.yml|database,gate,memory,observability,shellcheck,stack
+scripts/ci/job-filters.txt|database,gate,memory,observability,shellcheck,stack
+scripts/ci/changed-jobs.sh|database,gate,memory,observability,shellcheck,stack
+Makefile|database,gate,memory,observability,shellcheck,stack
 packages/domain/user/user.go;odd/tasks/ci-job-filters.md|gate,shellcheck,stack'
 
 # ---------------------------------------------------------------------------
@@ -175,7 +178,7 @@ assert_equals "$workflow_jobs" "$rules_jobs" \
 # scripts of the continuous integration or of the dispatcher of the targets
 # changes what every job proves, so every job runs.
 printf '%s\n' '.github/workflows/ci.yml' > "$WORK_DIR/changed"
-assert_equals "database,gate,observability,shellcheck,stack" "$(jobs_for "$WORK_DIR/changed")" \
+assert_equals "database,gate,memory,observability,shellcheck,stack" "$(jobs_for "$WORK_DIR/changed")" \
   "a change of the workflow runs every job"
 
 # ---------------------------------------------------------------------------
@@ -232,13 +235,13 @@ printf '==> the safe default\n'
 # When the change cannot be read, no proof is lost: every job runs.
 missing_base=$("$ENGINE" --filters "$FILTERS" --base 0000000000000000000000000000000000000000 \
   --head HEAD 2>/dev/null | awk -F= '$2 == "true" { print $1 }' | LC_ALL=C sort | paste -sd, -)
-assert_equals "database,gate,observability,shellcheck,stack" "$missing_base" \
+assert_equals "database,gate,memory,observability,shellcheck,stack" "$missing_base" \
   "a change that cannot be read runs every job"
 
 # A manual run carries no change: every job runs.
 manual=$("$ENGINE" --filters "$FILTERS" --event workflow_dispatch 2>/dev/null |
   awk -F= '$2 == "true" { print $1 }' | LC_ALL=C sort | paste -sd, -)
-assert_equals "database,gate,observability,shellcheck,stack" "$manual" \
+assert_equals "database,gate,memory,observability,shellcheck,stack" "$manual" \
   "a manual run runs every job"
 
 # ---------------------------------------------------------------------------

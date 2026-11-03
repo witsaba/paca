@@ -58,6 +58,7 @@ jobs:
       gate: ${{ steps.detect.outputs.gate }}
       database: ${{ steps.detect.outputs.database }}
       observability: ${{ steps.detect.outputs.observability }}
+      memory: ${{ steps.detect.outputs.memory }}
       stack: ${{ steps.detect.outputs.stack }}
       shellcheck: ${{ steps.detect.outputs.shellcheck }}
     steps:
@@ -191,6 +192,34 @@ jobs:
       - name: Stop the collector of the traces
         if: always()
         run: make observability-down
+
+  # The memory of the monorepository: the store of the memories starts, and
+  # the smoke test asserts that a memory is kept and given back.
+  memory:
+    name: The memory
+    needs: changes
+    if: needs.changes.outputs.memory == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # The credentials live with the stack that owns them and are never
+      # committed, so the runner generates them with the installer of the
+      # environment: it keeps the defaults and generates a strong token.
+      - name: Create the credentials of the stack
+        run: make env-init ARGS="--yes"
+
+      - name: Start the memory
+        run: make engram-up
+
+      - name: Run the smoke test of the memory
+        run: make engram-smoke
+
+      - name: Stop the memory
+        if: always()
+        run: make engram-down
 
   # The whole monorepository from nothing: the credentials of the stacks
   # are written, the project comes up, and the schema of the database is

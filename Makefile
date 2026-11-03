@@ -8,6 +8,7 @@
 #   db/Makefile                the databases, one directory and one stack each
 #   observability/Makefile     the traces: the collector and the backend
 #   hermes/Makefile            the agent: the unit that talks to the people
+#   engram/Makefile            the memory: the store of the memories
 #
 # The scripts of the root are the ones of the repository itself:
 #
@@ -50,6 +51,7 @@ SHELL_SCRIPTS := $(shell find . -name '*.sh' -not -path './.git/*' | sort)
         db-up db-smoke db-down \
         observability-up observability-smoke observability-down \
         hermes-up hermes-smoke hermes-down \
+        engram-up engram-smoke engram-down \
         stack-up stack-schema stack-down \
         env-init env-test structure-test ci-filters-test
 
@@ -71,6 +73,9 @@ help: ## Show this help
 	@echo "  make hermes-up       start the agent and wait until it is healthy"
 	@echo "  make hermes-smoke    run the smoke test of the agent (it must be running)"
 	@echo "  make hermes-down     stop the agent (keeps the state of the agent)"
+	@echo "  make engram-up       start the memory and wait until it is healthy"
+	@echo "  make engram-smoke    run the smoke test of the memory (it must be running)"
+	@echo "  make engram-down     stop the memory (keeps the memories)"
 	@echo ""
 	@echo "The whole monorepository:"
 	@echo "  make stack-up        start every stack and wait until the whole project is healthy"
@@ -115,6 +120,7 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 		$(MAKE) --no-print-directory db-down; \
 		$(MAKE) --no-print-directory observability-down; \
 		$(MAKE) --no-print-directory hermes-down; \
+		$(MAKE) --no-print-directory engram-down; \
 		exit $$status; \
 	}; \
 	trap cleanup EXIT INT TERM; \
@@ -146,6 +152,10 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 	$(MAKE) --no-print-directory hermes-up; \
 	$(MAKE) --no-print-directory hermes-smoke; \
 	$(MAKE) --no-print-directory hermes-down; \
+	echo "==> the memory"; \
+	$(MAKE) --no-print-directory engram-up; \
+	$(MAKE) --no-print-directory engram-smoke; \
+	$(MAKE) --no-print-directory engram-down; \
 	echo "==> the whole stack"; \
 	$(MAKE) --no-print-directory stack-up; \
 	$(MAKE) --no-print-directory stack-schema; \
@@ -217,6 +227,15 @@ hermes-smoke: ## Run the smoke test of the agent (it must be running)
 
 hermes-down: ## Stop the agent (keeps the state of the agent)
 	$(MAKE) --no-print-directory -C hermes down
+
+engram-up: ## Start the memory and wait until it is healthy
+	$(MAKE) --no-print-directory -C engram up
+
+engram-smoke: ## Run the smoke test of the memory (it must be running)
+	$(MAKE) --no-print-directory -C engram smoke
+
+engram-down: ## Stop the memory (keeps the memories)
+	$(MAKE) --no-print-directory -C engram down
 
 # The whole monorepository: the root compose file includes every stack, so
 # the project comes up as a whole and the schema is written by the service

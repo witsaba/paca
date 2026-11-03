@@ -174,6 +174,20 @@ rule, it is **derived** from the domain — never re-typed by hand.
 - The rules of a table are proved against a real database, in the container tests of the
   library that owns the table. The rules of a domain are proved without one.
 
+### 10. The rules of a session
+
+- **The memory comes first.** Before the files of the repository, read the memory of
+  the project: the context, then a search scoped to the project, then the observations
+  themselves. The memory holds the decisions that the files do not carry — the ones
+  that were proven, the ones that were abandoned and the reasons of both.
+- **The `.env` files are never read and never written.** They hold the secrets of the
+  stacks, and they belong to the DevOps engineer who runs the project: the installer
+  of the environment (`make env-init`) is the only thing that writes them. An agent
+  that never opens them cannot leak them.
+- **Every change happens in its own Git worktree.** The branch of the feature and the
+  worktree that holds it live outside the main tree, so `main` is never touched by a
+  session that is still working.
+
 ---
 
 ## The commands of this repository

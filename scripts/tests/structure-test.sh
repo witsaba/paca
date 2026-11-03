@@ -923,6 +923,96 @@ test_the_stack_of_the_agent_carries_no_payload() {
     "the image of the agent verifies no checksum of the store"
 }
 
+# manifest_declares_required asserts that the manifest of a stack declares a
+# key as required: the directive "# @required" sits directly above the key.
+#
+# The installer of the environment reads the directive and refuses to finish
+# an interactive run without the value, so a key that the stack cannot run
+# without has to carry it.
+manifest_declares_required() {
+  local manifest="$1"
+  local key="$2"
+  awk -v key="$key" '
+    /^#[[:space:]]*@required[[:space:]]*$/ { required = 1; next }
+    /^#/ { next }
+    /^[[:space:]]*$/ { next }
+    {
+      if ($0 ~ "^" key "=") { exit(required ? 0 : 1) }
+      required = 0
+    }
+  ' "$manifest"
+}
+
+# test_the_agent_carries_the_soul_of_paca asserts that the agent of PACA
+# carries the identity of Paca, from the source of the repository to the
+# state of the agent.
+#
+# The runtime reads the identity of the agent from one file, and it puts it
+# in the first slot of the system prompt: it is the identity and not one
+# layer of it. So the file has to exist, it has to name Paca, and it has to
+# name the seven principles that are the spine of her method.
+#
+# The file travels from the repository into the image, and the seeding of the
+# stack copies it into the state of the agent: a soul that is only in the
+# repository is a soul the agent never reads.
+#
+# The channel of Paca is declared in the manifest of the stack and it is
+# required: without the token and without the list of the users, the agent
+# answers nobody.
+test_the_agent_carries_the_soul_of_paca() {
+  local soul="$REPO_ROOT/hermes/soul.md"
+  local dockerfile="$REPO_ROOT/hermes/Dockerfile"
+  local init="$REPO_ROOT/hermes/init.sh"
+  local manifest="$REPO_ROOT/hermes/env.example"
+  local compose="$REPO_ROOT/hermes/compose.yaml"
+
+  assert_file_exists "$soul" "the stack of the agent carries the soul of Paca"
+
+  local content
+  content=$(cat "$soul")
+
+  assert_contains "$content" "You are Paca" \
+    "the soul of Paca names Paca"
+  assert_not_contains "$content" "You are Hermes" \
+    "the soul of Paca does not carry the identity of the runtime"
+
+  local principle
+  for principle in "Mentalism" "Correspondence" "Vibration" "Polarity" \
+    "Rhythm" "Cause and Effect" "Gender"; do
+    assert_contains "$content" "$principle" \
+      "the soul of Paca states the principle of $principle"
+  done
+
+  # The runtime truncates the identity of the agent above twenty thousand
+  # characters, and a truncated identity is a broken one. The check is in
+  # bytes, which is the stricter of the two counts.
+  local size
+  size=$(wc -c <"$soul" | tr -d ' ')
+  if [ "$size" -ge 20000 ]; then
+    fail "the soul of Paca is [$size] bytes and the runtime truncates it above 20000"
+  fi
+
+  assert_contains "$(cat "$dockerfile")" "COPY hermes/soul.md" \
+    "the image of the agent carries the soul of Paca"
+  assert_contains "$(cat "$init")" "soul=\"\${home}/SOUL.md\"" \
+    "the seeding of the agent writes the soul of Paca into its state"
+
+  local key
+  for key in "TELEGRAM_BOT_TOKEN" "TELEGRAM_ALLOWED_USERS"; do
+    assert_contains "$(cat "$manifest")" "$key=" \
+      "the manifest of the stack declares $key"
+    if manifest_declares_required "$manifest" "$key"; then
+      :
+    else
+      fail "the manifest of the stack declares $key as required"
+    fi
+    assert_contains "$(cat "$compose")" "- $key" \
+      "the stack of the agent passes $key to the gateway"
+    assert_contains "$(cat "$init")" "$key" \
+      "the seeding of the agent checks $key"
+  done
+}
+
 # ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
@@ -941,6 +1031,7 @@ run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
+run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
 
 report_the_rules
 

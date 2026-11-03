@@ -21,6 +21,10 @@
 # The documentation of the features and the editor noise.
 odd/
 **/*.md
+# The soul of Paca is not documentation: it is the identity of the agent,
+# and the image of the agent carries it so the seeding can put it in the
+# state of the agent.
+!hermes/soul.md
 **/.DS_Store
 **/.idea/
 **/.vscode/

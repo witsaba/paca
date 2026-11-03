@@ -66,6 +66,13 @@ services:
       # when it has one (the continuous integration and the gate of the
       # repository use that: a placeholder, never a real credential).
       - OPENROUTER_API_KEY
+      # The channel of Paca: Telegram, the first channel of the product.
+      # The token of the bot and the list of the users it answers to, with
+      # the same rule as the credential of the provider: the value of the
+      # `.env` of the stack when the host has none, and the value of the
+      # host when it has one.
+      - TELEGRAM_BOT_TOKEN
+      - TELEGRAM_ALLOWED_USERS
     volumes:
       # The state of the agent: the configuration that is seeded, the
       # identity, the sessions and the logs.
@@ -173,6 +180,13 @@ services:
       # when it has one (the continuous integration and the gate of the
       # repository use that: a placeholder, never a real credential).
       - OPENROUTER_API_KEY
+      # The channel of Paca: Telegram, the first channel of the product.
+      # The token of the bot and the list of the users it answers to, with
+      # the same rule as the credential of the provider: the value of the
+      # `.env` of the stack when the host has none, and the value of the
+      # host when it has one.
+      - TELEGRAM_BOT_TOKEN
+      - TELEGRAM_ALLOWED_USERS
     # The browser of the agent needs more shared memory than the 64
     # megabytes Docker gives by default.
     shm_size: "1gb"

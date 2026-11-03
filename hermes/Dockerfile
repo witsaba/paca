@@ -25,3 +25,14 @@ FROM ${HERMES_IMAGE}
 # the stack runs it before the gateway comes up.
 COPY hermes/init.sh /opt/hermes/init.sh
 RUN chmod 0755 /opt/hermes/init.sh
+
+# The soul of Paca: the identity of the agent, in the file the runtime
+# reads at the start of every session.
+#
+# The runtime reads it from `$HERMES_HOME/SOUL.md` and puts it in the
+# first slot of the system prompt, so it is the identity of the agent and
+# not one layer of it. The file cannot be a read-only mount, because the
+# state of the agent lives in a named volume and the maintainer is allowed
+# to edit the soul in that volume: the image carries the source, and the
+# seeding of the stack copies it into the volume once.
+COPY hermes/soul.md /opt/hermes/soul.md

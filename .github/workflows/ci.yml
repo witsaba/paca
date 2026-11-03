@@ -232,6 +232,12 @@ jobs:
     if: needs.changes.outputs.stack == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # The credential of the provider of the models of the agent: the gate
+      # proves that the whole project comes up and that the agent reaches
+      # the memory, and it never calls a model. The value is a placeholder,
+      # never a real credential, and it is never committed.
+      OPENROUTER_API_KEY: ci-placeholder
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7

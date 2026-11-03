@@ -126,6 +126,7 @@ all: ## The full gate of the repository: it proves it from nothing and leaves no
 	trap cleanup EXIT INT TERM; \
 	echo "==> the environment of the stacks"; \
 	$(MAKE) --no-print-directory env-init ARGS="--yes"; \
+	export OPENROUTER_API_KEY="$${OPENROUTER_API_KEY:-gate-placeholder}"; \
 	echo "==> the quality gate"; \
 	$(MAKE) --no-print-directory gate; \
 	echo "==> the container tests of the packages"; \
@@ -254,6 +255,13 @@ stack-down: ## Stop every container of the project (keeps the named volumes)
 # that ships an env.example, offering the default of every value and
 # generating a strong password for the secrets. The values already
 # configured are kept, and can be changed in the questions it asks.
+#
+# The credential of the provider of the models of the agent is asked like
+# every other value, and it is required: the stack of the agent refuses to
+# come up without it. The value that the environment of the shell holds
+# answers the question when the person does not, which is how the
+# continuous integration and the gate of the repository run without a
+# credential.
 #
 # The arguments reach the script, so the non-interactive modes are reachable
 # from the Makefile too:

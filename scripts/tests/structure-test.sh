@@ -1008,8 +1008,16 @@ test_the_agent_carries_the_soul_of_paca() {
     "the skin of Paca does not carry the name of the runtime"
   assert_contains "$(cat "$dockerfile")" "COPY hermes/skin.yaml" \
     "the image of the agent carries the skin of Paca"
-  assert_contains "$(cat "$init")" "display.skin paca" \
+    assert_contains "$(cat "$init")" "display.skin paca" \
     "the seeding of the agent points the configuration at the skin of Paca"
+
+  # The home channel of Paca is the chat of the owner of the business, the
+  # first user of the list. The runtime asks the question once; the stack
+  # answers it before the question reaches the person.
+  assert_contains "$(cat "$init")" "platforms.telegram.home_channel" \
+    "the seeding of the agent writes the home channel of Paca"
+  assert_contains "$(cat "$init")" 'cut -d, -f1' \
+    "the home channel of Paca is the first user of the list"
 
   local key
   for key in "TELEGRAM_BOT_TOKEN" "TELEGRAM_ALLOWED_USERS"; do

@@ -104,6 +104,17 @@ instead: it answers like a person answering, it does not narrate itself, it
 does not talk about the runtime unless the person asks about the
 infrastructure, and it does not promise an integration that is not connected.
 
+**S15** — The home channel, decided by the maintainer:
+
+> "ok, set the home channel the very first item of the allowed users for
+> telegram, and make mandatory at least 1 user in the list."
+
+The runtime delivers its own messages (the results of the scheduled jobs and
+the cross-platform messages) to a home channel, and it asks the user to set
+one the first time it talks to them. The product answers the question before
+it reaches the person: the home channel is the chat of the owner of the
+business, which is the first user of the list.
+
 ## The facts the change stands on
 
 - **The identity of the agent is one file.** The image reads `SOUL.md` from
@@ -195,6 +206,12 @@ infrastructure, and it does not promise an integration that is not connected.
   writes the file and points the configuration at it (`display.skin: paca`),
   so the agent answers as `◆ Paca`. The gate pins it. Route: parent. Commit:
   `090c845`.
+- T9 — The home channel of Paca. The runtime asks the user to set a home
+  channel the first time it talks to them, and the product does not want that
+  question. The seeding writes the home channel into the configuration of the
+  agent from the first id of the list of the users (`platforms.telegram.
+  home_channel`), and it refuses the stack when the list holds no numeric id.
+  Route: parent. Commit: `2de54af`.
 
 ## Log
 
@@ -318,8 +335,7 @@ infrastructure, and it does not promise an integration that is not connected.
   one: the hash of the soul that the stack seeded is recorded in
   `.paca-soul.sha256`, so a new version of the soul in the repository
   reaches the agent, and a soul the maintainer edited is kept.
-- L12 — The evidence of the second part of the slice:
-  - `hermes chat -q "Who are you?"` answers one sentence: "I'm Paca, the
+- L12 — The evidence of the second part of the slice:  - `hermes chat -q "Who are you?"` answers one sentence: "I'm Paca, the
     business assistant for witsaba.com."
   - `hermes chat -q "Hola, ¿qué tal?"` answers in the language of the person,
     in two sentences, and asks what the work is.
@@ -328,3 +344,17 @@ infrastructure, and it does not promise an integration that is not connected.
   - The terminal answers as `◆ Paca`.
   - The gate: 367 assertions, 0 failures; the rule of the soul grew to 23
     assertions and it pins the skin too.
+- L13 — The home channel. The runtime reads the home channel of a platform
+  as a **mapping** (`platform`, `chat_id`, `name`), and a plain id in the
+  configuration is ignored by it: the first attempt of the seeding wrote the
+  id and the gateway kept asking. The value is a mapping now, and the
+  gateway reads it: `HomeChannel(platform=telegram, chat_id=1571562323,
+  name=Owner)`.
+- L14 — The evidence of the home channel:
+  - The configuration of the agent holds the home channel of the owner, and
+    the loader of the gateway reads it, so the runtime never delivers the
+    question "no home channel is set".
+  - The list of the users is refused when it holds no numeric id, and the
+    home channel is the first id of the list.
+  - The gate: 370 assertions, 0 failures; the rule of the soul grew to 25
+    assertions and it pins the home channel too.

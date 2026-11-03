@@ -271,7 +271,10 @@ the project, and nobody else reads it.
 Telegram is the first channel of Paca. The gateway of the runtime serves
 the bot of `TELEGRAM_BOT_TOKEN` and answers only the users of
 `TELEGRAM_ALLOWED_USERS`, so the bot stays closed to the people of the
-business. The identity of the agent is the soul of the repository,
+business. The list holds at least one id, and the first one is the owner of
+the business: the stack writes the chat of the owner into the configuration
+of the agent as its home channel, so the runtime never asks the user to set
+one. The identity of the agent is the soul of the repository,
 `hermes/soul.md`: the seeding of the stack puts it in the state of the
 agent, and the runtime reads it in the first slot of its system prompt.
 

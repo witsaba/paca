@@ -38,6 +38,11 @@
 #    image, or a soul of a previous version of the image, which the record
 #    of the hash tells apart — and it is kept the moment it is edited.
 #
+# 6. The home channel of Paca is written into the configuration of the
+#    agent: the chat of the owner of the business, which is the first user
+#    of the list of the users. The runtime asks the question once, and the
+#    stack answers it before the question reaches the person.
+#
 # The keys are written with the writer of Hermes itself, so the file keeps
 # the schema of the version of the image, and Hermes migrates it at boot.
 #
@@ -90,6 +95,20 @@ if [ -z "${TELEGRAM_ALLOWED_USERS:-}" ]; then
   exit 1
 fi
 
+# The list holds at least one user, and the first one is the owner of the
+# business: a list of nothing but separators is a list that closes the bot
+# and names nobody.
+home_channel=$(printf '%s' "${TELEGRAM_ALLOWED_USERS}" | cut -d, -f1 | tr -d '[:space:]')
+
+case "${home_channel}" in
+  '' | *[!0-9]*)
+    printf 'hermes: TELEGRAM_ALLOWED_USERS holds no numeric id.\n' >&2
+    printf 'hermes: the list holds the ids of the users Paca answers to, separated by commas.\n' >&2
+    printf 'hermes:   make env-init --stack hermes\n' >&2
+    exit 1
+    ;;
+esac
+
 # 2. The payload of the memory. The executable of the store is published
 # by the stack of the memory, and the agent mounts it read-only: the agent
 # waits for it, and it refuses the stack when it does not arrive.
@@ -121,6 +140,17 @@ fi
 
 hermes config set model.default "${model}"
 hermes config set model.provider openrouter
+
+# The home channel of Paca: the chat of the owner of the business, which is
+# the first user of the list. The runtime asks the user to set a home
+# channel the first time it talks to them, and the product does not want
+# that question: the stack answers it.
+#
+# The value is a mapping and not an id: the runtime reads the home channel
+# of a platform as a mapping, and a plain id in the configuration is
+# ignored by it.
+hermes config set platforms.telegram.home_channel \
+  "{\"platform\":\"telegram\",\"chat_id\":\"${home_channel}\",\"name\":\"Owner\"}"
 
 # The skin of Paca. The runtime brands the terminal of the agent with its
 # own name, and the file is seeded into the state of the agent before the

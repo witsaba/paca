@@ -203,7 +203,15 @@ today. The gateway of the runtime reads two variables of the environment:
 | `TELEGRAM_ALLOWED_USERS` | The numeric ids of the users the bot answers to, comma-separated. The id of a user is read with @userinfobot. |
 
 The list is what keeps the bot closed: the gateway denies every user that is
-not on it, and the stack refuses to come up without it.
+not on it, and the stack refuses to come up without it. The list holds at
+least one numeric id, and the first one is the owner of the business.
+
+**The home channel is the chat of the owner.** The runtime asks the user to
+set a home channel the first time it talks to them — the chat where it
+delivers the results of the scheduled jobs and the cross-platform messages —
+and the product does not want that question. The seeding writes the home
+channel into the configuration of the agent (`platforms.telegram.home_channel`)
+from the first id of the list, so the question never reaches the person.
 
 The bot connects on polling, and the proof that it is connected is in the
 logs of the gateway:

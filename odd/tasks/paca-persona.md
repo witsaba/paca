@@ -269,3 +269,21 @@ targets, and the agent identifies as Paca.
     stack is refused without the credentials of the channel.
   - The soul holds 11,004 characters (the runtime truncates it above 20,000)
     and it passes the scanner of the runtime of the image unchanged.
+- L9 — The live proof, with the stack of the worktree up
+  (`docker compose up -d --build`):
+  - Every container of the monorepository is healthy, and the seeding of the
+    stack reports `the identity of the agent is seeded (Paca)`.
+  - The smoke of the stack passes: the agent is alive, the state of the agent
+    carries the soul of Paca, the credentials of the channel reached the
+    container, and the memory works over the stdio MCP.
+  - The gateway connects to Telegram in polling mode: `[Telegram] Connected
+    to Telegram (polling mode)`.
+  - The live agent answers as Paca: `hermes chat -q "Who are you?"` answers
+    "I'm Paca — the business assistant of witsaba.com", and it refuses the
+    invention of facts, the flattery, the performance of humanity and the
+    taking of the decision away. A business question about the receivables
+    comes back with the frame first, both poles of the decision, the
+    mechanism, and the condition that would change the answer.
+  - The banner of the terminal still carries the name of the runtime
+    (`☤ Hermes`): it is the skin of the CLI, not the identity of the agent,
+    and the identity is the one that answers.

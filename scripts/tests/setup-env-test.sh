@@ -237,13 +237,66 @@ GIT_METADATA=paca
 EOF
 }
 
+# make_required_fixture DIRECTORY
+#
+# Builds a root with two stacks: the agent, whose key is required, and the
+# database. The agent comes first in the walk: the run must go on with the
+# other stack when the agent is missing a required value.
+make_required_fixture() {
+  local root="$1"
+  mkdir -p "$root/agent" "$root/db/postgres"
+
+  cat > "$root/agent/env.example" <<'EOF'
+# The credentials of the stack of the agent.
+
+# The key of the provider of the models. The stack cannot run without it.
+# @required
+OPENROUTER_API_KEY=
+EOF
+
+  cat > "$root/db/postgres/env.example" <<'EOF'
+# The credentials of the PostgreSQL stack.
+
+# The owner role of the application database.
+POSTGRES_USER=paca
+EOF
+}
+
+# make_environment_fixture DIRECTORY
+#
+# Builds a root with one stack whose keys are plain: the value of a key can
+# come from the environment of the process.
+make_environment_fixture() {
+  local root="$1"
+  mkdir -p "$root/agent"
+
+  cat > "$root/agent/env.example" <<'EOF'
+# The configuration of the stack of the agent.
+
+# The model of the agent: the id of the model on the provider.
+AGENT_MAIN_MODEL=default-model
+
+# The port of the gateway of the stack.
+AGENT_PORT=8080
+EOF
+}
+
+# The keys that the fixtures declare. The environment of the machine that
+# runs the tests must never decide the result of a test: the installer
+# reads the environment as a source of values, so the keys of the fixtures
+# are removed from it before every run.
+clear_fixture_environment() {
+  unset OPENROUTER_API_KEY AGENT_MAIN_MODEL AGENT_PORT
+  unset POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD PACA_VERSION
+}
+
 # run_setup_env ROOT [ARGUMENTS...]
 #
 # Runs the installer and keeps its exit code and its output.
 run_setup_env() {
   local root="$1"
   shift
-  OUTPUT=$("$SETUP_ENV" --root "$root" "$@" 2>&1)
+  OUTPUT=$(clear_fixture_environment; "$SETUP_ENV" --root "$root" "$@" 2>&1)
   STATUS=$?
 }
 
@@ -254,7 +307,21 @@ run_setup_env_with_input() {
   local root="$1"
   local input="$2"
   shift 2
-  OUTPUT=$(printf '%s' "$input" | "$SETUP_ENV" --root "$root" "$@" 2>&1)
+  OUTPUT=$(clear_fixture_environment; printf '%s' "$input" | "$SETUP_ENV" --root "$root" "$@" 2>&1)
+  STATUS=$?
+}
+
+# run_setup_env_with_env_and_input ROOT KEY VALUE INPUT [ARGUMENTS...]
+#
+# Runs the installer with a key of the environment of the process and the
+# standard input fed with the answers.
+run_setup_env_with_env_and_input() {
+  local root="$1"
+  local key="$2"
+  local value="$3"
+  local input="$4"
+  shift 4
+  OUTPUT=$(clear_fixture_environment; export "$key=$value"; printf '%s' "$input" | "$SETUP_ENV" --root "$root" "$@" 2>&1)
   STATUS=$?
 }
 
@@ -362,7 +429,7 @@ EOF
 test_the_yes_mode_asks_nothing_and_works_with_a_closed_input() {
   local root="$TMP_ROOT/yes"
   make_fixture "$root"
-  OUTPUT=$("$SETUP_ENV" --root "$root" --yes 0<&- 2>&1)
+  OUTPUT=$(clear_fixture_environment; "$SETUP_ENV" --root "$root" --yes 0<&- 2>&1)
   STATUS=$?
   assert_equals "0" "$STATUS" "the run succeeds with the standard input closed"
   assert_file_exists "$root/db/postgres/.env" "the .env of the stack is written"
@@ -645,6 +712,77 @@ test_a_file_that_does_not_change_is_not_rewritten() {
   assert_equals "$before" "$after" "the file is left untouched"
 }
 
+test_a_required_key_without_a_value_refuses_the_interactive_run() {
+  local root="$TMP_ROOT/required-refused"
+  make_required_fixture "$root"
+  run_setup_env_with_input "$root" "
+"
+  assert_equals "1" "$STATUS" "the run fails"
+  assert_contains "$OUTPUT" "OPENROUTER_API_KEY" "the message names the key"
+  assert_contains "$OUTPUT" "cannot run without it" "the message says that the stack cannot run without it"
+  assert_file_exists "$root/agent/.env" "the file of the refused stack is written: Compose reads it"
+  assert_file_value "$root/agent/.env" "OPENROUTER_API_KEY" "" "the missing key is written empty"
+  assert_file_exists "$root/db/postgres/.env" "the other stack is still written"
+  assert_file_contains "$root/db/postgres/.env" "POSTGRES_USER=paca" "the other stack holds its values"
+}
+
+test_a_required_key_with_an_answer_is_installed() {
+  local root="$TMP_ROOT/required-answered"
+  make_required_fixture "$root"
+  run_setup_env_with_input "$root" "the-key
+"
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_file_exists "$root/agent/.env" "the stack is written"
+  assert_file_value "$root/agent/.env" "OPENROUTER_API_KEY" "the-key" "the answer is written"
+}
+
+test_the_yes_mode_only_warns_about_a_required_key_without_a_value() {
+  local root="$TMP_ROOT/required-yes"
+  make_required_fixture "$root"
+  run_setup_env "$root" --yes
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_contains "$OUTPUT" "OPENROUTER_API_KEY" "the warning names the key"
+  assert_contains "$OUTPUT" "refuse to start" "the warning says that the stack will refuse to start"
+  assert_file_exists "$root/agent/.env" "the stack is written"
+  assert_file_value "$root/agent/.env" "OPENROUTER_API_KEY" "" "the key is written empty"
+}
+
+test_a_required_key_that_is_already_configured_is_kept() {
+  local root="$TMP_ROOT/required-configured"
+  make_required_fixture "$root"
+  cat > "$root/agent/.env" <<'EOF'
+OPENROUTER_API_KEY=already-configured
+EOF
+  run_setup_env_with_input "$root" "
+"
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_file_value "$root/agent/.env" "OPENROUTER_API_KEY" "already-configured" "the value is kept"
+}
+
+test_the_environment_fills_a_key_the_stack_does_not_configure() {
+  local root="$TMP_ROOT/environment"
+  make_environment_fixture "$root"
+  run_setup_env_with_env_and_input "$root" "AGENT_MAIN_MODEL" "from-the-environment" "an-answer
+"
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_not_contains "$OUTPUT" "AGENT_MAIN_MODEL [" "the key is not asked"
+  assert_file_value "$root/agent/.env" "AGENT_MAIN_MODEL" "from-the-environment" "the value of the environment is written"
+  assert_contains "$OUTPUT" "from the environment" "the report says where the value came from"
+}
+
+test_the_value_of_the_stack_wins_over_the_value_of_the_environment() {
+  local root="$TMP_ROOT/environment-precedence"
+  make_environment_fixture "$root"
+  cat > "$root/agent/.env" <<'EOF'
+AGENT_MAIN_MODEL=from-the-file
+EOF
+  run_setup_env_with_env_and_input "$root" "AGENT_MAIN_MODEL" "from-the-environment" "
+"
+  assert_equals "0" "$STATUS" "the run succeeds"
+  assert_file_value "$root/agent/.env" "AGENT_MAIN_MODEL" "from-the-file" "the value of the stack wins"
+  assert_not_contains "$(cat "$root/agent/.env")" "from-the-environment" "the value of the environment is not written"
+}
+
 # ---------------------------------------------------------------------------
 # The runner
 # ---------------------------------------------------------------------------
@@ -685,6 +823,12 @@ test_the_placeholder_of_a_copied_manifest_is_replaced
 test_the_answers_replace_the_values
 test_the_answer_g_generates_a_strong_password
 test_a_file_that_does_not_change_is_not_rewritten
+test_a_required_key_without_a_value_refuses_the_interactive_run
+test_a_required_key_with_an_answer_is_installed
+test_the_yes_mode_only_warns_about_a_required_key_without_a_value
+test_a_required_key_that_is_already_configured_is_kept
+test_the_environment_fills_a_key_the_stack_does_not_configure
+test_the_value_of_the_stack_wins_over_the_value_of_the_environment
 
 printf '%s assertion(s), %s failure(s)\n' "$ASSERTIONS" "$FAILURES"
 

@@ -58,30 +58,30 @@ These names are the contract between the two stacks. They do not change.
   gains the one-shot service `engram-payload`, built from the image of the
   store, that writes the verified executable into the volume
   `paca-engram-payload`; `engram/Makefile` gains the target that runs it.
-  Route: delegated writer. Commit: pending.
+  Route: delegated writer. Commit: `d2d5851`.
 - T2 — the image of the agent carries no payload. `hermes/Dockerfile` loses the
   download and the verification of the store, and `hermes/compose.yaml` loses
   the pins of the store and mounts the published payload read-only at
-  `/opt/engram`. Route: delegated writer. Commit: pending.
+  `/opt/engram`. Route: delegated writer. Commit: `d2d5851`.
 - T3 — the seeding of the agent waits for the published payload and refuses
   the stack without it. `hermes/init.sh` waits, with a bound, for
   `/opt/engram/engram` and fails with a message that names the command that
   publishes it; it never touches the read-only volume. Route: delegated
-  writer. Commit: pending.
+  writer. Commit: `d2d5851`.
 - T4 — the repository proves the separation. The rule of the structure that
   pins the payload of the memory against the drift becomes the rule that the
   stack of the agent carries no payload of its own. Route: delegated writer.
-  Commit: pending.
+  Commit: `d2d5851`.
 - T5 — the order of the start. The root `Makefile` publishes the payload
   before it starts the agent, so the agent never waits for nothing.
-  Route: delegated writer. Commit: pending.
+  Route: delegated writer. Commit: `d2d5851`.
 - T6 — the documentation: the root `README.md`, `hermes/README.md` and
   `engram/README.md` say who publishes the payload and who mounts it.
-  Route: delegated writer. Commit: pending.
+  Route: delegated writer. Commit: `ccf5bbe`.
 - T7 — the proof: the round trip over the stdio MCP from inside the container
   of the agent, the refusal of the stack without the payload published, and
   the gate of the repository green. Route: inline. Evidence: L4.
-  Commit: pending.
+  Commit: this one.
 
 ## Log
 
@@ -131,3 +131,43 @@ L3. The decisions of the refactor.
 - **The path of the payload does not change** (`/opt/engram/engram`): the
   configuration of the agent, and therefore the MCP server of the store as the
   entry point of the agent, stays the same.
+
+L4. The evidence of the separation, observed from zero.
+
+- The rule of the structure of the repository proves the separation, and it
+  discriminates: against the code before the change it fails with five
+  failures (the stack of the agent declares the build argument `ENGRAM_VERSION`
+  with the value `3.6.0`, the same for the two checksums, and the image of the
+  agent downloads a release and verifies a checksum), and against the code
+  after it it passes: `the stack of the agent carries no payload of its own:
+  5 assertion(s)`, `341 assertion(s), 0 failure(s)`.
+- The round trip over the stdio MCP, from inside the container of the agent,
+  with the payload published by the other stack:
+  `make -C hermes smoke` → `hermes: the memory is written and given back over
+  the stdio MCP` (exit 0).
+- The memory of the monorepository keeps its own proof:
+  `make -C engram smoke` → `engram: the memory is kept and given back` (exit 0).
+- The refusal of the agent without the published payload, observed with the
+  payload emptied from the volume:
+  ```
+  hermes: the payload of the memory is not published: /opt/engram/engram is missing or is not executable.
+  hermes: the stack of the memory publishes it with:
+  hermes:   make -C engram payload
+  ```
+  The seeding ends with the exit code 1, and the gateway of the agent never
+  comes up, because it waits for the seeding to succeed.
+- The image of the agent carries no payload: `test -e /opt/engram` inside the
+  image is false, the mount of the container is read-only (`ro` in
+  `/proc/self/mounts`), and a write inside it answers `Read-only file system`.
+- The gate of the repository from zero (`docker compose down -v` and then
+  `make all`): **All the steps of the gate passed** (exit 0) — the quality
+  gate of the five modules, the container tests of the packages and of the
+  applications, the shellcheck of the eleven scripts, the tests of the installer
+  of the environment (114 assertions), the tests of the structure of the
+  repository (341 assertions) and the tests of the filters of the continuous
+  integration — all green — then the database and its smoke test, the collector
+  of the traces, the agent, the memory and, at the end, the whole project with
+  the assertion of the schema written by the service that owns it.
+- The publication is idempotent: `make -C engram payload` twice in a row ends
+  with the exit code 0 both times, and the volume holds the executable with
+  the mode `755` and the identity `root:root`.

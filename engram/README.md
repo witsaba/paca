@@ -5,10 +5,11 @@ like the database and the collector of the traces, so it lives in a directory
 of its own with its own compose file. It is [Engram](https://github.com/Gentleman-Programming/engram),
 the store of the memories of the agent and of the work of the repository.
 
-This slice adds the store and nothing else: it keeps the memories, it
-answers, and it proves it. The agent does not read it yet — the connection
-of the agent to its memory is the slice that follows, and it brings its own
-document.
+The stack brings the store and the payload of the store: the store keeps the
+memories, it answers, and it proves it; the one-shot service `engram-payload`
+publishes the executable of the store on the volume `paca-engram-payload`, so
+that the agent and every other MCP agent mount it instead of carrying a copy
+of it.
 
 ## What you get
 
@@ -17,6 +18,14 @@ document.
   inside it, verified against the sha256 that is pinned for its
   architecture. The build fails when the bytes are not the ones that were
   pinned.
+- **The payload of the store, published for the MCP agents**: the stack of the
+  memory builds the official release of the store, verifies it against the
+  sha256 that is pinned for its architecture, and publishes it on the named
+  volume `paca-engram-payload`. The publication is the one-shot service
+  `engram-payload`: it ends when it is done. Any MCP agent mounts that
+  volume read-only and points its MCP configuration at `/opt/engram/engram`,
+  exactly as the documentation of the store prescribes for any other MCP
+  agent.
 - **Persistent state**: the database of the memories lives under `/data`, on
   the named volume `paca-engram-data`, so the memories survive a restart of
   the stack.
@@ -59,6 +68,16 @@ docker compose up --wait
 Both ways drive the same compose project, `paca`: the container, the volume
 and the network are the same ones whichever way the stack is started.
 
+The payload of the store is published by this stack: the one-shot service
+`engram-payload` writes the verified executable on the volume
+`paca-engram-payload`. That volume is internal like the state of the store:
+it is never published to the host, and only the agents that mount it read
+it. The payload can also be published by hand:
+
+```sh
+make -C engram payload  # publish the payload of the store on the volume
+```
+
 The stack needs its credentials before it starts: the token of the store
 lives in `engram/.env`, and the installer of the environment writes it:
 
@@ -80,15 +99,20 @@ mounts the volume of the stack reaches the store through it, as the user
 `10000` — the same user the container of the agent runs as — and the token
 of the stack guards the writes that destroy.
 
+The HTTP API of the store is a REST API and not an MCP endpoint, and it
+does not become one: the MCP server of the store is `engram mcp`, over the
+stdio transport, and it is a process of the client that spawns it.
+
 ## What is not configured yet
 
-This slice adds the store of the memory, and nothing else:
+This slice adds the store of the memory and the payload it publishes, and
+nothing else:
 
-- **The agent does not read it**: the container of the agent does not mount
-  the volume of the memory, and no provider of the memory is active in the
-  agent.
 - **The memory is not shared**: the store is local to this deployment. The
   Git sync of Engram and the cloud of Engram are not configured.
+- **The store is not exposed to the host**: it publishes no port, and the
+  payload travels on an internal volume. The MCP server of the store is a
+  process of the agent, over the stdio transport.
 - **The MCP server of the monorepository is not wired to the agent**: that
   is the slice of the wiring of the agent.
 
@@ -99,7 +123,7 @@ its own configuration, its own proof and its own update of this document.
 
 ```
 engram/
-├── compose.yaml   # the service, the network, the volume and the healthcheck
+├── compose.yaml   # the services, the network, the volumes and the healthcheck
 ├── Dockerfile     # the image: the official release of Engram, verified
 ├── entrypoint.sh  # the entrypoint of the image: the umask of the socket
 ├── Makefile       # the targets of this stack
@@ -127,6 +151,10 @@ engram/
   in WAL mode, and WAL is not safe on a mount that crosses the boundary of
   the virtual machine — the pages of the database would be silently
   corrupted.
+- The payload of the store is mounted read-only by every agent that uses
+  it: the agent executes the executable of the store and it never writes it.
+  The volume that carries it belongs to this stack, and this stack is the
+  only one that writes it.
 - The socket of the volume is private to the user of the store: Engram keeps
   it at `0600` on purpose. The store therefore runs as the same user as the
   container of the agent (`10000`), so the agent reaches the socket when it

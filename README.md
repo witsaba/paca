@@ -39,8 +39,8 @@ canonical entry of the instructions of the repository. The entry file of each mo
 | `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
-| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, with the provider of the models and the memory of the monorepository on the stdio MCP transport. | [hermes/README.md](hermes/README.md) |
-| `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port. | [engram/README.md](engram/README.md) |
+| `hermes/`         | The agent of PACA: Hermes Agent, the unit that talks to the people who use the product. The container and its state, with the provider of the models and the memory of the monorepository on the stdio MCP transport. Its image carries no payload of the store: it mounts the published payload read-only. | [hermes/README.md](hermes/README.md) |
+| `engram/`         | The memory of the monorepository: Engram, the store of the memories of the agent and of the work of the repository. A container of its own, with no published port, and the owner of the payload of the store: it builds the official release, verifies it against the pinned sha256 and publishes it on the volume `paca-engram-payload`. | [engram/README.md](engram/README.md) |
 
 ## The installation
 
@@ -104,6 +104,10 @@ make stack-up        # start every stack and wait until the whole project is hea
 make stack-schema    # assert that the schema was written by the service that owns it
 make stack-down      # stop every container of the project, keeping the named volumes
 ```
+
+The payload of the memory belongs to the stack of the memory: it is
+published there, on the volume `paca-engram-payload`, and the stack of the
+agent mounts it read-only. `make -C engram payload` publishes it by hand.
 
 A single stack also runs on its own, from its own directory:
 
@@ -185,11 +189,18 @@ make hermes-smoke    # ask the agent whether it answers and whether it reaches t
 make hermes-down     # stop it
 ```
 
-The agent reads the memory of the monorepository: the image of the agent
-carries the binary of the store, and the configuration of the agent names
-the store as an MCP server over the stdio transport. A memory that the
-agent writes belongs to the project `paca`, and it is the same store the
-`engram/` stack runs.
+The agent reads the memory of the monorepository: the stack of the memory
+owns the payload of the store — it builds the official release, verifies it
+against the pinned sha256 and publishes it on the volume
+`paca-engram-payload` — and the agent mounts that volume read-only at
+`/opt/engram`. The configuration of the agent names the store as an MCP
+server over the stdio transport, at `/opt/engram/engram mcp --tools=agent`:
+the MCP server of the store is a process of the agent, and it reads and
+writes the state of the store on the volume the two stacks already share.
+The agent waits, with a bound, for the payload to be published, and it
+refuses the stack with a message that names `make -C engram payload` when it
+is not there. A memory that the agent writes belongs to the project `paca`,
+and it is the same store the `engram/` stack runs.
 
 The agent needs a provider: the key of OpenRouter, written by the installer
 of the environment, and the model it calls, `minimax/minimax-m3.1-flash` by

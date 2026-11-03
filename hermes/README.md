@@ -9,7 +9,9 @@ The stack carries the agent itself, the provider of the models it calls, and
 the memory of the monorepository: the agent reads and writes the memories of
 PACA over the stdio MCP transport. The feature document of the slice,
 [hermes-engram-memory.md](../odd/tasks/hermes-engram-memory.md), holds the
-specification and the decisions.
+specification and the decisions, and the separation of the memory from the
+agent has its own document,
+[hermes-engram-separation.md](../odd/tasks/hermes-engram-separation.md).
 
 ## What you get
 
@@ -17,9 +19,13 @@ specification and the decisions.
 - **Persistent state**: everything the agent owns lives under `/opt/data`,
   on the named volume `paca-hermes-data`, so its identity, its sessions, its
   skills and its memories survive a restart of the stack.
-- **The memory of the monorepository**: the image of the agent carries the
-  binary of the store of Engram, and the configuration of the agent names
-  the store as an MCP server over the stdio transport. The agent and the
+- **The memory of the monorepository**: the image of the agent carries no
+  payload of the store. The stack of the memory builds the official release
+  of Engram, verifies it against the sha256 that is pinned for its
+  architecture, and publishes it on the named volume `paca-engram-payload`;
+  the agent mounts that volume read-only at `/opt/engram`, and the
+  configuration of the agent names the store as an MCP server over the stdio
+  transport, at `/opt/engram/engram mcp --tools=agent`. The agent and the
   store share the volume `paca-engram-data`, and both run as the same user,
   so the memories the agent writes are the memories the `engram/` stack
   keeps.
@@ -90,11 +96,15 @@ docker compose up --wait
 Both ways drive the same compose project, `paca`: the container, the volume
 and the network are the same ones whichever way the stack is started.
 
+The agent needs the payload of the memory: the stack of the memory publishes
+it, and `make -C engram payload` publishes it by hand. The stack waits for
+it, and it refuses to come up without it.
+
 ## The services of the stack
 
 | Service       | What it does                                                        |
 |---------------|---------------------------------------------------------------------|
-| `hermes-init` | The one-shot service: it checks the credential of the provider, it gives the state of the memory to the user of the agent, and it seeds the configuration of the agent into the volume of its state. It ends when it is done. |
+| `hermes-init` | The one-shot service: it checks the credential of the provider, it waits for the payload of the memory to be published, it gives the state of the memory to the user of the agent, and it seeds the configuration of the agent into the volume of its state. It ends when it is done. |
 | `hermes`      | The gateway of the agent. It starts when the seeding has ended.     |
 
 The configuration of the agent cannot be a read-only mount: Hermes rewrites
@@ -111,6 +121,17 @@ the MCP server of the store as a process of its own, and the server writes
 the state of the store directly, because the local runtime of Engram is
 local first. There is no HTTP MCP transport in Engram, and there is none
 needed: the stdio transport is the only one, and it works.
+
+The executable of that server is the payload of the store: the `engram/`
+stack builds it, verifies it against the pinned sha256 and publishes it on
+the volume `paca-engram-payload`, and the agent mounts that volume read-only
+at `/opt/engram`. The agent executes it and it never writes it, and the
+volume of the payload is not the volume of the state: the state of the
+store travels on `paca-engram-data`, the one the two stacks already share.
+
+The HTTP API of the store is a REST API and not an MCP endpoint: the store
+keeps answering the REST clients on the socket of the volume of its state,
+and it does not become an MCP endpoint.
 
 The configuration that names it:
 
@@ -180,7 +201,7 @@ removes it afterwards, so the proof leaves no memory behind.
 
 ```
 hermes/
-├── Dockerfile        # the image of the agent, with the binary of the store
+├── Dockerfile        # the image of the agent
 ├── Makefile          # the targets of this stack
 ├── README.md         # this file
 ├── compose.yaml      # the services, the networks, the volumes and the healthcheck
@@ -193,11 +214,13 @@ hermes/
 ## Notes and limits
 
 - The image of the agent is pinned by the digest of its index, so the same
-  pin serves amd64 and arm64, like every image of the repository. The
-  payload of the store is pinned by version and by checksum, per
-  architecture, and the build fails when the bytes are not the ones that
-  were pinned. The pins are the pins of the `engram/` stack, and the gate
-  of the repository asserts that they never drift apart.
+  pin serves amd64 and arm64, like every image of the repository. The image
+  carries no payload of the store: the payload is built, verified and
+  published by the `engram/` stack, and the agent mounts it read-only.
+- The seeding waits for the payload, with a bound, and it refuses the stack
+  when the payload is not there: the refusal names `make -C engram payload`,
+  the command that publishes it. The read-only volume is never written by
+  the agent.
 - The container keeps the capabilities of the image and does not run with
   `no-new-privileges`: the image drops its own privileges at boot and needs
   `CAP_SETUID` and `CAP_SETGID` to do it. The state of the agent lives on

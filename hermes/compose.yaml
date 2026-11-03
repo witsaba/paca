@@ -139,6 +139,10 @@ services:
       # the local runtime of Engram is local first: the store and the
       # agent share the volume, and both run as the same user.
       - engram-data:/opt/engram-data
+      # The proof of the stack lives in the repository, so the reviewer
+      # reads it there and not in the image.
+      - ./smoke.sh:/usr/local/bin/paca-hermes-smoke:ro
+      - ./mcp-roundtrip.py:/usr/local/bin/paca-hermes-mcp-roundtrip.py:ro
     # The credentials of the stack live with the stack that owns them:
     # `hermes/.env`. They travel to the container from there.
     #

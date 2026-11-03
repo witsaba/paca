@@ -22,7 +22,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 up: ## Start the agent and wait until it is healthy
-	$(COMPOSE) up -d --wait $(SERVICE)
+	$(COMPOSE) up -d --build --wait $(SERVICE)
 
 down: ## Stop the agent (keeps the container and the data volume)
 	$(COMPOSE) stop $(SERVICE)
@@ -37,10 +37,10 @@ logs: ## Follow the logs of the agent
 status: ## Show the agent container status
 	$(COMPOSE) ps $(SERVICE)
 
-smoke: ## Check that the health endpoint of the agent answers (it fails when it does not)
-	@if $(COMPOSE) exec -T $(SERVICE) /usr/bin/curl -fsS -m 5 -o /dev/null http://127.0.0.1:8642/health; then \
-		echo "hermes: the health endpoint answers"; \
+smoke: ## Check that the agent is alive and that it reaches the memory (it fails when it does not)
+	@if $(COMPOSE) exec -T $(SERVICE) /usr/local/bin/paca-hermes-smoke; then \
+		echo "hermes: the agent is alive and it reaches the memory"; \
 	else \
-		echo "hermes: the health endpoint does not answer"; \
+		echo "hermes: the agent is not alive or it does not reach the memory"; \
 		exit 1; \
 	fi

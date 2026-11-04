@@ -74,91 +74,69 @@ func (s *OnboardingService) Complete(ctx context.Context, documentID, fullName, 
 		return ports.Onboarding{}, err
 	}
 
-	// The person and the business of the person are read inside the
-	// transaction, and the call is tried twice. Two calls of the same
-	// person may arrive together: the one that loses the race finds the
-	// business that the winner committed and completes the onboarding with
-	// it, instead of failing with a refusal the person can do nothing
-	// about.
+	// The person and the business of the person are read before the
+	// transaction opens, because a transaction that PostgreSQL has aborted
+	// reads nothing: the call is safe to repeat because the state of the
+	// person is known before anything is written.
+	registered, err := s.users.Find(ctx, id)
+	known := err == nil
+	if err != nil && !errors.Is(err, user.ErrNotFound) {
+		return ports.Onboarding{}, err
+	}
+
+	opened, err := s.business.FindPersonalByOwner(ctx, id)
+	hasBusiness := err == nil
+	if err != nil && !errors.Is(err, business.ErrNotFound) {
+		return ports.Onboarding{}, err
+	}
+
 	var outcome ports.Onboarding
-	var failure error
-	for attempt := 0; attempt < 2; attempt++ {
-		failure = s.work.Do(ctx, func(ctx context.Context) error {
-			// The state of the person is read before anything is written:
-			// a transaction that PostgreSQL has aborted reads nothing.
-			registered, err := s.users.Find(ctx, id)
-			known := err == nil
-			if err != nil && !errors.Is(err, user.ErrNotFound) {
+	err = s.work.Do(ctx, func(ctx context.Context) error {
+		person := registered
+		if !known {
+			created, err := s.users.Create(ctx, id, registration)
+			if err != nil {
 				return err
 			}
+			person = created
+		}
 
-			opened, err := s.business.FindPersonalByOwner(ctx, id)
-			hasBusiness := err == nil
-			if err != nil && !errors.Is(err, business.ErrNotFound) {
-				return err
-			}
-
-			person := registered
-			if !known {
-				created, err := s.users.Create(ctx, id, registration)
-				if err != nil {
-					return err
-				}
-				person = created
-			}
-
-			own := opened
-			if !hasBusiness {
-				personal, err := business.Personal(id)
-				if err != nil {
-					return err
-				}
-
-				created, err := s.business.Create(ctx, id, personal)
-				if err != nil {
-					return err
-				}
-				own = created
-			}
-
-			written, err := s.accountsOf(ctx, own, hasBusiness)
+		own := opened
+		if !hasBusiness {
+			personal, err := business.Personal(id)
 			if err != nil {
 				return err
 			}
 
-			active := person
-			if person.Status != user.StatusActive {
-				moved, err := s.users.ChangeStatus(ctx, id, user.StatusActive, "")
-				if err != nil {
-					return err
-				}
-				active = moved
+			created, err := s.business.Create(ctx, id, personal)
+			if err != nil {
+				return err
 			}
+			own = created
+		}
 
-			outcome = ports.Onboarding{User: active, Business: own, Accounts: written}
-			return nil
-		})
-		if failure == nil {
-			break
+		written, err := s.accountsOf(ctx, own, hasBusiness)
+		if err != nil {
+			return err
 		}
-		if !alreadyThere(failure) {
-			break
+
+		active := person
+		if person.Status != user.StatusActive {
+			moved, err := s.users.ChangeStatus(ctx, id, user.StatusActive, "")
+			if err != nil {
+				return err
+			}
+			active = moved
 		}
-	}
-	if failure != nil {
-		return ports.Onboarding{}, failure
+
+		outcome = ports.Onboarding{User: active, Business: own, Accounts: written}
+		return nil
+	})
+	if err != nil {
+		return ports.Onboarding{}, err
 	}
 
 	return outcome, nil
-}
-
-// alreadyThere reports whether the storage refused because the row is
-// already there: another call of the same person won the race, and the
-// onboarding completes with what that call wrote.
-func alreadyThere(err error) bool {
-	return errors.Is(err, business.ErrAlreadyExists) ||
-		errors.Is(err, user.ErrAlreadyExists) ||
-		errors.Is(err, account.ErrAlreadyExists)
 }
 
 // accountsOf answers the accounts of the business: the default set of the

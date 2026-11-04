@@ -241,3 +241,32 @@ func TestErrorsNamesEveryError(t *testing.T) {
 		}
 	}
 }
+
+func TestKindNormalSign(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		kind Kind
+		want int
+	}{
+		{kind: KindAsset, want: 1},
+		{kind: KindExpense, want: 1},
+		{kind: KindLiability, want: -1},
+		{kind: KindIncome, want: -1},
+		{kind: KindEquity, want: -1},
+	}
+
+	for _, testCase := range cases {
+		t.Run(string(testCase.kind), func(t *testing.T) {
+			t.Parallel()
+
+			if got := testCase.kind.NormalSign(); got != testCase.want {
+				t.Fatalf("the sign is %d, want %d", got, testCase.want)
+			}
+		})
+	}
+
+	if Kind("savings").NormalSign() != 0 {
+		t.Error("an unknown kind carries a sign")
+	}
+}

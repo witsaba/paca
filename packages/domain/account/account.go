@@ -104,6 +104,28 @@ func ParseKind(name string) (Kind, error) {
 	return kind, nil
 }
 
+// NormalSign returns the sign that turns the raw balance of an account into
+// the balance the person reads.
+//
+// An asset and an expense count as they are: what the person has and what
+// they spend are positive when they grow. A liability, an income and an
+// equity count the other way round: what the person owes, what they earn
+// and what they put into the book are positive when they grow, and the raw
+// sum of their movements is negative.
+//
+// The sign belongs to the kind, because the kind is what says what the
+// account means.
+func (k Kind) NormalSign() int {
+	switch k {
+	case KindAsset, KindExpense:
+		return 1
+	case KindLiability, KindIncome, KindEquity:
+		return -1
+	}
+
+	return 0
+}
+
 // CarriesDebt reports whether the kind is a kind that may owe or be owed.
 //
 // An account of money that is owed carries a counterparty and a due date. An

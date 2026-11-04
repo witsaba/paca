@@ -156,6 +156,7 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 		mcpserver.ToolListUsers,
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
+		mcpserver.ToolCompleteOnboarding,
 	}
 	if len(tools.Tools) != len(want) {
 		t.Fatalf("the server exposes %d tools, want %d", len(tools.Tools), len(want))

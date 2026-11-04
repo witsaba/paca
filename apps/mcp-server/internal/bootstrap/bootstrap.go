@@ -21,7 +21,10 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/platform/clock"
 	"github.com/witsaba/paca/packages/platform/server"
@@ -105,6 +108,39 @@ func New(
 
 	usersService := application.NewUsersService(repository)
 
+	// The book of a person: the business that owns it, the accounts that
+	// hold the money, and the transaction that writes them whole.
+	//
+	// Without a database there is no book: the use case tells the agent
+	// that calls it that the database is not configured.
+	var businesses business.Repository
+	var accounts account.Repository
+	var work store.UnitOfWork
+	if pool != nil {
+		boundBusinesses, err := postgres.NewBusinessRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the businesses could not be built: %w", err)
+		}
+		businesses = boundBusinesses
+
+		boundAccounts, err := postgres.NewAccountRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the accounts could not be built: %w", err)
+		}
+		accounts = boundAccounts
+
+		boundWork, err := postgres.NewUnitOfWork(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the transaction of the storage could not be built: %w", err)
+		}
+		work = boundWork
+	}
+
+	onboardingService := application.NewOnboardingService(repository, businesses, accounts, work)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -113,6 +149,7 @@ func New(
 		MaxRequestBodyBytes: cfg.MaxRequestBytes,
 		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
+		Onboarding:          onboardingService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

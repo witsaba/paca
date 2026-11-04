@@ -68,7 +68,7 @@ func (r *AccountRepository) Create(ctx context.Context, written account.Account)
 		return account.Account{}, account.ErrNoStorage
 	}
 
-	row, err := r.pool.Queries().CreateAccount(ctx, db.CreateAccountParams{
+	row, err := r.pool.queriesFor(ctx).CreateAccount(ctx, db.CreateAccountParams{
 		BusinessID:   int64(clean.BusinessID),
 		Kind:         clean.Kind.String(),
 		Name:         clean.Name,
@@ -111,16 +111,36 @@ func (r *AccountRepository) CreateMany(ctx context.Context, accounts []account.A
 		clean = append(clean, value)
 	}
 
+	// The set joins the transaction of the caller when the caller opened
+	// one: the accounts of a business and the business itself are written
+	// in the same transaction when the onboarding writes them.
+	if _, ok := transactionIn(ctx); ok {
+		return r.writeMany(ctx, r.pool.queriesFor(ctx), clean)
+	}
+
 	tx, err := r.pool.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("the transaction of the accounts could not be opened: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	queries := r.pool.Queries().WithTx(tx)
+	created, err := r.writeMany(ctx, r.pool.queriesFor(ctx).WithTx(tx), clean)
+	if err != nil {
+		return nil, err
+	}
 
-	created := make([]account.Account, 0, len(clean))
-	for _, value := range clean {
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("the transaction of the accounts could not be committed: %w", err)
+	}
+
+	return created, nil
+}
+
+// writeMany writes the accounts one by one and answers them with the
+// identities that the database generated.
+func (r *AccountRepository) writeMany(ctx context.Context, queries *db.Queries, accounts []account.Account) ([]account.Account, error) {
+	created := make([]account.Account, 0, len(accounts))
+	for _, value := range accounts {
 		row, err := queries.CreateAccount(ctx, db.CreateAccountParams{
 			BusinessID:   int64(value.BusinessID),
 			Kind:         value.Kind.String(),
@@ -139,10 +159,6 @@ func (r *AccountRepository) CreateMany(ctx context.Context, accounts []account.A
 		created = append(created, mapped)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("the transaction of the accounts could not be committed: %w", err)
-	}
-
 	return created, nil
 }
 
@@ -154,7 +170,7 @@ func (r *AccountRepository) Find(ctx context.Context, id account.ID) (account.Ac
 		return account.Account{}, account.ErrNoStorage
 	}
 
-	row, err := r.pool.Queries().GetAccountByID(ctx, int64(id))
+	row, err := r.pool.queriesFor(ctx).GetAccountByID(ctx, int64(id))
 	if err != nil {
 		return account.Account{}, writeAccountError(err)
 	}
@@ -170,7 +186,7 @@ func (r *AccountRepository) List(ctx context.Context, businessID business.ID) ([
 		return nil, account.ErrNoStorage
 	}
 
-	rows, err := r.pool.Queries().ListAccountsByBusiness(ctx, int64(businessID))
+	rows, err := r.pool.queriesFor(ctx).ListAccountsByBusiness(ctx, int64(businessID))
 	if err != nil {
 		return nil, writeAccountError(err)
 	}
@@ -252,8 +268,7 @@ func writeAccountError(err error) error {
 
 	switch pgErr.Code {
 	case uniqueViolation:
-		switch pgErr.ConstraintName {
-		case accountsNameUniqueIndex:
+		if pgErr.ConstraintName == accountsNameUniqueIndex {
 			return fmt.Errorf("%w: that name is taken inside the business", account.ErrAlreadyExists)
 		}
 	case foreignKeyViolation:

@@ -33,6 +33,12 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tools,
 	// and every call answers that the database is not there.
 	Users ports.UsersQuerier
+
+	// Onboarding is the use case that completes the onboarding of a person.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	Onboarding ports.OnboardingCompleter
 }
 
 // Server is the MCP transport of the service.
@@ -79,6 +85,7 @@ func New(opts Options) *Server {
 	}
 
 	transport.registerUserTools(opts.Users)
+	transport.registerOnboardingTools(opts.Onboarding)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

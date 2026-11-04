@@ -13,6 +13,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
 	"github.com/witsaba/paca/apps/mcp-server/internal/bootstrap"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 )
@@ -236,7 +237,24 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 5 {
-		t.Fatalf("the server exposes %d tools, want the five of the users", len(tools.Tools))
+	if len(tools.Tools) != 6 {
+		t.Fatalf("the server exposes %d tools, want the five of the users and the one of the onboarding", len(tools.Tools))
+	}
+
+	names := make(map[string]bool, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		names[tool.Name] = true
+	}
+	for _, want := range []string{
+		mcpserver.ToolOnboardUser,
+		mcpserver.ToolGetUser,
+		mcpserver.ToolListUsers,
+		mcpserver.ToolChangeUserStatus,
+		mcpserver.ToolUpdateUserContactData,
+		mcpserver.ToolCompleteOnboarding,
+	} {
+		if !names[want] {
+			t.Errorf("the server does not expose the tool %q", want)
+		}
 	}
 }

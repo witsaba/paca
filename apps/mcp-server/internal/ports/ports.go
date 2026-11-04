@@ -11,6 +11,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/user"
 )
@@ -88,4 +90,36 @@ type UsersQuerier interface {
 	// UpdateContactData writes the data of a user. A field that is empty is
 	// a field that does not change.
 	UpdateContactData(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
+}
+
+// Onboarding is the outcome of a complete onboarding: the person, the
+// business that holds their money, and the accounts of that business.
+//
+// It is the answer of the tool, and it is the shape of the contract between
+// the agent and the service.
+type Onboarding struct {
+	// User is the person, registered and active.
+	User user.User
+
+	// Business is the personal business of the person.
+	Business business.Business
+
+	// Accounts are the accounts the business starts with.
+	Accounts []account.Account
+}
+
+// OnboardingCompleter is the inbound port of the tool that completes the
+// onboarding of a person.
+//
+// The onboarding is one operation: the person is registered, their personal
+// business is opened with its accounts, and they move to the state of the
+// people who use the product.
+type OnboardingCompleter interface {
+	// Complete registers the person, opens their personal business with its
+	// accounts, and moves them to the active status.
+	//
+	// The document ID and the name are required: they are the number the
+	// person carries and the name the team recognises them by. The phone
+	// and the email are optional.
+	Complete(ctx context.Context, documentID, fullName, phone, email string) (Onboarding, error)
 }

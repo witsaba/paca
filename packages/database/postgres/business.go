@@ -69,7 +69,7 @@ func (r *BusinessRepository) Create(ctx context.Context, owner user.ID, written 
 		return business.Business{}, business.ErrNoStorage
 	}
 
-	row, err := r.pool.Queries().CreateBusiness(ctx, db.CreateBusinessParams{
+	row, err := r.pool.queriesFor(ctx).CreateBusiness(ctx, db.CreateBusinessParams{
 		OwnerID:  int64(owner),
 		Kind:     clean.Kind.String(),
 		Name:     clean.Name,
@@ -90,7 +90,7 @@ func (r *BusinessRepository) Find(ctx context.Context, id business.ID) (business
 		return business.Business{}, business.ErrNoStorage
 	}
 
-	row, err := r.pool.Queries().GetBusinessByID(ctx, int64(id))
+	row, err := r.pool.queriesFor(ctx).GetBusinessByID(ctx, int64(id))
 	if err != nil {
 		return business.Business{}, writeBusinessError(err)
 	}
@@ -110,7 +110,7 @@ func (r *BusinessRepository) FindPersonalByOwner(ctx context.Context, owner user
 		return business.Business{}, business.ErrNoStorage
 	}
 
-	row, err := r.pool.Queries().GetPersonalBusinessByOwner(ctx, int64(owner))
+	row, err := r.pool.queriesFor(ctx).GetPersonalBusinessByOwner(ctx, int64(owner))
 	if err != nil {
 		return business.Business{}, writeBusinessError(err)
 	}

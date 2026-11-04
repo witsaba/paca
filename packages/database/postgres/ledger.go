@@ -164,6 +164,33 @@ func (r *LedgerRepository) Balances(ctx context.Context, businessID business.ID,
 	return balances, nil
 }
 
+// Summary returns the money of a period: what the person earned and what
+// they spent between two days.
+//
+// The two ends of the period are both inside it: the movement of the first
+// day and the movement of the last one are both counted.
+//
+// The sum is done by the database: the money of a period is read from the
+// rows of the book.
+//
+// The error is ledger.ErrNotFound when no business carries that identity.
+func (r *LedgerRepository) Summary(ctx context.Context, businessID business.ID, from, to ledger.Date) (ledger.Summary, error) {
+	if r == nil || r.pool == nil {
+		return ledger.Summary{}, ledger.ErrNoStorage
+	}
+
+	row, err := r.pool.queriesFor(ctx).SummarizePeriod(ctx, db.SummarizePeriodParams{
+		BusinessID: int64(businessID),
+		FromDate:   dateOf(from),
+		ToDate:     dateOf(to),
+	})
+	if err != nil {
+		return ledger.Summary{}, writeLedgerError(err)
+	}
+
+	return ledger.NewSummary(ledger.Amount(row.Income), ledger.Amount(row.Expenses)), nil
+}
+
 // ledgerEntryFromRow maps a row of the movements table onto the model of the
 // domain.
 func ledgerEntryFromRow(row db.LedgerEntry) (ledger.Entry, error) {

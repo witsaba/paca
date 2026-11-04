@@ -41,6 +41,9 @@ func TestTheRepositoryOfTheBookWithoutADatabaseRefusesToWork(t *testing.T) {
 	if _, err := repo.Balances(t.Context(), 1, day); !errors.Is(err, ledger.ErrNoStorage) {
 		t.Errorf("the error is %v, want %v", err, ledger.ErrNoStorage)
 	}
+	if _, err := repo.Summary(t.Context(), 1, day, day); !errors.Is(err, ledger.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, ledger.ErrNoStorage)
+	}
 }
 
 func TestTheRowOfAMovementIsMappedOntoTheModel(t *testing.T) {

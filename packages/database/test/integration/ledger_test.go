@@ -345,3 +345,76 @@ func movement(
 
 	return entry
 }
+
+// TestTheMoneyOfAPeriodIsTheSumOfItsMovements proves that the closing of a
+// month reads the income and the expenses of the movements of that month,
+// and of no other.
+func TestTheMoneyOfAPeriodIsTheSumOfItsMovements(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	owner := nextIdentifier()
+	registerUser(t, usersRepository(t), owner, "The Owner Of The Book")
+	created := createBusiness(t, owner)
+
+	cash := createAccount(t, created.ID, account.KindAsset, "Efectivo")
+	food := createAccount(t, created.ID, account.KindExpense, "Alimentación")
+	salary := createAccount(t, created.ID, account.KindIncome, "Salario")
+
+	march := ledger.NewDate(time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC))
+	lastOfMarch := ledger.NewDate(time.Date(2026, time.March, 31, 0, 0, 0, 0, time.UTC))
+	april := ledger.NewDate(time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC))
+
+	repo := ledgerRepository(t)
+	if _, err := repo.Record(ctx, movement(t, created.ID, cash.ID, salary.ID, 100000, march, "Salary of March")); err != nil {
+		t.Fatalf("the salary could not be written: %v", err)
+	}
+	if _, err := repo.Record(ctx, movement(t, created.ID, food.ID, cash.ID, 5000, march, "Lunch")); err != nil {
+		t.Fatalf("the lunch could not be written: %v", err)
+	}
+	if _, err := repo.Record(ctx, movement(t, created.ID, cash.ID, salary.ID, 200000, april, "Salary of April")); err != nil {
+		t.Fatalf("the salary of April could not be written: %v", err)
+	}
+
+	summary, err := repo.Summary(ctx, created.ID, march, lastOfMarch)
+	if err != nil {
+		t.Fatalf("the money of the period could not be read: %v", err)
+	}
+
+	if summary.Income != 100000 {
+		t.Errorf("the income of March is %d, want 100000", summary.Income)
+	}
+	if summary.Expenses != 5000 {
+		t.Errorf("the expenses of March are %d, want 5000", summary.Expenses)
+	}
+	if summary.Net() != 95000 {
+		t.Errorf("the net of March is %d, want 95000", summary.Net())
+	}
+}
+
+// TestTheMoneyOfAPeriodWithoutMovementsIsZero proves that a month the
+// person did not move money in reads as an empty one, and not as a month
+// that does not exist.
+func TestTheMoneyOfAPeriodWithoutMovementsIsZero(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	owner := nextIdentifier()
+	registerUser(t, usersRepository(t), owner, "The Owner Of The Book")
+	created := createBusiness(t, owner)
+
+	march := ledger.NewDate(time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC))
+	lastOfMarch := ledger.NewDate(time.Date(2026, time.March, 31, 0, 0, 0, 0, time.UTC))
+
+	summary, err := ledgerRepository(t).Summary(ctx, created.ID, march, lastOfMarch)
+	if err != nil {
+		t.Fatalf("the money of the period could not be read: %v", err)
+	}
+
+	if summary.Income != 0 || summary.Expenses != 0 {
+		t.Errorf("the money of the period is %d and %d, want 0 and 0", summary.Income, summary.Expenses)
+	}
+	if summary.Net() != 0 {
+		t.Errorf("the net of the period is %d, want 0", summary.Net())
+	}
+}

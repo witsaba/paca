@@ -36,3 +36,28 @@ SELECT a.id AS account_id,
  WHERE a.business_id = sqlc.arg(business_id)
  GROUP BY a.id, a.kind, a.name
  ORDER BY a.id;
+
+-- The money of a period: what the person earned and what they spent
+-- between two days.
+--
+-- The income is the money that landed in the accounts of an income, and the
+-- expenses are the money that landed in the accounts of an expense. Each
+-- movement is counted once in each of the two sums, and a movement between
+-- two accounts of the same kind is counted once: the two sides of a
+-- movement are read apart, never joined into one row.
+--
+-- name: SummarizePeriod :one
+SELECT income.total AS income,
+       expenses.total AS expenses
+  FROM (SELECT COALESCE(SUM(e.amount), 0)::bigint AS total
+          FROM ledger_entries e
+          JOIN accounts a ON a.id = e.credit_account_id
+         WHERE e.business_id = sqlc.arg(business_id)
+           AND e.occurred_on BETWEEN sqlc.arg(from_date)::date AND sqlc.arg(to_date)::date
+           AND a.kind = 'income') AS income,
+       (SELECT COALESCE(SUM(e.amount), 0)::bigint AS total
+          FROM ledger_entries e
+          JOIN accounts a ON a.id = e.debit_account_id
+         WHERE e.business_id = sqlc.arg(business_id)
+           AND e.occurred_on BETWEEN sqlc.arg(from_date)::date AND sqlc.arg(to_date)::date
+           AND a.kind = 'expense') AS expenses;

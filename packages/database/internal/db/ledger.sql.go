@@ -158,3 +158,46 @@ func (q *Queries) RecordEntry(ctx context.Context, arg RecordEntryParams) (Ledge
 	)
 	return i, err
 }
+
+const summarizePeriod = `-- name: SummarizePeriod :one
+SELECT income.total AS income,
+       expenses.total AS expenses
+  FROM (SELECT COALESCE(SUM(e.amount), 0)::bigint AS total
+          FROM ledger_entries e
+          JOIN accounts a ON a.id = e.credit_account_id
+         WHERE e.business_id = $1
+           AND e.occurred_on BETWEEN $2::date AND $3::date
+           AND a.kind = 'income') AS income,
+       (SELECT COALESCE(SUM(e.amount), 0)::bigint AS total
+          FROM ledger_entries e
+          JOIN accounts a ON a.id = e.debit_account_id
+         WHERE e.business_id = $1
+           AND e.occurred_on BETWEEN $2::date AND $3::date
+           AND a.kind = 'expense') AS expenses
+`
+
+type SummarizePeriodParams struct {
+	BusinessID int64
+	FromDate   pgtype.Date
+	ToDate     pgtype.Date
+}
+
+type SummarizePeriodRow struct {
+	Income   int64
+	Expenses int64
+}
+
+// The money of a period: what the person earned and what they spent
+// between two days.
+//
+// The income is the money that landed in the accounts of an income, and the
+// expenses are the money that landed in the accounts of an expense. Each
+// movement is counted once in each of the two sums, and a movement between
+// two accounts of the same kind is counted once: the two sides of a
+// movement are read apart, never joined into one row.
+func (q *Queries) SummarizePeriod(ctx context.Context, arg SummarizePeriodParams) (SummarizePeriodRow, error) {
+	row := q.db.QueryRow(ctx, summarizePeriod, arg.BusinessID, arg.FromDate, arg.ToDate)
+	var i SummarizePeriodRow
+	err := row.Scan(&i.Income, &i.Expenses)
+	return i, err
+}

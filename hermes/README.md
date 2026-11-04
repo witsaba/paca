@@ -83,6 +83,14 @@ every user. The bot may already exist — the token of the bot the owner
 already uses is the one to write — and the public name of the bot, the one
 Telegram shows to the people, is set in BotFather.
 
+The continuous integration carries a placeholder for every one of these
+credentials, so the gate proves that the whole project comes up with the
+agent in it. The placeholders are placeholders: the channel is rejected and
+the agent parks it, degraded and alive, and the gate never talks to
+Telegram. The rule that pins it lives in the tests of the filters of the
+continuous integration: every key that a manifest marks as required needs a
+value in the environment of the job that starts the project.
+
 The value of the environment of the shell answers the question of the
 installer when the file does not hold the key yet, and it reaches the
 container when it is set:

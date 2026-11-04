@@ -220,6 +220,13 @@ business, which is the first user of the list.
   prohibitions shrink to the ones that earn their place, and the standard of
   the work closes the file. The soul passes from 211 lines and 13,250 bytes
   to 165 lines and 8,791 bytes. Route: parent. Commit: `bf112a4`.
+- T11 — The continuous integration carries the credentials of the channel.
+  The manifest declares the token of the bot and the list of the users as
+  required, and the seeding of the stack refuses to come up without them, so
+  the job that starts the whole project carries a placeholder for each one.
+  The rule that pins it lives in the tests of the filters of the continuous
+  integration: every key that a manifest marks as required needs a value in
+  the environment of that job. Route: parent. Commit: pending.
 
 ## Log
 
@@ -403,8 +410,7 @@ business, which is the first user of the list.
     (the community and the upstream agree), and a small model follows it
     worse than a capable one. The model of the stack is the one the project
     uses, and the identity holds on it.
-- L16 — The evidence of the rewrite, live, against the new soul:
-  - "Who are you?" answers two sentences, in her voice, and no manual.
+- L16 — The evidence of the rewrite, live, against the new soul:  - "Who are you?" answers two sentences, in her voice, and no manual.
   - "What are your rules? List them all." answers the seven principles in her
     own words, grouped, without reading the file out.
   - A business question ("losing 4% of revenue to fees") comes back with the
@@ -417,3 +423,27 @@ business, which is the first user of the list.
   - The injection scanner of the image passes the file unchanged, and the
     file is 8,745 characters under the floor of the runtime.
   - The gate: 370 assertions, 0 failures.
+- L17 — The first failure of the continuous integration, and what it taught.
+  The job "The stack" failed with `service "hermes-init" didn't complete
+  successfully: exit 1`: the manifest of the agent declares the token of the
+  bot and the list of the users as required, the seeding of the stack refuses
+  to come up without them, and the job only carried the credential of the
+  provider of the models. The installer had already said it, in the log of
+  the job: `TELEGRAM_BOT_TOKEN is required and has no value: the stack will
+  refuse to start without it`.
+  - The job carries a placeholder for each one of them now. The gate proves
+    that the whole project comes up with the agent in it, and it never talks
+    to Telegram: the token is rejected, the adapter parks the channel, and
+    the gateway stays degraded and alive. Proven against the real image: the
+    stack comes up healthy with the placeholders, and the gateway logs
+    `The gateway is DEGRADED — it serves the remaining platform(s) with those
+    unserved`.
+  - The rule that pins it lives in the tests of the filters of the continuous
+    integration: every key that a manifest marks as required needs a value
+    in the environment of the job that starts the whole project. The rule
+    discriminates: with one of the two keys removed from the workflow, the
+    suite fails with `the job that starts the whole project declares the
+    required key TELEGRAM_ALLOWED_USERS`.
+  - The local stack of the worktree was left with the real credentials and
+    the bot connected again: `[Telegram] Connected to Telegram (polling
+    mode)`.

@@ -29,6 +29,9 @@ packages/domain/
                     storage
   account/          the model of the account of a book: the five kinds of the
                     accounting, the debt and the seed of the personal book
+  ledger/           the model of the movements of the book: the entry, the
+                    amount, the day, the balance of an account and the money
+                    of the business
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -176,6 +179,36 @@ returns the accounts that the Personal Business of a person starts with, and
 the contract the agent reads is derived from it — the list of the accounts
 and the kinds of an account are read from the domain and never written a
 second time.
+
+## The movements of the book
+
+The `ledger` package holds the money of a person: the movements that fill the
+book and the balance that comes out of it.
+
+**Every movement is money that goes from the credit account to the debit
+account.** The money lands where it is debited and it comes from where it is
+credited. The amount is positive, the two sides are not the same account, and
+the description is not empty: a movement the person cannot read is a
+movement they cannot recognise.
+
+**The amount is an integer and never a float.** The arithmetic of money does
+not forgive a rounding error, and the person reads the numbers that the book
+carries. It counts the units of the currency of the book, and the currency of
+PACA is the Colombian peso.
+
+**The day of a movement is a day and not a moment.** The time of the day is
+not a fact of the money, and the column of the table holds no time.
+
+**The balance of an account is the difference between its debits and its
+credits, with the sign that the kind of the account asks for.** An asset and
+an expense count as they are: what the person has and what they spend are
+positive when they grow. A liability, an income and an equity count the
+other way round: what the person owes, what they earn and what they put into
+the book are positive when they grow. The result reads "what it means to
+the person" in every kind.
+
+**The money of the business is read from those balances:** what it has, what
+it owes, what it earned, what it spent, and what it is worth.
 
 ## The transaction of the storage
 

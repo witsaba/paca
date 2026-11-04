@@ -98,8 +98,9 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes five tools: the way PACA onboards a person, and the four
-moments of the journey of a person inside PACA.
+The server exposes eight tools: the way PACA onboards a person, the four
+moments of the journey of a person inside PACA, and the three tools of the
+book of their money.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -108,6 +109,9 @@ moments of the journey of a person inside PACA.
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+| `record_movement`         | Writes a movement of money in the book: it goes from one account to another one. |
+| `read_movements`          | Reads the movements of a period: the libro diario.              |
+| `read_balances`           | Reads the balance of every account and the money of the business: the libro mayor. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -131,6 +135,13 @@ that stays as it is. The description of `get_user` tells the agent that the
 tool answers with what PACA knows about the person, and the description of
 `list_users` tells the agent to ask for the people it needs and to ask again
 when the answer carries more people than it asked for.
+
+**The money goes from one account to another one.** The tool of the movement
+takes the account the money comes from and the account it lands in, the
+way the person says it: a salary lands in the cash and comes from the
+salary. The amount is positive and it is never a fraction, the day is the
+day the money moved — the day of today when the agent names none — and the
+description is what the person reads in their book.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

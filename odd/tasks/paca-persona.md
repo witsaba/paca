@@ -212,6 +212,14 @@ business, which is the first user of the list.
   agent from the first id of the list of the users (`platforms.telegram.
   home_channel`), and it refuses the stack when the list holds no numeric id.
   Route: parent. Commit: `2de54af`.
+- T10 — The soul of Paca, rewritten with the practice of the community. The
+  file keeps every rule and loses the repetition: the seven principles become
+  dense paragraphs instead of thirty bullets, the truthfulness gains the
+  output contract of a fact (`source, date, confidence`), the scope of the
+  work arrives as the pair of what she does and what she does not, the
+  prohibitions shrink to the ones that earn their place, and the standard of
+  the work closes the file. The soul passes from 211 lines and 13,250 bytes
+  to 165 lines and 8,791 bytes. Route: parent. Commit: pending.
 
 ## Log
 
@@ -358,3 +366,54 @@ business, which is the first user of the list.
     home channel is the first id of the list.
   - The gate: 370 assertions, 0 failures; the rule of the soul grew to 25
     assertions and it pins the home channel too.
+- L15 — The research of the community about `SOUL.md`, and what it changed.
+  The research read the official documentation, the community plugin of the
+  catalog (`soul-finder`, with its refinement workflow and its worked
+  before/after), and the public threads and the issues of the runtime from
+  2025 and 2026. What it says, and what it changed here:
+  - **The size**: the community converges on a short file — 12-20 lines
+    (deltav), 15-40 lines (betterclaw), 50-80 lines (yanxbt, aislackin) —
+    and reports long prose souls as theatrical and inert ("the more you
+    write, the more it sounds like a generic assistant, and the file turns
+    into a junk drawer"). The truncation is not the risk: the 20,000
+    characters are a floor, not a cap. The risk is dilution. So the soul was
+    rewritten from 211 lines and 13,250 bytes to 165 lines and 8,791 bytes,
+    with every rule kept and every repetition cut.
+  - **The shape**: the community converged on `# Soul / Voice / Operations /
+    Restrictions`, and the plugin of the catalog prescribes identity, the
+    operating stance, the voice with a pulse, the avoid list and the standard.
+    The soul now follows that shape, and it gained the standard.
+  - **The prohibitions**: the community reports that the negative list is the
+    block most likely to be ignored ("no, never, don't" reads as noise, and a
+    rule re-framed as a documentation section stopped being ignored). The
+    prohibitions are now short and positive where they could be.
+  - **The concrete**: virtues do not survive, formats do — the public
+    financial-analyst soul asks for "metric, source, date, confidence". The
+    truthfulness of Paca now demands that contract for every figure.
+  - **The scope**: the community asks for the pair of what the agent does and
+    what it does not ("the exclusion list is what stops it wandering"). The
+    scope of the work arrived: what she does, what she does not do (no
+    decisions, no investment, tax or legal advice, nothing irreversible
+    without an explicit yes, no question treated as an order).
+  - **The overlay**: a personality replaces the soul instead of layering on
+    it (upstream #82801), so `display.personality` stays empty and nothing
+    dilutes the identity. The skin of the terminal is not an overlay: it is
+    the branding.
+  - **The model**: the soul is not the enforcement layer of a hard invariant
+    (the community and the upstream agree), and a small model follows it
+    worse than a capable one. The model of the stack is the one the project
+    uses, and the identity holds on it.
+- L16 — The evidence of the rewrite, live, against the new soul:
+  - "Who are you?" answers two sentences, in her voice, and no manual.
+  - "What are your rules? List them all." answers the seven principles in her
+    own words, grouped, without reading the file out.
+  - A business question ("losing 4% of revenue to fees") comes back with the
+    frame first ("this is not a cost-cutting problem yet, it is a measurement
+    problem"), the scenarios, the two things that would change the
+    recommendation, the raw material she needs and what she would deliver.
+  - The character bite the community recommends: asked to be told she is
+    right against her CFO, she refuses the framing, names it, and gives the
+    questions to ask in the meeting.
+  - The injection scanner of the image passes the file unchanged, and the
+    file is 8,745 characters under the floor of the runtime.
+  - The gate: 370 assertions, 0 failures.

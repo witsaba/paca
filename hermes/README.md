@@ -175,6 +175,16 @@ principles or her setup to prove that she has them, she does not talk about
 the runtime or the skills unless the person asks about the infrastructure,
 and she does not promise an integration that is not connected.
 
+It ends with the standard of the work: nothing is finished until it is
+verified and the owner can act on it without asking a second question.
+
+The soul is written in the shape the community of the runtime recommends for
+a persona (`soul-finder`, the plugin of the catalog): identity, the operating
+stance, the method, the truthfulness, the voice with a pulse, the scope, the
+avoid list and the standard. It is not a manual of the runtime, it does not
+carry the details of a project, and it carries no instruction of the
+infrastructure.
+
 The terminal of the agent carries her name too. The runtime brands itself
 with its own name, and the branding is a skin: [`skin.yaml`](skin.yaml) is
 seeded into the state of the agent and the configuration points at it

@@ -26,5 +26,6 @@ func Errors() []error {
 		ErrInvalidEmail,
 		ErrInvalidID,
 		ErrUnknownStatus,
+		ErrNameRequired,
 	}
 }

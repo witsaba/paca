@@ -68,13 +68,14 @@ func NewUserRepository(pool *Pool) (*UserRepository, error) {
 // The statement writes the onboarding state and no observation: the new user
 // starts at the entry of the machine, and the caller does not choose it.
 //
-// The data is cleaned before it is written, so the row never carries a phone
-// with its punctuation or an address with its spaces, whatever the caller
-// sends.
+// The data is cleaned by the domain before it is written, so the row never
+// carries a name with its spaces, a phone with its punctuation or an address
+// with its spaces, whatever the caller sends.
 //
-// The error is user.ErrAlreadyExists when the document ID is taken.
-func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.Details) (user.User, error) {
-	clean, err := user.NewDetails(details.FullName, details.Phone, details.Email)
+// The error is user.ErrNameRequired when the registration carries no name,
+// and user.ErrAlreadyExists when the document ID is taken.
+func (r *UserRepository) Create(ctx context.Context, id user.ID, registration user.Registration) (user.User, error) {
+	clean, err := user.NewRegistration(registration.FullName, registration.Phone, registration.Email)
 	if err != nil {
 		return user.User{}, err
 	}

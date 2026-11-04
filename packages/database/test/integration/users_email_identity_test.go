@@ -33,15 +33,12 @@ func TestTheDomainStoresTheCanonicalFormOfTheAddress(t *testing.T) {
 	repo := usersRepository(t)
 	id := nextIdentifier()
 
-	details, err := user.NewDetails("Ana María Torres", phoneOf(id), strings.ToUpper(emailOf(id)))
-	if err != nil {
-		t.Fatalf("the data of the person could not be cleaned: %v", err)
-	}
-	if details.Email != emailOf(id) {
-		t.Fatalf("the cleaned address is %q, want %q", details.Email, emailOf(id))
+	registration := registrationOf(t, id, "Ana María Torres", phoneOf(id), strings.ToUpper(emailOf(id)))
+	if registration.Email != emailOf(id) {
+		t.Fatalf("the cleaned address is %q, want %q", registration.Email, emailOf(id))
 	}
 
-	created, err := repo.Create(ctx, user.ID(id), details)
+	created, err := repo.Create(ctx, user.ID(id), registration)
 	if err != nil {
 		t.Fatalf("the person could not be registered: %v", err)
 	}
@@ -65,18 +62,15 @@ func TestTwoAddressesOfTheSameMailboxAreTheSameAddress(t *testing.T) {
 	repo := usersRepository(t)
 
 	owner := nextIdentifier()
-	details := detailsOf(t, owner, "The Owner Of The Address")
-	if _, err := repo.Create(ctx, user.ID(owner), details); err != nil {
+	registration := registrationOf(t, owner, "The Owner Of The Address", phoneOf(owner), emailOf(owner))
+	if _, err := repo.Create(ctx, user.ID(owner), registration); err != nil {
 		t.Fatalf("the owner of the address could not be registered: %v", err)
 	}
 
 	other := nextIdentifier()
-	same, err := user.NewDetails("The Other Person", phoneOf(other), mixedCase(details.Email))
-	if err != nil {
-		t.Fatalf("the data of the person could not be cleaned: %v", err)
-	}
-	if same.Email != details.Email {
-		t.Fatalf("the address is %q, want the canonical form %q", same.Email, details.Email)
+	same := registrationOf(t, other, "The Other Person", phoneOf(other), mixedCase(registration.Email))
+	if same.Email != registration.Email {
+		t.Fatalf("the address is %q, want the canonical form %q", same.Email, registration.Email)
 	}
 
 	if _, err := repo.Create(ctx, user.ID(other), same); !errors.Is(err, user.ErrEmailTaken) {

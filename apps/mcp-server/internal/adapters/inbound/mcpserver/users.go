@@ -47,12 +47,12 @@ const (
 	descriptionOnboardUser = "Begin the onboarding of a person who uses PACA, and register them.\n\n" +
 		"The national document ID is REQUIRED: it is the document of the person and PACA never invents one. " +
 		"Ask the person for it, and if they do not know it, do not call this tool.\n\n" +
-		"The full name is OPTIONAL. Ask kindly for it, because a person registered with their name is a person " +
-		"the team recognises later. If the person prefers not to give it, register them anyway: an onboarding " +
-		"without a name is still a valid onboarding.\n\n" +
+		"The full name is REQUIRED: a person is registered with their name, and PACA refuses the registration without it. " +
+		"Ask the person for their name kindly, and do not call this tool until they give it.\n\n" +
 		"The phone is OPTIONAL, but it must carry the country code (for example '+57 321 253 9984'). PACA cleans " +
 		"the number and stores the digits only ('573212539984'). A number without a country code is refused.\n\n" +
-		"The email is OPTIONAL, but it must be a valid address. Ask the person to confirm it before you register it.\n\n" +
+		"The email is OPTIONAL, but it must be a valid address. Ask the person to confirm it before you register it, " +
+		"and register them without it when they prefer not to give it.\n\n" +
 		"Try to gather as much information as the person is willing to give - the name, the phone and the email - " +
 		"and then register the user with everything you have.\n\n" +
 		"The new user starts in the 'onboarding' status, with no reason attached to it."
@@ -106,7 +106,7 @@ type onboardUserInput struct {
 	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required, and PACA never invents one."`
 
 	// FullName is the complete name of the person.
-	FullName string `json:"full_name,omitempty" jsonschema:"The complete name of the person. It is optional: ask kindly for it, and register the person without it when they prefer not to give it."`
+	FullName string `json:"full_name,omitempty" jsonschema:"The complete name of the person. It is required: ask the person for their name kindly, and do not call this tool without it."`
 
 	// Phone is the phone number of the person.
 	Phone string `json:"phone,omitempty" jsonschema:"The phone of the person, with the country code: '+57 321 253 9984'. It is optional. PACA cleans the number and stores the digits only."`
@@ -430,6 +430,7 @@ func timestamp(moment time.Time) string {
 // here, and a test proves that every one of them is.
 var theMessages = map[error]string{
 	user.ErrInvalidID:             "the document ID is not a number: ask the person for the national document ID, with digits only",
+	user.ErrNameRequired:          "the name of the person is required: ask the person for their name before registering them",
 	user.ErrInvalidPhone:          "the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'",
 	user.ErrInvalidEmail:          "the email address is not valid: ask the person to confirm it",
 	user.ErrAlreadyExists:         "there is already a user with that document ID: do not register the person again",

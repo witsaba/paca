@@ -187,8 +187,8 @@ func TestTheDescriptionOfTheOnboardingTellsTheAgentWhatItNeeds(t *testing.T) {
 	wants := []string{
 		"national document ID is REQUIRED",
 		"PACA never invents one",
-		"full name is OPTIONAL",
-		"Ask kindly for it",
+		"full name is REQUIRED",
+		"Ask the person for their name kindly",
 		"must carry the country code",
 		"+57 321 253 9984",
 		"573212539984",

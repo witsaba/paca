@@ -30,6 +30,7 @@ func TestTheCatalogueCarriesEveryErrorOfThePort(t *testing.T) {
 		user.ErrInvalidEmail,
 		user.ErrInvalidID,
 		user.ErrUnknownStatus,
+		user.ErrNameRequired,
 	}
 
 	catalogue := user.Errors()

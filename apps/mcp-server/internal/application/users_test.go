@@ -26,16 +26,16 @@ type fakeRepository struct {
 }
 
 // Create remembers the person and answers it.
-func (r *fakeRepository) Create(_ context.Context, id user.ID, details user.Details) (user.User, error) {
+func (r *fakeRepository) Create(_ context.Context, id user.ID, registration user.Registration) (user.User, error) {
 	if r.err != nil {
 		return user.User{}, r.err
 	}
 
 	created := user.User{
 		ID:       id,
-		FullName: details.FullName,
-		Phone:    details.Phone,
-		Email:    details.Email,
+		FullName: registration.FullName,
+		Phone:    registration.Phone,
+		Email:    registration.Email,
 		Status:   user.StatusOnboarding,
 	}
 	r.created = append(r.created, created)
@@ -123,6 +123,22 @@ func TestOnboardRefusesADocumentThatIsNotANumber(t *testing.T) {
 
 	if !errors.Is(err, user.ErrInvalidID) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidID)
+	}
+}
+
+func TestOnboardRefusesARegistrationWithoutAName(t *testing.T) {
+	t.Parallel()
+
+	repository := &fakeRepository{}
+	service := application.NewUsersService(repository)
+
+	_, err := service.Onboard(t.Context(), "1234567", "   ", "", "")
+
+	if !errors.Is(err, user.ErrNameRequired) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrNameRequired)
+	}
+	if len(repository.created) != 0 {
+		t.Errorf("the storage holds %d people, want none", len(repository.created))
 	}
 }
 
@@ -234,7 +250,7 @@ func TestTheUseCaseAnswersTheErrorOfTheStorage(t *testing.T) {
 	repository := &fakeRepository{err: user.ErrAlreadyExists}
 	service := application.NewUsersService(repository)
 
-	_, err := service.Onboard(t.Context(), "1234567", "", "", "")
+	_, err := service.Onboard(t.Context(), "1234567", "Ana María Pérez", "", "")
 
 	if !errors.Is(err, user.ErrAlreadyExists) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrAlreadyExists)
@@ -247,7 +263,7 @@ func TestTheUseCaseKeepsTheTimestampsOfTheStorage(t *testing.T) {
 	repository := &fakeRepository{}
 	service := application.NewUsersService(repository)
 
-	created, err := service.Onboard(t.Context(), "1234567", "", "", "")
+	created, err := service.Onboard(t.Context(), "1234567", "Ana María Pérez", "", "")
 	if err != nil {
 		t.Fatalf("the person was not registered: %v", err)
 	}

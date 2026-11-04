@@ -115,8 +115,13 @@ test:
 ## test-integration: run the container tests
 #
 # The tests build the image of the server and start it, so they need Docker.
+#
+# The count is one: the cache of the toolchain keys the result on the sources
+# of the package of the test, and the image of the server is built inside the
+# test. A change of the server does not change the sources of the test, and
+# the cached answer of the previous image is the answer of the previous code.
 test-integration:
-	$(GO) test -tags=integration -timeout=15m -v ./test/...
+	$(GO) test -count=1 -tags=integration -timeout=15m -v ./test/...
 
 ## cover: run the test suite with coverage and check the threshold
 cover:

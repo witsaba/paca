@@ -141,9 +141,12 @@ test:
 # The coverage is measured with -coverpkg, so the coverage of the adapter and
 # of the domain comes from the container tests and not from the unit tests:
 # the two numbers together are the coverage of the module.
+# The count is one: the cache of the toolchain keys the result on the sources
+# of the package of the test, and the tests of the library talk to a real
+# PostgreSQL. A cached answer is the answer of the previous code.
 test-integration:
 	@mkdir -p $(COV_DIR)
-	$(GO) test -tags=integration -timeout=15m -v -covermode=atomic \
+	$(GO) test -count=1 -tags=integration -timeout=15m -v -covermode=atomic \
 		-coverpkg=./postgres/... \
 		-coverprofile=$(COV_FILE_INTEGRATION) $(PACKAGE)
 	@$(GO) tool cover -func=$(COV_FILE_INTEGRATION) | tail -1

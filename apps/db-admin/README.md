@@ -27,10 +27,10 @@ knows every layer at once.
 ```
 cmd/paca-db-admin/          the binary, and the healthcheck command
 internal/
-  application/               the use cases: migrate and health
+  application/               the use cases: the migration of the schema
   ports/                     the contracts between the layers
   adapters/
-    inbound/http/            the HTTP adapter: the health endpoint
+    inbound/http/            the HTTP adapter: the router of the service
     outbound/database/       the migrator over the database library, the checker of the database
   platform/config/           the configuration of this service: the only
                              infrastructure the service owns
@@ -38,10 +38,12 @@ internal/
 test/integration/            the container tests
 ```
 
-The models and the infrastructure live in the shared modules: the state of the schema and
-the health in [packages/domain](../../packages/domain), the clock, the logs, the telemetry
-and the server in [packages/platform](../../packages/platform). The service owns only the
-models that belong to it alone, and the configuration that is its own.
+The models and the infrastructure live in the shared modules: the state of the schema in
+[packages/domain](../../packages/domain), the health in
+[packages/health](../../packages/health) — the use case that reports it and the endpoint
+that answers it — and the clock, the logs, the telemetry and the server in
+[packages/platform](../../packages/platform). The service owns only the models that belong
+to it alone, and the configuration that is its own.
 
 The dependency rule holds: the domain knows nothing, the application knows
 the domain and the ports, the adapters know the ports, and only the

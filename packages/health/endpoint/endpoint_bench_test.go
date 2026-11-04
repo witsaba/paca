@@ -1,4 +1,4 @@
-package http_test
+package endpoint_test
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	adapter "github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/endpoint"
 )
 
 // BenchmarkTheHealthEndpoint measures the cost of a health answer.
@@ -24,12 +24,12 @@ func BenchmarkTheHealthEndpoint(b *testing.B) {
 		}},
 	}}
 
-	handler := adapter.NewHealthHandler(querier)
+	handler := endpoint.New(querier)
 
 	b.ReportAllocs()
 	for b.Loop() {
 		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil)
+		request := httptest.NewRequest(http.MethodGet, endpoint.Path, nil)
 		handler.ServeHTTP(recorder, request)
 
 		if recorder.Code != http.StatusOK {

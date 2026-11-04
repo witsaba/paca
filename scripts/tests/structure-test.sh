@@ -78,19 +78,11 @@ RULES_WITHOUT_ANYTHING_TO_PROVE="the domain of every application knows nothing|n
 #
 # A copy that is listed here is reported by the gate on every run, and it is
 # a failure the moment it is not the copy that was listed.
-KNOWN_COPIES="internal/application/health.go:NewHealthService|the health use case waits for a shared application layer"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/application/health.go:Health|the health use case waits for a shared application layer"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/application/health.go:runCheck|the health use case waits for a shared application layer"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/adapters/inbound/http/health_handler.go:NewHealthHandler|the health endpoint waits for a shared adapter"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/adapters/inbound/http/health_handler.go:ServeHTTP|the health endpoint waits for a shared adapter"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/adapters/inbound/http/health_handler.go:newHealthResponse|the health endpoint waits for a shared adapter"
-KNOWN_COPIES="${KNOWN_COPIES}
-internal/adapters/inbound/http/health_handler.go:writeJSON|the health endpoint waits for a shared adapter"
+#
+# The health of the services was the last copy of the tree: it lives in the
+# shared health library (packages/health) since the module was created, and
+# the list is empty on purpose.
+KNOWN_COPIES=""
 
 # ---------------------------------------------------------------------------
 # The rules
@@ -420,6 +412,8 @@ test_the_adapters_of_every_application_know_no_use_case() {
       for imported in $imports; do
         assert_not_contains "$imported" "/internal/application/" \
           "the adapters of $module know no use case: [$imported]"
+        assert_not_contains "$imported" "packages/health/reporter" \
+          "the adapters of $module know no use case: [$imported]"
       done
     done < <(imports_of_the_layer "$application" internal/adapters)
   done < <(applications_of_the_repository)
@@ -494,6 +488,35 @@ test_the_shared_domain_knows_nothing_but_the_standard_library() {
       done
     done
   done < <(imports_of_the_layer packages/domain .)
+}
+
+# test_the_shared_health_names_the_domain_and_nothing_else asserts that the
+# shared health module imports the domain and nothing else.
+#
+# The library holds the use case that reports the health of a service and
+# the endpoint that answers it. The model of the health lives in the domain,
+# and the library names that model and nothing else: the day it reaches for
+# a driver or a third-party package, the answer of the health stops being
+# the same in every service.
+test_the_shared_health_names_the_domain_and_nothing_else() {
+  local line
+  while IFS= read -r line; do
+    local imports=${line#* }
+
+    local imported
+    for imported in $imports; do
+      is_external "$imported" || continue
+
+      case "$imported" in
+        github.com/witsaba/paca/packages/health*) ;;
+        github.com/witsaba/paca/packages/domain*) ;;
+        *)
+          fail "the shared health names the domain and nothing else: [$imported]"
+          ;;
+      esac
+      ASSERTIONS=$((ASSERTIONS + 1))
+    done
+  done < <(imports_of_the_layer packages/health .)
 }
 
 # test_only_the_composition_root_knows_the_adapters asserts that the
@@ -1069,6 +1092,7 @@ run_rule "the adapters know no handle of the database" test_the_adapters_of_ever
 run_rule "only the composition root knows the adapters" test_only_the_composition_root_knows_the_adapters
 run_rule "the shared domain knows nothing but the standard library" test_the_shared_domain_knows_nothing_but_the_standard_library
 run_rule "the shared platform knows no model" test_the_shared_platform_knows_no_model
+run_rule "the shared health names the domain and nothing else" test_the_shared_health_names_the_domain_and_nothing_else
 run_rule "every image copies the modules it imports" test_every_image_copies_the_modules_it_imports
 run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema

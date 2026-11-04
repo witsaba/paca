@@ -35,7 +35,7 @@ APPS := mcp-server db-admin
 
 # The shared libraries of the monorepository. A service imports them; they
 # publish no port and run no container.
-PACKAGES := domain database platform
+PACKAGES := domain database platform health
 
 # The compose project of the monorepository: the root compose file includes
 # every stack, so the whole project is driven from here.

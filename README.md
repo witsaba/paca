@@ -87,6 +87,7 @@ skin, and the stack carries the skin of Paca.
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/database/` | The database library: the pool, the queries, the migrations, the repositories that write the rows and the transaction of the storage. A library, with no port and no container. | [packages/database/README.md](packages/database/README.md) |
 | `packages/domain/` | The domain: the models of the people, the business that owns their book and the accounts of that book, the ports of their storage, the state of the schema and the model of the health. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |
+| `packages/health/` | The health: the use case that reports the health of a service and the HTTP endpoint that answers it. The same answer in every service, written once. | [packages/health/README.md](packages/health/README.md) |
 | `packages/platform/` | The platform: the clock, the logs, the telemetry, the HTTP server and the health check of the container. The infrastructure every service shares, forked by none. | [packages/platform/README.md](packages/platform/README.md) |
 | `db/postgres/`     | PostgreSQL 18.6 with pgvector 0.8.7, internal only. | [db/postgres/README.md](db/postgres/README.md) |
 | `observability/`   | Jaeger 2 as the OpenTelemetry collector and the trace backend: the traces of the services, kept for two days. | [observability/README.md](observability/README.md) |
@@ -306,6 +307,7 @@ the coverage gate, the benchmarks and the vulnerability scan.
 make -C apps/mcp-server all
 make -C packages/domain all
 make -C packages/database all
+make -C packages/health all
 make -C packages/platform all
 ```
 

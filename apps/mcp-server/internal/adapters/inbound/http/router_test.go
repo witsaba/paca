@@ -16,6 +16,7 @@ import (
 
 	adapter "github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/endpoint"
 )
 
 // countingHandler is an MCP transport that only counts the calls.
@@ -42,6 +43,18 @@ func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+// fakeQuerier is the health of the test: it returns the report the test
+// decided.
+type fakeQuerier struct {
+	report health.Report
+	err    error
+}
+
+// Health returns the report of the test.
+func (q *fakeQuerier) Health(context.Context) (health.Report, error) {
+	return q.report, q.err
+}
+
 func TestTheRouterServesTheHealthEndpoint(t *testing.T) {
 	t.Parallel()
 
@@ -56,7 +69,7 @@ func TestTheRouterServesTheHealthEndpoint(t *testing.T) {
 	})
 
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, endpoint.Path, nil))
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -74,7 +87,7 @@ func TestTheRouterRejectsTheWrongMethodOnTheHealthEndpoint(t *testing.T) {
 	})
 
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, adapter.HealthPath, nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, endpoint.Path, nil))
 
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusMethodNotAllowed)
@@ -185,7 +198,7 @@ func TestTheRouterDoesNotTraceTheHealthEndpoint(t *testing.T) {
 	})
 
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, endpoint.Path, nil))
 
 	if spans := exporter.GetSpans(); len(spans) != 0 {
 		t.Fatalf("the exporter holds %d spans, want none", len(spans))
@@ -238,7 +251,7 @@ func TestTheRouterSetsTheSecurityHeaders(t *testing.T) {
 	})
 
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, endpoint.Path, nil))
 
 	if got := recorder.Header().Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Fatalf("X-Content-Type-Options = %q, want %q", got, "nosniff")

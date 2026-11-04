@@ -1,3 +1,6 @@
+// Package application holds the use cases of the database admin: the rules
+// that decide what the service does, with no protocol and no infrastructure
+// in sight.
 package application
 
 import (

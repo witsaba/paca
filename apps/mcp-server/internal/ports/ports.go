@@ -9,13 +9,12 @@ package ports
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
-	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/user"
+	healthports "github.com/witsaba/paca/packages/health/ports"
 )
 
 // ErrNoDatabase is the error of a use case with no database behind it.
@@ -24,24 +23,20 @@ import (
 // every call says that the database is not.
 var ErrNoDatabase = errors.New("the service has no database configured")
 
-// HealthQuerier is the inbound port of the health use case. Every adapter
-// that exposes the health of the service depends on this contract, never on
-// the implementation of the use case.
-type HealthQuerier interface {
-	// Health returns the health of the service at this moment.
-	Health(ctx context.Context) (health.Report, error)
-}
+// HealthQuerier is the inbound port of the health of the service.
+//
+// The health has one owner: the shared health library. The service publishes
+// the contract under its own name, and the contract it publishes is the one
+// of the library.
+type HealthQuerier = healthports.HealthQuerier
 
-// Checker is the outbound port of the health use case: it reports whether one
-// component of the service is healthy.
-type Checker interface {
-	// Name identifies the component the checker watches.
-	Name() string
-	// Check returns nil when the component is healthy, health.ErrDegraded
-	// when the component still works but not perfectly, and any other error
-	// when it failed.
-	Check(ctx context.Context) error
-}
+// Checker is the outbound port of the health of the service: it reports
+// whether one component of the service is healthy.
+//
+// The health has one owner: the shared health library. The service publishes
+// the contract under its own name, and the contract it publishes is the one
+// of the library.
+type Checker = healthports.Checker
 
 // Pinger is the outbound port that asks the database whether it answers.
 //
@@ -54,10 +49,10 @@ type Pinger interface {
 }
 
 // Clock is the outbound port that tells the application what time it is.
-type Clock interface {
-	// Now returns the current time.
-	Now() time.Time
-}
+//
+// The clock of the health and the clock of the book are the same clock, and
+// the contract of the clock has one owner: the shared health library.
+type Clock = healthports.Clock
 
 // UsersQuerier is the inbound port of the tools of the people.
 //

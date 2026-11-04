@@ -1,4 +1,4 @@
-package application_test
+package reporter_test
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/application"
-	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/ports"
+	"github.com/witsaba/paca/packages/health/reporter"
 )
 
 // fakeClock is the clock of the test: it only moves when the test moves it.
@@ -45,7 +45,7 @@ func TestHealthOfAServiceWithoutChecksIsHealthy(t *testing.T) {
 	startedAt := time.Date(2026, time.October, 27, 10, 0, 0, 0, time.UTC)
 	clock := &fakeClock{now: startedAt.Add(90 * time.Second)}
 
-	service, err := application.NewHealthService(
+	service, err := reporter.New(
 		health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 		nil,
 		clock,
@@ -53,7 +53,7 @@ func TestHealthOfAServiceWithoutChecksIsHealthy(t *testing.T) {
 		time.Second,
 	)
 	if err != nil {
-		t.Fatalf("NewHealthService() = %v", err)
+		t.Fatalf("New() = %v", err)
 	}
 
 	report, err := service.Health(context.Background())
@@ -96,7 +96,7 @@ func TestHealthAggregatesTheWorstStatusOfTheChecks(t *testing.T) {
 			checker := &fakeChecker{name: "mcp-transport", err: test.err}
 			clock := &fakeClock{now: time.Now()}
 
-			service, err := application.NewHealthService(
+			service, err := reporter.New(
 				health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 				[]ports.Checker{checker},
 				clock,
@@ -104,7 +104,7 @@ func TestHealthAggregatesTheWorstStatusOfTheChecks(t *testing.T) {
 				time.Second,
 			)
 			if err != nil {
-				t.Fatalf("NewHealthService() = %v", err)
+				t.Fatalf("New() = %v", err)
 			}
 
 			report, err := service.Health(context.Background())
@@ -138,7 +138,7 @@ func TestHealthWithACancelledContextReturnsTheError(t *testing.T) {
 	t.Parallel()
 
 	clock := &fakeClock{now: time.Now()}
-	service, err := application.NewHealthService(
+	service, err := reporter.New(
 		health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 		nil,
 		clock,
@@ -146,7 +146,7 @@ func TestHealthWithACancelledContextReturnsTheError(t *testing.T) {
 		time.Second,
 	)
 	if err != nil {
-		t.Fatalf("NewHealthService() = %v", err)
+		t.Fatalf("New() = %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -157,7 +157,7 @@ func TestHealthWithACancelledContextReturnsTheError(t *testing.T) {
 	}
 }
 
-func TestNewHealthServiceRejectsAnInvalidConstruction(t *testing.T) {
+func TestNewRejectsAnInvalidConstruction(t *testing.T) {
 	t.Parallel()
 
 	clock := &fakeClock{now: time.Now()}
@@ -177,8 +177,8 @@ func TestNewHealthServiceRejectsAnInvalidConstruction(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := application.NewHealthService(test.identity, nil, test.clock, clock.now, test.timeout); err == nil {
-				t.Fatal("NewHealthService() = nil, want an error")
+			if _, err := reporter.New(test.identity, nil, test.clock, clock.now, test.timeout); err == nil {
+				t.Fatal("New() = nil, want an error")
 			}
 		})
 	}

@@ -27,6 +27,8 @@ import (
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
+	"github.com/witsaba/paca/packages/health/endpoint"
+	"github.com/witsaba/paca/packages/health/reporter"
 	"github.com/witsaba/paca/packages/platform/clock"
 	"github.com/witsaba/paca/packages/platform/server"
 )
@@ -78,7 +80,10 @@ func New(
 		checkers = append(checkers, database.NewChecker(pool))
 	}
 
-	healthService, err := application.NewHealthService(
+	// The health of the service is the shared one: the use case that
+	// reports it and the endpoint that answers it are the same in every
+	// service of the monorepository.
+	healthService, err := reporter.New(
 		health.Identity{Name: config.ServiceName, Version: serviceVersion},
 		checkers,
 		clock.System{},
@@ -228,7 +233,7 @@ func (a *App) Serve(ctx context.Context) error {
 	a.logger.Info("the MCP server is serving",
 		slog.String("addr", a.Addr()),
 		slog.String("mcp_path", http.MCPPath),
-		slog.String("health_path", http.HealthPath),
+		slog.String("health_path", endpoint.Path),
 	)
 	defer a.transportChecker.SetServing(false)
 	defer a.pool.Close()

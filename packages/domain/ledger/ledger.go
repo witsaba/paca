@@ -37,6 +37,10 @@ var (
 	// storage does not hold.
 	ErrNotFound = errors.New("there is no book for that business")
 
+	// ErrNoStorage is the error of a port of the storage that has no
+	// storage behind it.
+	ErrNoStorage = errors.New("the storage of the book is not open")
+
 	// ErrInvalidAmount is the error of a movement that carries no money.
 	ErrInvalidAmount = errors.New("the amount of a movement is not zero")
 
@@ -57,6 +61,7 @@ var (
 func Errors() []error {
 	return []error{
 		ErrNotFound,
+		ErrNoStorage,
 		ErrInvalidAmount,
 		ErrSameAccount,
 		ErrInvalidDate,

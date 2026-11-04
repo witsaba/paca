@@ -29,6 +29,17 @@ type Business struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type LedgerEntry struct {
+	ID              int64
+	BusinessID      int64
+	DebitAccountID  int64
+	CreditAccountID int64
+	Amount          int64
+	OccurredOn      pgtype.Date
+	Description     string
+	CreatedAt       pgtype.Timestamptz
+}
+
 type User struct {
 	ID                 int64
 	FullName           pgtype.Text

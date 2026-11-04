@@ -187,6 +187,11 @@ services:
       # host when it has one.
       - TELEGRAM_BOT_TOKEN
       - TELEGRAM_ALLOWED_USERS
+      # The address of the MCP server of PACA: the tools of the people, of
+      # the business and of the book. The server is a service of the
+      # monorepository and it answers on the internal network, where the
+      # agent reaches it. No port of the host is published for it.
+      - PACA_MCP_URL=http://paca-mcp-server:8081/mcp
     # The browser of the agent needs more shared memory than the 64
     # megabytes Docker gives by default.
     shm_size: "1gb"

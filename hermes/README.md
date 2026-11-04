@@ -284,6 +284,37 @@ place.
 The memories belong to the project `paca`, the same project the work of the
 repository is remembered in.
 
+## The tools of PACA
+
+The agent reaches the tools of PACA over the **HTTP** MCP transport: the MCP
+server of the monorepository is a service of its own, it answers on the
+internal network of the stack, and the agent connects to it directly instead
+of spawning it.
+
+The server publishes no port: `8081` is exposed to the network of the stack
+and not to the host, and the agent reaches it at
+`http://paca-mcp-server:8081/mcp`.
+
+The configuration that names it:
+
+```yaml
+mcp_servers:
+  paca:
+    url: http://paca-mcp-server:8081/mcp
+    enabled: true
+```
+
+The address comes from the environment of the agent: `PACA_MCP_URL`, which
+the stack of the agent declares. The runtime names the tools of the server
+with the prefix `mcp_paca_`, and that is the name Paca calls them by.
+
+The tools are the ones of the people and of the book of a person: the
+onboarding that opens the Personal Business, the reading of the people, and
+the movements of the book. The description of every tool is the contract
+with the agent, and it is derived from the domain: the list of the accounts
+of a personal business and the kinds of an account are read from the domain
+and never written a second time.
+
 ## The networks
 
 The agent joins `paca_internal`, the service-to-service network of the

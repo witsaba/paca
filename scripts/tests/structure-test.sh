@@ -1033,6 +1033,27 @@ test_the_agent_carries_the_soul_of_paca() {
     assert_contains "$(cat "$init")" "$key" \
       "the seeding of the agent checks $key"
   done
+
+  # The tools of PACA. The agent reaches the MCP server of the
+  # monorepository over the HTTP transport: the server is a service of the
+  # stack, it answers on the internal network, and it publishes no port to
+  # the host. Without the name of that server in the configuration of the
+  # agent, Paca has no way to onboard a person or to open a book.
+  assert_contains "$(cat "$init")" "mcp_servers.paca.url" \
+    "the seeding of the agent points the configuration at the MCP server of PACA"
+  assert_contains "$(cat "$compose")" "PACA_MCP_URL" \
+    "the stack of the agent declares the address of the MCP server of PACA"
+  assert_contains "$(cat "$init")" "PACA_MCP_URL" \
+    "the seeding of the agent reads the address of the MCP server of PACA"
+
+  # The way of the onboarding is in the soul: the person is greeted, the
+  # document and the name are asked for, the phone and the email are asked
+  # for kindly, and the book of the person starts empty.
+  local phrase
+  for phrase in "The first conversation" "national document ID" "Personal Business" "starts empty"; do
+    assert_contains "$content" "$phrase" \
+      "the soul of Paca states the way of the onboarding: $phrase"
+  done
 }
 
 # ---------------------------------------------------------------------------

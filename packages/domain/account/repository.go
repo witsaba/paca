@@ -18,7 +18,8 @@ type Repository interface {
 	// storage generated.
 	//
 	// The error is ErrAlreadyExists when the name of the account is taken
-	// inside the business that owns it.
+	// inside the business that owns it, and ErrNoStorage when the storage
+	// is not open.
 	Create(ctx context.Context, account Account) (Account, error)
 
 	// CreateMany writes the accounts of a business in one transaction, and
@@ -29,17 +30,20 @@ type Repository interface {
 	// what the person has.
 	//
 	// The error is ErrAlreadyExists when the name of one of the accounts is
-	// taken inside the business that owns them.
+	// taken inside the business that owns them, and ErrNoStorage when the
+	// storage is not open.
 	CreateMany(ctx context.Context, accounts []Account) ([]Account, error)
 
 	// Find returns the account that carries that identity.
 	//
-	// The error is ErrNotFound when no account carries that identity.
+	// The error is ErrNotFound when no account carries that identity, and
+	// ErrNoStorage when the storage is not open.
 	Find(ctx context.Context, id ID) (Account, error)
 
 	// List returns the accounts of a business, in the order of their
 	// identity.
 	//
-	// The error is ErrNotFound when no business carries that identity.
+	// The error is ErrNotFound when no business carries that identity, and
+	// ErrNoStorage when the storage is not open.
 	List(ctx context.Context, businessID business.ID) ([]Account, error)
 }

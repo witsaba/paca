@@ -20,12 +20,14 @@ type Repository interface {
 	//
 	// The error is ErrAlreadyExists when the owner already holds a
 	// personal business, or when the name of the business is taken inside
-	// the business of its owner.
+	// the business of its owner, and ErrNoStorage when the storage is not
+	// open.
 	Create(ctx context.Context, owner user.ID, business Business) (Business, error)
 
 	// Find returns the business that carries that identity.
 	//
-	// The error is ErrNotFound when no business carries that identity.
+	// The error is ErrNotFound when no business carries that identity, and
+	// ErrNoStorage when the storage is not open.
 	Find(ctx context.Context, id ID) (Business, error)
 
 	// FindPersonalByOwner returns the personal business of a person.
@@ -33,6 +35,7 @@ type Repository interface {
 	// The rule of the domain: a person has exactly one personal business.
 	// The storage holds the same rule as a defense in depth.
 	//
-	// The error is ErrNotFound when the person holds no personal business.
+	// The error is ErrNotFound when the person holds no personal business,
+	// and ErrNoStorage when the storage is not open.
 	FindPersonalByOwner(ctx context.Context, owner user.ID) (Business, error)
 }

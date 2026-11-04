@@ -25,6 +25,14 @@ var (
 	// ErrUnknownKind is the error of a kind that is not one of the kinds of
 	// a business.
 	ErrUnknownKind = errors.New("the kind is not one of the kinds of a business")
+
+	// ErrInvalidValue is the error of a row the database refused because it
+	// breaks a rule of the table.
+	ErrInvalidValue = errors.New("the database refused the row")
+
+	// ErrNoStorage is the error of a port of the storage that has no
+	// storage behind it.
+	ErrNoStorage = errors.New("the storage of the businesses is not open")
 )
 
 // Errors returns the errors of the domain of the business.
@@ -35,5 +43,7 @@ func Errors() []error {
 		ErrInvalidName,
 		ErrInvalidCurrency,
 		ErrUnknownKind,
+		ErrInvalidValue,
+		ErrNoStorage,
 	}
 }

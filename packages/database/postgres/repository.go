@@ -21,6 +21,9 @@ const (
 
 	// checkViolation is the code of a row that breaks a check constraint.
 	checkViolation = "23514"
+
+	// foreignKeyViolation is the code of a row that breaks a foreign key.
+	foreignKeyViolation = "23503"
 )
 
 // The names the database gives to the constraints of the table of the users.

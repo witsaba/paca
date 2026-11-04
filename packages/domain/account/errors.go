@@ -25,6 +25,14 @@ var (
 	// ErrDebtNotAllowed is the error of a counterparty or of a due date
 	// offered to an account that cannot owe and cannot be owed.
 	ErrDebtNotAllowed = errors.New("an account of this kind carries no counterparty and no due date")
+
+	// ErrInvalidValue is the error of a row the database refused because it
+	// breaks a rule of the table.
+	ErrInvalidValue = errors.New("the database refused the row")
+
+	// ErrNoStorage is the error of a port of the storage that has no
+	// storage behind it.
+	ErrNoStorage = errors.New("the storage of the accounts is not open")
 )
 
 // Errors returns the errors of the domain of the account.
@@ -35,5 +43,7 @@ func Errors() []error {
 		ErrInvalidName,
 		ErrUnknownKind,
 		ErrDebtNotAllowed,
+		ErrInvalidValue,
+		ErrNoStorage,
 	}
 }

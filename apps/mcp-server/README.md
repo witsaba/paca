@@ -98,11 +98,13 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes five tools: the three moments of the journey of a person
-inside PACA, and the two reads that tell the agent what PACA knows.
+The server exposes six tools: the way PACA onboards a person, the three
+moments of the journey of a person inside PACA, and the two reads that tell
+the agent what PACA knows.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
+| `complete_onboarding`     | Registers a person, opens their Personal Business with its accounts, and moves them to the active status. One call, one transaction. |
 | `onboard_user`            | Registers a person and starts their onboarding.                  |
 | `get_user`                | Reads the data of a person who is already registered.            |
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
@@ -112,8 +114,14 @@ inside PACA, and the two reads that tell the agent what PACA knows.
 **The description of a tool is not a comment.** It is the instruction the
 agent reads before it calls the tool, so it says what the tool needs, what it
 does with what it receives, and what it must not do. The description of
+`complete_onboarding` tells the agent that the onboarding is ONE call and
+ONE transaction, that the document ID and the name are required and that
+PACA never invents the first, that the phone and the email are a favour to
+ask for kindly, that the book of the person starts empty, that the call is
+safe to repeat, and it names the accounts the book starts with — a list read
+from the domain, never written a second time. The description of
 `onboard_user` tells the agent that the document ID is required and that
-PACA never invents one, that the name is optional but worth asking for
+PACA never invents one, that the name is required too and worth asking for
 kindly, that the phone must carry its country code, that the email must be a
 valid address, and that it should gather as much as the person is willing to
 give. The description of `change_user_status` tells the agent the moves the
@@ -127,12 +135,15 @@ when the answer carries more people than it asked for.
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
 address, a document that is already registered, an email that belongs to
-somebody else, a move the map does not allow, and an observation that does
-not fit the status: each one says what happened and what to do about it.
+somebody else, a move the map does not allow, an observation that does
+not fit the status, a name that is missing, a business that is already
+there, an account whose name is taken inside its business: each one says
+what happened and what to do about it.
 
 The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the
-observation. The tools only carry them to the agent.
+observation, the rule of the complete onboarding, the rule of the personal
+business and the rule of the debt. The tools only carry them to the agent.
 
 ## The endpoints
 

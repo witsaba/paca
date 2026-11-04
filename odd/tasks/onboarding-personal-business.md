@@ -235,12 +235,12 @@ and **worker** (a bounded writer reads this document and writes the unit).
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T1 | S2, S10, S11, S17 | The domain of the business and the account: the models, the kinds, the rules, the ports of the storage, and the default accounts of the personal business | worker | `feat(domain): the business and the account of the personal book` |
-| T2 | S9, S13, S22 | The rule of the complete onboarding in the domain of the person: the name is required, the phone and the email are optional, and the completeness of an onboarding is a value that cannot be built broken | worker | `feat(domain): the rule of the complete onboarding` |
-| T3 | S10, S17 | The tables of the business and the account: the migration, the queries and the repositories that implement the ports of the domain | worker | `feat(database): the tables of the business and the account` |
-| T4 | S1, S9, S12, S21, S23 | The use case that completes the onboarding and the tool the agent calls: one call, one transaction, the business and its accounts created | worker | `feat(mcp-server): the tool that completes the onboarding` |
-| T5 | S1, S13, S20 | The agent of PACA reaches the MCP server of PACA: the configuration of the agent names it, and the way of the onboarding is in the soul of Paca | worker | `feat(agent): the agent of PACA reaches the MCP server of PACA` |
-| T6 | S1, S2, S9, S13 | The documentation of the new packages, the new ports and the new tools, and the rules of the structure that pin them | worker | `docs: the onboarding, the business and the account` |
+| T1 | S2, S10, S11, S17 | The domain of the business and the account: the models, the kinds, the rules, the ports of the storage, and the default accounts of the personal business | inline | `d7a2cfd` — `feat(domain): the business and the account of the personal book` |
+| T2 | S9, S13, S22 | The rule of the complete onboarding in the domain of the person: the name is required, the phone and the email are optional, and the completeness of an onboarding is a value that cannot be built broken | inline | `773174d` — `feat(domain): the rule of the complete onboarding` |
+| T3 | S10, S17 | The tables of the business and the account: the migration, the queries and the repositories that implement the ports of the domain | inline | `35feb29` — `feat(database): the tables of the business and the account` |
+| T4 | S1, S9, S12, S21, S23 | The use case that completes the onboarding and the tool the agent calls: one call, one transaction, the business and its accounts created | inline | `52207f3` — `feat(mcp-server): the tool that completes the onboarding` |
+| T5 | S1, S13, S20 | The agent of PACA reaches the MCP server of PACA: the configuration of the agent names it, and the way of the onboarding is in the soul of Paca | inline | `9aba60e` — `feat(agent): the agent of PACA reaches the MCP server of PACA` |
+| T6 | S1, S2, S9, S13 | The documentation of the new packages, the new ports and the new tools, and the rules of the structure that pin them | inline | this commit — `docs: the onboarding, the business and the account` |
 
 ### Slice 2 — The book moves money
 
@@ -278,3 +278,9 @@ and **worker** (a bounded writer reads this document and writes the unit).
 **L6** (2026-11-04): The decisions of the maintainer, carried into the specs: the names of the default accounts in Spanish and the identifiers in English (S21), the document ID and the name required (S22), one call and one transaction (S23), the opening balance at zero (S20).
 
 **L7** (2026-11-04): The unknown of T5 is settled against the **pinned** image (`nousresearch/hermes-agent:stable@sha256:9c5561…`): the runtime supports an HTTP MCP server, with the key `url` in the entry of `mcp_servers` (`hermes mcp add <name> --url "http://…/mcp"`, and the transport is detected as HTTP). The agent container is already on the `internal` network of the monorepository — the compose file of the stack says so — and the MCP server of PACA publishes `8081` on that network without publishing a port to the host. So T5 is a configuration entry and nothing else. The tools of the server are registered by the runtime with the prefix `mcp_paca_`, which is the name Paca calls them by.
+
+**L8** (2026-11-04): The slice 1 is delivered in six work units on the branch `feat/onboarding-personal-business`, in the worktree `/Users/braejan/workspace/witsaba/repositories/paca-worktrees/onboarding-personal-business`: the domain of the book (`d7a2cfd`), the rule of the complete onboarding (`773174d`), the tables and the adapters (`35feb29`), the tool that completes the onboarding (`52207f3`), the wiring of the agent (`9aba60e`), and the documentation (this commit). The gate of the three modules is green, their container tests are green, and the rules of the structure of the repository pass with 425 assertions.
+
+**L9** (2026-11-04): Two decisions the work took on its own, recorded here so the reviewer reads them: the **unit of work** (`store.UnitOfWork`) is the port of a transaction of the storage, and the transaction travels in the context, so the repositories of the library join the transaction of the work that calls them; and the **tool is safe to call again**, because the person that is already registered is completed and not registered again, the business that is already open is kept, and the accounts that are already there are read and not written again.
+
+**L10** (2026-11-04): The `full_name` of the people stays nullable in the table: the rows that exist may carry no name, and the backfill that would close that gap is not decided yet. The domain refuses the registration without a name, and the table keeps tolerating what it holds.

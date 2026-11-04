@@ -164,7 +164,7 @@ The adapter writes the people through the port of the domain
 (`user.Repository`):
 
 ```go
-Create(ctx, id, details) (user.User, error)
+Create(ctx, id, registration) (user.User, error)
 UpdateDetails(ctx, id, details) (user.User, error)
 ChangeStatus(ctx, id, status, observation) (user.User, error)
 ```

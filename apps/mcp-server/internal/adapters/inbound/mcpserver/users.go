@@ -17,15 +17,16 @@ import (
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-// The names of the three tools of the users.
+// The names of the tools of the people.
 //
 // The names are the ones the agent reads in the list of the tools, so they
 // say what the tool does and not what it writes: a tool that starts an
 // onboarding is not a tool that creates a row.
+//
+// The registration of a person is not one of them: the tool of the
+// onboarding registers the person and opens their book, and one tool that
+// does the whole way is one tool the agent cannot call halfway.
 const (
-	// ToolOnboardUser registers a person and starts their onboarding.
-	ToolOnboardUser = "onboard_user"
-
 	// ToolGetUser reads the data of a person who is already registered.
 	ToolGetUser = "get_user"
 
@@ -45,20 +46,6 @@ const (
 // before it calls the tool. It says what the tool needs, what it does with
 // what it receives, and what it must not do.
 const (
-	// descriptionOnboardUser tells the agent how to start an onboarding.
-	descriptionOnboardUser = "Begin the onboarding of a person who uses PACA, and register them.\n\n" +
-		"The national document ID is REQUIRED: it is the document of the person and PACA never invents one. " +
-		"Ask the person for it, and if they do not know it, do not call this tool.\n\n" +
-		"The full name is REQUIRED: a person is registered with their name, and PACA refuses the registration without it. " +
-		"Ask the person for their name kindly, and do not call this tool until they give it.\n\n" +
-		"The phone is OPTIONAL, but it must carry the country code (for example '+57 321 253 9984'). PACA cleans " +
-		"the number and stores the digits only ('573212539984'). A number without a country code is refused.\n\n" +
-		"The email is OPTIONAL, but it must be a valid address. Ask the person to confirm it before you register it, " +
-		"and register them without it when they prefer not to give it.\n\n" +
-		"Try to gather as much information as the person is willing to give - the name, the phone and the email - " +
-		"and then register the user with everything you have.\n\n" +
-		"The new user starts in the 'onboarding' status, with no reason attached to it."
-
 	// descriptionChangeUserStatusHead tells the agent what the tool does and
 	// what it may do with what it receives.
 	//
@@ -101,21 +88,6 @@ const (
 		"This tool changes nothing: use " + ToolUpdateUserContactData + " to correct the data of the person, and " +
 		ToolChangeUserStatus + " to move them to another status."
 )
-
-// onboardUserInput is the input of the tool that starts an onboarding.
-type onboardUserInput struct {
-	// DocumentID is the national document ID of the person.
-	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required, and PACA never invents one."`
-
-	// FullName is the complete name of the person.
-	FullName string `json:"full_name,omitempty" jsonschema:"The complete name of the person. It is required: ask the person for their name kindly, and do not call this tool without it."`
-
-	// Phone is the phone number of the person.
-	Phone string `json:"phone,omitempty" jsonschema:"The phone of the person, with the country code: '+57 321 253 9984'. It is optional. PACA cleans the number and stores the digits only."`
-
-	// Email is the email address of the person.
-	Email string `json:"email,omitempty" jsonschema:"The email address of the person. It is optional, and it must be a valid address."`
-}
 
 // changeUserStatusInput is the input of the tool that moves a user.
 type changeUserStatusInput struct {
@@ -199,11 +171,6 @@ type userOutput struct {
 // the tools is a property of the server, and a call without a database
 // answers that the database is not there.
 func (s *Server) registerUserTools(users ports.UsersQuerier) {
-	sdk.AddTool(s.server, &sdk.Tool{
-		Name:        ToolOnboardUser,
-		Description: descriptionOnboardUser,
-	}, s.onboardUser(users))
-
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolGetUser,
 		Description: descriptionGetUser,
@@ -305,22 +272,6 @@ func namesOf(targets []user.Status) string {
 	}
 
 	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
-}
-
-// onboardUser is the handler of the tool that starts an onboarding.
-func (s *Server) onboardUser(users ports.UsersQuerier) sdk.ToolHandlerFor[onboardUserInput, userOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, input onboardUserInput) (*sdk.CallToolResult, userOutput, error) {
-		if users == nil {
-			return nil, userOutput{}, ports.ErrNoDatabase
-		}
-
-		created, err := users.Onboard(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
-		if err != nil {
-			return nil, userOutput{}, s.toolError(err)
-		}
-
-		return nil, outputOf(created), nil
-	}
 }
 
 // getUser is the handler of the tool that reads the data of a user.

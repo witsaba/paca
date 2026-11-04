@@ -83,7 +83,7 @@ skin, and the stack carries the skin of Paca.
 
 | Directory          | What it is                                        | README |
 |--------------------|---------------------------------------------------|--------|
-| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and six tools for the people who use PACA and for the book of their money. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
+| `apps/mcp-server/` | The MCP server: the Model Context Protocol over the official Go SDK, with a health endpoint and five tools for the people who use PACA and for the book of their money. | [apps/mcp-server/README.md](apps/mcp-server/README.md) |
 | `apps/db-admin/`   | The database admin: the single writer of the schema. It applies the pending migrations when it starts, then stays alive with one health endpoint. | [apps/db-admin/README.md](apps/db-admin/README.md) |
 | `packages/database/` | The database library: the pool, the queries, the migrations, the repositories that write the rows and the transaction of the storage. A library, with no port and no container. | [packages/database/README.md](packages/database/README.md) |
 | `packages/domain/` | The domain: the models of the people, the business that owns their book and the accounts of that book, the ports of their storage, the state of the schema and the model of the health. A library that imports nothing but the standard library. | [packages/domain/README.md](packages/domain/README.md) |

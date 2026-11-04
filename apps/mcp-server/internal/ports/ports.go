@@ -58,18 +58,12 @@ type Clock interface {
 	Now() time.Time
 }
 
-// UsersQuerier is the inbound port of the three tools of the users.
+// UsersQuerier is the inbound port of the tools of the people.
 //
 // The tools of the Model Context Protocol speak in text: a document ID, a
 // name, a phone, an email. The use case speaks in the model of the domain,
 // and the port is where the two meet.
 type UsersQuerier interface {
-	// Onboard registers a person and starts their onboarding.
-	//
-	// The document ID is required: it is the number the person carries, and
-	// nothing generates it. The name, the phone and the email are optional.
-	Onboard(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
-
 	// Find returns the person who carries that document ID.
 	//
 	// The document ID is required: it is the number the person carries, and

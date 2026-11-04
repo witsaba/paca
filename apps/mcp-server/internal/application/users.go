@@ -9,9 +9,10 @@ import (
 
 // UsersService is the use case of the users.
 //
-// It owns the journey of a person inside PACA: the onboarding that
-// registers them, the change of their status, and the correction of their
-// data. It speaks in the model of the core and it writes through the port of
+// It owns the journey of a person inside PACA once they are registered: the
+// change of their status and the correction of their data. The registration
+// itself belongs to the onboarding, which opens the book of the person with
+// it. It speaks in the model of the core and it writes through the port of
 // the storage, and it knows nothing about the protocol that reaches it.
 type UsersService struct {
 	repository user.Repository
@@ -23,34 +24,6 @@ type UsersService struct {
 // whether the rows live in PostgreSQL or somewhere else.
 func NewUsersService(repository user.Repository) *UsersService {
 	return &UsersService{repository: repository}
-}
-
-// Onboard registers a person and starts their onboarding.
-//
-// The document ID is the national document of the person, and it is
-// required: the use case refuses a call that does not bring it. The name is
-// required too: a person is registered with their name. The phone and the
-// email are optional, and the core of the monorepository cleans them
-// before they are written.
-//
-// The new user starts in the onboarding status, with no observation: the
-// core decides that, not the caller.
-func (s *UsersService) Onboard(ctx context.Context, documentID, fullName, phone, email string) (user.User, error) {
-	if s == nil || s.repository == nil {
-		return user.User{}, ports.ErrNoDatabase
-	}
-
-	id, err := user.ParseID(documentID)
-	if err != nil {
-		return user.User{}, err
-	}
-
-	registration, err := user.NewRegistration(fullName, phone, email)
-	if err != nil {
-		return user.User{}, err
-	}
-
-	return s.repository.Create(ctx, id, registration)
 }
 
 // Find returns the person who carries that document ID.

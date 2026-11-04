@@ -39,6 +39,8 @@ func buildDescriptionCompleteOnboarding() string {
 		"the number and stores the digits only ('573212539984'). A number without a country code is refused.\n\n" +
 		"The email is OPTIONAL, but it must be a valid address. Ask the person to confirm it before you register it, " +
 		"and register them without it when they prefer not to give it.\n\n" +
+		"Try to gather as much information as the person is willing to give - the name, the phone and the email - " +
+		"and then register the person with everything you have.\n\n" +
 		"The book of the person starts empty: PACA does not invent the money they have. Ask them what they have in " +
 		"cash and in the bank, and record it with the tools of the book when this tool answers.\n\n" +
 		"This tool is safe to call again for a person that is already registered: PACA completes the person that is " +

@@ -16,47 +16,6 @@ import (
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-func TestTheOnboardingToolRegistersThePerson(t *testing.T) {
-	t.Parallel()
-
-	users := &stubUsers{created: user.User{
-		ID:        1234567,
-		FullName:  "Ana María Pérez",
-		Phone:     "573212539984",
-		Email:     "ana@example.com",
-		Status:    user.StatusOnboarding,
-		CreatedAt: time.Date(2026, time.October, 29, 10, 0, 0, 0, time.UTC),
-		UpdatedAt: time.Date(2026, time.October, 29, 10, 0, 0, 0, time.UTC),
-	}}
-	session := connect(t, users)
-
-	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
-		Name: mcpserver.ToolOnboardUser,
-		Arguments: map[string]any{
-			"document_id": "1234567",
-			"full_name":   "Ana María Pérez",
-			"phone":       "+57 321-253-9984",
-			"email":       "ana@example.com",
-		},
-	})
-	if err != nil {
-		t.Fatalf("the tool failed: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("the tool answered an error: %s", textOf(t, result))
-	}
-
-	if users.gotDocument != "1234567" {
-		t.Errorf("the document is %q, want %q", users.gotDocument, "1234567")
-	}
-	if users.gotPhone != "+57 321-253-9984" {
-		t.Errorf("the phone is %q, want %q", users.gotPhone, "+57 321-253-9984")
-	}
-	if !strings.Contains(textOf(t, result), "1234567") {
-		t.Errorf("the answer does not carry the document: %s", textOf(t, result))
-	}
-}
-
 func TestTheStatusToolMovesTheUser(t *testing.T) {
 	t.Parallel()
 
@@ -160,10 +119,8 @@ func TestTheToolExplainsThatTheDocumentIsRequired(t *testing.T) {
 	session := connect(t, users)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
-		Name: mcpserver.ToolOnboardUser,
-		Arguments: map[string]any{
-			"document_id": "CC",
-		},
+		Name:      mcpserver.ToolGetUser,
+		Arguments: map[string]any{"document_id": "CC"},
 	})
 	if err != nil {
 		t.Fatalf("the tool failed: %v", err)
@@ -184,10 +141,8 @@ func TestTheToolWithoutADatabaseSaysSo(t *testing.T) {
 	session := connect(t, nil)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
-		Name: mcpserver.ToolOnboardUser,
-		Arguments: map[string]any{
-			"document_id": "1234567",
-		},
+		Name:      mcpserver.ToolGetUser,
+		Arguments: map[string]any{"document_id": "1234567"},
 	})
 	if err != nil {
 		t.Fatalf("the tool failed: %v", err)
@@ -210,8 +165,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 6 {
-		t.Errorf("the server exposes %d tools, want 6", len(tools.Tools))
+	if len(tools.Tools) != 5 {
+		t.Errorf("the server exposes %d tools, want 5", len(tools.Tools))
 	}
 }
 

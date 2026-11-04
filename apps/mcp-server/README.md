@@ -98,18 +98,22 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes six tools: the way PACA onboards a person, the three
-moments of the journey of a person inside PACA, and the two reads that tell
-the agent what PACA knows.
+The server exposes five tools: the way PACA onboards a person, and the four
+moments of the journey of a person inside PACA.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
 | `complete_onboarding`     | Registers a person, opens their Personal Business with its accounts, and moves them to the active status. One call, one transaction. |
-| `onboard_user`            | Registers a person and starts their onboarding.                  |
 | `get_user`                | Reads the data of a person who is already registered.            |
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+
+**There is one tool for the registration and the onboarding.** The tool of
+the onboarding registers the person and opens their book in one call, and a
+tool that registers a person and stops there is a tool the agent can call
+halfway: it leaves a person in the onboarding with no business, and the
+agent has to remember to come back.
 
 **The description of a tool is not a comment.** It is the instruction the
 agent reads before it calls the tool, so it says what the tool needs, what it
@@ -117,14 +121,10 @@ does with what it receives, and what it must not do. The description of
 `complete_onboarding` tells the agent that the onboarding is ONE call and
 ONE transaction, that the document ID and the name are required and that
 PACA never invents the first, that the phone and the email are a favour to
-ask for kindly, that the book of the person starts empty, that the call is
-safe to repeat, and it names the accounts the book starts with — a list read
-from the domain, never written a second time. The description of
-`onboard_user` tells the agent that the document ID is required and that
-PACA never invents one, that the name is required too and worth asking for
-kindly, that the phone must carry its country code, that the email must be a
-valid address, and that it should gather as much as the person is willing to
-give. The description of `change_user_status` tells the agent the moves the
+ask for kindly, that the phone must carry its country code, that the email
+must be a valid address, that the book of the person starts empty, that the
+call is safe to repeat, and it names the accounts the book starts with — a
+list read from the domain, never written a second time. The description of `change_user_status` tells the agent the moves the
 map of the states allows and the rule of the observation. The description of
 `update_user_contact_data` tells the agent that an empty field is a field
 that stays as it is. The description of `get_user` tells the agent that the

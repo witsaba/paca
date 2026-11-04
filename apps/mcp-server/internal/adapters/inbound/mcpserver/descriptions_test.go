@@ -20,7 +20,6 @@ import (
 // It answers what the test tells it to answer, and it remembers what the
 // tools asked it.
 type stubUsers struct {
-	created     user.User
 	found       user.User
 	listed      []user.User
 	listedLimit int
@@ -34,20 +33,6 @@ type stubUsers struct {
 	gotStatus   string
 	gotReason   string
 	calls       int
-}
-
-// Onboard answers the person that was registered.
-func (s *stubUsers) Onboard(_ context.Context, documentID, fullName, phone, email string) (user.User, error) {
-	s.calls++
-	s.gotDocument = documentID
-	s.gotName = fullName
-	s.gotPhone = phone
-	s.gotEmail = email
-
-	if s.err != nil {
-		return user.User{}, s.err
-	}
-	return s.created, nil
 }
 
 // Find answers the person that was read.
@@ -151,7 +136,6 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 	}
 
 	want := []string{
-		mcpserver.ToolOnboardUser,
 		mcpserver.ToolGetUser,
 		mcpserver.ToolListUsers,
 		mcpserver.ToolChangeUserStatus,
@@ -169,38 +153,6 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 	for _, name := range want {
 		if !exposed[name] {
 			t.Errorf("the server exposes no tool named %q", name)
-		}
-	}
-}
-
-func TestTheDescriptionOfTheOnboardingTellsTheAgentWhatItNeeds(t *testing.T) {
-	t.Parallel()
-
-	session := connect(t, &stubUsers{})
-
-	tools, err := session.ListTools(t.Context(), nil)
-	if err != nil {
-		t.Fatalf("the client could not list the tools: %v", err)
-	}
-
-	description := descriptionOf(t, tools.Tools, mcpserver.ToolOnboardUser)
-
-	wants := []string{
-		"national document ID is REQUIRED",
-		"PACA never invents one",
-		"full name is REQUIRED",
-		"Ask the person for their name kindly",
-		"must carry the country code",
-		"+57 321 253 9984",
-		"573212539984",
-		"email is OPTIONAL",
-		"valid address",
-		"Try to gather as much information",
-		"onboarding",
-	}
-	for _, want := range wants {
-		if !strings.Contains(description, want) {
-			t.Errorf("the description does not tell the agent %q:\n%s", want, description)
 		}
 	}
 }

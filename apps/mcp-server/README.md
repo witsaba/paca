@@ -100,9 +100,10 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes eight tools: the way PACA onboards a person, the four
-moments of the journey of a person inside PACA, and the three tools of the
-book of their money.
+The server exposes twelve tools: the way PACA onboards a person, the four
+moments of the journey of a person inside PACA, the three tools of the book
+of their money, and the four tools of their debts and of the closing of
+their month.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -114,6 +115,10 @@ book of their money.
 | `record_movement`         | Writes a movement of money in the book: it goes from one account to another one. |
 | `read_movements`          | Reads the movements of a period: the libro diario.              |
 | `read_balances`           | Reads the balance of every account and the money of the business: the libro mayor. |
+| `record_debt`             | Opens a debt with its counterparty and its due date, and writes the money that opened it. One call, one transaction. |
+| `list_debts`              | Reads the debts the book still holds: what the person owes, to whom, and the day it falls due. |
+| `record_debt_payment`     | Writes the payment of a debt, and refuses a payment that passes what the debt still holds. |
+| `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a

@@ -256,10 +256,10 @@ and **worker** (a bounded writer reads this document and writes the unit).
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T12 | S6, S18 | The domain of the debt: a liability account with a counterparty and a due date | worker | `feat(domain): the debt of the personal book` |
-| T13 | S6, S18 | The tools of the debts: what the person owes, to whom, and when it falls due, and the payment of a debt | worker | `feat(mcp-server): the tools of the debts` |
-| T14 | S4, S6 | The closing of the month: the income, the expenses, the net and the debts that are still open | worker | `feat(mcp-server): the closing of the month` |
-| T15 | S1, S4, S6 | The proof of the whole, end to end, on the channel of Paca | inline | `test: the proof of the onboarding and of the book` |
+| T12 | S4, S6, S18, S19 | The domain of the debt, the period and the money of a month: the debt is an account, the period has two ends, and the money of a period is what the person earned and spent | worker + inline | `f142980` — `feat(domain): the period, the money of a period and the debt` |
+| T13 | S6, S18 | The tools of the debts: `record_debt`, `list_debts` and `record_debt_payment` | inline | `3d74900` — `feat(mcp-server): the tools of the debts and the closing of the month` |
+| T14 | S4, S6 | The closing of the month: `read_month_summary` with the income, the expenses, the net and the debts that are still open | inline | `3d74900` — `feat(mcp-server): the tools of the debts and the closing of the month` |
+| T15 | S1, S4, S6 | The proof of the whole, end to end: the onboarding, the money, the debt, the payment and the closing of the month, against the real server and a real database | inline | `pending` — `test: the whole story of the money of a person` |
 
 ---
 
@@ -276,6 +276,8 @@ and **worker** (a bounded writer reads this document and writes the unit).
 **L5** (2026-11-04): The maintainer agreed with the recommendations, kept the opening balance at zero ("start with zero, is a lie offcourse, but is the user whom have to talk with paca and start to feed the information"), asked for the work in its own worktree, and asked whether the duplicated code could live in a central package. The worktree is created; the answer about the central packages is S16.
 
 **L6** (2026-11-04): The decisions of the maintainer, carried into the specs: the names of the default accounts in Spanish and the identifiers in English (S21), the document ID and the name required (S22), one call and one transaction (S23), the opening balance at zero (S20).
+
+**L14** (2026-11-04): The slice 3 is delivered in three work units and the proof of the whole: the domain of the debt, the period and the money of a month (`f142980`), the money of a period in the database (`224246c`), the four tools of the debts and of the closing of the month (`3d74900`), and the story of the money of a person proved end to end against the real server and a real PostgreSQL. Two decisions of the slice are worth the log: **the payment of a debt may not pass what the debt still holds** (a payment bigger than the debt is money the person does not owe), and **the book of the movements refuses a period that ends before it begins** (a stretch of time that ends before it starts is not a stretch of time — the observable change of `read_movements`, which answered an empty list and now answers the refusal of the domain). The ids of the onboarding answer are still text while the tools of the book take them as numbers: the wart is older than this slice, it is left for a decision of the maintainer, and the proof of the whole walks it the way the agent walks it.
 
 **L13** (2026-11-04): The maintainer decided: *"continue with the slice 3 and your recommendation for the new health module."* The recommendation was the new module, and the module exists: `packages/health` holds the health of the services in the three packages of the three layers — `ports` (the contracts), `reporter` (the use case) and `endpoint` (the adapter). The model of the health stays in the domain, and the library names the domain and nothing else. The list of the copies of the structure test is empty, and a new rule proves that the shared health names the domain and nothing else.
 

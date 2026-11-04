@@ -244,6 +244,7 @@ with half of its accounts is a book that lies about what the person has.
 Record(ctx, entry) (ledger.Entry, error)
 List(ctx, businessID, from, to) ([]ledger.Entry, error)
 Balances(ctx, businessID, asOf) ([]ledger.Balance, error)
+Summary(ctx, businessID, from, to) (ledger.Summary, error)
 ```
 
 **The balance of the accounts is a sum, and the database does it.** The money
@@ -251,6 +252,14 @@ of a person is read from the rows of the book, and the rows are the ones the
 library wrote. The account that never moved is in the answer with a balance
 of zero, because an account that is missing reads like an account that does
 not exist.
+
+**The money of a period is a sum of two sides, and the database does it too.**
+The income is the money that landed in the accounts of an income, and the
+expenses are the money that landed in the accounts of an expense. The two
+sides of a movement are read apart and never joined into one row, so a
+movement between two accounts of the same kind is counted once and not
+twice. A period without movements reads as an empty one: zero income, zero
+expenses.
 
 ## The transaction of the storage
 

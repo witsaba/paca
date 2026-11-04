@@ -226,7 +226,12 @@ business, which is the first user of the list.
   the job that starts the whole project carries a placeholder for each one.
   The rule that pins it lives in the tests of the filters of the continuous
   integration: every key that a manifest marks as required needs a value in
-  the environment of that job. Route: parent. Commit: pending.
+  the environment of that job. Route: parent. Commit: `0232616`.
+
+The slice was merged as a squash (`346bd8a`), so the history of `main` holds
+one commit for the whole feature. The identifiers of the work units are not in
+the history of `main`: they live in the pull request #58, whose head the
+server keeps. The record of what happened is the pull request itself.
 
 ## Log
 
@@ -447,3 +452,13 @@ business, which is the first user of the list.
   - The local stack of the worktree was left with the real credentials and
     the bot connected again: `[Telegram] Connected to Telegram (polling
     mode)`.
+- L18 (2026-11-04): The slice was merged as the squash `346bd8a`, and the pull
+  request #58 is closed. The issue #57 is closed with it. Its run was the
+  first one to carry the channel of Paca: the job "The stack" failed with
+  `service "hermes-init" didn't complete successfully: exit 1`, because the
+  manifest had declared the token of the bot and the list of the users as
+  required and the job only carried the credential of the provider of the
+  models. The fix was in the slice (the job carries a placeholder for each
+  required key) and in the gate (the tests of the filters of the continuous
+  integration prove that every key that a manifest marks as required has a
+  value in the environment of the job that starts the whole project).

@@ -1,0 +1,21 @@
+# The skin of Paca, the assistant of PACA.
+#
+# The runtime brands its own terminal with the name of the runtime, and
+# that name is what the person sees every time the agent answers in the
+# terminal. The branding of a skin is a set of strings, and this one names
+# Paca instead.
+#
+# The file is seeded into the state of the agent at `/opt/data/skins/paca.yaml`,
+# and the configuration of the agent points at it with `display.skin: paca`.
+#
+# The colors of the default skin are kept: the branding is the name, and
+# the name is the point.
+name: paca
+description: The skin of Paca, the assistant of PACA.
+branding:
+  agent_name: Paca
+  welcome: Welcome to Paca. Type your message or /help for commands.
+  goodbye: Goodbye! ◆
+  response_label: " ◆ Paca "
+  prompt_symbol: "❯"
+  help_header: "(◆) Available Commands"

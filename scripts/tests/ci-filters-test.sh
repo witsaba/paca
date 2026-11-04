@@ -227,6 +227,50 @@ assert_equals "$rules_jobs" "$declared_outputs" \
   "the job that detects the changes declares an output for every job the rules name"
 
 # ---------------------------------------------------------------------------
+# The stack comes up with the credentials it needs
+# ---------------------------------------------------------------------------
+
+printf '==> the stack comes up with the credentials it needs\n'
+
+# The keys that a manifest marks as required: the seeding of a stack refuses
+# to come up without them, so the job that starts the whole project has to
+# carry a value for every one of them.
+#
+# The rule is the one the first failure of the agent of PACA taught: the
+# manifest declared the token of the bot and the list of the users as
+# required, the seeding refused the stack without them, and the continuous
+# integration only carried the credential of the provider of the models. The
+# job that starts the project has to carry every required key.
+required_keys=$(find "$REPO_ROOT" -name env.example -not -path '*/.git/*' -exec awk '
+  FNR == 1 { required = 0 }
+  /^[[:space:]]*#[[:space:]]*@required[[:space:]]*$/ { required = 1; next }
+  /^[[:space:]]*#/ { next }
+  /^[[:space:]]*$/ { next }
+  /=/ {
+    key = $0
+    sub(/=.*/, "", key)
+    if (required) print key
+    required = 0
+  }
+' {} + | LC_ALL=C sort -u)
+
+# The environment of the job that starts the whole project.
+stack_job_env=$(awk '
+  /^  stack:$/ { in_stack = 1; next }
+  in_stack && /^  [a-zA-Z0-9_-]+:$/ { in_stack = 0 }
+  in_stack && /^[[:space:]]+[A-Z_][A-Z0-9_]*:/ {
+    key = $1
+    sub(/:$/, "", key)
+    print key
+  }
+' "$WORKFLOW")
+
+for key in $required_keys; do
+  assert_has_line "$stack_job_env" "$key" \
+    "the job that starts the whole project declares the required key $key"
+done
+
+# ---------------------------------------------------------------------------
 # The safe default
 # ---------------------------------------------------------------------------
 

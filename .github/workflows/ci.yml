@@ -238,6 +238,18 @@ jobs:
       # the memory, and it never calls a model. The value is a placeholder,
       # never a real credential, and it is never committed.
       OPENROUTER_API_KEY: ci-placeholder
+      # The channel of the agent: Telegram. The gate proves that the whole
+      # project comes up with the agent in it, and it never talks to
+      # Telegram: the token is a placeholder, so the channel is rejected
+      # and the agent parks it — degraded, and alive. The values are
+      # placeholders, never real credentials, and they are never committed.
+      #
+      # Every key that a manifest marks as required needs a value here: the
+      # seeding of a stack refuses to come up without it, and the rule of
+      # the tests of the continuous integration proves that this block
+      # carries all of them.
+      TELEGRAM_BOT_TOKEN: ci-placeholder
+      TELEGRAM_ALLOWED_USERS: "123456789"
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7

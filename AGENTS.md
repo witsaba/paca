@@ -22,14 +22,18 @@ product. It holds:
   it is written once and owned by nobody's business logic — the **domain**
   (`packages/domain`), the **database** (`packages/database`) and the **platform**
   (`packages/platform`);
-- the **databases** (`db/`), the **traces** (`observability/`), the **agent**
-  (`hermes/`), the **memory** (`engram/`), the pinned **tools** (`tools/`), the
-  **scripts** (`scripts/`) and the **feature documents** (`odd/tasks/`).
+- the **databases** (`db/`), the **traces** (`observability/`), the **memory**
+  (`engram/`), the pinned **tools** (`tools/`), the **scripts** (`scripts/`) and
+  the **feature documents** (`odd/tasks/`);
+- the **agent** (`hermes/`): Paca, the assistant of the product, which carries
+  her soul in `hermes/soul.md`.
 
 The domain of PACA today is the *person*: a document ID, a name, a phone, an email, and a
 state that moves through a small state machine. The MCP server registers people, moves
 their state and corrects their data; the database admin is the single writer of the
-schema of the database.
+schema of the database. Paca, the agent of PACA, is the business assistant of the
+owner: her identity rests on the seven Hermetic principles, and Telegram is her first
+channel.
 
 Read `README.md` for the layout and the running of the stacks,
 `packages/domain/README.md` for the model of the person and the rules it carries, and
@@ -231,6 +235,8 @@ workspace (`GOWORK=off go list -m all` must succeed).
 | `apps/*/README.md`                                | the service: its layers, its routes, its tools   |
 | `odd/tasks/*.md`                                  | the feature documents: the specs and the evidence |
 | `hermes/README.md`                                | the agent: the stack, its state and its network   |
+| `hermes/soul.md`                                  | the soul of Paca: her identity and her principles |
+| `odd/tasks/paca-persona.md`                       | the feature document of the persona of Paca       |
 | `engram/README.md`                                | the memory: the stack, its state and its network   |
 | `.github/workflows/ci.yml`                        | what the continuous integration runs             |
 

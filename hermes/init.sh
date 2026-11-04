@@ -6,12 +6,13 @@
 # once, before the gateway comes up, and it prepares the state that the
 # agent finds when it starts. Five things happen here, in this order.
 #
-# 1. The credential of the provider of the models is checked. The agent
-#    cannot call a model without it, so the stack refuses to come up when
-#    it is missing: an agent that is there and cannot answer anyone is
-#    worse than an agent that is not there at all. The refusal names the
-#    command that writes the credential, because the credential belongs to
-#    the DevOps engineer who runs the project.
+# 1. The credentials of the stack are checked. The agent cannot call a model
+#    without the key of the provider, and it cannot answer anyone without the
+#    channel: Telegram, the first channel of Paca. The stack refuses to come
+#    up when one of them is missing: an agent that is there and cannot answer
+#    anyone is worse than an agent that is not there at all. The refusal
+#    names the command that writes the credentials, because the credentials
+#    belong to the DevOps engineer who runs the project.
 # 2. The payload of the memory is waited for. The executable of the store
 #    is published by the stack of the memory on the volume that is mounted
 #    here read-only, and the two stacks are separate, so the agent cannot
@@ -26,6 +27,21 @@
 #    state. The file cannot be a read-only mount: Hermes rewrites it at
 #    boot (it migrates it and it keeps timestamped backups of it), so it is
 #    seeded here, once, and it is left to Hermes afterwards.
+# 5. The soul of Paca is written into the volume of the state of the agent.
+#    The runtime reads it from `$HERMES_HOME/SOUL.md` and puts it in the
+#    first slot of the system prompt, so it is the identity of the agent and
+#    not one layer of it.
+#
+#    The runtime never overwrites a soul the maintainer wrote, and neither
+#    does this seeding: the soul of the volume is replaced while it holds a
+#    soul this stack seeded — the identity of the runtime, the soul of the
+#    image, or a soul of a previous version of the image, which the record
+#    of the hash tells apart — and it is kept the moment it is edited.
+#
+# 6. The home channel of Paca is written into the configuration of the
+#    agent: the chat of the owner of the business, which is the first user
+#    of the list of the users. The runtime asks the question once, and the
+#    stack answers it before the question reaches the person.
 #
 # The keys are written with the writer of Hermes itself, so the file keeps
 # the schema of the version of the image, and Hermes migrates it at boot.
@@ -62,6 +78,37 @@ if [ -z "${OPENROUTER_API_KEY:-}" ]; then
   exit 1
 fi
 
+# The channel of Paca. The token is the bot of the owner of the business,
+# and the users are the people the bot answers to: without the list, the
+# gateway of the runtime denies every user, so both are required.
+if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+  printf 'hermes: TELEGRAM_BOT_TOKEN is not configured.\n' >&2
+  printf 'hermes: Paca cannot reach Telegram without the token of the bot. Write it with:\n' >&2
+  printf 'hermes:   make env-init --stack hermes\n' >&2
+  exit 1
+fi
+
+if [ -z "${TELEGRAM_ALLOWED_USERS:-}" ]; then
+  printf 'hermes: TELEGRAM_ALLOWED_USERS is not configured.\n' >&2
+  printf 'hermes: Paca answers nobody without the list of the users. Write it with:\n' >&2
+  printf 'hermes:   make env-init --stack hermes\n' >&2
+  exit 1
+fi
+
+# The list holds at least one user, and the first one is the owner of the
+# business: a list of nothing but separators is a list that closes the bot
+# and names nobody.
+home_channel=$(printf '%s' "${TELEGRAM_ALLOWED_USERS}" | cut -d, -f1 | tr -d '[:space:]')
+
+case "${home_channel}" in
+  '' | *[!0-9]*)
+    printf 'hermes: TELEGRAM_ALLOWED_USERS holds no numeric id.\n' >&2
+    printf 'hermes: the list holds the ids of the users Paca answers to, separated by commas.\n' >&2
+    printf 'hermes:   make env-init --stack hermes\n' >&2
+    exit 1
+    ;;
+esac
+
 # 2. The payload of the memory. The executable of the store is published
 # by the stack of the memory, and the agent mounts it read-only: the agent
 # waits for it, and it refuses the stack when it does not arrive.
@@ -93,9 +140,132 @@ fi
 
 hermes config set model.default "${model}"
 hermes config set model.provider openrouter
+
+# The home channel of Paca: the chat of the owner of the business, which is
+# the first user of the list. The runtime asks the user to set a home
+# channel the first time it talks to them, and the product does not want
+# that question: the stack answers it.
+#
+# The value is a mapping and not an id: the runtime reads the home channel
+# of a platform as a mapping, and a plain id in the configuration is
+# ignored by it.
+hermes config set platforms.telegram.home_channel \
+  "{\"platform\":\"telegram\",\"chat_id\":\"${home_channel}\",\"name\":\"Owner\"}"
+
+# The skin of Paca. The runtime brands the terminal of the agent with its
+# own name, and the file is seeded into the state of the agent before the
+# configuration points at it.
+skin_source="/opt/hermes/skin.yaml"
+skin_dir="${home}/skins"
+skin_file="${skin_dir}/paca.yaml"
+
+if [ ! -f "${skin_source}" ]; then
+  printf 'hermes: the skin of Paca is missing from the image: %s\n' "${skin_source}" >&2
+  exit 1
+fi
+
+mkdir -p "${skin_dir}"
+cp "${skin_source}" "${skin_file}"
+chown -R 10000:10000 "${skin_dir}" || true
+chmod 0644 "${skin_file}" || true
+
+hermes config set display.skin paca
 hermes config set mcp_servers.engram.command /opt/engram/engram
 hermes config set mcp_servers.engram.args '["mcp","--tools=agent"]'
 hermes config set mcp_servers.engram.env "{\"ENGRAM_DATA_DIR\":\"${memory_dir}\",\"ENGRAM_PROJECT\":\"${project}\"}"
 hermes config set mcp_servers.engram.enabled true
 
 printf 'hermes: the configuration of the agent is seeded (model %s, memory %s)\n' "${model}" "${project}"
+
+# soul_is_a_seeded_identity answers whether the soul of the state of the
+# agent is one that this stack seeded, and nobody edited.
+#
+# Three cases are ours: the identity the runtime seeds by itself, the soul of
+# the image, and the soul that a previous start of the stack seeded — the
+# record of the hash tells the last one apart from a soul the maintainer
+# wrote.
+#
+# Anything else is the work of the maintainer, and it is kept.
+soul_is_a_seeded_identity() {
+  SOUL_PATH="$1" SOUL_SOURCE="$2" SOUL_RECORD="$3" python3 -c '
+import hashlib
+import os
+import sys
+
+from hermes_cli import default_soul
+
+
+def normalize(text):
+    return text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff").strip()
+
+
+def digest(text):
+    return hashlib.sha256(normalize(text).encode("utf-8")).hexdigest()
+
+
+def read(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return normalize(handle.read())
+    except OSError:
+        return None
+
+
+current = read(os.environ["SOUL_PATH"])
+if current is None:
+    sys.exit(1)
+
+templates = [default_soul.DEFAULT_SOUL_MD]
+templates += list(getattr(default_soul, "_LEGACY_TEMPLATE_SOULS", ()))
+if any(current == normalize(t) for t in templates):
+    sys.exit(0)
+
+source = read(os.environ["SOUL_SOURCE"])
+if source is not None and current == source:
+    sys.exit(0)
+
+recorded = read(os.environ["SOUL_RECORD"])
+if recorded is not None and recorded.strip() == digest(current):
+    sys.exit(0)
+
+sys.exit(1)
+'
+}
+
+# soul_digest prints the hash of a soul, the record that tells a soul this
+# stack seeded apart from a soul the maintainer wrote.
+soul_digest() {
+  SOUL_PATH="$1" python3 -c '
+import hashlib
+import os
+import sys
+
+with open(os.environ["SOUL_PATH"], encoding="utf-8") as handle:
+    text = handle.read()
+
+text = text.replace("\r\n", "\n").replace("\r", "\n").lstrip("\ufeff").strip()
+sys.stdout.write(hashlib.sha256(text.encode("utf-8")).hexdigest())
+'
+}
+
+# 5. The soul of Paca. The file of the image is the source; the file of the
+#    volume is the identity the agent reads.
+soul_source="/opt/hermes/soul.md"
+soul="${home}/SOUL.md"
+soul_record="${home}/.paca-soul.sha256"
+
+if [ ! -f "${soul_source}" ]; then
+  printf 'hermes: the soul of Paca is missing from the image: %s\n' "${soul_source}" >&2
+  exit 1
+fi
+
+if [ -f "${soul}" ] && ! soul_is_a_seeded_identity "${soul}" "${soul_source}" "${soul_record}"; then
+  printf 'hermes: the identity of the agent is kept: %s was edited\n' "${soul}"
+else
+  cp "${soul_source}" "${soul}"
+  soul_digest "${soul}" >"${soul_record}"
+  chown 10000:10000 "${soul}" "${soul_record}" || true
+  chmod 0644 "${soul}" || true
+  chmod 0600 "${soul_record}" || true
+  printf 'hermes: the identity of the agent is seeded (Paca)\n'
+fi

@@ -37,9 +37,9 @@ logs: ## Follow the logs of the agent
 status: ## Show the agent container status
 	$(COMPOSE) ps $(SERVICE)
 
-smoke: ## Check that the agent is alive and that it reaches the memory (it fails when it does not)
+smoke: ## Check that the agent is alive, that it is Paca and that it reaches the memory (it fails when it does not)
 	@if $(COMPOSE) exec -T $(SERVICE) /usr/local/bin/paca-hermes-smoke; then \
-		echo "hermes: the agent is alive and it reaches the memory"; \
+		echo "hermes: the agent is alive, it is Paca and it reaches the memory"; \
 	else \
 		echo "hermes: the agent is not alive or it does not reach the memory"; \
 		exit 1; \

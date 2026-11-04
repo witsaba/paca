@@ -1,21 +1,35 @@
-# PACA agent: Hermes Agent as a stack of the monorepository
+# Paca, the agent of PACA: the stack that carries her
 
 The agent is the unit of PACA that talks to the people who use the product.
+It is Paca, the business assistant of witsaba.com: her identity is the soul of
+this stack (`soul.md`), and her first channel is Telegram.
+
 It is not a Go module of the repository: it is a container that brings its own
 image, like the database and the collector of the traces, so it lives in a
-directory of its own with its own compose file.
+directory of its own with its own compose file. The image it brings is the
+upstream runtime, Hermes Agent; the assistant that runs on it is Paca, and
+nothing else.
 
-The stack carries the agent itself, the provider of the models it calls, and
-the memory of the monorepository: the agent reads and writes the memories of
-PACA over the stdio MCP transport. The feature document of the slice,
+The stack carries the agent itself, the provider of the models it calls, the
+channel it answers on, and the memory of the monorepository: the agent reads
+and writes the memories of PACA over the stdio MCP transport. The feature
+document of the slice,
 [hermes-engram-memory.md](../odd/tasks/hermes-engram-memory.md), holds the
-specification and the decisions, and the separation of the memory from the
-agent has its own document,
-[hermes-engram-separation.md](../odd/tasks/hermes-engram-separation.md).
+specification and the decisions, the separation of the memory from the agent
+has its own document,
+[hermes-engram-separation.md](../odd/tasks/hermes-engram-separation.md), and
+the personality of Paca has its own,
+[paca-persona.md](../odd/tasks/paca-persona.md).
 
 ## What you get
 
 - **One container**, `paca-hermes`, that runs the gateway of the agent.
+- **The identity of Paca**: the soul of this stack, `soul.md`, is copied into
+  the image and seeded into the state of the agent, where the runtime reads it
+  in the first slot of the system prompt. The agent answers as Paca, and not
+  as the runtime it runs on.
+- **Telegram, the first channel**: the gateway of the runtime serves the bot
+  of the owner of the business, and answers only the users of the allowlist.
 - **Persistent state**: everything the agent owns lives under `/opt/data`,
   on the named volume `paca-hermes-data`, so its identity, its sessions, its
   skills and its memories survive a restart of the stack.
@@ -50,6 +64,8 @@ make env-init --stack hermes
 |-----------------------|---------------------------------------------------------------|
 | `OPENROUTER_API_KEY`  | The key of the provider of the models. **Required.**           |
 | `AGENT_MAIN_MODEL`    | The model of the agent. `minimax/minimax-m3.1-flash` by default. |
+| `TELEGRAM_BOT_TOKEN`  | The token of the Telegram bot of Paca. **Required, a secret.** |
+| `TELEGRAM_ALLOWED_USERS` | The numeric ids of the users Paca answers to, comma-separated. **Required.** |
 
 The key is a secret: the installer never prints it, and the file that holds
 it is written for its owner alone. It belongs to the DevOps engineer who
@@ -59,6 +75,21 @@ runs the project.
 reads it, and it fails with the command that writes it. An agent that is
 there and cannot answer anyone is worse than an agent that is not there at
 all.
+
+**The stack refuses to come up without the channel either.** The token of the
+bot and the list of the users are mandatory for the same reason: without the
+token there is no bot, and without the list the gateway of the runtime denies
+every user. The bot may already exist — the token of the bot the owner
+already uses is the one to write — and the public name of the bot, the one
+Telegram shows to the people, is set in BotFather.
+
+The continuous integration carries a placeholder for every one of these
+credentials, so the gate proves that the whole project comes up with the
+agent in it. The placeholders are placeholders: the channel is rejected and
+the agent parks it, degraded and alive, and the gate never talks to
+Telegram. The rule that pins it lives in the tests of the filters of the
+continuous integration: every key that a manifest marks as required needs a
+value in the environment of the job that starts the project.
 
 The value of the environment of the shell answers the question of the
 installer when the file does not hold the key yet, and it reaches the
@@ -104,7 +135,7 @@ it, and it refuses to come up without it.
 
 | Service       | What it does                                                        |
 |---------------|---------------------------------------------------------------------|
-| `hermes-init` | The one-shot service: it checks the credential of the provider, it waits for the payload of the memory to be published, it gives the state of the memory to the user of the agent, and it seeds the configuration of the agent into the volume of its state. It ends when it is done. |
+| `hermes-init` | The one-shot service: it checks the credential of the provider and the credentials of the channel, it waits for the payload of the memory to be published, it gives the state of the memory to the user of the agent, it seeds the configuration of the agent into the volume of its state, and it seeds the soul of Paca into it. It ends when it is done. |
 | `hermes`      | The gateway of the agent. It starts when the seeding has ended.     |
 
 The configuration of the agent cannot be a read-only mount: Hermes rewrites
@@ -113,6 +144,103 @@ it), so the file is seeded into the volume and it is left to Hermes
 afterwards. The seeding writes it with the writer of Hermes itself
 (`hermes config set`), so the file keeps the schema of the version of the
 image.
+
+## The identity of Paca
+
+The personality of Paca is one file: [`soul.md`](soul.md). It is the source of
+truth of who she is and how she works, and the runtime reads it in the first
+slot of the system prompt — the slot of the identity, which the built-in
+identity of the runtime occupies when the file is absent. The agent answers as
+Paca, and the file replaces that built-in identity instead of being one layer
+under it.
+
+The file travels in three steps:
+
+| Where | What it is |
+|-------|------------|
+| `hermes/soul.md` | The source, in the repository. |
+| `/opt/hermes/soul.md` | The copy in the image (`hermes/Dockerfile`). |
+| `/opt/data/SOUL.md` | The identity the agent reads, in the state of the agent. |
+
+The seeding of the stack (`init.sh`) copies the file of the image into the
+state of the agent, and it does it only when the state carries no soul or
+still carries the identity that the runtime seeds by itself. **A soul the
+maintainer edited is never overwritten**: the file of the volume wins, and the
+maintainer can shape the personality of the agent without touching the
+repository.
+
+The soul holds the seven Hermetic principles as the spine of the method of
+Paca — Mentalism, Correspondence, Vibration, Polarity, Rhythm, Cause and
+Effect and Gender — the three principles that reconcile into her way of
+working (order, curiosity, and the emergence of both), and her rules of
+honesty: she is an AI and does not imitate a human, she does not analyse
+sentiment, she never flatters, she never invents a fact, she questions the
+biases of the sources and of her own, and the last word is always the user's.
+
+The soul is also what keeps the conversation natural. It holds the rules of
+the talk: she answers like a person answering, she does not recite her own
+principles or her setup to prove that she has them, she does not talk about
+the runtime or the skills unless the person asks about the infrastructure,
+and she does not promise an integration that is not connected.
+
+It ends with the standard of the work: nothing is finished until it is
+verified and the owner can act on it without asking a second question.
+
+The soul is written in the shape the community of the runtime recommends for
+a persona (`soul-finder`, the plugin of the catalog): identity, the operating
+stance, the method, the truthfulness, the voice with a pulse, the scope, the
+avoid list and the standard. It is not a manual of the runtime, it does not
+carry the details of a project, and it carries no instruction of the
+infrastructure.
+
+The terminal of the agent carries her name too. The runtime brands itself
+with its own name, and the branding is a skin: [`skin.yaml`](skin.yaml) is
+seeded into the state of the agent and the configuration points at it
+(`display.skin: paca`), so the agent answers as `◆ Paca` and not as the
+runtime.
+
+Two limits are worth knowing:
+
+- **The runtime keeps a sentence of its own.** In a later slot of the system
+  prompt, and not in the slot of the identity, the runtime says that it runs
+  on Hermes Agent by Nous Research. No configuration removes it. The identity
+  of Paca answers it from the first slot, and the soul forbids naming the
+  runtime.
+- **The runtime truncates the file above 20,000 characters**, and a truncated
+  identity is a broken one. The gate of the repository pins the size of the
+  soul, and the seven principles and the name of Paca in it.
+
+## The channel
+
+Telegram is the first channel of Paca, and the only one the stack serves
+today. The gateway of the runtime reads two variables of the environment:
+
+| Variable | What it is |
+|----------|------------|
+| `TELEGRAM_BOT_TOKEN` | The token of the bot, issued by @BotFather. |
+| `TELEGRAM_ALLOWED_USERS` | The numeric ids of the users the bot answers to, comma-separated. The id of a user is read with @userinfobot. |
+
+The list is what keeps the bot closed: the gateway denies every user that is
+not on it, and the stack refuses to come up without it. The list holds at
+least one numeric id, and the first one is the owner of the business.
+
+**The home channel is the chat of the owner.** The runtime asks the user to
+set a home channel the first time it talks to them — the chat where it
+delivers the results of the scheduled jobs and the cross-platform messages —
+and the product does not want that question. The seeding writes the home
+channel into the configuration of the agent (`platforms.telegram.home_channel`)
+from the first id of the list, so the question never reaches the person.
+
+The bot connects on polling, and the proof that it is connected is in the
+logs of the gateway:
+
+```sh
+make -C hermes logs
+```
+
+The bot answers on Telegram as soon as the gateway is up and the token is
+valid. A bot that answers "unauthorized" is a bot whose sender is not on the
+list.
 
 ## The memory
 
@@ -185,15 +313,20 @@ The smoke test of the stack is a round trip and not a heartbeat:
 make -C hermes smoke
 ```
 
-It asserts that the agent is alive, and it asserts that the memory works:
-it spawns the MCP server of the store the way the agent spawns it, it
-writes a memory through it, it reads that memory back through it, and it
-removes it afterwards, so the proof leaves no memory behind.
+It asserts that the agent is alive, that it is Paca — the state of the agent
+carries the soul of Paca, and the soul names Paca and not the runtime — that
+the credentials of the channel reached the container without being printed,
+and that the memory works: it spawns the MCP server of the store the way the
+agent spawns it, it writes a memory through it, it reads that memory back
+through it, and it removes it afterwards, so the proof leaves no memory
+behind.
 
 ## What is not configured yet
 
-- **No messaging platform**: the gateway serves no channel — no Telegram,
-  no Discord, no Slack.
+- **No channel but Telegram**: the gateway serves no Discord, no Slack, no
+  web dashboard.
+- **One user**: the allowlist is the door of a single person, and the product
+  does not serve a team yet.
 - **No MCP server of PACA**: the agent does not reach the MCP server of the
   monorepository yet. Only the memory is wired in this slice.
 
@@ -208,7 +341,9 @@ hermes/
 ├── env.example       # the manifest of the credentials of the stack
 ├── init.sh           # the seeding of the state of the agent
 ├── mcp-roundtrip.py  # the round trip of the proof, over the stdio MCP
-└── smoke.sh          # the proof of the stack
+├── skin.yaml         # the branding of the terminal of the agent
+├── smoke.sh          # the proof of the stack
+└── soul.md           # the identity of Paca: the soul of the agent
 ```
 
 ## Notes and limits
@@ -217,10 +352,21 @@ hermes/
   pin serves amd64 and arm64, like every image of the repository. The image
   carries no payload of the store: the payload is built, verified and
   published by the `engram/` stack, and the agent mounts it read-only.
+- The image carries the soul of Paca, and the `.dockerignore` of the
+  repository lets `hermes/soul.md` reach the build context: every other
+  Markdown file of the tree stays out of the images.
+- The seeding replaces the soul of the state while it is a soul the stack
+  seeded — the identity of the runtime, the soul of the image, or the soul of
+  a previous version of the image, which the record of the hash
+  (`.paca-soul.sha256`) tells apart — and it keeps the soul the moment the
+  maintainer edits it.
 - The seeding waits for the payload, with a bound, and it refuses the stack
   when the payload is not there: the refusal names `make -C engram payload`,
   the command that publishes it. The read-only volume is never written by
   the agent.
+- The seeding refuses the stack without the credential of the provider, the
+  token of the bot and the list of the users, and every refusal names
+  `make env-init --stack hermes`.
 - The container keeps the capabilities of the image and does not run with
   `no-new-privileges`: the image drops its own privileges at boot and needs
   `CAP_SETUID` and `CAP_SETGID` to do it. The state of the agent lives on

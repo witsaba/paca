@@ -17,6 +17,14 @@
 // owes, what they earn and what they put into the book count the other way
 // round. The result reads "what it means to the person" in every kind.
 //
+// A reading of the book covers a period: the stretch of days that the
+// answer takes, with both of its ends inside it. The money of a period is
+// what the person earned and what they spent during it.
+//
+// A debt is an account and never a table of its own: it is an account that
+// owes or is owed, with the other side of the money named, and the amount
+// of the debt is what that account still holds.
+//
 // The package imports nothing but the standard library, the model of the
 // business that owns the book and the model of the account.
 package ledger
@@ -55,6 +63,14 @@ var (
 	// description: a movement the person cannot read is a movement they
 	// cannot recognise.
 	ErrInvalidDescription = errors.New("the description of a movement is not empty")
+
+	// ErrInvalidPeriod is the error of a period whose ends are in the
+	// wrong order: a period that ends before it begins covers no day.
+	ErrInvalidPeriod = errors.New("the period ends before it begins")
+
+	// ErrPaymentTooLarge is the error of a payment that passes what the
+	// debt still holds.
+	ErrPaymentTooLarge = errors.New("the payment passes what the debt holds")
 )
 
 // Errors returns the errors of the domain of the book.
@@ -66,6 +82,8 @@ func Errors() []error {
 		ErrSameAccount,
 		ErrInvalidDate,
 		ErrInvalidDescription,
+		ErrInvalidPeriod,
+		ErrPaymentTooLarge,
 	}
 }
 

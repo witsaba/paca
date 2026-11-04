@@ -129,6 +129,44 @@ func TestKindCarriesDebt(t *testing.T) {
 	}
 }
 
+func TestAnAccountCarriesADebtWhenItOwesOrIsOwed(t *testing.T) {
+	t.Parallel()
+
+	due := time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)
+
+	debt, err := New(7, KindLiability, "Préstamo: Juan", "Juan", &due)
+	if err != nil {
+		t.Fatalf("the debt was refused: %v", err)
+	}
+	if !debt.IsDebt() {
+		t.Error("a liability with a counterparty carries no debt")
+	}
+
+	owed, err := New(7, KindAsset, "Deuda de Pedro", "Pedro", nil)
+	if err != nil {
+		t.Fatalf("the account was refused: %v", err)
+	}
+	if !owed.IsDebt() {
+		t.Error("an asset with a counterparty carries no debt")
+	}
+
+	cash, err := New(7, KindAsset, "Efectivo", "", nil)
+	if err != nil {
+		t.Fatalf("the account was refused: %v", err)
+	}
+	if cash.IsDebt() {
+		t.Error("an account without a counterparty carries a debt")
+	}
+
+	salary, err := New(7, KindIncome, "Salario", "", nil)
+	if err != nil {
+		t.Fatalf("the account was refused: %v", err)
+	}
+	if salary.IsDebt() {
+		t.Error("an income carries a debt")
+	}
+}
+
 func TestParseKind(t *testing.T) {
 	t.Parallel()
 

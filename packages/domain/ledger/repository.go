@@ -42,4 +42,14 @@ type Repository interface {
 	//
 	// The error is ErrNotFound when no business carries that identity.
 	Balances(ctx context.Context, businessID business.ID, asOf Date) ([]Balance, error)
+
+	// Summary returns the money of a period of the book: what the business
+	// earned and what it spent during the period.
+	//
+	// The two ends of the period are both included: the movement of the
+	// first day and the movement of the last one are both inside the money
+	// of the period.
+	//
+	// The error is ErrNotFound when no business carries that identity.
+	Summary(ctx context.Context, businessID business.ID, from, to Date) (Summary, error)
 }

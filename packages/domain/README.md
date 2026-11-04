@@ -30,8 +30,9 @@ packages/domain/
   account/          the model of the account of a book: the five kinds of the
                     accounting, the debt and the seed of the personal book
   ledger/           the model of the movements of the book: the entry, the
-                    amount, the day, the balance of an account and the money
-                    of the business
+                    amount, the day, the balance of an account, the money of
+                    the business, the period of a reading and the debt of an
+                    account
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -209,6 +210,44 @@ the person" in every kind.
 
 **The money of the business is read from those balances:** what it has, what
 it owes, what it earned, what it spent, and what it is worth.
+
+### The period of the book
+
+A reading of the book covers a **period**: the stretch of days that the
+answer takes. `ledger.Period` holds the two ends of it, and it includes
+both of them — the movement of the first day and the movement of the last
+one are inside the period. `NewPeriod` refuses the ends that are in the
+wrong order, and `Month` returns the period of a month of the calendar, with
+the first day and the last day of the month that the calendar really has.
+
+**The money of a period is what the person earned and what they spent.** The
+two numbers of `ledger.Summary` are positive magnitudes — what came in and
+what went out — and the net is what is left of the income once the expenses
+are taken out of it. The net is negative when the person spent more than
+they earned, and that is a fact of the month and not an error of the book.
+The port of the book carries the reading of that money: `Summary` asks for
+the money of a period and answers it.
+
+### The debt
+
+A debt is an account and never a table of its own. `account.IsDebt` says
+when an account carries one: its kind owes or is owed, and it names the
+other side of the money.
+
+**The debt of the book is the account and what it still holds.**
+`ledger.Debt` is the pair, and `ledger.Debts` reads the debts of a book out
+of the accounts and their balances: the amount is the balance of the account
+read the way the person reads it — what the person still owes for a
+liability, what the person is still owed for an asset — and only the open
+debts are in the answer.
+
+**The debts come first by the day they fall due, and the debt without a day
+comes last.** Two debts of the same day come by name, so the answer is the
+same every time it is read.
+
+**A payment may not pass what the debt holds.** `Debt.AcceptsPayment` asks
+whether a payment may be paid against the debt: the payment must be
+positive, and it may not be bigger than the amount the debt still holds.
 
 ## The transaction of the storage
 

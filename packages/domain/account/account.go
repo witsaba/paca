@@ -168,6 +168,16 @@ type Account struct {
 	UpdatedAt time.Time
 }
 
+// IsDebt reports whether the account carries a debt.
+//
+// The account carries a debt when its kind says that it owes or that it is
+// owed, and when it names the other side of the money. The counterparty is
+// what turns a balance into a debt: without it the account is a bucket of
+// money and nobody waits for its payment.
+func (a Account) IsDebt() bool {
+	return a.Kind.CarriesDebt() && strings.TrimSpace(a.Counterparty) != ""
+}
+
 // New builds an account of the domain.
 //
 // The name loses the spaces around it, and it may not be empty: an account

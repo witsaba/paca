@@ -76,6 +76,7 @@ type fakeBusinesses struct {
 	existing *business.Business
 	created  []business.Business
 	err      error
+	conflict bool
 }
 
 // Find answers the business of the identity.
@@ -101,9 +102,23 @@ func (f *fakeBusinesses) FindPersonalByOwner(_ context.Context, owner user.ID) (
 }
 
 // Create writes the business and remembers it.
+//
+// The conflict is the race of two calls of the same person: the storage
+// refuses the second one because the business of the first one is already
+// there.
 func (f *fakeBusinesses) Create(_ context.Context, owner user.ID, written business.Business) (business.Business, error) {
 	if f.err != nil {
 		return business.Business{}, f.err
+	}
+	if f.conflict {
+		f.conflict = false
+
+		winner := written
+		winner.ID = 42
+		winner.OwnerID = owner
+		f.existing = &winner
+
+		return business.Business{}, business.ErrAlreadyExists
 	}
 
 	created := written
@@ -281,6 +296,39 @@ func TestTheOnboardingKeepsTheBusinessThatIsAlreadyOpen(t *testing.T) {
 	}
 	if completed.Business.ID != opened.ID {
 		t.Errorf("the business is %d, want %d", completed.Business.ID, opened.ID)
+	}
+}
+
+func TestTheOnboardingAdoptsTheBusinessThatAnotherCallOpened(t *testing.T) {
+	t.Parallel()
+
+	// Two calls of the same person arrive together: the storage refuses
+	// the second one because the business of the first one is already
+	// there. The onboarding completes with what the winner wrote.
+	existing := user.User{ID: 1234567, FullName: "Ana María Pérez", Status: user.StatusOnboarding}
+	users := &fakeUsers{existing: &existing}
+	book := &fakeBusinesses{conflict: true}
+	accounts := &fakeAccounts{existing: []account.Account{{ID: 1, Name: "Efectivo"}}}
+	work := &fakeWork{users: users, book: book, accounts: accounts}
+
+	service := application.NewOnboardingService(users, book, accounts, work)
+
+	completed, err := service.Complete(t.Context(), "1234567", "Ana María Pérez", "", "")
+	if err != nil {
+		t.Fatalf("the onboarding could not be completed: %v", err)
+	}
+
+	if len(book.created) != 0 {
+		t.Errorf("the business was opened again: the storage holds %d businesses", len(book.created))
+	}
+	if len(accounts.written) != 0 {
+		t.Errorf("the accounts were written again: the storage holds %d accounts", len(accounts.written))
+	}
+	if completed.Business.ID != 42 {
+		t.Errorf("the business is %d, want 42", completed.Business.ID)
+	}
+	if completed.User.Status != user.StatusActive {
+		t.Errorf("the state of the person is %q, want %q", completed.User.Status, user.StatusActive)
 	}
 }
 

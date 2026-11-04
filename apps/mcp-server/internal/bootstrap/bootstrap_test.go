@@ -237,8 +237,8 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 5 {
-		t.Fatalf("the server exposes %d tools, want the four of the people and the one of the onboarding", len(tools.Tools))
+	if len(tools.Tools) != 8 {
+		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding and the three of the book", len(tools.Tools))
 	}
 
 	names := make(map[string]bool, len(tools.Tools))
@@ -251,6 +251,9 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 		mcpserver.ToolCompleteOnboarding,
+		mcpserver.ToolRecordMovement,
+		mcpserver.ToolReadMovements,
+		mcpserver.ToolReadBalances,
 	} {
 		if !names[want] {
 			t.Errorf("the server does not expose the tool %q", want)

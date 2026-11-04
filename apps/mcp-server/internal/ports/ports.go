@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -116,4 +117,31 @@ type OnboardingCompleter interface {
 	// person carries and the name the team recognises them by. The phone
 	// and the email are optional.
 	Complete(ctx context.Context, documentID, fullName, phone, email string) (Onboarding, error)
+}
+
+// BookQuerier is the inbound port of the tools of the book.
+//
+// The tools of the Model Context Protocol speak in text and in numbers: the
+// business, the two accounts, the amount and the day. The use case speaks in
+// the model of the domain, and the port is where the two meet.
+type BookQuerier interface {
+	// Record writes a movement of the book.
+	//
+	// The money lands in the account of the destination and comes from the
+	// account of the source. The day is the one the caller names, and the
+	// day of today when the caller names none.
+	Record(
+		ctx context.Context,
+		businessID business.ID,
+		fromAccountID, toAccountID account.ID,
+		amount ledger.Amount,
+		date, description string,
+	) (ledger.Entry, error)
+
+	// Movements returns the movements of the book between two days.
+	Movements(ctx context.Context, businessID business.ID, from, to string) ([]ledger.Entry, error)
+
+	// Balances returns the money of the business and the balance of every
+	// account of its book.
+	Balances(ctx context.Context, businessID business.ID, asOf string) (ledger.Book, []ledger.Balance, error)
 }

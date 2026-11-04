@@ -13,6 +13,9 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -165,8 +168,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 5 {
-		t.Errorf("the server exposes %d tools, want 5", len(tools.Tools))
+	if len(tools.Tools) != 8 {
+		t.Errorf("the server exposes %d tools, want 8", len(tools.Tools))
 	}
 }
 
@@ -387,7 +390,12 @@ func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
 
 	theUnknown, _ := theMessageOfTheFailure(t, errors.New("a failure the service does not know"))
 
-	for _, failure := range user.Errors() {
+	failures := user.Errors()
+	failures = append(failures, business.Errors()...)
+	failures = append(failures, account.Errors()...)
+	failures = append(failures, ledger.Errors()...)
+
+	for _, failure := range failures {
 		t.Run(failure.Error(), func(t *testing.T) {
 			t.Parallel()
 

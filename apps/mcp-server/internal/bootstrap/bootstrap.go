@@ -24,6 +24,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/platform/clock"
@@ -141,6 +142,20 @@ func New(
 
 	onboardingService := application.NewOnboardingService(repository, businesses, accounts, work)
 
+	// The book of a person: the movements that fill it and the balance that
+	// comes out of it. Without a database there is no book.
+	var book ledger.Repository
+	if pool != nil {
+		boundBook, err := postgres.NewLedgerRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the book could not be built: %w", err)
+		}
+		book = boundBook
+	}
+
+	bookService := application.NewBookService(book, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -150,6 +165,7 @@ func New(
 		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
 		Onboarding:          onboardingService,
+		Book:                bookService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

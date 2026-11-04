@@ -125,7 +125,7 @@ func connectWithLogger(t *testing.T, users ports.UsersQuerier, logger *slog.Logg
 	return session
 }
 
-func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
+func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 	t.Parallel()
 
 	session := connect(t, &stubUsers{})
@@ -141,6 +141,9 @@ func TestTheTransportExposesTheThreeToolsOfTheUsers(t *testing.T) {
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 		mcpserver.ToolCompleteOnboarding,
+		mcpserver.ToolRecordMovement,
+		mcpserver.ToolReadMovements,
+		mcpserver.ToolReadBalances,
 	}
 	if len(tools.Tools) != len(want) {
 		t.Fatalf("the server exposes %d tools, want %d", len(tools.Tools), len(want))

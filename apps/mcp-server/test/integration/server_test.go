@@ -204,7 +204,16 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 
 	// The server speaks the protocol and it serves the tools that its
 	// documentation promises.
-	want := []string{"change_user_status", "complete_onboarding", "get_user", "list_users", "update_user_contact_data"}
+	want := []string{
+		"change_user_status",
+		"complete_onboarding",
+		"get_user",
+		"list_users",
+		"read_balances",
+		"read_movements",
+		"record_movement",
+		"update_user_contact_data",
+	}
 	got := make([]string, 0, len(tools.Tools))
 	for _, tool := range tools.Tools {
 		got = append(got, tool.Name)

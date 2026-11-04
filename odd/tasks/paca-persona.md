@@ -200,7 +200,7 @@ business, which is the first user of the list.
   her limits or her setup to prove that she has them, she does not talk about
   the runtime or the skills unless the person asks about the infrastructure,
   and she does not promise an integration that is not connected. Route:
-  parent. Commit: `090c845`.
+  parent. Commit: `4588320`.
 - T8 — The branding of the terminal. `hermes/skin.yaml` is the skin of Paca,
   the runtime reads the skins of the state of the agent, and the seeding
   writes the file and points the configuration at it (`display.skin: paca`),
@@ -211,7 +211,7 @@ business, which is the first user of the list.
   question. The seeding writes the home channel into the configuration of the
   agent from the first id of the list of the users (`platforms.telegram.
   home_channel`), and it refuses the stack when the list holds no numeric id.
-  Route: parent. Commit: `2de54af`.
+  Route: parent. Commit: `8c16a0b`.
 - T10 — The soul of Paca, rewritten with the practice of the community. The
   file keeps every rule and loses the repetition: the seven principles become
   dense paragraphs instead of thirty bullets, the truthfulness gains the
@@ -219,7 +219,7 @@ business, which is the first user of the list.
   work arrives as the pair of what she does and what she does not, the
   prohibitions shrink to the ones that earn their place, and the standard of
   the work closes the file. The soul passes from 211 lines and 13,250 bytes
-  to 165 lines and 8,791 bytes. Route: parent. Commit: pending.
+  to 165 lines and 8,791 bytes. Route: parent. Commit: `bf112a4`.
 
 ## Log
 

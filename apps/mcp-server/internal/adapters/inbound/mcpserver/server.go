@@ -46,6 +46,19 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tools,
 	// and every call answers that the database is not there.
 	Book ports.BookQuerier
+
+	// Debts is the use case of the debts of a business: the debts the book
+	// still holds, and the payments that close them.
+	//
+	// It may be nil: a server without a database still exposes the tools,
+	// and every call answers that the database is not there.
+	Debts ports.DebtQuerier
+
+	// Summary is the use case of the closing of a month.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	Summary ports.SummaryQuerier
 }
 
 // Server is the MCP transport of the service.
@@ -94,6 +107,7 @@ func New(opts Options) *Server {
 	transport.registerUserTools(opts.Users)
 	transport.registerOnboardingTools(opts.Onboarding)
 	transport.registerBookTools(opts.Book)
+	transport.registerDebtTools(opts.Debts, opts.Summary)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

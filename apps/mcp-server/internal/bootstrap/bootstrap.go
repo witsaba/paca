@@ -161,6 +161,12 @@ func New(
 
 	bookService := application.NewBookService(book, clock.System{})
 
+	// The debts of a person and the closing of their month: the debts the
+	// book still holds, the payments that close them, and the money of the
+	// month. Without a database there is no book and no debt.
+	debtService := application.NewDebtService(accounts, book, work, clock.System{})
+	summaryService := application.NewSummaryService(accounts, book, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -171,6 +177,8 @@ func New(
 		Users:               usersService,
 		Onboarding:          onboardingService,
 		Book:                bookService,
+		Debts:               debtService,
+		Summary:             summaryService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

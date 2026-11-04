@@ -18,6 +18,7 @@ type fakeBook struct {
 	recorded []ledger.Entry
 	listed   []ledger.Entry
 	balances []ledger.Balance
+	summary  ledger.Summary
 	from     ledger.Date
 	to       ledger.Date
 	asOf     ledger.Date
@@ -46,6 +47,18 @@ func (f *fakeBook) List(_ context.Context, _ business.ID, from, to ledger.Date) 
 	f.to = to
 
 	return f.listed, nil
+}
+
+// Summary answers the money of a period and remembers the two ends of it.
+func (f *fakeBook) Summary(_ context.Context, _ business.ID, from, to ledger.Date) (ledger.Summary, error) {
+	if f.err != nil {
+		return ledger.Summary{}, f.err
+	}
+
+	f.from = from
+	f.to = to
+
+	return f.summary, nil
 }
 
 // Balances answers the balances of the book and remembers the day.
@@ -235,5 +248,21 @@ func TestTheBookWithoutADatabaseSaysSo(t *testing.T) {
 	}
 	if _, _, err := service.Balances(t.Context(), 77, ""); !errors.Is(err, ports.ErrNoDatabase) {
 		t.Errorf("the error is %v, want %v", err, ports.ErrNoDatabase)
+	}
+}
+
+func TestTheBookRefusesAPeriodThatEndsBeforeItBegins(t *testing.T) {
+	t.Parallel()
+
+	book := &fakeBook{}
+	service := application.NewBookService(book, theClock())
+
+	_, err := service.Movements(t.Context(), business.ID(77), "2026-03-31", "2026-03-01")
+	if !errors.Is(err, ledger.ErrInvalidPeriod) {
+		t.Fatalf("the error is %v, want %v", err, ledger.ErrInvalidPeriod)
+	}
+
+	if len(book.listed) != 0 {
+		t.Errorf("the storage holds %d movements, want none", len(book.listed))
 	}
 }

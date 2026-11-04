@@ -23,6 +23,20 @@ import (
 // every call says that the database is not.
 var ErrNoDatabase = errors.New("the service has no database configured")
 
+// ErrCounterpartyRequired is the error of a debt that names nobody.
+//
+// A debt is the other side of the money: a loan of a friend, a product to
+// pay later. A debt without the name of the other side is a bucket of
+// money, and nobody waits for its payment.
+var ErrCounterpartyRequired = errors.New("the debt needs the name of the other side of the money")
+
+// ErrNotADebt is the error of a payment that pays something that is not a
+// debt.
+//
+// The accounts of a book are many, and only some of them carry a debt: the
+// cash does not, and neither does the salary.
+var ErrNotADebt = errors.New("that account does not carry a debt")
+
 // HealthQuerier is the inbound port of the health of the service.
 //
 // The health has one owner: the shared health library. The service publishes
@@ -139,4 +153,87 @@ type BookQuerier interface {
 	// Balances returns the money of the business and the balance of every
 	// account of its book.
 	Balances(ctx context.Context, businessID business.ID, asOf string) (ledger.Book, []ledger.Balance, error)
+}
+
+// DebtPayment is the outcome of the payment of a debt: the movement that
+// paid it and the debt that is left.
+type DebtPayment struct {
+	// Movement is the movement that paid the debt.
+	Movement ledger.Entry
+
+	// Debt is the debt after the payment: what the person still owes.
+	Debt ledger.Debt
+}
+
+// MonthSummary is the closing of a month: what the person earned, what
+// they spent, and what they still owe.
+type MonthSummary struct {
+	// From is the first day of the month.
+	From ledger.Date
+
+	// To is the last day of the month.
+	To ledger.Date
+
+	// Summary is the money of the month.
+	Summary ledger.Summary
+
+	// Debts are the debts that were open at the end of the month.
+	Debts []ledger.Debt
+}
+
+// DebtQuerier is the inbound port of the tools of the debts.
+//
+// The tools of the Model Context Protocol speak in text and in numbers: the
+// business, the counterparty, the money and the day. The use case speaks in
+// the model of the domain, and the port is where the two meet.
+type DebtQuerier interface {
+	// Record opens a debt and writes the money that opened it.
+	//
+	// The counterparty is REQUIRED: it is the other side of the money, and
+	// a debt without it is a bucket of money. The money comes from the debt
+	// and lands in the account the caller names: the cash when a friend
+	// lends the money, the expense when a product is paid later.
+	//
+	// The day is the day the caller names, and the day of today when the
+	// caller names none. The name of the account of the debt is optional,
+	// and it is derived from the counterparty when the caller names none.
+	Record(
+		ctx context.Context,
+		businessID business.ID,
+		counterparty string,
+		amount ledger.Amount,
+		toAccountID account.ID,
+		date, description, dueDate, name string,
+	) (ledger.Debt, error)
+
+	// Debts returns the debts the book still holds: what the person owes,
+	// to whom, and the day it falls due.
+	Debts(ctx context.Context, businessID business.ID) ([]ledger.Debt, error)
+
+	// Pay writes the payment of a debt.
+	//
+	// The money leaves the account the caller names and lands in the debt,
+	// and the payment may not pass what the debt still holds.
+	Pay(
+		ctx context.Context,
+		businessID business.ID,
+		debtAccountID account.ID,
+		amount ledger.Amount,
+		fromAccountID account.ID,
+		date, description string,
+	) (DebtPayment, error)
+}
+
+// SummaryQuerier is the inbound port of the tool that closes a month.
+//
+// The closing of a month is what the person earned, what they spent, and
+// what they still owe: the three numbers a person asks for when they say
+// "how did this month go?".
+type SummaryQuerier interface {
+	// Month reads the closing of a month: the income, the expenses, the
+	// net, and the debts that were open at the end of it.
+	//
+	// The month is the one the caller names, and the month that just ended
+	// when the caller names none.
+	Month(ctx context.Context, businessID business.ID, year, month int) (MonthSummary, error)
 }

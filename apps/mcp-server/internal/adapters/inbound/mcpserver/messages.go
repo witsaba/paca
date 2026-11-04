@@ -72,6 +72,14 @@ var theMessages = map[error]string{
 		"for example '2026-03-01'",
 	ledger.ErrInvalidDescription: "the description of the movement is not empty: write what the money was for, " +
 		"in the words of the person",
+	ledger.ErrInvalidPeriod: "the period of the book ends before it begins: the first day comes before the last one",
+	ledger.ErrPaymentTooLarge: "the payment passes what the debt still holds: the person cannot pay more than what " +
+		"they owe",
 	ledger.ErrNotFound:  "there is no book for that business: check the business with the person before trying again",
 	ledger.ErrNoStorage: "the service has no storage of the book: the book cannot be reached",
+
+	ports.ErrCounterpartyRequired: "the debt needs the name of the other side of the money: ask the person who they " +
+		"owe it to, or who owes it to them",
+	ports.ErrNotADebt: "that account does not carry a debt: the debts are the accounts of the book that name the " +
+		"other side of the money",
 }

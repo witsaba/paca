@@ -67,6 +67,11 @@ func (s *BookService) Record(
 //
 // The days are the two ends of the period, and the movement of the first
 // day and the movement of the last one are both in the answer.
+//
+// The period is built by the domain, and a period that ends before it
+// begins is refused: the book of a person answers the movements of a
+// stretch of time, and a stretch that ends before it starts is not a
+// stretch of time.
 func (s *BookService) Movements(
 	ctx context.Context,
 	businessID business.ID,
@@ -86,7 +91,12 @@ func (s *BookService) Movements(
 		return nil, err
 	}
 
-	return s.book.List(ctx, businessID, first, last)
+	period, err := ledger.NewPeriod(first, last)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.book.List(ctx, businessID, period.From, period.To)
 }
 
 // Balances returns the balance of every account of the book, and the money

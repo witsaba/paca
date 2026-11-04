@@ -208,9 +208,13 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"change_user_status",
 		"complete_onboarding",
 		"get_user",
+		"list_debts",
 		"list_users",
 		"read_balances",
+		"read_month_summary",
 		"read_movements",
+		"record_debt",
+		"record_debt_payment",
 		"record_movement",
 		"update_user_contact_data",
 	}

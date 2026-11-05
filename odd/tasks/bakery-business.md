@@ -1038,7 +1038,7 @@ its session starts.
 | T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | this commit |
 | T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | `pending` |
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
-| T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | `pending` |
+| T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | this commit |
 | T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | `pending` |
 | T9 | S17, S18, S47 | The reference prices and their tools | inline | `pending` |
 
@@ -1134,3 +1134,7 @@ Four things the increment taught, carried here for the ones to come:
 - The confirmation of a draft is **guarded by the revision** the owner saw: the row is only confirmed when it still carries that revision. The draft under her eyes and the draft that was written are the same row.
 - The table of the purchases refuses a purchase without a sentence, without the word of the confirmation, and a second purchase of the same draft: the rules of the domain are held by the table as a defense in depth.
 - The README of the database library does not mention the tables of the drafts and of the purchases yet. The gap is real and the next increment closes it.
+
+**L18** (2026-11-05): T7 landed: the soul carries the way Paca writes what the owner says. A sentence from the owner becomes a candidate and never a fact. She fills three things by herself — the day, the currency and the business — and nothing else; she never invents a price; when she is not sure which one the owner meant she names the two or three she knows instead of asking an open question; when several things are missing she asks only for what she cannot infer, and she groups what she asks in one message; she shows the whole record in the owner's words, with the fields she filled marked as hers, and waits; and she answers with the three parts, in this order: what she recorded, what she did not understand, and what she still needs. The sentence is kept verbatim with the record, so the record can always be read against it.
+
+The soul was the only seam of the agent that the repository owns, and it is now the place where the promise of the feature lives: the tools of the utterance are the contract, and the soul is the behavior.

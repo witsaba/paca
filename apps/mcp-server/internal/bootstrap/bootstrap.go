@@ -147,6 +147,11 @@ func New(
 
 	onboardingService := application.NewOnboardingService(repository, businesses, accounts, work)
 
+	// The businesses of a person: the second business of that person, with
+	// the book of accounts it starts with, and the list of the businesses
+	// they own. Without a database there is no business to open.
+	businessService := application.NewBusinessService(businesses, accounts, work)
+
 	// The book of a person: the movements that fill it and the balance that
 	// comes out of it. Without a database there is no book.
 	var book ledger.Repository
@@ -176,6 +181,8 @@ func New(
 		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
 		Onboarding:          onboardingService,
+		OpenBusiness:        businessService,
+		ReadBusinesses:      businessService,
 		Book:                bookService,
 		Debts:               debtService,
 		Summary:             summaryService,

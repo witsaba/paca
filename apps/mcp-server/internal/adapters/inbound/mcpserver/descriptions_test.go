@@ -141,6 +141,8 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 		mcpserver.ToolChangeUserStatus,
 		mcpserver.ToolUpdateUserContactData,
 		mcpserver.ToolCompleteOnboarding,
+		mcpserver.ToolOpenBusiness,
+		mcpserver.ToolReadBusinesses,
 		mcpserver.ToolRecordMovement,
 		mcpserver.ToolReadMovements,
 		mcpserver.ToolReadBalances,

@@ -10,6 +10,38 @@ type Seed struct {
 	Name string
 }
 
+// DefaultBusinessAccounts returns the accounts a business of kind business
+// starts with.
+//
+// The domain owns the seed: the contract the agent reads is derived from
+// this list, and it never restates it. The names are in Spanish, because the
+// person reads them in their book, and the identifiers of the code are in
+// English.
+//
+// The accounts are the three layers of the real price of the owner - the
+// cost of the sales, the labor and the overhead - and the money that buys
+// them: the cash, the bank and the inventory. The sales are the income of
+// the book, the capital is what the owner put into it, and the waste is the
+// product that never reached a client.
+//
+// A debt is not in the seed, and neither is an account that is not in this
+// list: they are created when they happen.
+func DefaultBusinessAccounts() []Seed {
+	return []Seed{
+		{Kind: KindAsset, Name: "Efectivo"},
+		{Kind: KindAsset, Name: "Banco"},
+		// The name is in Spanish, and the linter of the English words
+		// reads it as a typo: the name is the one the person reads.
+		{Kind: KindAsset, Name: "Inventario"}, //nolint:misspell // "Inventario" is the name the person reads in their book.
+		{Kind: KindIncome, Name: "Ventas"},
+		{Kind: KindExpense, Name: "Costo de ventas"},
+		{Kind: KindExpense, Name: "Mano de obra"},
+		{Kind: KindExpense, Name: "Gastos indirectos"},
+		{Kind: KindExpense, Name: "Merma"},
+		{Kind: KindEquity, Name: "Capital"},
+	}
+}
+
 // DefaultPersonalAccounts returns the accounts the Personal Business of a
 // person starts with.
 //

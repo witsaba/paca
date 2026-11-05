@@ -100,10 +100,10 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twelve tools: the way PACA onboards a person, the four
-moments of the journey of a person inside PACA, the three tools of the book
-of their money, and the four tools of their debts and of the closing of
-their month.
+The server exposes fourteen tools: the way PACA onboards a person, the four
+moments of the journey of a person inside PACA, the two tools of the
+businesses of a person, the three tools of the book of their money, and the
+four tools of their debts and of the closing of their month.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -112,6 +112,8 @@ their month.
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+| `open_business`           | Opens a business of a person, with the book of accounts it starts with. One call, one transaction. |
+| `read_businesses`         | Reads the businesses of a person: the Personal Business and the others they own. |
 | `record_movement`         | Writes a movement of money in the book: it goes from one account to another one. |
 | `read_movements`          | Reads the movements of a period: the libro diario.              |
 | `read_balances`           | Reads the balance of every account and the money of the business: the libro mayor. |
@@ -142,6 +144,19 @@ that stays as it is. The description of `get_user` tells the agent that the
 tool answers with what PACA knows about the person, and the description of
 `list_users` tells the agent to ask for the people it needs and to ask again
 when the answer carries more people than it asked for.
+
+**The business of a person has a book of its own.** The tool that opens a
+business writes the business and the accounts of its book in one
+transaction: a book that starts with half of its accounts lies about what
+the owner has. The name of the business is required, the currency is
+optional and it means the peso when the agent names none, and the kind of
+the business is always `business` — the Personal Business of a person is
+opened by the onboarding. The name of a business is taken inside the
+businesses of its owner, and PACA refuses the duplicate. The description of
+`open_business` names the accounts the book starts with and the kinds of a
+business, and the description of `read_businesses` says that the tool
+changes nothing: both lists are read from the domain and never written a
+second time.
 
 **The money goes from one account to another one.** The tool of the movement
 takes the account the money comes from and the account it lands in, the

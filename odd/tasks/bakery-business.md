@@ -448,108 +448,557 @@ by hand.
 
 ---
 
-## The flow of the utterance
+## The specs of the increments
 
-The design of T1, the first cut of the feature. It is the shape of the
-increment T3 to T8, and the reason of every rule of them.
+The specs above are the rules of the feature. This section holds the spec of
+each increment: the rules it answers, the acceptance that proves it, and the
+surface it may touch. An increment is written here at the start of its own
+session, and the worker that writes it reads this document and nothing else.
 
-### Who reads and who decides
+### T2 — the registration of the bakery
 
-| The agent (the model in Hermes) | The domain (the packages of PACA) |
-|---|---|
-| Reads the sentence | Says what a purchase is |
-| Proposes the lines, the quantities, the prices | Says what a purchase needs |
-| Matches the spoken name against the catalog | Refuses the incomplete, the contradictory and the stale |
-| Asks, and offers the options | States what is missing, and why |
-| Shows the record in the owner's words | Writes the record, and keeps the sentence |
-| Waits for the yes | Keeps the states, the revision and the expiry |
+**The rules:** S1, S2, S3, S36.
 
-The boundary is the contract of the repository: the domain never receives a
-sentence, and the model never decides what is true.
+**The acceptance:**
 
-### The states of the draft
+- The bakery is registered with the name the owner reads and the currency of
+  its book. The name may not be empty; the currency is the peso when she has
+  no opinion.
+- The book of a business of kind `business` starts with the accounts of a
+  business: the cash, the bank, the inventory, the sales, the cost of the
+  sales, the labor, the overhead, the waste and the capital.
+- A debt and an account that is not in the list are not in the seed: they are
+  created when they happen.
+- The business and its accounts are written in one transaction: a book that
+  starts with half of its accounts lies about what the owner has.
+- The businesses of a person are read back, with their kinds, and the personal
+  business is one of them.
+- The tool that lists the businesses says the kinds of a business, and the
+  tool that opens one says that the name is required and that the currency
+  of the book is the peso.
 
-```
-                ┌──────────────► cancelled
-                │
-    proposed ───┼──────────────► confirmed
-                │
-                └──────────────► expired   (seven days without an answer)
-```
+**In scope:** `packages/domain/business`, `packages/domain/account`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`, `apps/db-admin`.
 
-A draft that is confirmed becomes purchases: one transaction, all the lines
-or none.
+### T3 — the draft and the tool that proposes it
 
-### The flow, in seven steps
+**The rules:** S21, S37, S41, S42, S44, S47, S48.
 
-1. **The sentence.** The owner says it in the conversation: "lets prepare the
-   molde bread. I bought this flour and cost...". The sentence is kept
-   verbatim, from the first moment to the record.
-2. **The reading.** The agent extracts the lines: the name as she said it,
-   the quantity, the unit, the money, the day, the market, the invoice. The
-   money is only what she said (S42).
-3. **The matching.** The agent calls `match_items` with the name she said.
-   The answer is exact, ambiguous with its options, or unknown (S46).
-4. **The proposal.** The agent calls `draft_purchase`. The domain validates
-   the candidate, stores the draft with its state and its revision, and
-   answers what it understood, what is missing, and what is ambiguous.
-5. **The questions.** The agent asks only what the domain said is missing,
-   and for an ambiguity it offers the options (S38, S39). Every question
-   names the field it is about.
-6. **The yes.** The agent shows the whole record in the owner's words, with
-   the inferred fields marked as inferred, and waits. Her answer is kept
-   with the record (S40).
-7. **The writing and the answer.** The agent calls `confirm_purchase` with
-   the revision she saw. The domain writes the purchases in one transaction
-   and answers the record; the agent reports the three parts (S48).
+**The acceptance:**
 
-### The tools and their contracts
+- The package `packages/domain/purchase` holds the draft: its state, its
+  revision, the sentence it came from, its lines, what is missing, what is
+  ambiguous, what was inferred, the day it was proposed and the day it
+  expires.
+- A line carries the name as the owner said it, the quantity with its unit,
+  and the money: the total paid or the price of the unit, never two silent
+  truths.
+- The quantity and its unit travel together: a line without a unit is
+  refused. The money is required and is **never inferred**: a line whose
+  price was inferred is refused. When both the total paid and the price of
+  the unit are given, they must agree.
+- The day, the market and the invoice are optional; the day of today is the
+  day of a draft that names none.
+- A draft expires seven days after it was proposed, and an amendment grows
+  its revision.
+- The tool `draft_purchase` proposes the candidate: it validates it, keeps it
+  as a draft, and answers what it understood, what is missing, what is
+  ambiguous and what was inferred. It never writes the book.
+- The table of the drafts, the repository that implements the port, and the
+  container test that proves the rules of the table.
 
-| Tool | What it does | What it answers | What it never does |
-|---|---|---|---|
-| `match_items` | Matches the name she said against the catalog of the business | The candidates, with their identity and their name | It never writes |
-| `draft_purchase` | Validates the candidate and keeps it as a draft | The draft, what is missing, what is ambiguous, what was inferred | It never writes the book |
-| `confirm_purchase` | Writes the purchases of the draft, in one transaction | The purchases that were written | It never writes a draft that expired or that changed under her eyes |
-| `cancel_draft` | Drops a draft she does not want | The cancelled draft | It never writes the book |
-| `read_drafts` | Lists the pending drafts of the business | The drafts, with what is missing in each | It never writes |
+**In scope:** `packages/domain/purchase`, `packages/domain/business`,
+`packages/domain/account`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
 
-Every description of these tools is derived from the domain, and every error
-of the domain has a message written in the words of the caller, the way the
-messages of the book are written today: the agent reads the message and knows
-what to ask.
+### T4 — the purchase and the tool that writes it
 
-### The rules the domain enforces
+**The rules:** S16, S19, S20, S43, S45, S47, S48.
 
-- **The business is required.** Every draft belongs to a business; a draft of
-  a business that does not exist is refused.
-- **The amount is never inferred.** A draft without the money is missing it,
-  and the answer says so.
-- **The price is one truth.** The total paid and the price of the unit must
-  agree; when they do not, the domain refuses and asks which one is right.
-- **The revision must be the one she saw.** A confirmation of an old
-  revision is refused: the record is shown again first.
-- **The draft expires in seven days.** An expired draft is refused with the
-  reason, and the purchase is dictated again.
-- **The money is whole pesos.** Centavos are rounded to the nearest peso, and
-  the sentence keeps the exact wording.
-- **The sentence is never rewritten.** The record keeps it as it was said.
+**The acceptance:**
 
-### The answer of Paca
+- The purchase carries the business, the day, the market, the invoice, its
+  lines, the sentence and the word of the confirmation. A purchase never
+  changes: it is the fact of what was bought.
+- The confirmation of a draft writes its purchases in one transaction, and
+  the money of the payment moves from the account that pays — the cash of
+  the business, unless the owner names another — to the inventory.
+- A confirmation of an expired draft is refused; a confirmation of an old
+  revision is refused; a refused confirmation leaves nothing behind.
+- The money of the book counts whole pesos: a price in centavos is rounded
+  to the nearest peso, and the sentence keeps the exact wording.
+- The tool `confirm_purchase` writes it and answers the three parts: what it
+  recorded, what it did not understand and what it still needs.
+- The table of the purchases and of their lines, the repository, and the
+  container test.
 
-Three parts, always: what it recorded, what it did not understand, and what
-it still needs. The data comes from the domain; the wording is the agent's,
-in the language of the owner.
+**In scope:** `packages/domain/purchase`, `packages/domain/ledger`,
+`packages/domain/account`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
 
-### What the design leaves open
+### T5 — the catalog of the names and the tool that matches them
 
-- The rounding of the centavos (S45) follows the rule of the book, and it is
-  the one place where the money of the book may have to move to centavos.
-- The seven days of the expiry are a rule of the domain and may become a
-  setting of the business.
-- The weight of a package is unknown until she says it: "two sacks" is a
-  measure whose conversion to the gram comes with the catalog of the units.
-- The catalog of the names begins empty: the first purchase creates the first
-  name.
+**The rules:** S46, S47.
+
+**The acceptance:**
+
+- The package `packages/domain/ingredient` holds the thing the business buys:
+  the name the owner reads and the names she uses for it.
+- The matching of a spoken name answers exact, ambiguous — with its options —
+  or unknown.
+- A name the catalog does not know is not an error: it is recorded as she
+  said it, and the answer tells her it is new.
+- Two ingredients of the same business never carry the same name, and the
+  catalog of a business starts empty.
+- The tool `match_items` answers the candidates of a name.
+- The table of the ingredients, the repository, and the container test.
+
+**In scope:** `packages/domain/ingredient`, `packages/domain/purchase`,
+`packages/domain/business`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T6 — the pending drafts: the tools that cancel them and read them
+
+**The rules:** S41, S44, S47.
+
+**The acceptance:**
+
+- The state machine: a draft starts in `proposed` and ends in `confirmed`,
+  `cancelled` or `expired`. It never returns to `proposed`.
+- The tool `cancel_draft` drops a draft the owner does not want; the tool
+  `read_drafts` lists the pending ones with what is missing in each, so a
+  lost conversation can be recovered.
+- Every error of the domain that the tools can return has a message written
+  in the words of the caller.
+
+**In scope:** `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T7 — the instructions of Paca in the soul
+
+**The rules:** S38, S39, S40, S49.
+
+**The acceptance:**
+
+- The soul says how Paca reads the sentence, what she may fill by herself
+  (the day, the currency, the business), that she asks only for what she
+  cannot infer, that she offers the options when she is not sure which one
+  the owner meant, that she shows the record in the owner's words and waits
+  for the yes, and that she reports the three parts.
+- The soul never invents a price, and it never writes a record that the
+  owner did not confirm.
+- The README of the agent names the behaviour.
+
+**In scope:** `hermes/soul.md`, `hermes/README.md`.
+
+### T8 — the recipe and the tool that captures it
+
+**The rules:** S11, S12, S19, S34, S47.
+
+**The acceptance:**
+
+- The package `packages/domain/recipe` holds the recipe: the name, the
+  ingredients with their grams, the steps with their times, their
+  temperatures and their cues, the yield and the shelf life.
+- The ingredient of a recipe is the ingredient of the catalog, never a second
+  copy of the flour.
+- The yield is a declared constant, never measured per bake. The steps keep
+  their order, and a step may be named by its cue.
+- The tool `draft_recipe` proposes the recipe the way the utterance proposes
+  the purchase: it keeps what is missing and what is ambiguous, and it waits
+  for the yes.
+- The table of the recipes, the repository, and the container test.
+
+**In scope:** `packages/domain/recipe`, `packages/domain/ingredient`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T9 — the reference prices and their tools
+
+**The rules:** S17, S18, S47.
+
+**The acceptance:**
+
+- The domain holds the reference: the ingredient, the price, the unit, the
+  market where it was seen, the source and the day it was seen.
+- A reference is never the price of an ingredient: the price of the owner
+  comes from her purchases.
+- The tool `record_reference` writes it with the confirmation of the owner;
+  the tool `read_references` reads them with their source and their day.
+- The table of the references, the repository, and the container test.
+
+**In scope:** `packages/domain/purchase`, `packages/domain/ingredient`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T10 — the ingredient and the unit, and the tools that complete them
+
+**The rules:** S10, S13, S14, S43, S46.
+
+**The acceptance:**
+
+- The units: the gram, the kilogram, the package and the piece. The
+  conversion of a unit into the gram is declared, never assumed.
+- The conversion of the potato and the rate of the starter are declared
+  constants.
+- The two fats are two ingredients with their own certification, and
+  "organic" is a claim that carries its evidence. The allergens of an
+  ingredient are declared.
+- The unit of a purchase line is the unit of the ingredient when the owner
+  names none.
+- The tools `read_ingredients` and `complete_ingredient` read and complete
+  what is known of an ingredient.
+
+**In scope:** `packages/domain/ingredient`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T11 — the stock and the layers, and the tool that reads them
+
+**The rules:** S6, S16, S26.
+
+**The acceptance:**
+
+- The layer: the ingredient, the quantity, the unit, the money it cost, the
+  day it was bought and the purchase it comes from.
+- The stock of an ingredient is the sum of the layers that are still open.
+  The valuation is FIFO: the oldest layer is the first one that leaves.
+- The purchase is the fact; the layer is derived from it.
+- The tool `read_stock` answers what the business holds and what it cost.
+
+**In scope:** `packages/domain/purchase`, `packages/domain/ingredient`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T12 — the cost of a batch, and the tool that reads it
+
+**The rules:** S5, S6, S16.
+
+**The acceptance:**
+
+- The cost of a batch is derived from the layers that the recipe consumes,
+  and never typed.
+- The recipe consumes the layers in the order of FIFO.
+- The cost answers per unit, per gram and per kilogram.
+- The tool `read_batch_cost` answers the cost of a recipe.
+
+**In scope:** `packages/domain/recipe`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T13 — the labor, and the tool that records it
+
+**The rules:** S5, S9.
+
+**The acceptance:**
+
+- The labor is measured in hours and in three kinds: the hands-on hours, the
+  hours of the oven and the hours of the waiting.
+- The value of the hour is declared by the owner.
+- The labor of a batch is derived from the hours of its steps.
+- The tool `record_labor` writes the hours and the value of the hour.
+
+**In scope:** `packages/domain/recipe`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T14 — the overhead, and the tool that records it
+
+**The rules:** S5, S9.
+
+**The acceptance:**
+
+- The overhead is the electricity of the house and the hours of the oven, and
+  the allocation is declared by the owner.
+- The overhead of a batch is derived, never typed.
+- The tool `record_overhead` writes the electricity and the allocation.
+
+**In scope:** `packages/domain/recipe`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T15 — the report of the real price, and the tool that reads it
+
+**The rules:** S5, S10.
+
+**The acceptance:**
+
+- The report shows the three layers apart — the direct cost, the labor and
+  the overhead — per unit, per gram and per kilogram, and the price of the
+  owner next to them.
+- The report never hides a layer inside another one.
+- The tool `read_real_price` answers the report of a product.
+
+**In scope:** `packages/domain/purchase`, `packages/domain/recipe`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T16 — the margin, and the tool that reads it
+
+**The rules:** S10, S17, S18.
+
+**The acceptance:**
+
+- The margin compares the price of the owner with the direct cost, and with
+  the reference of the market.
+- Every reference carries its source and its day, and a reference older than
+  the owner expects is shown with its age.
+- The tool `read_margin` answers the margin of a product.
+
+**In scope:** `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T17 — the production and the tool that records it
+
+**The rules:** S22, S23, S47.
+
+**The acceptance:**
+
+- The production carries the recipe, the day, the grams that went in and the
+  units that came out.
+- A production is written in one transaction with the layers it consumes and
+  the units it makes.
+- The units of a production carry the day they expire.
+- The tool `record_production` writes it.
+
+**In scope:** `packages/domain/production`, `packages/domain/recipe`,
+`packages/domain/purchase`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T18 — the expiry, and the tool that reads what expires
+
+**The rules:** S23.
+
+**The acceptance:**
+
+- Every unit carries the day it expires, and the shelf life of the product
+  behind it is what the owner corrects. The correction is kept.
+- A unit that expired is never sold.
+- The tool `read_expiring` answers what expires, and when.
+
+**In scope:** `packages/domain/production`, `packages/domain/recipe`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T19 — the waste, and the tool that records it
+
+**The rules:** S24, S25.
+
+**The acceptance:**
+
+- The waste is a movement: the product, the quantity, the unit and the
+  reason — burnt, spoiled, dropped or returned.
+- The waste releases the cost of what it was worth, and the money of the
+  waste is never lost from the book.
+- The reason is what a later analysis reads.
+- The tool `record_waste` writes it.
+
+**In scope:** `packages/domain/production`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T20 — the sale, and the tool that records it
+
+**The rules:** S24, S26.
+
+**The acceptance:**
+
+- The sale moves the money in and releases the cost of the units it sells, in
+  one transaction.
+- The sale takes the units that expire first, and the sale of an expired
+  unit is refused.
+- The tool `record_sale` writes it.
+
+**In scope:** `packages/domain/production`, `packages/domain/purchase`,
+`packages/domain/ledger`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T21 — the consumption and the donation, and the tool that records them
+
+**The rules:** S24.
+
+**The acceptance:**
+
+- The consumption of the owner and the donation release the cost like a
+  sale, and they move no money.
+- The tax treatment of the consumption is marked as pending the professional
+  of the taxes: the domain records the movement and names the question.
+- The donation is a social expense of the business.
+- The tool `record_exit` writes the exit of a unit.
+
+**In scope:** `packages/domain/production`, `packages/domain/purchase`,
+`packages/domain/ledger`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T22 — the freshness first, and the tool that reads the rotation
+
+**The rules:** S26.
+
+**The acceptance:**
+
+- The rotation follows the earliest expiry and the valuation follows FIFO:
+  the two rules are apart and the model keeps them apart.
+- The unit that leaves a production is the one that expires first.
+- The tool `read_rotation` answers what leaves first and when it expires.
+
+**In scope:** `packages/domain/production`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T23 — the party and its tools
+
+**The rules:** S4.
+
+**The acceptance:**
+
+- The party: the person, the store with the legal human that represents it,
+  and the farm.
+- The roles: the client and the provider. A party may hold both.
+- The address and the way of reaching the party are facts of the party, and
+  the legal figure of a farm is a fact of the party, never a second person.
+- The tools `open_party` and `read_parties`.
+
+**In scope:** `packages/domain/party`, `packages/domain/user`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T24 — the providers, the invoices and the tax, and their tools
+
+**The rules:** S2, S8.
+
+**The acceptance:**
+
+- The provider is a party, and the invoice carries its number, its day, its
+  total and the tax that travels with it.
+- The tax of an invoice is never assumed: it comes from the invoice.
+- The purchase points at the invoice it came from.
+- The tools `record_invoice` and `read_invoices`.
+
+**In scope:** `packages/domain/party`, `packages/domain/purchase`,
+`packages/domain/ledger`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T25 — the price list and the channel, and its tools
+
+**The rules:** S27.
+
+**The acceptance:**
+
+- The product, the price and the channel that buys it: the retail and the
+  wholesale.
+- For now the two channels carry the same price, and the channel is already
+  in the price so that the discount of the wholesale does not have to rebuild
+  the history.
+- The price of a product is a fact of the business, and never a column of
+  the inventory.
+- The tools `set_price` and `read_prices`.
+
+**In scope:** `packages/domain/product`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T26 — the orders and the rounds, and their tools
+
+**The rules:** S2, S28.
+
+**The acceptance:**
+
+- The order: the party, the products, the quantities and the day it is due.
+- The round: the day and the orders it carries. An order that was not
+  delivered stays open, and the round of the day answers what is still owed.
+- The tools `record_order` and `read_orders`.
+
+**In scope:** `packages/domain/order`, `packages/domain/party`,
+`packages/domain/product`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database`.
+
+### T27 — the route, and the tool that writes it
+
+**The rules:** S28.
+
+**The acceptance:**
+
+- The route is computed by the agent, which is the only component of PACA
+  with access to the outside, and it is written back into the round.
+- The route carries the order of the stops and what each one costs.
+- A round without a route is a round that was never planned.
+- The tool `record_route` writes it.
+
+**In scope:** `packages/domain/order`, `apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+
+### T28 — the commitments and the reminders, and their tools
+
+**The rules:** S2, S29.
+
+**The acceptance:**
+
+- The commitment is a fact of PACA: what is due and the day it is due. A
+  commitment that was met is kept, with the day it was met.
+- The alarm is the work of the agent: PACA holds the fact and the agent
+  rings.
+- The tools `record_commitment` and `read_commitments`, and the soul names
+  the alarm.
+
+**In scope:** `packages/domain/commitment`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`, `hermes/soul.md`,
+`packages/database`.
+
+### T29 — the learning log, and its tools
+
+**The rules:** S35.
+
+**The acceptance:**
+
+- The entry: the day, the production or the batch it is about, what happened
+  and what was learned.
+- The log is what PACA learns from, and it is the memory of the errors and
+  the wins of the owner.
+- The log is never rewritten: a new entry answers an old one.
+- The tools `record_learning` and `read_learning`.
+
+**In scope:** `packages/domain/learning`, `packages/domain/production`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`packages/database`.
+
+### T30 — the capacity of a weekend, and the tool that reads it
+
+**The rules:** S9, S22.
+
+**The acceptance:**
+
+- The capacity: the hours the owner has, and the units she can make with
+  them.
+- The capacity is derived from the labor of the recipes and the hours the
+  owner declares.
+- The capacity is never a promise of the calendar: it is what the weekend
+  can carry.
+- The tool `read_capacity` answers it.
+
+**In scope:** `packages/domain/recipe`, `packages/domain/purchase`,
+`apps/mcp-server/internal/application`,
+`apps/mcp-server/internal/adapters/inbound/mcpserver`.
 
 ---
 
@@ -570,56 +1019,55 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T1 | S21, S22, S37, S38, S39, S40 | The design of the flow of the utterance, written into this document | inline | this commit |
-| T2 | S1, S2, S3, S36 | The registration of the bakery: the use case that opens a business of its own kind, the accounts of its own book, the tool that opens it and the tool that lists the businesses of the owner | inline | `pending` |
+| T2 | S1, S2, S3, S36 | The registration of the bakery: the use case that opens it, the accounts of its book, the tools that open it and that read the businesses of the owner | inline | this commit |
 
 ### Movement II — Paca writes the record
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T3 | S21, S37, S41, S42, S44 | The domain of the utterance: the draft, its states, its revision, its expiry, what is missing and what is ambiguous | inline | `pending` |
-| T4 | S16, S19, S20, S43, S45 | The domain of the purchase: the line, the measure, the price, the money, the day, the market, the invoice, the sentence and the word of the confirmation | inline | `pending` |
-| T5 | S46 | The domain of the catalog of the names the business buys, and the matching of a spoken name | inline | `pending` |
-| T6 | S36, S41 | The tables of the drafts and of the purchases | inline | `pending` |
-| T7 | S47, S48 | The tools: `match_items`, `draft_purchase`, `confirm_purchase`, `cancel_draft`, `read_drafts` | inline | `pending` |
-| T8 | S38, S39, S40, S49 | The instructions of Paca in the soul: how she reads, asks, offers the options, confirms and reports | inline | `pending` |
-| T9 | S11, S12, S19, S34 | The domain of the recipe: the ingredients with their grams and conversions, the steps with their times, temperatures and cues, the shelf life | inline | `pending` |
-| T10 | S17, S18 | The research of the reference prices: public sources, their date, and the comparison against what the owner paid | inline | `pending` |
+| T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | `pending` |
+| T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | `pending` |
+| T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | `pending` |
+| T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
+| T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | `pending` |
+| T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | `pending` |
+| T9 | S17, S18, S47 | The reference prices and their tools | inline | `pending` |
 
 ### Movement III — The cost
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T11 | S10, S13, S14, S43 | The domain of the ingredient and of the unit: the gram, the kilogram, the conversions, the packages, the allergens, and the two fats apart | inline | `pending` |
-| T12 | S6, S16, S26 | The domain of the stock and of the FIFO layers: what the owner holds and what it cost her | inline | `pending` |
-| T13 | S5, S6, S16 | The domain of the cost of a batch: derived from the layers, never typed | inline | `pending` |
-| T14 | S5, S9 | The labor: the hands-on hours, the oven hours and the waiting apart, at the hourly value the owner declares | inline | `pending` |
-| T15 | S5, S9 | The overhead: the electricity of the house allocated by the oven hours | inline | `pending` |
-| T16 | S5, S10 | The report of the real price: the three layers apart, per unit, per gram and per kilogram | inline | `pending` |
-| T17 | S10, S17, S18 | The margin against the price of the owner and against the reference of the market | inline | `pending` |
+| T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | `pending` |
+| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `pending` |
+| T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `pending` |
+| T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
+| T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
+| T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `pending` |
+| T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `pending` |
 
 ### Movement IV — From dough to bread
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T18 | S22 | The domain of the production: the recipe, the grams, the units it makes | inline | `pending` |
-| T19 | S23 | The expiry of every unit, and the shelf life of the product behind it | inline | `pending` |
-| T20 | S24, S25 | The waste: the exit, the quantity, and the reason | inline | `pending` |
-| T21 | S24 | The sale: the revenue and the cost of the unit, in one transaction | inline | `pending` |
-| T22 | S24 | The consumption by the owner and the donation: the two poles of the fork the owner named | inline | `pending` |
-| T23 | S26 | The freshness first: the rotation by the earliest expiry, apart from the valuation | inline | `pending` |
+| T17 | S22, S23, S47 | The production and the tool that records it | inline | `pending` |
+| T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `pending` |
+| T19 | S24, S25 | The waste and the tool that records it | inline | `pending` |
+| T20 | S24, S26 | The sale and the tool that records it | inline | `pending` |
+| T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
+| T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
 
 ### Movement V — The business around the bread
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T24 | S4 | The domain of the party: the person, the store with its legal human, the farm, and the roles | inline | `pending` |
-| T25 | S2, S8 | The providers, the invoices they carry, and the tax that travels with them | inline | `pending` |
-| T26 | S27 | The price list of the products and the channel that buys it | inline | `pending` |
-| T27 | S2, S28 | The orders and the rounds of the delivery | inline | `pending` |
-| T28 | S28 | The route of the round, computed by the agent, which is the only component with access to the outside | inline | `pending` |
-| T29 | S2, S29 | The commitments of the owner and the reminders that fire them | inline | `pending` |
-| T30 | S35 | The learning log: the errors and the wins of the owner, and what Paca teaches back | inline | `pending` |
-| T31 | S9, S22 | The capacity of a weekend: the hours the owner has, and the units she can make with them | inline | `pending` |
+| T23 | S4 | The party and its tools | inline | `pending` |
+| T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `pending` |
+| T25 | S27 | The price list, the channel, and their tools | inline | `pending` |
+| T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
+| T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
+| T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
+| T29 | S35 | The learning log and its tools | inline | `pending` |
+| T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
 
 ---
 
@@ -650,3 +1098,13 @@ its session starts.
 **L12** (2026-11-05): The decisions the design left open, carried here for the sessions to come: the cents are rounded to the nearest peso because the book counts whole pesos (S45), and that is the one place where the money of the book may have to move to centavos; the draft expires in seven days (S44) and that number may become a setting of the business; the weight of a package is unknown until she says it, so "two sacks" is a measure without a conversion to the gram until the catalog of the units arrives (T11); and the catalog of the names begins empty, so the first purchase creates the first name.
 
 **L13** (2026-11-05): The delivery of the feature was decided and written: the branch carries the whole block, the review unit is the increment, and the pull requests are the slices of about four hundred changed lines, stacked in the order of the movements. The chain strategy — the stack to `main` or the tracker — is the owner's decision when the first pull request opens, because the push and the pull requests are hers and not the feature's. The first slice of code opens with T2.
+
+**L14** (2026-11-05): The map was corrected again, and this time by the repository itself. The gate of the structure asserts that every function of the tree is reachable from the entry point of a service, and it proves it with the analysis of the dead code: a function that no production code calls is debris. An increment that adds only a domain — the draft without its tool, the recipe without its capture — would therefore leave the tree in a state the gate refuses. Every increment of this feature is **vertical**: the rule of the domain, the use case, the tool the owner calls, the table behind it and the test that proves each one. The map is now thirty increments in five movements, and the spec of each one is written in "The specs of the increments" above.
+
+**L15** (2026-11-05): T2 landed: the bakery is registered. The use case opens a business of the kind `business` with the nine accounts of its own book — the cash, the bank, the inventory, the sales, the cost of the sales, the labor, the overhead, the waste and the capital — and it writes the business and its accounts in one transaction. The two tools are `open_business` and `read_businesses`, and their descriptions read the kinds and the seed from the domain instead of writing them a second time.
+
+Three things the increment taught, carried here for the ones to come:
+
+- The name of a business is taken inside the businesses of its owner, and **the table does not hold that rule**: the domain holds it, by reading the businesses of the owner and refusing the duplicate. The rule of the name will move into the table when the owner opens her second business and the history proves the shape of it.
+- The identity of a business answers as a string in the tools of the businesses, the way the onboarding answers it, while the tools of the book take it as a number. The bridge between the two is the agent, and it is a friction that the tools of the utterance will have to carry.
+- Five tests of the tree assert the number of the tools, and they moved from twelve to fourteen. The count of the tools is a property of the transport, and every new tool pays it.

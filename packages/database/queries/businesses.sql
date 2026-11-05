@@ -19,3 +19,6 @@ SELECT * FROM businesses WHERE id = sqlc.arg(id);
 
 -- name: GetPersonalBusinessByOwner :one
 SELECT * FROM businesses WHERE owner_id = sqlc.arg(owner_id) AND kind = 'personal';
+
+-- name: ListBusinessesByOwner :many
+SELECT * FROM businesses WHERE owner_id = sqlc.arg(owner_id) ORDER BY id;

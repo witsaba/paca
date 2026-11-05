@@ -137,6 +137,33 @@ func TestKindString(t *testing.T) {
 	}
 }
 
+func TestAllKindsNamesEveryKindOfABusiness(t *testing.T) {
+	t.Parallel()
+
+	all := AllKinds()
+	if len(all) != 2 {
+		t.Fatalf("the list holds %d kinds, want 2", len(all))
+	}
+
+	if all[0] != KindPersonal {
+		t.Errorf("the first kind is %q, want %q", all[0], KindPersonal)
+	}
+	if all[1] != KindBusiness {
+		t.Errorf("the second kind is %q, want %q", all[1], KindBusiness)
+	}
+}
+
+func TestAllKindsReturnsACopy(t *testing.T) {
+	t.Parallel()
+
+	all := AllKinds()
+	all[0] = Kind("changed")
+
+	if AllKinds()[0] != KindPersonal {
+		t.Error("the list changed under the caller")
+	}
+}
+
 func TestErrorsNamesEveryError(t *testing.T) {
 	t.Parallel()
 

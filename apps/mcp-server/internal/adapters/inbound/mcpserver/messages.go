@@ -45,8 +45,9 @@ var theMessages = map[error]string{
 	user.ErrNoStorage:             "the service has no storage of the users: the users cannot be reached",
 	ports.ErrNoDatabase:           "the service has no database configured: the users cannot be reached",
 
-	business.ErrNotFound:        "there is no personal business for that person: the onboarding opens one",
-	business.ErrAlreadyExists:   "that business already exists: the personal business of a person is opened once",
+	business.ErrNotFound: "there is no personal business for that person: the onboarding opens one",
+	business.ErrAlreadyExists: "that business already exists: the name of a business is taken inside the " +
+		"businesses of its owner, and the personal business of a person is opened once",
 	business.ErrInvalidName:     "the name of the business is not empty: give the business the name the person reads",
 	business.ErrInvalidCurrency: "the currency of the business is not empty: give the business the currency of its book",
 	business.ErrUnknownKind: "the kind of the business is not one of the kinds PACA knows: " +

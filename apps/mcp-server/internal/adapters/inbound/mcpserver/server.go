@@ -40,6 +40,19 @@ type Options struct {
 	// and every call answers that the database is not there.
 	Onboarding ports.OnboardingCompleter
 
+	// OpenBusiness is the use case that opens a business of a person, with
+	// the book of accounts it starts with.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	OpenBusiness ports.BusinessOpener
+
+	// ReadBusinesses is the use case that reads the businesses of a person.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadBusinesses ports.BusinessQuerier
+
 	// Book is the use case of the book of a business: the movements and the
 	// balances.
 	//
@@ -106,6 +119,7 @@ func New(opts Options) *Server {
 
 	transport.registerUserTools(opts.Users)
 	transport.registerOnboardingTools(opts.Onboarding)
+	transport.registerBusinessTools(opts.OpenBusiness, opts.ReadBusinesses)
 	transport.registerBookTools(opts.Book)
 	transport.registerDebtTools(opts.Debts, opts.Summary)
 

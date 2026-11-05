@@ -128,6 +128,53 @@ type OnboardingCompleter interface {
 	Complete(ctx context.Context, documentID, fullName, phone, email string) (Onboarding, error)
 }
 
+// RegisteredBusiness is the outcome of the opening of a business: the
+// business, and the accounts of the book it starts with.
+//
+// It is the answer of the tool, and it is the shape of the contract between
+// the agent and the service.
+type RegisteredBusiness struct {
+	// Business is the business that was opened.
+	Business business.Business
+
+	// Accounts are the accounts the book of the business starts with.
+	Accounts []account.Account
+}
+
+// BusinessOpener is the inbound port of the tool that opens a business.
+//
+// A business of a person is the second business of that person: the
+// Personal Business is opened by the onboarding, and this tool opens the
+// others, the ones with a book of their own.
+type BusinessOpener interface {
+	// Open opens a business of the owner and writes the accounts of its
+	// book.
+	//
+	// The document ID of the owner and the name of the business are
+	// required: a business without a name has nothing to show in the book
+	// of its owner. The currency is optional, and it is the currency of
+	// the domain when the caller names none.
+	//
+	// The business and its accounts are written in one transaction, and
+	// the error is business.ErrAlreadyExists when the name of the business
+	// is taken inside the businesses of its owner.
+	Open(ctx context.Context, documentID, name, currency string) (RegisteredBusiness, error)
+}
+
+// BusinessQuerier is the inbound port of the tool that reads the businesses
+// of a person.
+//
+// A person may own more than one business, and the personal one is one of
+// them.
+type BusinessQuerier interface {
+	// List returns the businesses of the owner, in the order of their
+	// identity.
+	//
+	// The document ID of the owner is required, and the list is empty when
+	// the person holds no business at all.
+	List(ctx context.Context, documentID string) ([]business.Business, error)
+}
+
 // BookQuerier is the inbound port of the tools of the book.
 //
 // The tools of the Model Context Protocol speak in text and in numbers: the

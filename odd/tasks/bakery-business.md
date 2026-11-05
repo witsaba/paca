@@ -1034,7 +1034,7 @@ its session starts.
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | `pending` |
+| T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | this commit |
 | T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | `pending` |
 | T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | `pending` |
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
@@ -1117,3 +1117,11 @@ Three things the increment taught, carried here for the ones to come:
 - The name of a business is taken inside the businesses of its owner, and **the table does not hold that rule**: the domain holds it, by reading the businesses of the owner and refusing the duplicate. The rule of the name will move into the table when the owner opens her second business and the history proves the shape of it.
 - The identity of a business answers as a string in the tools of the businesses, the way the onboarding answers it, while the tools of the book take it as a number. The bridge between the two is the agent, and it is a friction that the tools of the utterance will have to carry.
 - Five tests of the tree assert the number of the tools, and they moved from twelve to fourteen. The count of the tools is a property of the transport, and every new tool pays it.
+
+**L16** (2026-11-05): T3 landed: the draft of the utterance. The domain of the purchase holds the draft, its state, its revision, the sentence it came from, its lines, what is missing, what is ambiguous and what was inferred; the measure carries the quantity with its unit, and the money is either the total paid or the price of the unit, never two silent truths. The money is never inferred: a line whose price the agent filled is refused, and the draft says what it still needs. The tool `draft_purchase` proposes the candidate, keeps it as a draft of the business, and answers the four parts: what it understood, what it still needs, what it was not sure about and what it filled.
+
+Three things the increment taught, carried here for the ones to come:
+
+- The lines of a draft, what is missing, what is ambiguous and what was inferred are kept as JSONB: a draft is a proposal, not a fact. When the draft is confirmed, its lines become rows of the purchases.
+- The money of the protocol is whole pesos, so a price in centavos is truncated before the domain sees it. The rounding rule of the book (S45) belongs to the increment that writes the purchase, and the sentence keeps the exact words of the owner until then.
+- The state of a draft is `proposed` only, and the check of the table holds that one state. The cancellation and the expiry will widen it with a migration of their own.

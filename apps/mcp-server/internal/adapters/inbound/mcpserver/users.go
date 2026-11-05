@@ -15,6 +15,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -418,6 +419,7 @@ func isErrorOfTheDomain(err error) bool {
 	known = append(known, business.Errors()...)
 	known = append(known, account.Errors()...)
 	known = append(known, ledger.Errors()...)
+	known = append(known, purchase.Errors()...)
 
 	for _, one := range known {
 		if errors.Is(err, one) {

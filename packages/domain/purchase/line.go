@@ -1,0 +1,137 @@
+package purchase
+
+import (
+	"fmt"
+	"math"
+	"strings"
+
+	"github.com/witsaba/paca/packages/domain/ledger"
+)
+
+// Measure is the quantity of a line with its unit.
+//
+// The quantity and its unit travel together: a quantity alone is a number
+// nobody can buy, and a unit alone is a word nobody can count.
+type Measure struct {
+	// Quantity is how much of the thing the owner named.
+	Quantity float64
+
+	// Unit is the unit of that quantity: the gram, the kilogram, the
+	// package, the piece.
+	Unit string
+}
+
+// NewMeasure builds the measure of a line.
+//
+// The quantity is positive, and the unit is not empty: the two travel
+// together.
+func NewMeasure(quantity float64, unit string) (Measure, error) {
+	if quantity <= 0 {
+		return Measure{}, fmt.Errorf("%w: %v", ErrInvalidQuantity, quantity)
+	}
+
+	trimmed := strings.TrimSpace(unit)
+	if trimmed == "" {
+		return Measure{}, fmt.Errorf("%w: the measure of a line carries its unit", ErrMissingUnit)
+	}
+
+	return Measure{Quantity: quantity, Unit: trimmed}, nil
+}
+
+// Price is the money of a line: the money that was paid for it, or the
+// price of one unit of it.
+//
+// Never two truths that disagree: when the owner named both, they must
+// agree, and the domain refuses the pair that does not.
+//
+// The money is never inferred. A price the agent filled is refused, and the
+// draft asks the owner for it.
+type Price struct {
+	// Total is the money that was paid for the whole line, in pesos.
+	Total ledger.Amount
+
+	// Unit is the price of one unit of the line, in pesos.
+	Unit ledger.Amount
+
+	// Inferred says that the price was filled by the agent and not said by
+	// the owner.
+	Inferred bool
+}
+
+// Present reports whether the line carries money.
+//
+// A line the owner did not price carries none: the money is what the draft
+// still needs.
+func (p Price) Present() bool {
+	return p.Total > 0 || p.Unit > 0
+}
+
+// AgreesWith reports whether the money that was paid and the price of the
+// unit are the same truth.
+//
+// The rule of the domain: when the owner named both, they must agree. The
+// money that was paid is the price of the unit times the quantity, rounded
+// to the nearest peso.
+func (p Price) AgreesWith(quantity float64) bool {
+	if p.Total <= 0 || p.Unit <= 0 {
+		return true
+	}
+
+	return p.Total == ledger.Amount(math.Round(float64(p.Unit)*quantity))
+}
+
+// Line is a line of the draft: the name as the owner said it, the measure
+// and the money.
+type Line struct {
+	// Name is the name as the owner said it.
+	Name string
+
+	// Measure is the quantity with its unit.
+	Measure Measure
+
+	// Price is the money of the line.
+	Price Price
+}
+
+// NewLine builds a line of a draft.
+//
+// The name is the name the owner said, and it may not be empty.
+//
+// The measure carries the quantity and its unit: the two travel together,
+// and a line without a unit is refused.
+//
+// The money may be absent: a line the owner did not price is a line the
+// draft still needs, and the draft says so. The money is never inferred: a
+// price the agent filled is refused.
+//
+// When the owner named both the money that was paid and the price of the
+// unit, the two must agree: the domain refuses the pair that does not.
+func NewLine(name string, measure Measure, price Price) (Line, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return Line{}, fmt.Errorf("%w: the name of a line is not empty", ErrInvalidName)
+	}
+
+	if measure.Quantity <= 0 {
+		return Line{}, fmt.Errorf("%w: %v", ErrInvalidQuantity, measure.Quantity)
+	}
+
+	if strings.TrimSpace(measure.Unit) == "" {
+		return Line{}, fmt.Errorf("%w: the measure of a line carries its unit", ErrMissingUnit)
+	}
+
+	if price.Inferred {
+		return Line{}, fmt.Errorf("%w: the money of the line %q is never inferred", ErrInferredPrice, trimmed)
+	}
+
+	if price.Total < 0 || price.Unit < 0 {
+		return Line{}, fmt.Errorf("%w: the money of the line %q is not negative", ErrInvalidPrice, trimmed)
+	}
+
+	if !price.AgreesWith(measure.Quantity) {
+		return Line{}, fmt.Errorf("%w: the line %q carries a total of %d and a unit of %d",
+			ErrPriceMismatch, trimmed, price.Total, price.Unit)
+	}
+
+	return Line{Name: trimmed, Measure: measure, Price: price}, nil
+}

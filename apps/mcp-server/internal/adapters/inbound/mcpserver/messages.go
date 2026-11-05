@@ -18,6 +18,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -83,4 +84,26 @@ var theMessages = map[error]string{
 		"owe it to, or who owes it to them",
 	ports.ErrNotADebt: "that account does not carry a debt: the debts are the accounts of the book that name the " +
 		"other side of the money",
+
+	purchase.ErrNotFound: "there is no draft with that identity: read the pending drafts of the business before " +
+		"correcting one of them",
+	purchase.ErrInvalidName:     "the name of a line is not empty: write the name the person read, the way she said it",
+	purchase.ErrInvalidQuantity: "the quantity of a line is not positive: ask the person how much she bought",
+	purchase.ErrMissingUnit: "the line carries no unit: ask the person in which unit she bought it ('kilos', " +
+		"'paquetes', 'unidades')",
+	purchase.ErrInvalidPrice: "the money of a line is not a number of pesos: ask the person what she paid",
+	purchase.ErrPriceMismatch: "the money paid and the price of the unit do not agree: ask the person which of the " +
+		"two is the right one",
+	purchase.ErrInferredPrice: "the money of a line is never inferred: ask the person what she paid, and never " +
+		"fill a price by yourself",
+	purchase.ErrMissingUtterance: "the draft carries no sentence of the owner: send the sentence as she said it, " +
+		"and not a summary of it",
+	purchase.ErrNoLines: "the draft carries no line: read the sentence of the owner again and send the lines " +
+		"she said",
+	purchase.ErrNoOptions: "the ambiguity carries no option: offer the candidates PACA found, so the person " +
+		"chooses with one word",
+	purchase.ErrWrongBusiness: "the draft belongs to another business: draft the purchase of the business the " +
+		"person names",
+	purchase.ErrInvalidValue: "the database refused the draft: check the sentence, the lines and the day of it",
+	purchase.ErrNoStorage:    "the service has no storage of the drafts: the drafts cannot be reached",
 }

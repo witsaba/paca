@@ -25,6 +25,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/health/endpoint"
@@ -172,6 +173,20 @@ func New(
 	debtService := application.NewDebtService(accounts, book, work, clock.System{})
 	summaryService := application.NewSummaryService(accounts, book, clock.System{})
 
+	// The utterance of the owner: the purchase she said, kept as a draft of
+	// the business while she decides. Without a database there is no draft.
+	var drafts purchase.Repository
+	if pool != nil {
+		boundDrafts, err := postgres.NewPurchaseRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the drafts could not be built: %w", err)
+		}
+		drafts = boundDrafts
+	}
+
+	purchaseService := application.NewPurchaseService(drafts, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -186,6 +201,7 @@ func New(
 		Book:                bookService,
 		Debts:               debtService,
 		Summary:             summaryService,
+		DraftPurchase:       purchaseService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

@@ -13,6 +13,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
 	healthports "github.com/witsaba/paca/packages/health/ports"
 )
@@ -269,6 +270,100 @@ type DebtQuerier interface {
 		fromAccountID account.ID,
 		date, description string,
 	) (DebtPayment, error)
+}
+
+// PurchaseLine is a line the agent read from the sentence of the owner: the
+// name as she said it, the quantity, the unit and the money.
+//
+// The port speaks in the words of the agent and in numbers: the use case
+// turns them into the model of the domain, and the domain decides what may
+// enter the book.
+type PurchaseLine struct {
+	// Name is the name as the owner said it.
+	Name string
+
+	// Quantity is how much of the thing the owner named.
+	Quantity float64
+
+	// Unit is the unit of that quantity.
+	Unit string
+
+	// Total is the money that was paid for the whole line, in pesos.
+	Total int64
+
+	// UnitPrice is the price of one unit of the line, in pesos.
+	UnitPrice int64
+
+	// Inferred says that the price was filled by the agent and not said by
+	// the owner. The money is never inferred, and the domain refuses it.
+	Inferred bool
+}
+
+// PurchaseAmbiguity is a name the agent was not sure about, with the options
+// it offers.
+//
+// Paca never asks an open question when it can name the options.
+type PurchaseAmbiguity struct {
+	// Name is the name as the owner said it.
+	Name string
+
+	// Options are the candidates the agent found.
+	Options []string
+}
+
+// DraftPurchase is the candidate the agent read from the sentence of the
+// owner, and the business it belongs to.
+//
+// It is the shape of the contract between the agent and the service: the
+// sentence of the owner travels verbatim, and the lines travel as the
+// agent read them.
+type DraftPurchase struct {
+	// BusinessID is the business the purchase belongs to.
+	BusinessID business.ID
+
+	// DraftID is the draft the candidate amends. It is zero when the
+	// candidate is a new one.
+	DraftID purchase.ID
+
+	// Utterance is the sentence of the owner, verbatim.
+	Utterance string
+
+	// Lines are the lines the agent read.
+	Lines []PurchaseLine
+
+	// Day is the day the owner named. It is the day of today when the
+	// agent names none.
+	Day string
+
+	// Market is the market the owner named. It is empty when she named
+	// none.
+	Market string
+
+	// Invoice is the invoice the owner named. It is empty when she named
+	// none.
+	Invoice string
+
+	// Ambiguities are the names the agent was not sure about.
+	Ambiguities []PurchaseAmbiguity
+}
+
+// PurchaseDrafter is the inbound port of the tool that drafts a purchase.
+//
+// The tool proposes the candidate the agent read from the sentence of the
+// owner, and the use case keeps it as a draft of the business. The draft
+// waits for the yes of the owner: the tool never writes the book.
+type PurchaseDrafter interface {
+	// Draft keeps the candidate as a draft of the business, and answers
+	// the draft with what it understood, what it still needs, what it was
+	// not sure about and what it filled by itself.
+	//
+	// The identity of the business and the sentence of the owner are
+	// required. The day, the market and the invoice are optional.
+	//
+	// The error is the error of the domain: the domain refuses a line
+	// without a unit, a price that was inferred and a sentence that is
+	// not there.
+	Draft(ctx context.Context, request DraftPurchase) (purchase.Draft, error)
 }
 
 // SummaryQuerier is the inbound port of the tool that closes a month.

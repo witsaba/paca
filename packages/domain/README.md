@@ -33,6 +33,9 @@ packages/domain/
                     amount, the day, the balance of an account, the money of
                     the business, the period of a reading and the debt of an
                     account
+  purchase/         the model of the draft of a purchase: the candidate the
+                    agent proposes, the lines, the measure, the money, what
+                    the draft still needs and the port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -255,6 +258,38 @@ same every time it is read.
 **A payment may not pass what the debt holds.** `Debt.AcceptsPayment` asks
 whether a payment may be paid against the debt: the payment must be
 positive, and it may not be bigger than the amount the debt still holds.
+
+## The model of the draft
+
+`purchase.Draft` is the candidate that the agent proposes from what the
+owner said. It is a proposal and not a fact: it is kept by the business
+that owns it, with its state, its revision and the sentence it came from,
+and it waits for the yes of the owner before anything is written in the
+book. The transport of the MCP server is stateless, and a candidate that
+lives only in the context of the model is a candidate that can be
+paraphrased, lost or silently changed between the proposal and the yes.
+
+**The draft carries the three parts of the answer of Paca.** What it
+understood are its lines, what it still needs is `Missing`, what it was not
+sure about is `Ambiguous` — and an ambiguity always carries the options
+Paca offers, because Paca never asks an open question when it can name the
+options — and what Paca filled by herself is `Inferred`.
+
+**The money is never inferred.** `purchase.NewLine` refuses a price the
+agent filled (`ErrInferredPrice`), and a line the owner did not price is
+what the draft still needs. The quantity and its unit travel together:
+`purchase.NewMeasure` refuses a quantity without a unit. When the owner
+named both the money that was paid and the price of the unit, the two must
+agree, and the domain refuses the pair that does not.
+
+**The day is one of the three things Paca may fill by herself.** A draft
+that names no day is the day of today, and the answer names it in
+`Inferred`. The day, the currency and the business are the three, and the
+money is never one of them.
+
+**A draft expires seven days after the day it was proposed.** The price of
+a market does not wait. An amendment grows the revision of the draft and
+keeps the sentence the owner said the first time.
 
 ## The transaction of the storage
 

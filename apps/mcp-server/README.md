@@ -100,10 +100,11 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes fourteen tools: the way PACA onboards a person, the four
+The server exposes fifteen tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
-businesses of a person, the three tools of the book of their money, and the
-four tools of their debts and of the closing of their month.
+businesses of a person, the three tools of the book of their money, the
+four tools of their debts and of the closing of their month, and the tool
+of the utterance: the purchase the owner just said.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -121,6 +122,7 @@ four tools of their debts and of the closing of their month.
 | `list_debts`              | Reads the debts the book still holds: what the person owes, to whom, and the day it falls due. |
 | `record_debt_payment`     | Writes the payment of a debt, and refuses a payment that passes what the debt still holds. |
 | `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
+| `draft_purchase`           | Proposes the purchase the owner just said and keeps it as a draft of the business, with what it understood, what it still needs, what it was not sure about and what it filled. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -164,6 +166,20 @@ way the person says it: a salary lands in the cash and comes from the
 salary. The amount is positive and it is never a fraction, the day is the
 day the money moved — the day of today when the agent names none — and the
 description is what the person reads in their book.
+
+**The utterance is a draft, and a draft waits for the yes.** The tool
+`draft_purchase` takes the business and the sentence of the owner verbatim,
+with the lines the agent read from it: the name as she said it, the
+quantity, the unit and the money. It writes a draft and nothing else — the
+book of the business does not move until the owner says yes — and it answers
+with the three parts of the answer of Paca: what it understood, what it did
+not understand and what it still needs. The money is never inferred: a
+price the agent filled is refused, and a line the owner did not price is
+what the draft still needs. The quantity and its unit travel together, and
+when the owner named both the money that was paid and the price of the
+unit, the two must agree. The day is one of the three things Paca may fill
+by herself, so a draft that names no day is the day of today and the answer
+says so. A draft expires in seven days if the owner says nothing.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

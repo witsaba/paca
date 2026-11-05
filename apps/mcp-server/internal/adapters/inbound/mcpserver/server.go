@@ -72,6 +72,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	Summary ports.SummaryQuerier
+
+	// DraftPurchase is the use case that keeps the purchase the owner said
+	// as a draft of the business.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	DraftPurchase ports.PurchaseDrafter
 }
 
 // Server is the MCP transport of the service.
@@ -122,6 +129,7 @@ func New(opts Options) *Server {
 	transport.registerBusinessTools(opts.OpenBusiness, opts.ReadBusinesses)
 	transport.registerBookTools(opts.Book)
 	transport.registerDebtTools(opts.Debts, opts.Summary)
+	transport.registerPurchaseTools(opts.DraftPurchase)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

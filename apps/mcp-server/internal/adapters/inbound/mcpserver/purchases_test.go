@@ -1,0 +1,339 @@
+package mcpserver_test
+
+import (
+	"context"
+	"io"
+	"log/slog"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
+	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
+)
+
+// stubPurchaseDrafter is the use case that keeps the draft of a purchase,
+// in memory.
+//
+// It answers what the test tells it to answer, and it remembers what the
+// tool asked it.
+type stubPurchaseDrafter struct {
+	draft purchase.Draft
+	err   error
+	got   ports.DraftPurchase
+	calls int
+}
+
+// Draft answers the draft of the test, and remembers what the tool asked.
+func (s *stubPurchaseDrafter) Draft(_ context.Context, request ports.DraftPurchase) (purchase.Draft, error) {
+	s.calls++
+	s.got = request
+
+	if s.err != nil {
+		return purchase.Draft{}, s.err
+	}
+
+	return s.draft, nil
+}
+
+// connectWithPurchases starts the transport with the stub of the drafts.
+func connectWithPurchases(t *testing.T, drafter ports.PurchaseDrafter) *sdk.ClientSession {
+	t.Helper()
+
+	transport := mcpserver.New(mcpserver.Options{
+		ServiceName:         "paca-mcp-server",
+		ServiceVersion:      "0.1.0",
+		Instructions:        "The PACA MCP server.",
+		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		MaxRequestBodyBytes: 1 << 20,
+		DraftPurchase:       drafter,
+	})
+
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+
+	client := sdk.NewClient(&sdk.Implementation{Name: "paca-mcp-server-test", Version: "0.1.0"}, nil)
+
+	session, err := client.Connect(t.Context(), &sdk.StreamableClientTransport{Endpoint: server.URL}, nil)
+	if err != nil {
+		t.Fatalf("the client could not connect to the transport: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Logf("the session did not close: %v", err)
+		}
+	})
+
+	return session
+}
+
+// theAnswerOfTheDraft is the answer the stub of the use case gives.
+func theAnswerOfTheDraft() purchase.Draft {
+	day := ledger.NewDate(draftMoment())
+
+	return purchase.Draft{
+		ID:         42,
+		BusinessID: business.ID(77),
+		State:      purchase.StateProposed,
+		Revision:   1,
+		Utterance:  "Compré 25 kilos de harina",
+		Lines: []purchase.Line{
+			{
+				Name:    "Harina",
+				Measure: purchase.Measure{Quantity: 25, Unit: "kg"},
+				Price:   purchase.Price{Total: 12000},
+			},
+		},
+		Missing:    []string{"the price of Pan"},
+		Ambiguous:  []purchase.Ambiguity{{Name: "harina", Options: []string{"Harina panadera", "Harina de trigo"}}},
+		Inferred:   []string{"the day of the purchase is the day of today"},
+		Day:        day,
+		Market:     "Plaza de Mercado",
+		Invoice:    "FV-001",
+		ProposedOn: day,
+		ExpiresOn:  ledger.NewDate(draftMoment().AddDate(0, 0, purchase.DraftLifetimeDays)),
+	}
+}
+
+// draftMoment is the moment the draft of the test was proposed.
+func draftMoment() time.Time {
+	return time.Date(2026, time.March, 15, 9, 0, 0, 0, time.UTC)
+}
+
+// TestThePurchaseToolKeepsTheDraft proves that the tool carries what the
+// agent sends to the use case, and that the answer carries the draft and
+// the three parts of the answer of Paca.
+func TestThePurchaseToolKeepsTheDraft(t *testing.T) {
+	t.Parallel()
+
+	drafter := &stubPurchaseDrafter{draft: theAnswerOfTheDraft()}
+	session := connectWithPurchases(t, drafter)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolDraftPurchase,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"utterance":   "Compré 25 kilos de harina",
+			"day":         "2026-03-14",
+			"market":      "Plaza de Mercado",
+			"invoice":     "FV-001",
+			"lines": []any{
+				map[string]any{
+					"name":       "Harina",
+					"quantity":   25,
+					"unit":       "kg",
+					"total_paid": 12000,
+				},
+			},
+			"ambiguities": []any{
+				map[string]any{
+					"name":    "harina",
+					"options": []any{"Harina panadera", "Harina de trigo"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if drafter.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1", drafter.calls)
+	}
+	if drafter.got.BusinessID != business.ID(77) {
+		t.Errorf("the business is %d, want 77", drafter.got.BusinessID)
+	}
+	if drafter.got.Utterance != "Compré 25 kilos de harina" {
+		t.Errorf("the sentence is %q, want %q", drafter.got.Utterance, "Compré 25 kilos de harina")
+	}
+	if drafter.got.Day != "2026-03-14" {
+		t.Errorf("the day is %q, want %q", drafter.got.Day, "2026-03-14")
+	}
+	if drafter.got.Market != "Plaza de Mercado" {
+		t.Errorf("the market is %q, want %q", drafter.got.Market, "Plaza de Mercado")
+	}
+	if drafter.got.Invoice != "FV-001" {
+		t.Errorf("the invoice is %q, want %q", drafter.got.Invoice, "FV-001")
+	}
+	if len(drafter.got.Lines) != 1 {
+		t.Fatalf("the use case received %d lines, want 1", len(drafter.got.Lines))
+	}
+	if drafter.got.Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", drafter.got.Lines[0].Name, "Harina")
+	}
+	if drafter.got.Lines[0].Quantity != 25 {
+		t.Errorf("the quantity is %v, want 25", drafter.got.Lines[0].Quantity)
+	}
+	if drafter.got.Lines[0].Unit != "kg" {
+		t.Errorf("the unit is %q, want %q", drafter.got.Lines[0].Unit, "kg")
+	}
+	if drafter.got.Lines[0].Total != 12000 {
+		t.Errorf("the money is %d, want 12000", drafter.got.Lines[0].Total)
+	}
+	if len(drafter.got.Ambiguities) != 1 {
+		t.Fatalf("the use case received %d ambiguities, want 1", len(drafter.got.Ambiguities))
+	}
+	if len(drafter.got.Ambiguities[0].Options) != 2 {
+		t.Errorf("the options are %v, want the two of the test", drafter.got.Ambiguities[0].Options)
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{
+		"42", "proposed", "Harina", "25", "kg", "12000",
+		"the price of Pan",
+		"Harina panadera",
+		"the day of the purchase is the day of today",
+		"2026-03-15", "2026-03-22",
+	} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q: %s", want, answer)
+		}
+	}
+}
+
+// TestThePurchaseToolAnswersWithoutADatabase proves that a server without
+// a database still exposes the tool, and that the call says so.
+func TestThePurchaseToolAnswersWithoutADatabase(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithPurchases(t, nil)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolDraftPurchase,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"utterance":   "Compré harina",
+			"lines": []any{
+				map[string]any{"name": "Harina", "quantity": 25, "unit": "kg", "total_paid": 12000},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered no error, want the failure of the service")
+	}
+
+	if !strings.Contains(textOf(t, result), "database") {
+		t.Errorf("the answer does not say that the database is not there: %s", textOf(t, result))
+	}
+}
+
+// TestThePurchaseToolExplainsTheFailureToTheAgent proves that the failure
+// of the use case reaches the agent with a message of its own, and never as
+// the raw error of the domain.
+func TestThePurchaseToolExplainsTheFailureToTheAgent(t *testing.T) {
+	t.Parallel()
+
+	drafter := &stubPurchaseDrafter{err: purchase.ErrInferredPrice}
+	session := connectWithPurchases(t, drafter)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolDraftPurchase,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"utterance":   "Compré harina",
+			"lines": []any{
+				map[string]any{"name": "Harina", "quantity": 25, "unit": "kg", "total_paid": 12000},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered no error, want the failure of the use case")
+	}
+
+	answer := textOf(t, result)
+	if answer == purchase.ErrInferredPrice.Error() {
+		t.Errorf("the answer is the raw error of the domain: %s", answer)
+	}
+	if !strings.Contains(answer, "never inferred") {
+		t.Errorf("the answer does not explain the failure: %s", answer)
+	}
+}
+
+// TestTheDescriptionOfThePurchaseToolSaysWhatItNeeds proves that the
+// description of the tool is a contract with the agent: it says what is
+// required, what the empty field means, and that it changes nothing in the
+// book.
+func TestTheDescriptionOfThePurchaseToolSaysWhatItNeeds(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithPurchases(t, &stubPurchaseDrafter{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolDraftPurchase)
+
+	for _, want := range []string{
+		"business is REQUIRED",
+		"sentence of the owner is REQUIRED",
+		"At least one line is REQUIRED",
+		"unit is REQUIRED",
+		"never inferred",
+		"day is OPTIONAL",
+		"day of today",
+		"market is OPTIONAL",
+		"invoice is OPTIONAL",
+		"changes nothing in the book",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheErrorsOfThePurchasesReachTheAgentWithAMessage proves that every
+// error the drafts can return reaches the agent with a message of its own.
+func TestTheErrorsOfThePurchasesReachTheAgentWithAMessage(t *testing.T) {
+	t.Parallel()
+
+	for _, failure := range purchase.Errors() {
+		t.Run(failure.Error(), func(t *testing.T) {
+			t.Parallel()
+
+			drafter := &stubPurchaseDrafter{err: failure}
+			session := connectWithPurchases(t, drafter)
+
+			result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+				Name: mcpserver.ToolDraftPurchase,
+				Arguments: map[string]any{
+					"business_id": 77,
+					"utterance":   "Compré harina",
+					"lines": []any{
+						map[string]any{"name": "Harina", "quantity": 25, "unit": "kg", "total_paid": 12000},
+					},
+				},
+			})
+			if err != nil {
+				t.Fatalf("the tool failed: %v", err)
+			}
+			if !result.IsError {
+				t.Fatal("the tool answered no error, want the failure of the use case")
+			}
+
+			answer := textOf(t, result)
+			if answer == failure.Error() {
+				t.Fatalf("the answer is the raw error of the domain: %s", answer)
+			}
+			if !strings.Contains(answer, ":") {
+				t.Errorf("the answer says nothing about what to do: %s", answer)
+			}
+		})
+	}
+}

@@ -344,6 +344,25 @@ func TestTheResolutionOfAnAmbiguousName(t *testing.T) {
 	}
 }
 
+// TestTheCatalogHoldsTheIngredientsItKnows proves that the catalog answers
+// about the ingredients it holds: a recipe names the ingredients of the
+// catalog, and the catalog is the one that knows them.
+func TestTheCatalogHoldsTheIngredientsItKnows(t *testing.T) {
+	t.Parallel()
+
+	catalog := theCatalogOfTheTest(t)
+
+	if !catalog.Holds(ID(10)) {
+		t.Error("the catalog does not hold the ingredient 10, want it to hold it")
+	}
+	if catalog.Holds(ID(999)) {
+		t.Error("the catalog holds the ingredient 999, want it to hold nothing")
+	}
+	if catalog.Holds(ID(0)) {
+		t.Error("the catalog holds the empty identity, want it to hold nothing")
+	}
+}
+
 // TestTheStatusOfTheMatchIsItsName proves that the status is the name the
 // storage and the protocol carry.
 func TestTheStatusOfTheMatchIsItsName(t *testing.T) {

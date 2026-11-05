@@ -107,6 +107,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadDrafts ports.DraftsReader
+
+	// RecordRecipe is the use case that writes the recipe of the bakery
+	// that the owner confirmed.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordRecipe ports.RecipeRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -159,6 +166,7 @@ func New(opts Options) *Server {
 	transport.registerDebtTools(opts.Debts, opts.Summary)
 	transport.registerPurchaseTools(opts.DraftPurchase, opts.ConfirmPurchase, opts.CancelDraft, opts.ReadDrafts)
 	transport.registerIngredientTools(opts.MatchItems)
+	transport.registerRecipeTools(opts.RecordRecipe)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

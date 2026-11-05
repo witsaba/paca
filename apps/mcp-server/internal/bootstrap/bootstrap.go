@@ -27,6 +27,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/health/endpoint"
@@ -213,6 +214,22 @@ func New(
 	// name she said against it, and it writes nothing.
 	ingredientService := application.NewIngredientService(ingredients)
 
+	// The recipe of the bakery: the guide the owner confirmed, with its
+	// ingredients of the catalog, its steps and its yield. The recipe is
+	// written in the book of the business, and without a database there is
+	// no recipe to write.
+	var recipes recipe.Repository
+	if pool != nil {
+		boundRecipes, err := postgres.NewRecipeRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the recipes could not be built: %w", err)
+		}
+		recipes = boundRecipes
+	}
+
+	recipeService := application.NewRecipeService(recipes, ingredients)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -232,6 +249,7 @@ func New(
 		CancelDraft:         purchaseService,
 		ReadDrafts:          purchaseService,
 		MatchItems:          ingredientService,
+		RecordRecipe:        recipeService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

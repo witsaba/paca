@@ -200,6 +200,22 @@ func (c Catalog) Resolve(id ID, spoken string) (Resolution, error) {
 	}
 }
 
+// Holds answers whether the catalog holds the ingredient of that identity.
+//
+// The rule of the domain: an ingredient of another business is not in this
+// catalog, and an ingredient that was never bought is not in it either. A
+// recipe names the ingredients of the catalog, and this is the question the
+// catalog answers about them.
+func (c Catalog) Holds(id ID) bool {
+	for _, one := range c.items {
+		if one.ID == id {
+			return true
+		}
+	}
+
+	return false
+}
+
 // With answers the catalog with one more ingredient.
 //
 // The rule of the domain: two ingredients of the same business never carry

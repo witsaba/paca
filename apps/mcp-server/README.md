@@ -100,13 +100,14 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes seventeen tools: the way PACA onboards a person, the four
+The server exposes twenty tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
-four tools of their debts and of the closing of their month, the two tools
-of the utterance — the purchase the owner just said, and the purchase she
-confirmed — and the tool of the catalog: the name she said, against the
-names the business buys.
+four tools of their debts and of the closing of their month, the four tools
+of the utterance — the purchase the owner just said, the purchase she
+confirmed, and the two that drop and read back the pending drafts — the
+tool of the catalog, which matches the name she said against the names the
+business buys, and the tool of the recipes: the guide she just confirmed.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -129,6 +130,7 @@ names the business buys.
 | `cancel_draft`             | Drops the draft the owner does not want: it moves to the state `cancelled` and it never waits again. It writes nothing in the book. |
 | `read_drafts`              | Reads the pending drafts of a business, each one with what it still needs, what it was not sure about and what PACA filled, so that a lost conversation can be recovered. It writes nothing. |
 | `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
+| `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -227,13 +229,30 @@ not an error: the answer says that it is new, and the confirmation of the
 purchase records it as she said it. The tool writes nothing: the catalog
 grows with the confirmation of a purchase, never with a read.
 
+**The recipe is a guide, and it is written with the yes of the owner.** The
+tool `record_recipe` takes the business, the name the owner reads, the
+ingredients of the catalog with their grams, the steps in the order she
+said them, the yield, the shelf life of what the recipe makes and the word
+she used to confirm it. A recipe is not a list of ingredients: it is a
+guide to learn and to teach, and the steps are part of it — with their
+times, their temperatures and their cues, when she named them. The grams of
+an ingredient are never inferred, and the yield is a declared constant of
+the recipe, never measured per bake. The ingredient of a recipe is the
+ingredient of the catalog: PACA refuses an ingredient the catalog of the
+business does not hold, and the answer tells the agent to match the name
+first. The recipe, its ingredients and its steps are written together or not
+at all: a recipe without its ingredients and its steps is not a guide, and a
+refused recipe leaves nothing behind.
+
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
 address, a document that is already registered, an email that belongs to
 somebody else, a move the map does not allow, an observation that does
 not fit the status, a name that is missing, a business that is already
-there, an account whose name is taken inside its business: each one says
-what happened and what to do about it.
+there, an account whose name is taken inside its business, a recipe without
+a name or without a yield, an ingredient of a recipe without its grams and
+a step without its instruction: each one says what happened and what to do
+about it.
 
 The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the

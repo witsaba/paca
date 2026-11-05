@@ -20,6 +20,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -130,4 +131,30 @@ var theMessages = map[error]string{
 		"of the business the person names",
 	ingredient.ErrInvalidValue: "the database refused the ingredient: check the name of it",
 	ingredient.ErrNoStorage:    "the service has no storage of the ingredients: the catalog cannot be reached",
+
+	recipe.ErrNotFound: "the business or the ingredient of the recipe is not there: check the business, and match " +
+		"the ingredient against the catalog of that business before writing the recipe",
+	recipe.ErrMissingName: "the recipe carries no name: ask the owner for the name she reads ('Pan de molde'), " +
+		"and never invent one",
+	recipe.ErrMissingConfirmation: "the recipe carries no word of the owner: send the word she used to confirm it " +
+		"('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrNoIngredients: "the recipe carries no ingredient: read the sentence of the owner again and send the " +
+		"ingredients she said, with their grams",
+	recipe.ErrMissingGrams: "an ingredient of the recipe carries no grams: ask the owner how many grams of it the " +
+		"recipe needs, and never guess them",
+	recipe.ErrUnknownIngredient: "the ingredient of the recipe is not one of the catalog of the business: match the " +
+		"name against the catalog first, and send the identity it answered",
+	recipe.ErrNoSteps: "the recipe carries no step: a recipe is a guide to learn and to teach, so send the steps " +
+		"the owner said, in that order",
+	recipe.ErrMissingInstruction: "a step of the recipe carries no instruction: ask the owner what she does in " +
+		"that step",
+	recipe.ErrInvalidTemperature: "the temperature of a step is below the absolute zero: ask the owner for the " +
+		"temperature of the oven, in degrees Celsius",
+	recipe.ErrInvalidYield: "the yield of the recipe is not positive: ask the owner how many units the recipe " +
+		"makes and how much each one weighs",
+	recipe.ErrMissingShelfLife: "the recipe carries no shelf life: ask the owner how many days what the recipe " +
+		"makes keeps, and correct it later when she knows it better",
+	recipe.ErrInvalidValue: "the database refused the recipe: check the name, the ingredients, the steps, the " +
+		"yield and the shelf life of it",
+	recipe.ErrNoStorage: "the service has no storage of the recipes: the book of the bakery cannot be reached",
 }

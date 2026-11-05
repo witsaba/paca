@@ -93,6 +93,36 @@ type PurchaseLine struct {
 	IngredientID pgtype.Int8
 }
 
+type Recipe struct {
+	ID            int64
+	BusinessID    int64
+	Name          string
+	YieldUnits    int32
+	YieldGrams    float64
+	ShelfLifeDays int32
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type RecipeIngredient struct {
+	ID           int64
+	RecipeID     int64
+	Position     int32
+	IngredientID int64
+	Grams        float64
+}
+
+type RecipeStep struct {
+	ID          int64
+	RecipeID    int64
+	Position    int32
+	Instruction string
+	Cue         string
+	Minutes     int32
+	Temperature float64
+}
+
 type User struct {
 	ID                 int64
 	FullName           pgtype.Text

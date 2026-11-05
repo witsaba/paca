@@ -40,6 +40,11 @@ packages/domain/
   ingredient/       the model of the catalog of the names the business buys:
                     the name the owner reads, the names she uses for it, the
                     matching of a name she said and the port of the storage
+  recipe/           the model of the recipe of the bakery: the guide to
+                    learn and to teach, the ingredients with their grams, the
+                    steps with their times, their temperatures and their
+                    cues, the yield, the shelf life and the port of the
+                    storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -380,6 +385,44 @@ ingredient of the catalog, and the identity is empty when the catalog does
 not know the name: the line keeps the name as the owner said it. The
 catalog grows with the confirmation of a purchase: a name the catalog does
 not know becomes an ingredient of the business.
+
+## The model of the recipe
+
+`recipe.Recipe` is the guide of the bakery: what it makes and how. It
+carries the name the owner reads, the ingredients with their grams, the
+steps with their times, their temperatures and their cues, the yield of what
+it makes and the shelf life of it.
+
+**The recipe is not a list of ingredients.** It is a guide to learn and to
+teach, and the steps are part of it: a recipe without steps teaches nothing,
+and `recipe.New` refuses it (`ErrNoSteps`). A step without its instruction
+is not a step either (`ErrMissingInstruction`).
+
+**The ingredient of a recipe is the ingredient of the catalog.**
+`recipe.Ingredient` carries the identity of the ingredient and the grams of
+it, and nothing else: the recipe never carries a second copy of the flour.
+An ingredient of the catalog that the business does not hold is refused
+(`ErrUnknownIngredient`).
+
+**The yield is a declared constant.** `recipe.Yield` is the number of units
+the recipe makes and the weight of each one, and it is positive
+(`ErrInvalidYield`). It is never measured per bake: the production of a day
+is a fact of its own.
+
+**The steps keep their order, and a step may be named by its cue.** The cue
+is the sign the owner looks for — the dough that holds the shape. A step
+carries its time and its temperature when the owner named them, and neither
+when she did not: the zero of the time and of the temperature is the
+absence of them, because a number PACA invented is a lie in the guide. A
+temperature below the absolute zero is not a temperature
+(`ErrInvalidTemperature`).
+
+**The recipe is written with the word of the owner.** The name is not empty
+(`ErrMissingName`), the shelf life of what it makes is positive
+(`ErrMissingShelfLife`), and the word she used to confirm it is kept with
+the record (`ErrMissingConfirmation`). The sentence of the owner is
+optional: the recipe is the record, and the sentence is kept with it when
+she said one.
 
 ## The transaction of the storage
 

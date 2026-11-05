@@ -15,6 +15,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
 	healthports "github.com/witsaba/paca/packages/health/ports"
 )
@@ -512,6 +513,98 @@ type ItemMatcher interface {
 	// that is not there, and a catalog that carries two ingredients with
 	// the same name.
 	Match(ctx context.Context, request MatchItems) (ingredient.Match, error)
+}
+
+// RecipeIngredient is an ingredient of a recipe: the identity of the
+// ingredient of the catalog and the grams of it.
+//
+// The port speaks in the words of the agent and in numbers: the use case
+// turns them into the model of the domain, and the domain decides what may
+// enter the book.
+type RecipeIngredient struct {
+	// IngredientID is the identity of the ingredient of the catalog.
+	IngredientID int64
+
+	// Grams is how many grams of it the recipe needs.
+	Grams float64
+}
+
+// RecipeStep is one step of the process of a recipe.
+//
+// The instruction is what the owner does, the cue is the sign she looks
+// for, and the time and the temperature are there only when she named
+// them.
+type RecipeStep struct {
+	// Instruction is what the owner does in this step.
+	Instruction string
+
+	// Cue is the sign the owner looks for.
+	Cue string
+
+	// Minutes is the time of the step, in minutes. It is zero when the
+	// owner named none.
+	Minutes int
+
+	// Temperature is the temperature of the step, in degrees Celsius. It
+	// is zero when the owner named none.
+	Temperature float64
+}
+
+// RecordRecipe is the recipe the owner confirmed: the business it belongs
+// to, its name, its ingredients, its steps, its yield, its shelf life and
+// the word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// sentence of the owner travels verbatim when she said one, and the
+// identity of every ingredient travels with the grams of it.
+type RecordRecipe struct {
+	// BusinessID is the business the recipe belongs to.
+	BusinessID business.ID
+
+	// Name is the name the owner reads.
+	Name string
+
+	// Ingredients are the ingredients of the recipe, with their grams.
+	Ingredients []RecipeIngredient
+
+	// Steps are the steps of the process, in the order the owner said
+	// them.
+	Steps []RecipeStep
+
+	// YieldUnits is the number of units the recipe makes.
+	YieldUnits int
+
+	// YieldGrams is the weight of one unit, in grams.
+	YieldGrams float64
+
+	// ShelfLifeDays is the number of days what the recipe makes keeps.
+	ShelfLifeDays int
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word she used to confirm the recipe.
+	ConfirmedWith string
+}
+
+// RecipeRecorder is the inbound port of the tool that records a recipe.
+//
+// The tool writes the recipe with the confirmation of the owner, the way the
+// purchase is written: the domain refuses a recipe that is not whole, and
+// the answer tells the agent what it still needs to ask for.
+type RecipeRecorder interface {
+	// Record writes the recipe of the business and answers it with it.
+	//
+	// The identity of the business, the name of the recipe, its
+	// ingredients with their grams, its steps, the yield, the shelf life
+	// and the word of the owner are required. The sentence of the owner
+	// is optional.
+	//
+	// The error is the error of the domain: the domain refuses a recipe
+	// without a name, without a yield, with an ingredient without its
+	// grams, with a step without its instruction, and with an ingredient
+	// the catalog of the business does not hold.
+	Record(ctx context.Context, request RecordRecipe) (recipe.Recipe, error)
 }
 
 // SummaryQuerier is the inbound port of the tool that closes a month.

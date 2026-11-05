@@ -1040,7 +1040,7 @@ its session starts.
 | T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | this commit |
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | this commit |
 | T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | this commit |
-| T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | `pending` |
+| T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | this commit |
 | T9 | S17, S18, S47 | The reference prices and their tools | inline | `pending` |
 
 ### Movement III — The cost
@@ -1157,3 +1157,11 @@ Three things the increment taught, carried here for the ones to come:
 - The expiry is **computed by the domain when the draft is read**, on the day the caller names. The table needs no job to expire anything, and the row keeps the state it was written with: an expired draft is still `proposed` in the table, and the domain reads it as `expired`. The vocabulary of the domain and the check of the table agree, and the table was widened with a migration of its own.
 - The amendment of a draft now takes the day, and it refuses a draft that ended or expired: an amendment is a move inside the life of a draft, not a way to bring it back.
 - The answer of `confirm_purchase` now names the names the catalog did not know, so the agent can tell the owner that a name is new. The gap T5 left is closed.
+
+**L21** (2026-11-05): T8 landed: the recipe. The new package holds the recipe with the name, the ingredients with their grams, the steps with their times, their temperatures and their cues, the yield and the shelf life. The ingredient of a recipe is the ingredient of the catalog — the identity and the grams, never a second copy of the flour. The yield is a declared constant and the steps keep their order. The tool `record_recipe` writes the recipe with the word of the owner, the way the purchase is written, and the domain refuses a recipe that is not whole: no name, no yield, an ingredient without its grams, a step without its instruction — and the message of the refusal says what the agent has to ask for.
+
+Three things the increment taught, carried here for the ones to come:
+
+- The port of the recipes **writes only**: nothing reads a recipe back yet. The cost of a batch (T12) and the production (T17) will widen it, and the rules they add will land in the domain and in the table together.
+- The name of a recipe is **not unique inside the business** today, because the domain states no such rule, and the table holds none. If the owner wants it, the rule belongs in the domain first.
+- The list of the tools of the running server was **stale since T5 and T6** — it was missing `match_items`, `cancel_draft` and `read_drafts` — and it is right now. The list of the tools is a contract of the transport, and it is proved by a test that only sees the running server.

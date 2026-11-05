@@ -2,29 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>PACA — architecture, blueprint</title>
+<title>PACA — architecture, purple blueprint</title>
 <style>
   :root{
-    --bg:#0C0812; --panel:#150F20; --line:#2A1F42; --grid:#1A1230;
-    --ink:#EFEAF8; --muted:#9A8DB5; --purple:#A78BFA; --purple-deep:#7C5CE8; --mauve:#C4B5FD; --brown:#B07C4A;
+    --bg:#150828; --panel:rgba(139,92,246,.16); --line:rgba(167,139,250,.34); --grid:#241146;
+    --ink:#F4EFFF; --muted:#B7A2EE; --purple:#C4B5FD; --purple-deep:#8B5CF6; --mauve:#DDD6FE;
+    --brown:#C08A4A; --brown-ink:#FBEEDA;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
-  .canvas{position:relative;width:1440px;height:900px;overflow:hidden}
+  .canvas{position:relative;width:1440px;height:900px;overflow:hidden;
+    background:
+      radial-gradient(1000px 640px at 14% 4%, rgba(139,92,246,.42) 0%, rgba(139,92,246,0) 60%),
+      linear-gradient(160deg,#241046 0%, #170A30 55%, #0E0620 100%)}
   .bg{position:absolute;inset:0;
       background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-      background-size:48px 48px;opacity:.55}
+      background-size:48px 48px;opacity:.5}
   .svg{position:absolute;inset:0;width:1440px;height:900px}
-  .node{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .node{position:absolute;border-radius:14px;padding:16px 18px;
+        background:linear-gradient(150deg, rgba(139,92,246,.26), rgba(26,10,52,.72));
+        border:1px solid var(--line)}
+  .dark{background:linear-gradient(150deg, rgba(9,4,20,.95), rgba(22,9,44,.9));border-color:rgba(167,139,250,.18)}
+  .human{background:linear-gradient(150deg,#7A4A22,#4A2A11);border-color:var(--brown)}
+  .human .k{color:#E8B981}
+  .human .t,.human .d{color:var(--brown-ink)}
   .k{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-  .t{font-size:19px;font-weight:600;margin-top:8px;letter-spacing:-.01em}
+  .t{font-size:19px;font-weight:600;margin-top:8px;letter-spacing:-.01em;color:#fff}
   .d{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
-  .h1{position:absolute;left:60px;top:48px;font-size:38px;font-weight:700;letter-spacing:.06em}
+  .h1{position:absolute;left:60px;top:48px;font-size:38px;font-weight:700;letter-spacing:.06em;color:#fff}
   .h2{position:absolute;left:60px;top:98px;font-size:14px;color:var(--muted);letter-spacing:.04em}
-  .badge{position:absolute;border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12px;color:var(--ink)}
+  .badge{position:absolute;border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12px;color:var(--ink);
+         background:rgba(9,4,20,.5)}
   .elabel{position:absolute;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
-  .foot{position:absolute;left:60px;top:848px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+  .foot{position:absolute;left:60px;top:848px;font-size:11px;color:var(--brown);letter-spacing:.08em}
   .legend{position:absolute;right:60px;top:48px;font-size:12px;color:var(--muted);text-align:right;line-height:1.8}
   .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
 </style>
@@ -35,10 +46,10 @@
   <svg class="svg" viewBox="0 0 1440 900" aria-hidden="true">
     <defs>
       <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M0,0 L10,5 L0,10 z" fill="#6E5C93"/>
+        <path d="M0,0 L10,5 L0,10 z" fill="#B7A2EE"/>
       </marker>
     </defs>
-    <g fill="none" stroke="#6E5C93" stroke-width="2" stroke-dasharray="5 6" marker-end="url(#a)">
+    <g fill="none" stroke="#B7A2EE" stroke-width="2" stroke-dasharray="5 6" marker-end="url(#a)" opacity=".9">
       <path d="M260,376 L360,376"/>
       <path d="M660,330 C700,330 700,275 740,275"/>
       <path d="M660,420 C700,420 700,545 740,545"/>
@@ -59,15 +70,15 @@
   </div>
   <div class="badge" style="left:60px;top:148px">telegram // the only channel today</div>
 
-  <div class="node" style="left:60px;top:300px;width:200px;height:152px;border-color:#4A3826">
-    <div class="k" style="color:var(--brown)">the human</div>
+  <div class="node human" style="left:60px;top:300px;width:200px;height:152px">
+    <div class="k">the human</div>
     <div class="t">The owner</div>
     <div class="d">One person, one business.<br>witsaba.com</div>
   </div>
 
-  <div class="node" style="left:360px;top:270px;width:300px;height:212px;border-color:var(--purple);box-shadow:0 0 0 1px rgba(167,139,250,.20)">
+  <div class="node" style="left:360px;top:270px;width:300px;height:212px;border-color:var(--purple);box-shadow:0 0 0 1px rgba(196,181,253,.18)">
     <div class="k" style="color:var(--purple)">the agent</div>
-    <div class="t" style="color:var(--purple)">Paca</div>
+    <div class="t" style="color:#fff">Paca</div>
     <div class="d">Hermes runtime + soul.md.<br>She talks and works.</div>
   </div>
 
@@ -95,18 +106,18 @@
     <div class="d">kept by the memory alone</div>
   </div>
 
-  <div class="node" style="left:360px;top:680px;width:300px;height:130px;border-color:#4A3826">
-    <div class="k">the brain</div>
+  <div class="node dark" style="left:360px;top:680px;width:300px;height:130px">
+    <div class="k" style="color:var(--brown)">the brain</div>
     <div class="d" style="margin-top:8px">the provider of the models — the only way out of the machine</div>
   </div>
 
-  <div class="node" style="left:740px;top:680px;width:360px;height:130px;border-color:#4A3826">
-    <div class="k">the eyes</div>
+  <div class="node dark" style="left:740px;top:680px;width:360px;height:130px">
+    <div class="k" style="color:var(--brown)">the eyes</div>
     <div class="d" style="margin-top:8px">jaeger — the traces of every service, kept for two days</div>
   </div>
 
-  <div class="node" style="left:1160px;top:680px;width:220px;height:130px;border-color:#4A3826">
-    <div class="k">the only writer</div>
+  <div class="node dark" style="left:1160px;top:680px;width:220px;height:130px">
+    <div class="k" style="color:var(--brown)">the only writer</div>
     <div class="d" style="margin-top:8px">db-admin applies the schema</div>
   </div>
 

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PACA — architecture, purple layers</title>
+<style>
+  :root{
+    --ink:#FFFFFF; --muted:#EDE7FF; --faint:#CFC2F5;
+    --purple:#8B5CF6; --purple-bright:#C4B5FD; --purple-deep:#2A1152; --purple-ink:#1C0B38;
+    --brown:#7A4A22; --brown-edge:#D9A263; --brown-ink:#FBEEDA;
+    --black:#0B0518;
+    --display:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  .canvas{position:relative;width:1440px;height:900px;overflow:hidden;color:var(--ink);font-family:var(--body);
+    background:
+      radial-gradient(1000px 620px at 16% 2%, rgba(139,92,246,.45) 0%, rgba(139,92,246,0) 60%),
+      linear-gradient(160deg,#2A1152 0%, #1A0B3A 52%, #0C0520 100%)}
+  .svg{position:absolute;inset:0;width:1440px;height:900px}
+  .h1{position:absolute;left:60px;top:44px;font-family:var(--display);font-size:38px;margin:0;letter-spacing:.02em;color:#fff}
+  .h2{position:absolute;left:60px;top:94px;font-size:15px;color:var(--muted);margin:0}
+  .band{position:absolute;left:200px;border:1px solid rgba(167,139,250,.26);border-radius:18px;
+        background:linear-gradient(120deg, rgba(139,92,246,.16), rgba(26,10,52,.42))}
+  .rail{position:absolute;left:60px;width:120px}
+  .rail .n{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:#D9A263}
+  .rail .t{font-family:var(--display);font-size:17px;margin-top:6px;line-height:1.25;color:#FFFFFF}
+  .card{position:absolute;border-radius:14px;padding:14px 18px;
+        background:linear-gradient(150deg, rgba(139,92,246,.26), rgba(26,10,52,.66));
+        border:1px solid rgba(167,139,250,.34);
+        box-shadow:0 14px 34px rgba(8,3,20,.4)}
+  .dark{background:linear-gradient(150deg, rgba(9,4,20,.94), rgba(22,9,44,.9));border-color:rgba(167,139,250,.18)}
+  .human{background:linear-gradient(150deg,#7A4A22,#4A2A11);border-color:var(--brown)}
+  .human .k{color:#E8B981}
+  .human .n,.human .d{color:var(--brown-ink)}
+  .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#CFC2F5}
+  .n{font-family:var(--display);font-size:21px;font-weight:600;margin-top:6px;line-height:1.15;color:#fff}
+  .d{font-size:14px;color:var(--muted);margin-top:6px;line-height:1.55}
+  .foot{position:absolute;left:60px;top:848px;font-family:var(--mono);font-size:11px;color:#D9A263;letter-spacing:.06em}
+  .note{position:absolute;right:60px;top:46px;font-family:var(--display);font-style:italic;font-size:15px;color:#D9A263;text-align:right;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <svg class="svg" viewBox="0 0 1440 900" aria-hidden="true">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B7A2EE"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="#B7A2EE" stroke-width="2" marker-end="url(#a)" opacity=".9">
+      <path d="M380,240 L380,268"/>
+      <path d="M520,384 L520,408"/>
+      <path d="M760,384 C800,384 800,408 860,408"/>
+      <path d="M420,512 L420,564"/>
+      <path d="M1150,512 L1150,564"/>
+      <path d="M830,332 L806,332"/>
+      <path d="M640,632 L606,632"/>
+    </g>
+  </svg>
+
+  <div class="h1">PACA</div>
+  <div class="h2">The personal assistant of a one-person business, layer by layer</div>
+  <div class="note">One owner.<br>One assistant.<br>One door.</div>
+
+  <!-- 01 the channel -->
+  <div class="band" style="top:130px;width:1180px;height:110px"></div>
+  <div class="rail" style="top:150px"><div class="n">01</div><div class="t">The channel</div></div>
+  <div class="card human" style="left:240px;top:160px;width:280px;height:64px;display:flex;align-items:center;gap:12px">
+    <div class="n" style="margin:0;font-size:18px">Telegram</div>
+    <div class="d" style="margin:0">the only one today</div>
+  </div>
+  <div class="card" style="left:560px;top:160px;width:780px;height:64px;display:flex;align-items:center">
+    <div class="d" style="margin:0">One bot, one allowlist: the owner of the business and the people she serves. No web app, no dashboard.</div>
+  </div>
+
+  <!-- 02 the agent -->
+  <div class="band" style="top:268px;width:1180px;height:120px"></div>
+  <div class="rail" style="top:288px"><div class="n">02</div><div class="t">The agent</div></div>
+  <div class="card" style="left:240px;top:288px;width:560px;height:96px;border-color:var(--purple-bright);background:linear-gradient(140deg,#8B5CF6 0%,#6D28D9 55%,#4C1D95 100%)">
+    <div class="k" style="color:#EDE4FF">the assistant</div>
+    <div class="n" style="color:#fff">Paca</div>
+    <div class="d" style="color:#E4D9FF">she talks to the people of the business and does the work with them</div>
+  </div>
+  <div class="card dark" style="left:830px;top:288px;width:340px;height:88px">
+    <div class="k" style="color:#D9A263">the brain</div>
+    <div class="d" style="margin-top:4px">the provider of the models</div>
+  </div>
+  <div class="card" style="left:1200px;top:288px;width:140px;height:88px">
+    <div class="k">identity</div><div class="n" style="font-size:17px">soul.md</div>
+  </div>
+
+  <!-- 03 the doors -->
+  <div class="band" style="top:408px;width:1180px;height:128px"></div>
+  <div class="rail" style="top:428px"><div class="n">03</div><div class="t">The doors</div></div>
+  <div class="card" style="left:240px;top:428px;width:540px;height:96px;border-color:var(--purple-deep)">
+    <div class="k" style="color:var(--purple-bright)">the tools of the business · mcp over http</div>
+    <div class="n">The MCP server of PACA</div>
+    <div class="d">the people · the book of their money · their debts</div>
+  </div>
+  <div class="card" style="left:820px;top:428px;width:520px;height:96px;border-color:var(--purple)">
+    <div class="k" style="color:var(--purple-bright)">her memory · mcp over stdio</div>
+    <div class="n">Engram</div>
+    <div class="d">what was learned, what was decided, what matters</div>
+  </div>
+
+  <!-- 04 the data -->
+  <div class="band" style="top:564px;width:1180px;height:128px"></div>
+  <div class="rail" style="top:584px"><div class="n">04</div><div class="t">The data</div></div>
+  <div class="card" style="left:240px;top:584px;width:360px;height:96px;border-color:var(--purple-deep)">
+    <div class="k" style="color:var(--purple-bright)">the main database</div>
+    <div class="n">PostgreSQL</div>
+  </div>
+  <div class="card dark" style="left:640px;top:584px;width:280px;height:96px">
+    <div class="k" style="color:#D9A263">the only writer</div>
+    <div class="n" style="font-size:18px">db-admin</div>
+    <div class="d">applies the schema</div>
+  </div>
+  <div class="card" style="left:960px;top:584px;width:380px;height:96px;border-color:var(--purple)">
+    <div class="k" style="color:var(--purple-bright)">the data of the memory</div>
+    <div class="n" style="font-size:19px">The store of the memories</div>
+  </div>
+
+  <!-- 05 the support -->
+  <div class="band" style="top:720px;width:1180px;height:100px"></div>
+  <div class="rail" style="top:740px"><div class="n">05</div><div class="t">The support</div></div>
+  <div class="card dark" style="left:240px;top:740px;width:560px;height:64px;display:flex;align-items:center">
+    <div class="d" style="margin:0"><strong style="color:#fff">Jaeger</strong> — the traces of every service, kept for two days.</div>
+  </div>
+  <div class="card dark" style="left:830px;top:740px;width:510px;height:64px;display:flex;align-items:center">
+    <div class="d" style="margin:0">Private by default: the services talk on an internal network with no outbound access.</div>
+  </div>
+
+  <div class="foot">PACA · WITSABA.COM · AGPL-3.0</div>
+</div>
+</body>
+</html>

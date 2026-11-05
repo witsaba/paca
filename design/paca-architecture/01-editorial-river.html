@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PACA — architecture, purple field</title>
+<style>
+  :root{
+    --bg-a:#3A1B7A; --bg-b:#1E0B44; --bg-c:#100622;
+    --ink:#FFFFFF; --muted:#EDE7FF; --faint:#CFC2F5;
+    --purple:#8B5CF6; --purple-bright:#A78BFA; --purple-deep:#2A1152; --purple-ink:#1C0B38;
+    --brown:#7A4A22; --brown-edge:#D9A263; --brown-ink:#FBEEDA;
+    --black:#0B0518;
+    --display:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg-c);color:var(--ink);font-family:var(--body)}
+  .canvas{position:relative;width:1440px;height:900px;overflow:hidden;
+          background:
+            radial-gradient(1100px 700px at 18% 6%, rgba(139,92,246,.55) 0%, rgba(139,92,246,0) 62%),
+            radial-gradient(900px 620px at 92% 96%, rgba(124,58,237,.42) 0%, rgba(124,58,237,0) 60%),
+            linear-gradient(155deg, var(--bg-a) 0%, var(--bg-b) 52%, var(--bg-c) 100%)}
+  .svg{position:absolute;inset:0;width:1440px;height:900px}
+  .card{position:absolute;border-radius:18px;padding:20px 22px;
+        background:linear-gradient(150deg, rgba(139,92,246,.30), rgba(42,17,82,.55));
+        border:1px solid rgba(167,139,250,.42);
+        box-shadow:0 18px 46px rgba(10,4,25,.42)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#CFC2F5}
+  h1{font-family:var(--display);font-size:46px;line-height:1;margin:0;letter-spacing:.02em;color:#fff}
+  h2{font-family:var(--display);font-size:24px;line-height:1.12;margin:10px 0 0;font-weight:600;color:#fff}
+  p{margin:10px 0 0;font-size:15px;line-height:1.55;color:var(--muted)}
+  .hero{background:linear-gradient(140deg,#8B5CF6 0%,#6D28D9 55%,#4C1D95 100%);
+        border:1px solid #C4B5FD;box-shadow:0 24px 64px rgba(124,58,237,.55)}
+  .hero p{color:#F6F1FF}
+  .memory{background:linear-gradient(150deg,#3B1E78,#241048);border-color:#8B5CF6}
+  .data{background:linear-gradient(150deg,#25104F,#170A31);border-color:#7C5CE8}
+  .human{background:linear-gradient(150deg,#7A4A22,#4A2A11);border-color:#D9A263}
+  .human h2,.human p{color:var(--brown-ink)}
+  .human .eyebrow{color:#E8B981}
+  .dark{background:linear-gradient(150deg,rgba(11,5,24,.94),rgba(24,10,48,.92));border-color:rgba(167,139,250,.22)}
+  .dark .eyebrow{color:#D9A263}
+  .tag{display:inline-block;margin-top:12px;padding:5px 10px;border-radius:999px;font-family:var(--mono);
+       font-size:11px;letter-spacing:.04em;background:rgba(11,5,24,.42);color:#F2ECFF}
+  .list{margin:12px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.55;color:#E7E0FF}
+  .list li{padding:3px 0 3px 16px;position:relative}
+  .list li::before{content:"";position:absolute;left:0;top:11px;width:6px;height:6px;border-radius:50%;background:var(--purple-bright);opacity:.8}
+  .chip{position:absolute;background:rgba(11,5,24,.62);border:1px solid rgba(167,139,250,.45);border-radius:999px;
+        padding:7px 12px;font-family:var(--mono);font-size:12px;color:#F5F0FF;text-align:center}
+  .note{position:absolute;font-size:14px;line-height:1.6;color:#D9A263;font-family:var(--display);font-style:italic}
+  .foot{position:absolute;font-family:var(--mono);font-size:11px;color:#D9A263;letter-spacing:.06em}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <svg class="svg" viewBox="0 0 1440 900" aria-hidden="true">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B7A2EE"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="#B7A2EE" stroke-width="2.4" marker-end="url(#a)" opacity=".92">
+      <path d="M260,376 L360,376"/>
+      <path d="M660,330 C700,330 700,275 740,275"/>
+      <path d="M660,420 C700,420 700,545 740,545"/>
+      <path d="M1100,275 L1160,275"/>
+      <path d="M1100,545 L1160,545"/>
+      <path d="M510,680 L510,486"/>
+      <path d="M1160,745 H1125 V370 H1148"/>
+    </g>
+  </svg>
+
+  <div style="position:absolute;left:60px;top:50px">
+    <div class="kicker">the monorepository of the assistant</div>
+    <h1 style="margin-top:10px">PACA</h1>
+    <p style="font-family:var(--display);font-size:20px;color:#FFFFFF;font-style:italic;margin-top:10px">
+      The personal assistant of a one-person business</p>
+  </div>
+  <div class="chip" style="left:1080px;top:56px;width:300px">Telegram — the only channel today</div>
+
+  <!-- The owner -->
+  <div class="card human" style="left:60px;top:296px;width:200px;height:176px">
+    <div class="eyebrow">The human</div>
+    <h2>The owner</h2>
+    <p>One person, one business.</p>
+    <span class="tag" style="background:rgba(251,238,218,.16);color:#F4DCBB">witsaba.com</span>
+  </div>
+
+  <div class="chip" style="left:262px;top:358px;width:96px">Telegram</div>
+
+  <!-- Paca -->
+  <div class="card hero" style="left:360px;top:270px;width:300px;height:212px">
+    <div class="eyebrow" style="color:#EDE4FF">The agent</div>
+    <h2>Paca</h2>
+    <p>She talks to the people of the business and does the work with them.</p>
+    <span class="tag" style="background:rgba(16,6,34,.38);color:#F1EAFF">runtime + soul.md</span>
+  </div>
+
+  <!-- The two doors -->
+  <div class="card" style="left:740px;top:180px;width:360px;height:190px">
+    <div class="eyebrow">The tools of the business · MCP over HTTP</div>
+    <h2>The MCP server of PACA</h2>
+    <ul class="list">
+      <li>the people, registered and corrected</li>
+      <li>the book of their money</li>
+      <li>their debts and their balances</li>
+    </ul>
+  </div>
+
+  <div class="card memory" style="left:740px;top:450px;width:360px;height:190px">
+    <div class="eyebrow" style="color:#C9B6FF">Her memory · MCP over stdio</div>
+    <h2>Engram</h2>
+    <p style="color:#CFC0F2">What was learned, what was decided, what matters. It belongs to the agent alone.</p>
+  </div>
+
+  <!-- The data -->
+  <div class="card data" style="left:1160px;top:180px;width:220px;height:190px">
+    <div class="eyebrow" style="color:#B9A3F7">The data</div>
+    <h2>PostgreSQL</h2>
+    <p>The main database of the business.</p>
+  </div>
+
+  <div class="card memory" style="left:1160px;top:450px;width:220px;height:190px">
+    <div class="eyebrow" style="color:#C9B6FF">The data</div>
+    <h2 style="font-size:20px">The store of the memories</h2>
+    <p style="color:#CFC0F2">Kept by the memory alone.</p>
+  </div>
+
+  <!-- The supports -->
+  <div class="card dark" style="left:360px;top:680px;width:300px;height:130px">
+    <div class="eyebrow">The brain</div>
+    <p style="margin-top:6px">The provider of the models. It is the only way out of the machine.</p>
+  </div>
+
+  <div class="card dark" style="left:740px;top:680px;width:360px;height:130px">
+    <div class="eyebrow">The eyes</div>
+    <p style="margin-top:6px">Jaeger: the traces of every service, kept for two days.</p>
+  </div>
+
+  <div class="card dark" style="left:1160px;top:680px;width:220px;height:130px">
+    <div class="eyebrow">The only writer</div>
+    <p style="margin-top:6px">db-admin applies the schema of the database.</p>
+  </div>
+
+  <div class="note" style="left:60px;top:690px;width:250px">
+    One owner.<br>One assistant.<br>One door.</div>
+
+  <div class="foot" style="left:60px;top:848px">PACA · WITSABA.COM · AGPL-3.0</div>
+</div>
+</body>
+</html>

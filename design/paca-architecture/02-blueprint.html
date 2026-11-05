@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PACA — architecture, blueprint</title>
+<style>
+  :root{
+    --bg:#0A1020; --panel:#111A2E; --line:#1E2B47; --grid:#16223A;
+    --ink:#E8EDF7; --muted:#8496B5; --cyan:#4FD1C5; --amber:#F6AD55; --violet:#A78BFA; --blue:#63B3ED;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  .canvas{position:relative;width:1440px;height:900px;overflow:hidden}
+  .bg{position:absolute;inset:0;
+      background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+      background-size:48px 48px;opacity:.55}
+  .svg{position:absolute;inset:0;width:1440px;height:900px}
+  .node{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .k{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .t{font-size:19px;font-weight:600;margin-top:8px;letter-spacing:-.01em}
+  .d{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .h1{position:absolute;left:60px;top:48px;font-size:38px;font-weight:700;letter-spacing:.06em}
+  .h2{position:absolute;left:60px;top:98px;font-size:14px;color:var(--muted);letter-spacing:.04em}
+  .badge{position:absolute;border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:12px;color:var(--ink)}
+  .elabel{position:absolute;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+  .foot{position:absolute;left:60px;top:848px;font-size:11px;color:var(--muted);letter-spacing:.08em}
+  .legend{position:absolute;right:60px;top:48px;font-size:12px;color:var(--muted);text-align:right;line-height:1.8}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="bg"></div>
+  <svg class="svg" viewBox="0 0 1440 900" aria-hidden="true">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#5C7196"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="#5C7196" stroke-width="2" stroke-dasharray="5 6" marker-end="url(#a)">
+      <path d="M260,376 L360,376"/>
+      <path d="M660,330 C700,330 700,275 740,275"/>
+      <path d="M660,420 C700,420 700,545 740,545"/>
+      <path d="M1100,275 L1160,275"/>
+      <path d="M1100,545 L1160,545"/>
+      <path d="M510,680 L510,486"/>
+      <path d="M1160,745 H1125 V370 H1148"/>
+    </g>
+  </svg>
+
+  <div class="h1">PACA</div>
+  <div class="h2">// the personal assistant of a one-person business</div>
+  <div class="legend">
+    <div><span class="dot" style="background:var(--amber)"></span>agent</div>
+    <div><span class="dot" style="background:var(--blue)"></span>tools &amp; data</div>
+    <div><span class="dot" style="background:var(--cyan)"></span>memory</div>
+  </div>
+  <div class="badge" style="left:1060px;top:120px">telegram // the only channel today</div>
+
+  <div class="node" style="left:60px;top:300px;width:200px;height:152px;border-color:#3A4B70">
+    <div class="k">the human</div>
+    <div class="t">The owner</div>
+    <div class="d">One person, one business.<br>witsaba.com</div>
+  </div>
+
+  <div class="node" style="left:360px;top:270px;width:300px;height:212px;border-color:var(--amber);box-shadow:0 0 0 1px rgba(246,173,85,.18)">
+    <div class="k" style="color:var(--amber)">the agent</div>
+    <div class="t" style="color:var(--amber)">Paca</div>
+    <div class="d">Hermes runtime + soul.md.<br>She talks and works.</div>
+  </div>
+
+  <div class="node" style="left:740px;top:180px;width:360px;height:190px;border-color:var(--blue)">
+    <div class="k" style="color:var(--blue)">the tools of the business</div>
+    <div class="t">The MCP server of PACA</div>
+    <div class="d">people · book of money · debts<br>custom tools, MCP over HTTP</div>
+  </div>
+
+  <div class="node" style="left:740px;top:450px;width:360px;height:190px;border-color:var(--cyan)">
+    <div class="k" style="color:var(--cyan)">her memory</div>
+    <div class="t">Engram</div>
+    <div class="d">What was learned and decided.<br>MCP over stdio.</div>
+  </div>
+
+  <div class="node" style="left:1160px;top:180px;width:220px;height:190px;border-color:var(--blue)">
+    <div class="k" style="color:var(--blue)">the data</div>
+    <div class="t">PostgreSQL</div>
+    <div class="d">the main database</div>
+  </div>
+
+  <div class="node" style="left:1160px;top:450px;width:220px;height:190px;border-color:var(--cyan)">
+    <div class="k" style="color:var(--cyan)">the data</div>
+    <div class="t" style="font-size:17px">The store of the memories</div>
+    <div class="d">kept by the memory alone</div>
+  </div>
+
+  <div class="node" style="left:360px;top:680px;width:300px;height:130px;border-color:#3A4B70">
+    <div class="k">the brain</div>
+    <div class="d" style="margin-top:8px">the provider of the models — the only way out of the machine</div>
+  </div>
+
+  <div class="node" style="left:740px;top:680px;width:360px;height:130px;border-color:#3A4B70">
+    <div class="k">the eyes</div>
+    <div class="d" style="margin-top:8px">jaeger — the traces of every service, kept for two days</div>
+  </div>
+
+  <div class="node" style="left:1160px;top:680px;width:220px;height:130px;border-color:#3A4B70">
+    <div class="k">the only writer</div>
+    <div class="d" style="margin-top:8px">db-admin applies the schema</div>
+  </div>
+
+  <div class="elabel" style="left:274px;top:352px">telegram</div>
+  <div class="elabel" style="left:672px;top:286px">http</div>
+  <div class="elabel" style="left:672px;top:556px">stdio</div>
+  <div class="elabel" style="left:1108px;top:252px">sql</div>
+  <div class="elabel" style="left:1108px;top:522px">socket</div>
+  <div class="elabel" style="left:520px;top:566px">models</div>
+  <div class="elabel" style="left:1102px;top:700px">migrations</div>
+
+  <div class="foot">paca · witsaba.com · agpl-3.0 · built with gentle-shell</div>
+</div>
+</body>
+</html>

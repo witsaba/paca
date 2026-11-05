@@ -11,29 +11,10 @@ decide so.
 
 ## How it fits together
 
-```mermaid
-flowchart LR
-    Owner["The owner<br/>(one person)"] -->|"Telegram"| Agent
+![The architecture of PACA: the owner reaches Paca through Telegram, and Paca reaches the business through the MCP server of PACA and through Engram, her own memory.](docs/paca-architecture.png)
 
-    subgraph PacaStack["PACA"]
-        Agent["Paca, the agent<br/>the runtime and her soul"]
-        Memory["Engram — her memory<br/>an MCP server of her own"]
-        Tools["The MCP server of PACA<br/>custom tools for the business"]
-        Admin["db-admin<br/>the only writer of the schema"]
-        DB[("PostgreSQL<br/>the main database")]
-        Store[("The store of the memories")]
-        Traces["Jaeger<br/>the traces of everything"]
-    end
-
-    Agent -->|"remembers"| Memory
-    Memory --> Store
-    Agent -->|"runs the business"| Tools
-    Tools --> DB
-    Admin --> DB
-    Agent -->|"the models"| Provider["The provider of the models"]
-    Agent -.->|"telemetry"| Traces
-    Tools -.->|"telemetry"| Traces
-```
+The source of the picture is [`design/paca-architecture/`](design/paca-architecture/):
+it is plain HTML, and any headless browser renders it.
 
 Five pieces, each with one job:
 

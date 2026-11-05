@@ -1,0 +1,27 @@
+{
+  "title": "PACA architecture",
+  "brief": "A high level architecture image for the public README of PACA, the personal assistant of a one-person business: the agent, the custom MCP servers, the main database, the memory of the agent and the Telegram channel that exists today.",
+  "artboards": [
+    {
+      "file": "01-editorial-river.html",
+      "title": "Editorial river",
+      "tradeoff": "Warm, readable and human; the flow of the business reads left to right, at the cost of the technical detail",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "02-blueprint.html",
+      "title": "Blueprint",
+      "tradeoff": "Technical and precise, with the protocols on every edge; dark, so it suits the developer section better than the public front page",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "file": "03-layered-stack.html",
+      "title": "Layered stack",
+      "tradeoff": "The clearest reading of the whole system, layer by layer; less of a narrative, more of a map",
+      "width": 1440,
+      "height": 900
+    }
+  ]
+}

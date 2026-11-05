@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PACA — architecture, editorial river</title>
+<style>
+  :root{
+    --paper:#FBF8F3; --card:#FFFFFF; --ink:#17130F; --muted:#6E6459;
+    --line:#E3D9CB; --accent:#B4542A; --accent-soft:#FBEDE5;
+    --data:#2A4B8D; --data-soft:#EDF1FA; --mem:#1F6F6B; --mem-soft:#E7F2F1;
+    --display:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--body)}
+  .canvas{position:relative;width:1440px;height:900px;overflow:hidden}
+  .svg{position:absolute;inset:0;width:1440px;height:900px}
+  .card{position:absolute;background:var(--card);border:1px solid var(--line);
+        border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(23,19,15,.04),0 8px 24px rgba(23,19,15,.05)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  h1{font-family:var(--display);font-size:44px;line-height:1;margin:0;letter-spacing:.02em}
+  h2{font-family:var(--display);font-size:24px;line-height:1.15;margin:8px 0 0;font-weight:600}
+  p{margin:8px 0 0;font-size:14px;line-height:1.45;color:var(--muted)}
+  .hero{border:1.5px solid var(--accent);box-shadow:0 2px 4px rgba(180,84,42,.08),0 18px 40px rgba(180,84,42,.10)}
+  .hero h2{color:var(--accent)}
+  .tag{display:inline-block;margin-top:12px;padding:5px 10px;border-radius:999px;font-family:var(--mono);
+       font-size:11px;letter-spacing:.04em}
+  .t-mem{background:var(--mem-soft);color:var(--mem)}
+  .t-data{background:var(--data-soft);color:var(--data)}
+  .t-acc{background:var(--accent-soft);color:var(--accent)}
+  .list{margin:12px 0 0;padding:0;list-style:none;font-size:13px;color:var(--muted)}
+  .list li{padding:3px 0 3px 16px;position:relative}
+  .list li::before{content:"";position:absolute;left:0;top:11px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.45}
+  .chip{position:absolute;background:var(--paper);border:1px solid var(--line);border-radius:999px;
+        padding:7px 12px;font-family:var(--mono);font-size:12px;color:var(--ink);text-align:center}
+  .note{position:absolute;font-size:13px;line-height:1.5;color:var(--muted);font-family:var(--display);font-style:italic}
+  .foot{position:absolute;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <svg class="svg" viewBox="0 0 1440 900" aria-hidden="true">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B9AB98"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="#B9AB98" stroke-width="2" marker-end="url(#a)">
+      <path d="M260,376 L360,376"/>
+      <path d="M660,330 C700,330 700,275 740,275"/>
+      <path d="M660,420 C700,420 700,545 740,545"/>
+      <path d="M1100,275 L1160,275"/>
+      <path d="M1100,545 L1160,545"/>
+      <path d="M510,680 L510,486"/>
+      <path d="M1160,745 H1125 V370 H1148"/>
+    </g>
+  </svg>
+
+  <div style="position:absolute;left:60px;top:54px">
+    <h1>PACA</h1>
+    <p style="font-family:var(--display);font-size:19px;color:var(--ink);font-style:italic;margin-top:10px">
+      The personal assistant of a one-person business</p>
+  </div>
+  <div class="chip" style="left:1080px;top:56px;width:300px">
+    Telegram — the only channel today</div>
+
+  <!-- The owner -->
+  <div class="card" style="left:60px;top:300px;width:200px;height:152px">
+    <div class="eyebrow">The human</div>
+    <h2>The owner</h2>
+    <p>One person, one business.</p>
+    <span class="tag t-acc">witsaba.com</span>
+  </div>
+
+  <div class="chip" style="left:262px;top:358px;width:96px">Telegram</div>
+
+  <!-- Paca -->
+  <div class="card hero" style="left:360px;top:270px;width:300px;height:212px">
+    <div class="eyebrow" style="color:var(--accent)">The agent</div>
+    <h2>Paca</h2>
+    <p>She talks to the people of the business and does the work with them.</p>
+    <span class="tag t-acc">runtime + soul.md</span>
+  </div>
+
+  <!-- The two doors -->
+  <div class="card" style="left:740px;top:180px;width:360px;height:190px">
+    <div class="eyebrow" style="color:var(--data)">The tools of the business · MCP over HTTP</div>
+    <h2>The MCP server of PACA</h2>
+    <ul class="list">
+      <li>the people, registered and corrected</li>
+      <li>the book of their money</li>
+      <li>their debts and their balances</li>
+    </ul>
+  </div>
+
+  <div class="card" style="left:740px;top:450px;width:360px;height:190px">
+    <div class="eyebrow" style="color:var(--mem)">Her memory · MCP over stdio</div>
+    <h2>Engram</h2>
+    <p>What was learned, what was decided, what matters. It belongs to the agent alone.</p>
+  </div>
+
+  <!-- The data -->
+  <div class="card" style="left:1160px;top:180px;width:220px;height:190px">
+    <div class="eyebrow" style="color:var(--data)">The data</div>
+    <h2>PostgreSQL</h2>
+    <p>The main database of the business.</p>
+  </div>
+
+  <div class="card" style="left:1160px;top:450px;width:220px;height:190px">
+    <div class="eyebrow" style="color:var(--mem)">The data</div>
+    <h2 style="font-size:20px">The store of the memories</h2>
+    <p>Kept by the memory alone.</p>
+  </div>
+
+  <!-- The supports -->
+  <div class="card" style="left:360px;top:680px;width:300px;height:120px">
+    <div class="eyebrow">The brain</div>
+    <p style="margin-top:6px">The provider of the models. It is the only way out of the machine.</p>
+  </div>
+
+  <div class="card" style="left:740px;top:680px;width:360px;height:120px">
+    <div class="eyebrow">The eyes</div>
+    <p style="margin-top:6px">Jaeger: the traces of every service, kept for two days.</p>
+  </div>
+
+  <div class="card" style="left:1160px;top:680px;width:220px;height:130px">
+    <div class="eyebrow">The only writer</div>
+    <p style="margin-top:6px">db-admin applies the schema of the database.</p>
+  </div>
+
+  <div class="note" style="left:60px;top:690px;width:250px">
+    One owner.<br>One assistant.<br>One door.</div>
+
+  <div class="foot" style="left:60px;top:848px">PACA · WITSABA.COM · AGPL-3.0</div>
+</div>
+</body>
+</html>

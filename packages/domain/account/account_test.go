@@ -371,3 +371,71 @@ func TestKindNormalSign(t *testing.T) {
 		t.Error("an unknown kind carries a sign")
 	}
 }
+
+// TestTheSeedOfTheRoleIsTheAccountTheBookNames proves that the role of an
+// account of the book of a business is declared by the seed: the seed owns
+// the names, and the role is the way of asking for one of them.
+func TestTheSeedOfTheRoleIsTheAccountTheBookNames(t *testing.T) {
+	t.Parallel()
+
+	for role, want := range map[Role]string{
+		RoleCash:        "Efectivo",
+		RoleBank:        "Banco",
+		RoleInventory:   "Inventario", //nolint:misspell // "Inventario" is the name the person reads in their book.
+		RoleSales:       "Ventas",
+		RoleCostOfSales: "Costo de ventas",
+		RoleLabor:       "Mano de obra",
+		RoleOverhead:    "Gastos indirectos",
+		RoleWaste:       "Merma",
+		RoleCapital:     "Capital",
+	} {
+		seed, ok := SeedOfRole(role)
+		if !ok {
+			t.Errorf("the book holds no account of the role %q", role)
+			continue
+		}
+		if seed.Name != want {
+			t.Errorf("the account of the role %q is %q, want %q", role, seed.Name, want)
+		}
+	}
+}
+
+// TestTheAccountOfTheRoleIsTheAccountOfTheBook proves that the account of
+// a role is found among the accounts of the book.
+func TestTheAccountOfTheRoleIsTheAccountOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	seed := DefaultBusinessAccounts()
+	accounts := make([]Account, 0, len(seed))
+
+	for index, one := range seed {
+		created, err := New(business.ID(77), one.Kind, one.Name, "", nil)
+		if err != nil {
+			t.Fatalf("the account was refused: %v", err)
+		}
+		created.ID = ID(index + 1)
+		accounts = append(accounts, created)
+	}
+
+	found, err := OfRole(accounts, RoleInventory)
+	if err != nil {
+		t.Fatalf("the account of the inventory was refused: %v", err)
+	}
+	if found.Name != "Inventario" { //nolint:misspell // "Inventario" is the name the person reads in their book.
+		t.Errorf("the account of the inventory is %q, want %q", found.Name, "Inventario") //nolint:misspell // "Inventario" is the name the person reads in their book.
+	}
+}
+
+// TestTheAccountOfTheRoleThatIsNotThereIsRefused proves that a book
+// without the account of a role says so: the account is not there.
+func TestTheAccountOfTheRoleThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	if _, err := OfRole(nil, RoleInventory); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the error is %v, want %v", err, ErrNotFound)
+	}
+
+	if _, err := OfRole(nil, Role("nothing")); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the error is %v, want %v", err, ErrNotFound)
+	}
+}

@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/store"
 )
 
 // PurchaseService is the use case of the drafts of the utterance.
@@ -160,5 +162,138 @@ func (s *PurchaseService) dayOf(day string) (ledger.Date, error) {
 
 // today answers the day of today.
 func (s *PurchaseService) today() ledger.Date {
+	return ledger.NewDate(s.clock.Now())
+}
+
+// ConfirmationService is the use case that writes the purchase of a
+// confirmed draft.
+//
+// The agent reads the sentence of the owner, the draft waits for her yes,
+// and the confirmation writes the fact: the purchase, its lines and the
+// movement of the money of the payment.
+//
+// The three are written in one transaction: a book that holds a purchase
+// and no movement of its money, or a movement and no purchase, lies about
+// what the owner bought.
+type ConfirmationService struct {
+	drafts    purchase.Repository
+	purchases purchase.Recorder
+	accounts  account.Repository
+	book      ledger.Repository
+	work      store.UnitOfWork
+	clock     ports.Clock
+}
+
+// NewConfirmationService builds the use case of the confirmation.
+//
+// The repositories are the ports of the storage: the use case does not know
+// whether the rows live in PostgreSQL or somewhere else. The clock is the
+// port of the time: a draft that expired is refused, and the expiry is
+// measured against the day of today.
+func NewConfirmationService(
+	drafts purchase.Repository,
+	purchases purchase.Recorder,
+	accounts account.Repository,
+	book ledger.Repository,
+	work store.UnitOfWork,
+	clock ports.Clock,
+) *ConfirmationService {
+	return &ConfirmationService{
+		drafts:    drafts,
+		purchases: purchases,
+		accounts:  accounts,
+		book:      book,
+		work:      work,
+		clock:     clock,
+	}
+}
+
+// Confirm writes the purchase of the draft the owner confirmed.
+//
+// The draft belongs to its business: the confirmation of a draft of another
+// business is refused, and nothing is written.
+//
+// The money of the payment comes from the account the owner names, and
+// from the cash of the business when she names none: the money lands in the
+// inventory, because the business bought something and the inventory is
+// what it has.
+//
+// The rules of the domain hold the confirmation: an expired draft is
+// refused, a draft that changed under the eyes of the owner is refused, and
+// a draft that still needs the money of one of its lines is refused. A
+// refused confirmation leaves nothing behind: the draft stays as it was and
+// no purchase is written.
+func (s *ConfirmationService) Confirm(ctx context.Context, request ports.ConfirmPurchase) (purchase.Confirmation, error) {
+	if s == nil || s.drafts == nil || s.purchases == nil || s.accounts == nil || s.book == nil ||
+		s.work == nil || s.clock == nil {
+		return purchase.Confirmation{}, ports.ErrNoDatabase
+	}
+
+	draft, err := s.drafts.Find(ctx, request.DraftID)
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	if draft.BusinessID != request.BusinessID {
+		return purchase.Confirmation{}, fmt.Errorf("%w: the draft %d is of the business %d",
+			purchase.ErrWrongBusiness, draft.ID, draft.BusinessID)
+	}
+
+	confirmation, err := purchase.Confirm(draft, purchase.Yes{
+		Revision: request.Revision,
+		Word:     request.ConfirmedWith,
+	}, s.today())
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	accounts, err := s.accounts.List(ctx, request.BusinessID)
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	paying, err := purchase.ThePayingAccount(accounts, request.FromAccountID)
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	inventory, err := purchase.TheInventoryAccount(accounts)
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	movement, err := confirmation.Purchase.Movement(paying.ID, inventory.ID)
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	var written purchase.Purchase
+	err = s.work.Do(ctx, func(ctx context.Context) error {
+		recorded, err := s.purchases.Record(ctx, confirmation.Purchase)
+		if err != nil {
+			return err
+		}
+
+		if _, err := s.book.Record(ctx, movement); err != nil {
+			return err
+		}
+
+		if _, err := s.drafts.Confirm(ctx, draft.ID, request.Revision); err != nil {
+			return err
+		}
+
+		written = recorded
+		return nil
+	})
+	if err != nil {
+		return purchase.Confirmation{}, err
+	}
+
+	confirmation.Purchase = written
+	return confirmation, nil
+}
+
+// today answers the day of today.
+func (s *ConfirmationService) today() ledger.Date {
 	return ledger.NewDate(s.clock.Now())
 }

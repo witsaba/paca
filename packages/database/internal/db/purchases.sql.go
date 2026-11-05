@@ -11,6 +11,102 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const confirmPurchaseDraft = `-- name: ConfirmPurchaseDraft :one
+UPDATE purchase_drafts
+SET state = $1, updated_at = now()
+WHERE id = $2 AND revision = $3 AND state = $4
+RETURNING id, business_id, state, revision, utterance, lines, missing, ambiguous, inferred, day, market, invoice, proposed_on, expires_on, created_at, updated_at
+`
+
+type ConfirmPurchaseDraftParams struct {
+	State         string
+	ID            int64
+	Revision      int32
+	ExpectedState string
+}
+
+// The row must be the one the owner saw: the revision is the one she saw,
+// and the state is the one of a draft that waits for the yes of its owner.
+// The vocabulary of the states belongs to the domain, and the caller sends
+// both of them.
+func (q *Queries) ConfirmPurchaseDraft(ctx context.Context, arg ConfirmPurchaseDraftParams) (PurchaseDraft, error) {
+	row := q.db.QueryRow(ctx, confirmPurchaseDraft,
+		arg.State,
+		arg.ID,
+		arg.Revision,
+		arg.ExpectedState,
+	)
+	var i PurchaseDraft
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.State,
+		&i.Revision,
+		&i.Utterance,
+		&i.Lines,
+		&i.Missing,
+		&i.Ambiguous,
+		&i.Inferred,
+		&i.Day,
+		&i.Market,
+		&i.Invoice,
+		&i.ProposedOn,
+		&i.ExpiresOn,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPurchase = `-- name: CreatePurchase :one
+INSERT INTO purchases (
+    business_id, draft_id, day, market, invoice, utterance, confirmed_with, total
+)
+VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7, $8
+)
+RETURNING id, business_id, draft_id, day, market, invoice, utterance, confirmed_with, total, created_at
+`
+
+type CreatePurchaseParams struct {
+	BusinessID    int64
+	DraftID       int64
+	Day           pgtype.Date
+	Market        pgtype.Text
+	Invoice       pgtype.Text
+	Utterance     string
+	ConfirmedWith string
+	Total         int64
+}
+
+func (q *Queries) CreatePurchase(ctx context.Context, arg CreatePurchaseParams) (Purchase, error) {
+	row := q.db.QueryRow(ctx, createPurchase,
+		arg.BusinessID,
+		arg.DraftID,
+		arg.Day,
+		arg.Market,
+		arg.Invoice,
+		arg.Utterance,
+		arg.ConfirmedWith,
+		arg.Total,
+	)
+	var i Purchase
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.DraftID,
+		&i.Day,
+		&i.Market,
+		&i.Invoice,
+		&i.Utterance,
+		&i.ConfirmedWith,
+		&i.Total,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createPurchaseDraft = `-- name: CreatePurchaseDraft :one
 
 INSERT INTO purchase_drafts (
@@ -84,6 +180,51 @@ func (q *Queries) CreatePurchaseDraft(ctx context.Context, arg CreatePurchaseDra
 		&i.ExpiresOn,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPurchaseLine = `-- name: CreatePurchaseLine :one
+INSERT INTO purchase_lines (
+    purchase_id, position, name, quantity, unit, total, unit_price
+)
+VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7
+)
+RETURNING id, purchase_id, position, name, quantity, unit, total, unit_price
+`
+
+type CreatePurchaseLineParams struct {
+	PurchaseID int64
+	Position   int32
+	Name       string
+	Quantity   float64
+	Unit       string
+	Total      int64
+	UnitPrice  int64
+}
+
+func (q *Queries) CreatePurchaseLine(ctx context.Context, arg CreatePurchaseLineParams) (PurchaseLine, error) {
+	row := q.db.QueryRow(ctx, createPurchaseLine,
+		arg.PurchaseID,
+		arg.Position,
+		arg.Name,
+		arg.Quantity,
+		arg.Unit,
+		arg.Total,
+		arg.UnitPrice,
+	)
+	var i PurchaseLine
+	err := row.Scan(
+		&i.ID,
+		&i.PurchaseID,
+		&i.Position,
+		&i.Name,
+		&i.Quantity,
+		&i.Unit,
+		&i.Total,
+		&i.UnitPrice,
 	)
 	return i, err
 }

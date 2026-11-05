@@ -33,9 +33,10 @@ packages/domain/
                     amount, the day, the balance of an account, the money of
                     the business, the period of a reading and the debt of an
                     account
-  purchase/         the model of the draft of a purchase: the candidate the
-                    agent proposes, the lines, the measure, the money, what
-                    the draft still needs and the port of the storage
+  purchase/         the model of the draft of a purchase and of the purchase
+                    itself: the candidate the agent proposes, the lines, the
+                    measure, the money, what the draft still needs, the
+                    confirmation and the port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -290,6 +291,44 @@ money is never one of them.
 **A draft expires seven days after the day it was proposed.** The price of
 a market does not wait. An amendment grows the revision of the draft and
 keeps the sentence the owner said the first time.
+
+## The model of the purchase
+
+`purchase.Purchase` is the fact of what the business bought: the business,
+the day, the market, the invoice, its lines, the sentence of the owner and
+the word she used to confirm it. A purchase never changes.
+
+**The confirmation is a rule of the domain.** `purchase.Confirm` turns a
+draft into the purchase it describes, and it refuses what the domain
+forbids: a confirmation without the word of the owner
+(`ErrMissingConfirmation`), a draft that does not wait any more
+(`ErrNotProposed`), a draft that changed under the eyes of the owner
+(`ErrStaleRevision`), a draft that expired (`ErrExpiredDraft`) and a draft
+that still needs the money of one of its lines (`ErrStillNeeds`).
+
+**The money of the book counts whole pesos.** `purchase.Price.Amount`
+answers the money of a line: the money that was paid, and the price of the
+unit times the quantity rounded to the nearest peso when the owner named
+only the price of the unit. The sentence of the owner keeps the exact
+wording, and the money of the book is whole pesos.
+
+**The confirmation answers with the three parts of Paca.** What it
+recorded are the lines of the purchase, what it did not understand are the
+ambiguities the draft still carried, and what it still needs is empty: a
+purchase without the money of its lines is refused.
+
+**The money of the payment moves from the account that pays to the
+inventory.** `purchase.ThePayingAccount` answers the account the money
+comes from — the cash of the business, and the account the owner names
+when she names another one — and `purchase.TheInventoryAccount` answers the
+account of the inventory of the business. The role of an account belongs to
+the seed of the book of a business: `account.OfRole` answers the account of
+a role without writing its name down twice.
+
+**A draft is confirmed once.** The state of a draft moves from `proposed`
+to `confirmed`, and the storage refuses the confirmation of a draft that is
+not the one the owner saw: the revision she saw is the revision the row
+carries.
 
 ## The transaction of the storage
 

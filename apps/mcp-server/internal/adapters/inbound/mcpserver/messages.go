@@ -104,6 +104,16 @@ var theMessages = map[error]string{
 		"chooses with one word",
 	purchase.ErrWrongBusiness: "the draft belongs to another business: draft the purchase of the business the " +
 		"person names",
+	purchase.ErrMissingConfirmation: "the confirmation carries no word: send the word the person used to confirm " +
+		"the draft ('sí', 'confirmado')",
+	purchase.ErrNotProposed: "the draft is not waiting for the yes of the person: it was confirmed already, or it " +
+		"was dropped",
+	purchase.ErrStaleRevision: "the draft changed under the eyes of the person: show it again and ask for the yes " +
+		"once more",
+	purchase.ErrExpiredDraft: "the draft expired: the price of a market does not wait, and the draft must be " +
+		"drafted again",
+	purchase.ErrStillNeeds: "the draft still needs the money of one of its lines: ask the person what she paid, " +
+		"and never fill a price by yourself",
 	purchase.ErrInvalidValue: "the database refused the draft: check the sentence, the lines and the day of it",
 	purchase.ErrNoStorage:    "the service has no storage of the drafts: the drafts cannot be reached",
 }

@@ -100,11 +100,12 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes fifteen tools: the way PACA onboards a person, the four
+The server exposes sixteen tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
-four tools of their debts and of the closing of their month, and the tool
-of the utterance: the purchase the owner just said.
+four tools of their debts and of the closing of their month, and the two
+tools of the utterance: the purchase the owner just said, and the purchase
+she confirmed.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -123,6 +124,7 @@ of the utterance: the purchase the owner just said.
 | `record_debt_payment`     | Writes the payment of a debt, and refuses a payment that passes what the debt still holds. |
 | `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
 | `draft_purchase`           | Proposes the purchase the owner just said and keeps it as a draft of the business, with what it understood, what it still needs, what it was not sure about and what it filled. |
+| `confirm_purchase`         | Writes the purchase of the draft the owner confirmed and moves the money of the payment from the account that pays to the inventory. One call, one transaction. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -180,6 +182,21 @@ when the owner named both the money that was paid and the price of the
 unit, the two must agree. The day is one of the three things Paca may fill
 by herself, so a draft that names no day is the day of today and the answer
 says so. A draft expires in seven days if the owner says nothing.
+
+**The confirmation writes the purchase and moves the money.** The tool
+`confirm_purchase` takes the business, the draft, the revision the owner
+saw and the word she used to confirm it. The account that pays is optional:
+the money comes from the cash of the business, and from the account the
+owner names when she paid with another one. The purchase, its lines and the
+movement of the money are written together or not at all: a book that holds
+a purchase and no movement of its money lies about what the owner bought.
+The confirmation is refused when the draft expired, when the draft changed
+under the eyes of the owner, and when the draft still needs the money of one
+of its lines: the money is never inferred. A refused confirmation leaves
+nothing behind — the draft stays as it was and no purchase is written. The
+answer carries the purchase that was written and the three parts of the
+answer of Paca: what it recorded, what it did not understand and what it
+still needs.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

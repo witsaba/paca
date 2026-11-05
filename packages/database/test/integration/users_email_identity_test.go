@@ -142,6 +142,15 @@ func TestTheMigrationBringsTheAddressesToTheCanonicalForm(t *testing.T) {
 	}
 	defer db.Close()
 
+	// The server of the container opens the port of PostgreSQL before it
+	// accepts the connections, and the first question of the test can
+	// arrive in that window: the database answers with the code 57P03, the
+	// server is starting up. The test waits for the answer instead of
+	// failing on it, the way the suite waits.
+	if err := waitForTheDatabaseOfTheTest(ctx, db); err != nil {
+		t.Fatalf("the database of the test did not answer: %v", err)
+	}
+
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, os.DirFS("../../migrations"))
 	if err != nil {
 		t.Fatalf("the provider of the migrations could not be created: %v", err)

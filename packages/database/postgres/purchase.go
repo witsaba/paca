@@ -144,7 +144,7 @@ func (r *PurchaseRepository) Save(ctx context.Context, draft purchase.Draft) (pu
 // Find returns the draft of the identity.
 //
 // The error is purchase.ErrNotFound when no draft carries that identity.
-func (r *PurchaseRepository) Find(ctx context.Context, id purchase.ID) (purchase.Draft, error) {
+func (r *PurchaseRepository) Find(ctx context.Context, id purchase.DraftID) (purchase.Draft, error) {
 	if r == nil || r.pool == nil {
 		return purchase.Draft{}, purchase.ErrNoStorage
 	}
@@ -155,6 +155,141 @@ func (r *PurchaseRepository) Find(ctx context.Context, id purchase.ID) (purchase
 	}
 
 	return purchaseDraftFromRow(row)
+}
+
+// Confirm moves the draft to the confirmed state and answers the draft.
+//
+// The row must be the one the owner saw: the revision is the one she saw,
+// and the state is the one of a draft that waits for the yes of its owner.
+// The table holds the rule as a defense in depth, and the adapter says so
+// with the errors of the port.
+//
+// The error is purchase.ErrStaleRevision when the draft is not the one the
+// owner saw, and purchase.ErrNoStorage when the storage is not open.
+func (r *PurchaseRepository) Confirm(ctx context.Context, id purchase.DraftID, revision int) (purchase.Draft, error) {
+	if r == nil || r.pool == nil {
+		return purchase.Draft{}, purchase.ErrNoStorage
+	}
+
+	revision32, err := revisionOf(revision)
+	if err != nil {
+		return purchase.Draft{}, err
+	}
+
+	row, err := r.pool.queriesFor(ctx).ConfirmPurchaseDraft(ctx, db.ConfirmPurchaseDraftParams{
+		State:         purchase.StateConfirmed.String(),
+		ID:            int64(id),
+		Revision:      revision32,
+		ExpectedState: purchase.StateProposed.String(),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return purchase.Draft{}, fmt.Errorf("%w: the draft %d is not the one the owner saw",
+				purchase.ErrStaleRevision, id)
+		}
+
+		return purchase.Draft{}, writePurchaseError(err)
+	}
+
+	return purchaseDraftFromRow(row)
+}
+
+// PurchaseRecorder is the adapter of the storage of the purchases.
+//
+// A purchase is a fact: it is written once, and it never changes. Its
+// lines are rows of their own table, and the adapter writes them with it:
+// a purchase without its lines is not a purchase.
+type PurchaseRecorder struct {
+	pool *Pool
+}
+
+// NewPurchaseRecorder returns the recorder of the purchases, bound to the
+// pool.
+//
+// The recorder needs an open pool, and the constructor refuses anything
+// else: a recorder built on nothing would be a nil pointer inside an
+// interface, and the interface would not be nil.
+//
+// The error is ErrNoPool when the pool is not there.
+func NewPurchaseRecorder(pool *Pool) (*PurchaseRecorder, error) {
+	if pool == nil {
+		return nil, ErrNoPool
+	}
+
+	return &PurchaseRecorder{pool: pool}, nil
+}
+
+// Record writes the purchase and its lines, and answers the purchase with
+// the identity that the database generated.
+//
+// The error is purchase.ErrInvalidValue when the row breaks a rule of the
+// table, purchase.ErrNotFound when the business or the draft of the
+// purchase is not there, and purchase.ErrNoStorage when the storage is not
+// open.
+func (r *PurchaseRecorder) Record(ctx context.Context, written purchase.Purchase) (purchase.Purchase, error) {
+	if r == nil || r.pool == nil {
+		return purchase.Purchase{}, purchase.ErrNoStorage
+	}
+
+	row, err := r.pool.queriesFor(ctx).CreatePurchase(ctx, db.CreatePurchaseParams{
+		BusinessID:    int64(written.BusinessID),
+		DraftID:       int64(written.DraftID),
+		Day:           dateOf(written.Day),
+		Market:        optionalText(written.Market),
+		Invoice:       optionalText(written.Invoice),
+		Utterance:     written.Utterance,
+		ConfirmedWith: written.ConfirmedWith,
+		Total:         int64(written.Total),
+	})
+	if err != nil {
+		return purchase.Purchase{}, writePurchaseError(err)
+	}
+
+	recorded := purchase.Purchase{
+		ID:            purchase.ID(row.ID),
+		DraftID:       purchase.DraftID(row.DraftID),
+		BusinessID:    business.ID(row.BusinessID),
+		Day:           ledger.NewDate(row.Day.Time),
+		Market:        row.Market.String,
+		Invoice:       row.Invoice.String,
+		Utterance:     row.Utterance,
+		ConfirmedWith: row.ConfirmedWith,
+		Total:         ledger.Amount(row.Total),
+		Lines:         make([]purchase.Line, 0, len(written.Lines)),
+		CreatedAt:     timestamp(row.CreatedAt),
+	}
+
+	for position, one := range written.Lines {
+		line, err := r.pool.queriesFor(ctx).CreatePurchaseLine(ctx, db.CreatePurchaseLineParams{
+			PurchaseID: row.ID,
+			Position:   int32(position + 1),
+			Name:       one.Name,
+			Quantity:   one.Measure.Quantity,
+			Unit:       one.Measure.Unit,
+			Total:      int64(one.Price.Total),
+			UnitPrice:  int64(one.Price.Unit),
+		})
+		if err != nil {
+			return purchase.Purchase{}, writePurchaseError(err)
+		}
+
+		recorded.Lines = append(recorded.Lines, purchaseLineFromRow(line))
+	}
+
+	return recorded, nil
+}
+
+// purchaseLineFromRow maps a row of the lines of a purchase onto the model
+// of the domain.
+func purchaseLineFromRow(row db.PurchaseLine) purchase.Line {
+	return purchase.Line{
+		Name:    row.Name,
+		Measure: purchase.Measure{Quantity: row.Quantity, Unit: row.Unit},
+		Price: purchase.Price{
+			Total: ledger.Amount(row.Total),
+			Unit:  ledger.Amount(row.UnitPrice),
+		},
+	}
 }
 
 // purchaseDraftFromRow maps a row of the drafts table onto the model of the
@@ -185,7 +320,7 @@ func purchaseDraftFromRow(row db.PurchaseDraft) (purchase.Draft, error) {
 	}
 
 	return purchase.Draft{
-		ID:         purchase.ID(row.ID),
+		ID:         purchase.DraftID(row.ID),
 		BusinessID: business.ID(row.BusinessID),
 		State:      purchase.State(row.State),
 		Revision:   int(row.Revision),

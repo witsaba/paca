@@ -4,6 +4,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -301,7 +302,290 @@ func TestTheDraftThatIsNotThereIsNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := draftsRepository(t)
 
-	if _, err := repo.Find(ctx, purchase.ID(999_999_999)); err == nil {
+	if _, err := repo.Find(ctx, purchase.DraftID(999_999_999)); err == nil {
 		t.Fatal("the draft was found, want the refusal of the storage")
+	}
+}
+
+// purchasesRecorder returns the recorder of the purchases, bound to the
+// database of the suite.
+func purchasesRecorder(t *testing.T) *postgres.PurchaseRecorder {
+	t.Helper()
+
+	recorder, err := postgres.NewPurchaseRecorder(theSuite.pool)
+	if err != nil {
+		t.Fatalf("the recorder of the purchases could not be created: %v", err)
+	}
+
+	return recorder
+}
+
+// thePurchaseOfTheTest builds the purchase the tests of the table write.
+func thePurchaseOfTheTest(draft purchase.Draft) purchase.Purchase {
+	return purchase.Purchase{
+		DraftID:       draft.ID,
+		BusinessID:    draft.BusinessID,
+		Day:           draft.Day,
+		Market:        draft.Market,
+		Invoice:       draft.Invoice,
+		Utterance:     draft.Utterance,
+		ConfirmedWith: "sí",
+		Lines: []purchase.Line{
+			{
+				Name:    "Harina",
+				Measure: purchase.Measure{Quantity: 25, Unit: "kg"},
+				Price:   purchase.Price{Total: 12000, Unit: 480},
+			},
+		},
+		Total: 12000,
+	}
+}
+
+// TestThePurchaseOfTheDraftIsWrittenWithItsLines proves the rules of the
+// table against a real database: the purchase is written with its lines,
+// with the sentence of the owner and with the word of the confirmation, and
+// it is read back as it was written.
+func TestThePurchaseOfTheDraftIsWrittenWithItsLines(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	recorder := purchasesRecorder(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	draft, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	written, err := recorder.Record(ctx, thePurchaseOfTheTest(draft))
+	if err != nil {
+		t.Fatalf("the purchase could not be written: %v", err)
+	}
+
+	if written.ID == 0 {
+		t.Error("the purchase has no identity, want the one the database generated")
+	}
+	if written.DraftID != draft.ID {
+		t.Errorf("the draft of the purchase is %d, want %d", written.DraftID, draft.ID)
+	}
+	if written.BusinessID != bakery.ID {
+		t.Errorf("the business of the purchase is %d, want %d", written.BusinessID, bakery.ID)
+	}
+	if written.Utterance != "Compré 25 kilos de harina" {
+		t.Errorf("the sentence is %q, want %q", written.Utterance, "Compré 25 kilos de harina")
+	}
+	if written.ConfirmedWith != "sí" {
+		t.Errorf("the word of the confirmation is %q, want %q", written.ConfirmedWith, "sí")
+	}
+	if written.Total != 12000 {
+		t.Errorf("the money of the purchase is %d, want 12000", written.Total)
+	}
+	if written.Day.String() != "2026-03-15" {
+		t.Errorf("the day is %v, want 2026-03-15", written.Day)
+	}
+	if written.Market != "Plaza de Mercado" {
+		t.Errorf("the market is %q, want %q", written.Market, "Plaza de Mercado")
+	}
+	if written.Invoice != "FV-001" {
+		t.Errorf("the invoice is %q, want %q", written.Invoice, "FV-001")
+	}
+	if len(written.Lines) != 1 {
+		t.Fatalf("the purchase holds %d lines, want 1", len(written.Lines))
+	}
+	if written.Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", written.Lines[0].Name, "Harina")
+	}
+	if written.Lines[0].Measure.Quantity != 25 || written.Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the measure of the line is %+v, want 25 kg", written.Lines[0].Measure)
+	}
+	if written.Lines[0].Price.Total != 12000 {
+		t.Errorf("the money of the line is %d, want 12000", written.Lines[0].Price.Total)
+	}
+	if written.Lines[0].Price.Unit != 480 {
+		t.Errorf("the price of the unit is %d, want 480", written.Lines[0].Price.Unit)
+	}
+
+	var lines int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM purchase_lines WHERE purchase_id = $1`, int64(written.ID),
+	).Scan(&lines); err != nil {
+		t.Fatalf("the lines could not be counted: %v", err)
+	}
+	if lines != 1 {
+		t.Errorf("the database holds %d lines, want 1", lines)
+	}
+}
+
+// TestTheTableRefusesThePurchaseWithoutASentence proves the rule of the
+// domain against a real database: the sentence of the owner is not empty.
+func TestTheTableRefusesThePurchaseWithoutASentence(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	draft, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	_, err = theSuite.db.ExecContext(ctx,
+		`INSERT INTO purchases (business_id, draft_id, day, utterance, confirmed_with, total)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		int64(bakery.ID), int64(draft.ID), "2026-03-15", "", "sí", int64(12000),
+	)
+	if err == nil {
+		t.Fatal("the database stored a purchase without a sentence, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "purchases_utterance_not_empty_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchases_utterance_not_empty_check")
+	}
+}
+
+// TestTheTableRefusesThePurchaseWithoutTheWordOfTheConfirmation proves the
+// rule of the domain against a real database: the word the owner used to
+// confirm is kept with the record, and it is not empty.
+func TestTheTableRefusesThePurchaseWithoutTheWordOfTheConfirmation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	draft, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	_, err = theSuite.db.ExecContext(ctx,
+		`INSERT INTO purchases (business_id, draft_id, day, utterance, confirmed_with, total)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		int64(bakery.ID), int64(draft.ID), "2026-03-15", "Compré harina", "", int64(12000),
+	)
+	if err == nil {
+		t.Fatal("the database stored a purchase without a word, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.ConstraintName != "purchases_confirmed_with_not_empty_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchases_confirmed_with_not_empty_check")
+	}
+}
+
+// TestTheTableRefusesTheSecondPurchaseOfTheSameDraft proves the rule of the
+// domain against a real database: a draft is confirmed once, and a second
+// purchase of it is refused.
+func TestTheTableRefusesTheSecondPurchaseOfTheSameDraft(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	recorder := purchasesRecorder(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	draft, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	if _, err := recorder.Record(ctx, thePurchaseOfTheTest(draft)); err != nil {
+		t.Fatalf("the purchase could not be written: %v", err)
+	}
+
+	_, err = recorder.Record(ctx, thePurchaseOfTheTest(draft))
+	if err == nil {
+		t.Fatal("the database stored a second purchase of the same draft, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != uniqueViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, uniqueViolation)
+	}
+	if pgErr.ConstraintName != "purchases_one_per_draft" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchases_one_per_draft")
+	}
+}
+
+// TestTheTableRefusesTheLineWithoutAName proves the rule of the domain
+// against a real database: the name of a line is the name the person read.
+func TestTheTableRefusesTheLineWithoutAName(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	recorder := purchasesRecorder(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	draft, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	written, err := recorder.Record(ctx, thePurchaseOfTheTest(draft))
+	if err != nil {
+		t.Fatalf("the purchase could not be written: %v", err)
+	}
+
+	_, err = theSuite.db.ExecContext(ctx,
+		`INSERT INTO purchase_lines (purchase_id, position, name, quantity, unit, total, unit_price)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		int64(written.ID), 2, "", 3.0, "unidad", int64(1500), int64(500),
+	)
+	if err == nil {
+		t.Fatal("the database stored a line without a name, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.ConstraintName != "purchase_lines_name_not_empty_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchase_lines_name_not_empty_check")
+	}
+}
+
+// TestTheDraftIsConfirmedAndItNeverWaitsAgain proves the rule of the domain
+// against a real database: the confirmation moves the draft to the state of
+// the confirmed, and a draft that changed under the eyes of the owner is
+// refused.
+func TestTheDraftIsConfirmedAndItNeverWaitsAgain(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	written, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	confirmed, err := drafts.Confirm(ctx, written.ID, written.Revision)
+	if err != nil {
+		t.Fatalf("the draft could not be confirmed: %v", err)
+	}
+	if confirmed.State != purchase.StateConfirmed {
+		t.Errorf("the state of the draft is %q, want %q", confirmed.State, purchase.StateConfirmed)
+	}
+
+	found, err := drafts.Find(ctx, written.ID)
+	if err != nil {
+		t.Fatalf("the draft could not be read: %v", err)
+	}
+	if found.State != purchase.StateConfirmed {
+		t.Errorf("the state of the draft is %q, want %q", found.State, purchase.StateConfirmed)
+	}
+
+	_, err = drafts.Confirm(ctx, written.ID, written.Revision)
+	if !errors.Is(err, purchase.ErrStaleRevision) {
+		t.Errorf("the error is %v, want %v", err, purchase.ErrStaleRevision)
 	}
 }

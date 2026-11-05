@@ -40,3 +40,34 @@ RETURNING *;
 
 -- name: GetPurchaseDraftByID :one
 SELECT * FROM purchase_drafts WHERE id = sqlc.arg(id);
+
+-- name: CreatePurchase :one
+INSERT INTO purchases (
+    business_id, draft_id, day, market, invoice, utterance, confirmed_with, total
+)
+VALUES (
+    sqlc.arg(business_id), sqlc.arg(draft_id), sqlc.arg(day), sqlc.arg(market),
+    sqlc.arg(invoice), sqlc.arg(utterance), sqlc.arg(confirmed_with), sqlc.arg(total)
+)
+RETURNING *;
+
+-- name: CreatePurchaseLine :one
+INSERT INTO purchase_lines (
+    purchase_id, position, name, quantity, unit, total, unit_price
+)
+VALUES (
+    sqlc.arg(purchase_id), sqlc.arg(position), sqlc.arg(name), sqlc.arg(quantity),
+    sqlc.arg(unit), sqlc.arg(total), sqlc.arg(unit_price)
+)
+RETURNING *;
+
+-- name: ConfirmPurchaseDraft :one
+--
+-- The row must be the one the owner saw: the revision is the one she saw,
+-- and the state is the one of a draft that waits for the yes of its owner.
+-- The vocabulary of the states belongs to the domain, and the caller sends
+-- both of them.
+UPDATE purchase_drafts
+SET state = sqlc.arg(state), updated_at = now()
+WHERE id = sqlc.arg(id) AND revision = sqlc.arg(revision) AND state = sqlc.arg(expected_state)
+RETURNING *;

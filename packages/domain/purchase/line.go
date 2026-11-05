@@ -66,6 +66,25 @@ func (p Price) Present() bool {
 	return p.Total > 0 || p.Unit > 0
 }
 
+// Amount answers the money of the line in the money of the book: whole
+// pesos.
+//
+// The money that was paid is the money of the line. When the owner named
+// only the price of the unit, the money of the line is that price times the
+// quantity, rounded to the nearest peso: the book counts whole pesos, and
+// the sentence of the owner keeps the exact wording.
+func (p Price) Amount(quantity float64) ledger.Amount {
+	if p.Total > 0 {
+		return p.Total
+	}
+
+	if p.Unit <= 0 {
+		return 0
+	}
+
+	return ledger.Amount(math.Round(float64(p.Unit) * quantity))
+}
+
 // AgreesWith reports whether the money that was paid and the price of the
 // unit are the same truth.
 //
@@ -80,8 +99,12 @@ func (p Price) AgreesWith(quantity float64) bool {
 	return p.Total == ledger.Amount(math.Round(float64(p.Unit)*quantity))
 }
 
-// Line is a line of the draft: the name as the owner said it, the measure
-// and the money.
+// Line is a line of a purchase: the name as the owner said it, the
+// measure and the money.
+//
+// A line of a draft is what the agent read, and a line of a purchase is
+// what was bought: the money of a purchase is whole pesos, and it is the
+// money that was paid for the line.
 type Line struct {
 	// Name is the name as the owner said it.
 	Name string

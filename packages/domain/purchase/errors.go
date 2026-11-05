@@ -47,6 +47,26 @@ var (
 	// ErrWrongBusiness is the error of a draft of another business.
 	ErrWrongBusiness = errors.New("the draft belongs to another business")
 
+	// ErrMissingConfirmation is the error of a confirmation without the
+	// word the owner used: the word is kept with the record.
+	ErrMissingConfirmation = errors.New("the confirmation carries the word of the owner")
+
+	// ErrNotProposed is the error of the confirmation of a draft that is
+	// not waiting for the yes of the owner.
+	ErrNotProposed = errors.New("the draft is not waiting for the yes of the owner")
+
+	// ErrStaleRevision is the error of the confirmation of a draft that
+	// changed under the eyes of the owner.
+	ErrStaleRevision = errors.New("the draft changed under the eyes of the owner")
+
+	// ErrExpiredDraft is the error of the confirmation of a draft that
+	// expired: the price of a market does not wait.
+	ErrExpiredDraft = errors.New("the draft expired")
+
+	// ErrStillNeeds is the error of the confirmation of a draft that still
+	// needs the money of one of its lines.
+	ErrStillNeeds = errors.New("the draft still needs the money of a line")
+
 	// ErrInvalidValue is the error of a row the database refused because it
 	// breaks a rule of the table.
 	ErrInvalidValue = errors.New("the database refused the row")
@@ -70,6 +90,11 @@ func Errors() []error {
 		ErrNoLines,
 		ErrNoOptions,
 		ErrWrongBusiness,
+		ErrMissingConfirmation,
+		ErrNotProposed,
+		ErrStaleRevision,
+		ErrExpiredDraft,
+		ErrStillNeeds,
 		ErrInvalidValue,
 		ErrNoStorage,
 	}

@@ -323,7 +323,7 @@ type DraftPurchase struct {
 
 	// DraftID is the draft the candidate amends. It is zero when the
 	// candidate is a new one.
-	DraftID purchase.ID
+	DraftID purchase.DraftID
 
 	// Utterance is the sentence of the owner, verbatim.
 	Utterance string
@@ -364,6 +364,53 @@ type PurchaseDrafter interface {
 	// without a unit, a price that was inferred and a sentence that is
 	// not there.
 	Draft(ctx context.Context, request DraftPurchase) (purchase.Draft, error)
+}
+
+// ConfirmPurchase is the yes of the owner: the draft she confirmed, the
+// revision she saw, the word she used and the account that pays.
+//
+// It is the shape of the contract between the agent and the service: the
+// revision is what makes the confirmation exact, and the word is what is
+// kept with the record.
+type ConfirmPurchase struct {
+	// BusinessID is the business the purchase belongs to.
+	BusinessID business.ID
+
+	// DraftID is the draft the owner confirmed.
+	DraftID purchase.DraftID
+
+	// Revision is the revision of the draft the owner saw.
+	Revision int
+
+	// ConfirmedWith is the word the owner used to confirm it.
+	ConfirmedWith string
+
+	// FromAccountID is the account the money of the payment comes from.
+	// It is zero when the owner named none, and the money then comes from
+	// the cash of the business.
+	FromAccountID account.ID
+}
+
+// PurchaseConfirmer is the inbound port of the tool that confirms a draft.
+//
+// The tool writes the purchase of a draft the owner confirmed, and the
+// money of the payment moves with it: the purchase and the movement of the
+// money are written in one transaction, or none of them is.
+type PurchaseConfirmer interface {
+	// Confirm writes the purchase of the draft and answers with it and
+	// with the three parts of the answer of Paca: what it recorded, what
+	// it did not understand and what it still needs.
+	//
+	// The identity of the business, the identity of the draft, the
+	// revision the owner saw and the word she used are required. The
+	// account that pays is optional, and the cash of the business pays
+	// when the owner names none.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// confirmation of an expired draft, of a draft that changed under the
+	// eyes of the owner and of a draft that still needs the money of one
+	// of its lines.
+	Confirm(ctx context.Context, request ConfirmPurchase) (purchase.Confirmation, error)
 }
 
 // SummaryQuerier is the inbound port of the tool that closes a month.

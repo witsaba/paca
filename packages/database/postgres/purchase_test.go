@@ -205,7 +205,7 @@ func TestTheRowOfADraftIsMappedOntoTheModel(t *testing.T) {
 		t.Fatalf("the row could not be mapped: %v", err)
 	}
 
-	if mapped.ID != purchase.ID(42) {
+	if mapped.ID != purchase.DraftID(42) {
 		t.Errorf("the identity is %d, want 42", mapped.ID)
 	}
 	if mapped.BusinessID != business.ID(77) {
@@ -346,5 +346,74 @@ func TestADraftThatIsNotThereIsNotFound(t *testing.T) {
 
 	if !errors.Is(writePurchaseError(pgxErrNoRows()), purchase.ErrNotFound) {
 		t.Error("the error of the draft is not the error of a row that is not there")
+	}
+}
+
+// TestTheRecorderOfThePurchasesNeedsAPool proves that the recorder of the
+// purchases refuses to be built without a pool: a recorder built on nothing
+// would be a nil pointer inside an interface, and the interface would not
+// be nil.
+func TestTheRecorderOfThePurchasesNeedsAPool(t *testing.T) {
+	t.Parallel()
+
+	if _, err := NewPurchaseRecorder(nil); !errors.Is(err, ErrNoPool) {
+		t.Fatalf("the error is %v, want %v", err, ErrNoPool)
+	}
+}
+
+// TestTheRecorderOfThePurchasesWithoutADatabaseRefusesToWork proves that
+// the recorder of the purchases says that it has no storage.
+func TestTheRecorderOfThePurchasesWithoutADatabaseRefusesToWork(t *testing.T) {
+	t.Parallel()
+
+	recorder := &PurchaseRecorder{}
+
+	if _, err := recorder.Record(t.Context(), purchase.Purchase{}); !errors.Is(err, purchase.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, purchase.ErrNoStorage)
+	}
+}
+
+// TestTheDraftsWithoutADatabaseRefuseToConfirm proves that the drafts say
+// that they have no storage.
+func TestTheDraftsWithoutADatabaseRefuseToConfirm(t *testing.T) {
+	t.Parallel()
+
+	drafts := &PurchaseRepository{}
+
+	if _, err := drafts.Confirm(t.Context(), 1, 1); !errors.Is(err, purchase.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, purchase.ErrNoStorage)
+	}
+}
+
+// TestTheRowOfALineOfThePurchaseIsMappedOntoTheModel proves that the row of
+// a line of a purchase is read as the model of the domain.
+func TestTheRowOfALineOfThePurchaseIsMappedOntoTheModel(t *testing.T) {
+	t.Parallel()
+
+	mapped := purchaseLineFromRow(db.PurchaseLine{
+		ID:         3,
+		PurchaseID: 2,
+		Position:   1,
+		Name:       "Harina",
+		Quantity:   25,
+		Unit:       "kg",
+		Total:      12000,
+		UnitPrice:  480,
+	})
+
+	if mapped.Name != "Harina" {
+		t.Errorf("the name is %q, want %q", mapped.Name, "Harina")
+	}
+	if mapped.Measure.Quantity != 25 {
+		t.Errorf("the quantity is %v, want 25", mapped.Measure.Quantity)
+	}
+	if mapped.Measure.Unit != "kg" {
+		t.Errorf("the unit is %q, want %q", mapped.Measure.Unit, "kg")
+	}
+	if mapped.Price.Total != 12000 {
+		t.Errorf("the money of the line is %d, want 12000", mapped.Price.Total)
+	}
+	if mapped.Price.Unit != 480 {
+		t.Errorf("the price of the unit is %d, want 480", mapped.Price.Unit)
 	}
 }

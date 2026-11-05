@@ -174,8 +174,11 @@ func New(
 	summaryService := application.NewSummaryService(accounts, book, clock.System{})
 
 	// The utterance of the owner: the purchase she said, kept as a draft of
-	// the business while she decides. Without a database there is no draft.
+	// the business while she decides, and the purchase she confirmed. The
+	// confirmation writes the purchase and the money of the payment in one
+	// transaction. Without a database there is no draft and no purchase.
 	var drafts purchase.Repository
+	var purchases purchase.Recorder
 	if pool != nil {
 		boundDrafts, err := postgres.NewPurchaseRepository(pool)
 		if err != nil {
@@ -183,9 +186,17 @@ func New(
 			return nil, fmt.Errorf("the repository of the drafts could not be built: %w", err)
 		}
 		drafts = boundDrafts
+
+		boundPurchases, err := postgres.NewPurchaseRecorder(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the recorder of the purchases could not be built: %w", err)
+		}
+		purchases = boundPurchases
 	}
 
 	purchaseService := application.NewPurchaseService(drafts, clock.System{})
+	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, work, clock.System{})
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
@@ -202,6 +213,7 @@ func New(
 		Debts:               debtService,
 		Summary:             summaryService,
 		DraftPurchase:       purchaseService,
+		ConfirmPurchase:     confirmationService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

@@ -1035,7 +1035,7 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | this commit |
-| T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | `pending` |
+| T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | this commit |
 | T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | `pending` |
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
 | T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | `pending` |
@@ -1125,3 +1125,12 @@ Three things the increment taught, carried here for the ones to come:
 - The lines of a draft, what is missing, what is ambiguous and what was inferred are kept as JSONB: a draft is a proposal, not a fact. When the draft is confirmed, its lines become rows of the purchases.
 - The money of the protocol is whole pesos, so a price in centavos is truncated before the domain sees it. The rounding rule of the book (S45) belongs to the increment that writes the purchase, and the sentence keeps the exact words of the owner until then.
 - The state of a draft is `proposed` only, and the check of the table holds that one state. The cancellation and the expiry will widen it with a migration of their own.
+
+**L17** (2026-11-05): T4 landed: the purchase. The domain of the confirmation refuses, by itself, a confirmation without the word of the owner, a draft that does not wait any more, a draft that changed under her eyes, a draft that expired, and a draft that still needs the money of one of its lines. The money of the book is whole pesos: the price of a line is rounded to the nearest peso, and the sentence keeps the exact wording. The movement of the payment comes from the account that pays — the cash of the business, unless the owner names another — and lands in the inventory, and the rule of that account lives in the domain: the seed of the book of a business now carries the **role** of every account it opens.
+
+Four things the increment taught, carried here for the ones to come:
+
+- A confirmation writes **one purchase** with its lines: the purchase is the header of the fact and the lines are rows of their own table. The purchase does not carry the accounts: the movement of the book carries them, with the sentence of the owner as its description.
+- The confirmation of a draft is **guarded by the revision** the owner saw: the row is only confirmed when it still carries that revision. The draft under her eyes and the draft that was written are the same row.
+- The table of the purchases refuses a purchase without a sentence, without the word of the confirmation, and a second purchase of the same draft: the rules of the domain are held by the table as a defense in depth.
+- The README of the database library does not mention the tables of the drafts and of the purchases yet. The gap is real and the next increment closes it.

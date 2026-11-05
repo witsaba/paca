@@ -40,6 +40,19 @@ type LedgerEntry struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type Purchase struct {
+	ID            int64
+	BusinessID    int64
+	DraftID       int64
+	Day           pgtype.Date
+	Market        pgtype.Text
+	Invoice       pgtype.Text
+	Utterance     string
+	ConfirmedWith string
+	Total         int64
+	CreatedAt     pgtype.Timestamptz
+}
+
 type PurchaseDraft struct {
 	ID         int64
 	BusinessID int64
@@ -57,6 +70,17 @@ type PurchaseDraft struct {
 	ExpiresOn  pgtype.Date
 	CreatedAt  pgtype.Timestamptz
 	UpdatedAt  pgtype.Timestamptz
+}
+
+type PurchaseLine struct {
+	ID         int64
+	PurchaseID int64
+	Position   int32
+	Name       string
+	Quantity   float64
+	Unit       string
+	Total      int64
+	UnitPrice  int64
 }
 
 type User struct {

@@ -170,8 +170,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 20 {
-		t.Errorf("the server exposes %d tools, want 20", len(tools.Tools))
+	if len(tools.Tools) != 22 {
+		t.Errorf("the server exposes %d tools, want 22", len(tools.Tools))
 	}
 }
 

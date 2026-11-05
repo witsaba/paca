@@ -49,6 +49,20 @@ type LedgerEntry struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type PriceReference struct {
+	ID            int64
+	BusinessID    int64
+	IngredientID  int64
+	Price         int64
+	Unit          string
+	Market        pgtype.Text
+	Source        string
+	SeenOn        pgtype.Date
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type Purchase struct {
 	ID            int64
 	BusinessID    int64

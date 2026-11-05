@@ -620,3 +620,97 @@ type SummaryQuerier interface {
 	// when the caller names none.
 	Month(ctx context.Context, businessID business.ID, year, month int) (MonthSummary, error)
 }
+
+// RecordReference is the reference the research found: the ingredient it is
+// about, the price that was seen, the unit of that price, the market where
+// it was seen, the place it was read, the day it was read and the word the
+// owner used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: a
+// reference is a price fact of the business, and it is never the price of
+// the ingredient.
+type RecordReference struct {
+	// BusinessID is the business the reference belongs to.
+	BusinessID business.ID
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// reference is about.
+	IngredientID int64
+
+	// Price is the price that was seen, in whole pesos.
+	Price int64
+
+	// Unit is the unit of that price.
+	Unit string
+
+	// Market is the market where the price was seen. It is empty when the
+	// research named none.
+	Market string
+
+	// Source is the place the price was read. It is required: a price
+	// without a source is a price nobody can check.
+	Source string
+
+	// Day is the day the price was seen. It is the day of today when the
+	// agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word the owner used to confirm it.
+	ConfirmedWith string
+}
+
+// ReferenceRecorder is the inbound port of the tool that records a
+// reference.
+//
+// The tool writes the reference with the confirmation of the owner, the way
+// the purchase is written: the domain refuses a reference that is not
+// whole, and the answer tells the agent what it still needs to ask for.
+type ReferenceRecorder interface {
+	// Record writes the reference of the business and answers it with it.
+	//
+	// The identity of the business, the identity of the ingredient, the
+	// price, the unit, the source and the word of the owner are required.
+	// The market and the sentence of the owner are optional, and the day
+	// is the day of today when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses a
+	// reference without the ingredient of the catalog, without a price,
+	// without its unit, without its source, without its day and without
+	// the word of the owner.
+	Record(ctx context.Context, request RecordReference) (purchase.Reference, error)
+}
+
+// ReadReferences is the business whose references are read, and the
+// ingredient the caller asks about.
+//
+// It is the shape of the contract between the agent and the service: the
+// ingredient is optional, and the zero identity answers every reference of
+// the business.
+type ReadReferences struct {
+	// BusinessID is the business whose references are read.
+	BusinessID business.ID
+
+	// IngredientID is the ingredient the caller asks about. It is zero
+	// when the caller asks for every reference of the business.
+	IngredientID int64
+}
+
+// ReferencesReader is the inbound port of the tool that reads the reference
+// prices of a business.
+//
+// The references are read with their source and their day: a reference
+// without them is a price nobody can check.
+type ReferencesReader interface {
+	// Read answers the references of the business, in the order of their
+	// identity: the ones of one ingredient, or every one of them.
+	//
+	// The identity of the business is required, and the list is empty when
+	// the business holds no reference.
+	//
+	// The error is the error of the domain: the domain refuses an
+	// ingredient the catalog of the business does not hold.
+	Read(ctx context.Context, request ReadReferences) ([]purchase.Reference, error)
+}

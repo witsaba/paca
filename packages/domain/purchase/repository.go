@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 )
 
 // Repository is the port of the storage of the drafts.
@@ -78,4 +79,34 @@ type Recorder interface {
 	// The error is ErrInvalidValue when the row breaks a rule of the
 	// table, and ErrNoStorage when the storage is not open.
 	Record(ctx context.Context, purchase Purchase) (Purchase, error)
+}
+
+// ReferenceRepository is the port of the storage of the reference prices.
+//
+// A reference is a price fact of the business: what the market was seen at,
+// where it was read and the day it was read. It is never the price of the
+// ingredient: the price the owner pays comes from her own purchases.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type ReferenceRepository interface {
+	// Record writes the reference and answers it with the identity that
+	// the storage generated.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business or the ingredient of the
+	// reference is not there, and ErrNoStorage when the storage is not
+	// open.
+	Record(ctx context.Context, reference Reference) (Reference, error)
+
+	// List returns the references of a business, in the order of their
+	// identity.
+	//
+	// The ingredient is optional: the zero identity answers every
+	// reference of the business, and an identity answers the references of
+	// that ingredient alone.
+	//
+	// The list is empty when the business holds no reference, and the
+	// error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID, of ingredient.ID) ([]Reference, error)
 }

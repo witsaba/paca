@@ -1041,7 +1041,7 @@ its session starts.
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | this commit |
 | T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | this commit |
 | T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | this commit |
-| T9 | S17, S18, S47 | The reference prices and their tools | inline | `pending` |
+| T9 | S17, S18, S47 | The reference prices and their tools | inline | this commit |
 
 ### Movement III — The cost
 
@@ -1165,3 +1165,10 @@ Three things the increment taught, carried here for the ones to come:
 - The port of the recipes **writes only**: nothing reads a recipe back yet. The cost of a batch (T12) and the production (T17) will widen it, and the rules they add will land in the domain and in the table together.
 - The name of a recipe is **not unique inside the business** today, because the domain states no such rule, and the table holds none. If the owner wants it, the rule belongs in the domain first.
 - The list of the tools of the running server was **stale since T5 and T6** — it was missing `match_items`, `cancel_draft` and `read_drafts` — and it is right now. The list of the tools is a contract of the transport, and it is proved by a test that only sees the running server.
+
+**L22** (2026-11-05): T9 landed: the reference prices. A reference is what Paca researched in the market: the ingredient, the price, the unit of that price, the market where it was seen, the source and the day it was seen. It is **labelled as a reference** — the answer of the tool carries its kind — and it is never the price of the ingredient: the price the owner pays comes from her own purchases. The source is never empty, because a price nobody can check is a price nobody can trust. The tools are `record_reference`, which writes it with the word of the owner, and `read_references`, which reads them with their source and their day. The server now exposes twenty-two tools.
+
+Two things the increment taught, carried here for the ones to come:
+
+- The reference **does not move money**: no movement of the book, no account. The price of the owner lives only in her purchases, and the margin (T16) will read both sides — the cost of what she paid and the reference of the market — side by side.
+- The market of a reference is **optional** today, because the only rule the domain states is that the source is never empty. If the owner wants the market to be part of the reference, the rule belongs in the domain first.

@@ -220,10 +220,12 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_drafts",
 		"read_month_summary",
 		"read_movements",
+		"read_references",
 		"record_debt",
 		"record_debt_payment",
 		"record_movement",
 		"record_recipe",
+		"record_reference",
 		"update_user_contact_data",
 	}
 	got := make([]string, 0, len(tools.Tools))

@@ -157,4 +157,14 @@ var theMessages = map[error]string{
 	recipe.ErrInvalidValue: "the database refused the recipe: check the name, the ingredients, the steps, the " +
 		"yield and the shelf life of it",
 	recipe.ErrNoStorage: "the service has no storage of the recipes: the book of the bakery cannot be reached",
+
+	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
+		"of the business first, and send the identity it answered",
+	purchase.ErrInvalidReferencePrice: "the price of the reference is not a positive number of pesos: ask for the " +
+		"price that was seen, and never fill it by yourself",
+	purchase.ErrMissingReferenceUnit: "the price of the reference carries no unit: ask in which unit the price was " +
+		"seen ('kg', 'libra', 'paquete', 'unidad')",
+	purchase.ErrMissingSource: "the reference carries no source: say where the price was read, because a price " +
+		"without a source is a price nobody can check",
+	purchase.ErrMissingDay: "the reference carries no day: say the day the price was seen, and never invent one",
 }

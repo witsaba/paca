@@ -79,6 +79,28 @@ var (
 	// ErrNoStorage is the error of a port of the storage that has no
 	// storage behind it.
 	ErrNoStorage = errors.New("the storage of the drafts is not open")
+
+	// ErrMissingIngredient is the error of a reference that names nothing
+	// of the catalog of the business.
+	ErrMissingIngredient = errors.New("the reference names the ingredient of the catalog")
+
+	// ErrInvalidReferencePrice is the error of a reference whose price is
+	// not a price.
+	ErrInvalidReferencePrice = errors.New("the price of the reference is positive")
+
+	// ErrMissingReferenceUnit is the error of a reference whose price
+	// carries no unit: a price without a unit is a number nobody can
+	// compare with anything.
+	ErrMissingReferenceUnit = errors.New("the price of the reference carries its unit")
+
+	// ErrMissingSource is the error of a reference without the place the
+	// price was read: a price without a source is a price nobody can
+	// check.
+	ErrMissingSource = errors.New("the reference carries the source where the price was read")
+
+	// ErrMissingDay is the error of a reference without the day the price
+	// was seen.
+	ErrMissingDay = errors.New("the reference carries the day it was seen")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -103,5 +125,10 @@ func Errors() []error {
 		ErrStillNeeds,
 		ErrInvalidValue,
 		ErrNoStorage,
+		ErrMissingIngredient,
+		ErrInvalidReferencePrice,
+		ErrMissingReferenceUnit,
+		ErrMissingSource,
+		ErrMissingDay,
 	}
 }

@@ -230,6 +230,22 @@ func New(
 
 	recipeService := application.NewRecipeService(recipes, ingredients)
 
+	// The reference prices: what the market was seen at, where it was read
+	// and the day it was read. A reference is never the price of the
+	// ingredient: the price the owner pays comes from her own purchases.
+	// Without a database there is no reference to write nor to read.
+	var references purchase.ReferenceRepository
+	if pool != nil {
+		boundReferences, err := postgres.NewReferenceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the reference prices could not be built: %w", err)
+		}
+		references = boundReferences
+	}
+
+	referenceService := application.NewReferenceService(references, ingredients, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -250,6 +266,8 @@ func New(
 		ReadDrafts:          purchaseService,
 		MatchItems:          ingredientService,
 		RecordRecipe:        recipeService,
+		RecordReference:     referenceService,
+		ReadReferences:      referenceService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

@@ -100,14 +100,16 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty tools: the way PACA onboards a person, the four
+The server exposes twenty-two tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
 of the utterance — the purchase the owner just said, the purchase she
 confirmed, and the two that drop and read back the pending drafts — the
 tool of the catalog, which matches the name she said against the names the
-business buys, and the tool of the recipes: the guide she just confirmed.
+business buys, the tool of the recipes: the guide she just confirmed, and
+the two tools of the reference prices: the price of the market that PACA
+researched, and the reading of the ones the business holds.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -131,6 +133,8 @@ business buys, and the tool of the recipes: the guide she just confirmed.
 | `read_drafts`              | Reads the pending drafts of a business, each one with what it still needs, what it was not sure about and what PACA filled, so that a lost conversation can be recovered. It writes nothing. |
 | `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
 | `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
+| `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
+| `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -244,6 +248,19 @@ first. The recipe, its ingredients and its steps are written together or not
 at all: a recipe without its ingredients and its steps is not a guide, and a
 refused recipe leaves nothing behind.
 
+**A reference is never the price of the ingredient.** The price the owner
+pays exists only in the market of her town and only in her mouth on the
+day: it comes from her own purchases. The tool `record_reference` writes
+what the research of PACA found — the ingredient, the price, the unit of
+that price, the market where it was seen, the place it was read and the day
+it was read — with the confirmation of the owner, the way the purchase is
+written. The answer carries the kind of what it is (`reference`), so that
+nothing may read it as the price of the ingredient. The source is never
+empty: a price without a source is a price nobody can check, and PACA
+refuses it. The tool `read_references` reads the references of the
+business — of one ingredient, or of every one of them — with their source
+and their day, and it writes nothing.
+
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
 address, a document that is already registered, an email that belongs to
@@ -251,8 +268,9 @@ somebody else, a move the map does not allow, an observation that does
 not fit the status, a name that is missing, a business that is already
 there, an account whose name is taken inside its business, a recipe without
 a name or without a yield, an ingredient of a recipe without its grams and
-a step without its instruction: each one says what happened and what to do
-about it.
+a step without its instruction, a reference without its source, without its
+day or without the ingredient of the catalog: each one says what happened
+and what to do about it.
 
 The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the

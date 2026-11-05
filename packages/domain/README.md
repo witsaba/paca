@@ -36,7 +36,8 @@ packages/domain/
   purchase/         the model of the draft of a purchase and of the purchase
                     itself: the candidate the agent proposes, the lines, the
                     measure, the money, what the draft still needs, the
-                    confirmation and the port of the storage
+                    confirmation, the reference price of the market and the
+                    port of the storage
   ingredient/       the model of the catalog of the names the business buys:
                     the name the owner reads, the names she uses for it, the
                     matching of a name she said and the port of the storage
@@ -423,6 +424,34 @@ temperature below the absolute zero is not a temperature
 the record (`ErrMissingConfirmation`). The sentence of the owner is
 optional: the recipe is the record, and the sentence is kept with it when
 she said one.
+
+## The model of the reference price
+
+`purchase.Reference` is what the market was seen at: the ingredient it is
+about, the price that was seen, the unit of that price, the market where
+it was seen, the place it was read and the day it was read. It lives in
+the package of the purchase, next to the price it is a reference of: it is
+a price fact of the business, and not a field of the ingredient.
+
+**A reference is never the price of the ingredient.** The price the owner
+pays exists only in the market of her town and only in her mouth on the
+day: it comes from her own purchases. The reference is what Paca
+researched, and the domain labels it as one — `purchase.ReferenceKind` and
+`purchase.Reference.Label` — so that no later analysis may read it as the
+price of the ingredient.
+
+**The reference is whole.** It names an ingredient of the catalog
+(`ErrMissingIngredient`), its price is positive
+(`ErrInvalidReferencePrice`), the price carries its unit
+(`ErrMissingReferenceUnit`), it carries the source where the price was
+read (`ErrMissingSource`) and it carries the day it was seen
+(`ErrMissingDay`). The source is never empty: a price without a source is
+a price nobody can check.
+
+**The reference is written with the word of the owner.** It is confirmed
+the way the purchase is confirmed, and the word she used is kept with the
+record (`ErrMissingConfirmation`). The market is optional: it is there when
+the research named one, and absent when it named none.
 
 ## The transaction of the storage
 

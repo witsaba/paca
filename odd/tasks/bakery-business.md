@@ -87,6 +87,15 @@ increment. The slices are stacked in the order of the movements, and each
 one states its dependency on the previous, what it delivers and what it does
 not.
 
+**The size of an increment is the size of its proof.** An increment that is
+vertical carries its own tests, and the tests are most of its lines: the
+registration of the bakery was two thousand lines of which a thousand were
+the proof. A pull request that carries such an increment asks for the
+exception of the size, and it says why: the increment is one behavior with
+its proof, and splitting it would put half of a behavior in a review. The
+exception is the owner's to accept, and it is asked once, with the first
+pull request.
+
 **The chain strategy is the owner's decision.** The two shapes of the
 chained pull requests are the stack to `main` — every slice lands in order
 and `main` stays alive and green — and the tracker, where the whole chain

@@ -131,6 +131,22 @@ var theMessages = map[error]string{
 		"of the business the person names",
 	ingredient.ErrInvalidValue: "the database refused the ingredient: check the name of it",
 	ingredient.ErrNoStorage:    "the service has no storage of the ingredients: the catalog cannot be reached",
+	ingredient.ErrUnknownUnit: "the unit is not one of the units PACA knows: use 'g', 'kg', 'paquete' or " +
+		"'unidad', the way the owner buys the thing",
+	ingredient.ErrInvalidQuantity: "the quantity of the ingredient is not positive: ask the owner how much of it " +
+		"she buys",
+	ingredient.ErrMissingPackageWeight: "the weight of the package is not declared: ask the owner how much the " +
+		"package weighs, in grams, and never assume it",
+	ingredient.ErrInvalidPackageWeight: "the weight of the package is not a positive number of grams: ask the " +
+		"owner how much the package weighs",
+	ingredient.ErrInvalidCertification: "the certification carries no name: ask the owner for the claim she " +
+		"makes about the ingredient ('Orgánico')",
+	ingredient.ErrMissingEvidence: "the certification carries no evidence: ask the owner for the document that " +
+		"proves the claim, because a claim nobody can check is a wish",
+	ingredient.ErrInvalidConversion: "the conversion of the ingredient is not positive: it is the grams of the " +
+		"raw that one gram of the prepared ingredient takes",
+	ingredient.ErrUnknownConversion: "the piece is one unit of the ingredient, and its weight is never assumed: " +
+		"ask the owner how much the piece weighs",
 
 	recipe.ErrNotFound: "the business or the ingredient of the recipe is not there: check the business, and match " +
 		"the ingredient against the catalog of that business before writing the recipe",

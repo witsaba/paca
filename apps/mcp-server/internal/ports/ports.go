@@ -288,6 +288,11 @@ type PurchaseLine struct {
 	Quantity float64
 
 	// Unit is the unit of that quantity.
+	//
+	// It is empty when the owner named none: the use case asks the
+	// catalog of the names, and the unit of the ingredient of the line is
+	// the unit of the line. The domain still refuses a line that ends
+	// without a unit.
 	Unit string
 
 	// Total is the money that was paid for the whole line, in pesos.
@@ -513,6 +518,101 @@ type ItemMatcher interface {
 	// that is not there, and a catalog that carries two ingredients with
 	// the same name.
 	Match(ctx context.Context, request MatchItems) (ingredient.Match, error)
+}
+
+// ReadIngredients is the business whose catalog is read.
+//
+// It is the shape of the contract between the agent and the service: the
+// catalog is the one of the business the agent names.
+type ReadIngredients struct {
+	// BusinessID is the business whose catalog is read.
+	BusinessID business.ID
+}
+
+// IngredientsReader is the inbound port of the tool that reads the catalog
+// of a business.
+//
+// The answer carries what is known of every ingredient of the catalog and
+// what is still missing of each one.
+type IngredientsReader interface {
+	// Read answers the ingredients of the business, in the order of their
+	// identity.
+	//
+	// The identity of the business is required, and the list is empty
+	// when the business bought nothing yet: the catalog of a business
+	// begins empty.
+	//
+	// The error is the error of the domain: the domain refuses a catalog
+	// that carries two ingredients with the same name.
+	Read(ctx context.Context, request ReadIngredients) ([]ingredient.Ingredient, error)
+}
+
+// CompleteIngredient is what the owner declares about an ingredient: the
+// unit it is bought in, the weight of a package of it, the allergens it
+// carries, the certification it has with the evidence of that
+// certification, the names she uses for it and the conversion of its raw
+// grams into its prepared ones.
+//
+// It is the shape of the contract between the agent and the service: every
+// field is what the owner declared, and a field the owner did not declare
+// stays as it was.
+type CompleteIngredient struct {
+	// BusinessID is the business the ingredient belongs to.
+	BusinessID business.ID
+
+	// IngredientID is the identity of the ingredient of the catalog.
+	IngredientID int64
+
+	// Unit is the unit the ingredient is bought in ('g', 'kg', 'paquete',
+	// 'unidad'). It is empty when the owner declared none.
+	Unit string
+
+	// PackageGrams is the weight of a package of the ingredient, in
+	// grams. It is zero when the owner declared none.
+	PackageGrams float64
+
+	// Allergens are the allergens the ingredient carries. It is nil when
+	// the owner declared none.
+	Allergens []string
+
+	// CertificationName is the claim the ingredient carries ('Orgánico').
+	// It is empty when the owner declared none.
+	CertificationName string
+
+	// CertificationEvidence is the document that proves the claim. It is
+	// never empty when there is a claim.
+	CertificationEvidence string
+
+	// Aliases are the names the owner uses for the ingredient. It is nil
+	// when she declared none.
+	Aliases []string
+
+	// Conversion is the grams of the raw that one gram of the prepared
+	// ingredient takes. It is zero when the owner declared none, and the
+	// ingredient keeps the one to one of the raw until then.
+	Conversion float64
+}
+
+// IngredientCompleter is the inbound port of the tool that completes an
+// ingredient.
+//
+// The tool writes what the owner declared about the thing the business
+// buys, and answers with the ingredient as it is now.
+type IngredientCompleter interface {
+	// Complete writes what the owner declared about the ingredient of the
+	// catalog, and answers with the ingredient as it is now.
+	//
+	// The identity of the business and the identity of the ingredient are
+	// required. The unit, the weight of a package, the allergens, the
+	// certification with its evidence, the aliases and the conversion are
+	// optional, and the ingredient keeps what it had when the owner
+	// declared none.
+	//
+	// The error is the error of the domain: the domain refuses an
+	// ingredient the catalog of the business does not hold, a unit the
+	// book does not know, a certification without its evidence and a
+	// conversion that is not positive.
+	Complete(ctx context.Context, request CompleteIngredient) (ingredient.Ingredient, error)
 }
 
 // RecipeIngredient is an ingredient of a recipe: the identity of the

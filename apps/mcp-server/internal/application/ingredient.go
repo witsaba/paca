@@ -2,8 +2,11 @@ package application
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 )
 
@@ -53,4 +56,126 @@ func (s *IngredientService) Match(ctx context.Context, request ports.MatchItems)
 	}
 
 	return catalog.Match(request.Name)
+}
+
+// Read answers the catalog of a business: what is known of every ingredient
+// and what is still missing of each one.
+//
+// The catalog begins empty and grows with what the owner buys: the list is
+// empty when the business bought nothing yet.
+//
+// The rules are the ones of the domain: the use case reads the catalog and
+// hands it to the agent, and the domain decides what an ingredient is.
+func (s *IngredientService) Read(ctx context.Context, request ports.ReadIngredients) ([]ingredient.Ingredient, error) {
+	if s == nil || s.ingredients == nil {
+		return nil, ports.ErrNoDatabase
+	}
+
+	return s.ingredients.List(ctx, request.BusinessID)
+}
+
+// Complete writes what the owner declared about an ingredient of the
+// catalog, and answers with the ingredient as it is now.
+//
+// The rules are the ones of the domain: the use case reads the catalog of
+// the business, asks the domain what the ingredient is, asks the domain
+// what the declaration of the owner makes of it, and writes what the
+// domain built. It never decides what an ingredient carries.
+//
+// The ingredient belongs to the business: the completion of an ingredient
+// the catalog of the business does not hold is refused, and nothing is
+// written.
+func (s *IngredientService) Complete(ctx context.Context, request ports.CompleteIngredient) (ingredient.Ingredient, error) {
+	if s == nil || s.ingredients == nil {
+		return ingredient.Ingredient{}, ports.ErrNoDatabase
+	}
+
+	current, err := s.find(ctx, request.BusinessID, ingredient.ID(request.IngredientID))
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	declaration, err := declarationOf(request)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	completed, err := ingredient.Complete(current, declaration)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	return s.ingredients.Update(ctx, completed)
+}
+
+// find answers the ingredient of the catalog of the business.
+//
+// The rule of the domain: an ingredient of another business is not in the
+// catalog of this one, and an ingredient that was never bought is not in
+// it either. The error is ingredient.ErrNotFound, and the answer tells the
+// agent to match the name against the catalog first.
+func (s *IngredientService) find(ctx context.Context, own business.ID, id ingredient.ID) (ingredient.Ingredient, error) {
+	items, err := s.ingredients.List(ctx, own)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	catalog, err := ingredient.NewCatalog(own, items)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	found, held := catalog.Find(id)
+	if !held {
+		return ingredient.Ingredient{}, fmt.Errorf("%w: the ingredient %d is not one of the catalog of the business %d",
+			ingredient.ErrNotFound, id, own)
+	}
+
+	return found, nil
+}
+
+// declarationOf turns what the agent sent into the declaration of the
+// domain.
+//
+// The rules are the ones of the domain: the use case asks the domain to
+// read the unit, to build the certification and to build the conversion,
+// and it never builds them by itself.
+//
+// A field the owner did not declare stays absent: the ingredient keeps
+// what it had.
+func declarationOf(request ports.CompleteIngredient) (ingredient.Declaration, error) {
+	declaration := ingredient.Declaration{
+		PackageGrams: request.PackageGrams,
+		Allergens:    request.Allergens,
+		Aliases:      request.Aliases,
+	}
+
+	if unit := strings.TrimSpace(request.Unit); unit != "" {
+		parsed, err := ingredient.ParseUnit(unit)
+		if err != nil {
+			return ingredient.Declaration{}, err
+		}
+
+		declaration.Unit = parsed
+	}
+
+	if request.CertificationName != "" || request.CertificationEvidence != "" {
+		certification, err := ingredient.NewCertification(request.CertificationName, request.CertificationEvidence)
+		if err != nil {
+			return ingredient.Declaration{}, err
+		}
+
+		declaration.Certification = certification
+	}
+
+	if request.Conversion != 0 {
+		conversion, err := ingredient.NewConversion(request.Conversion)
+		if err != nil {
+			return ingredient.Declaration{}, err
+		}
+
+		declaration.Conversion = conversion
+	}
+
+	return declaration, nil
 }

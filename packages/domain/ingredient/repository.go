@@ -33,4 +33,18 @@ type Repository interface {
 	// The error is ErrDuplicateName when the name is taken inside the
 	// business, and ErrNoStorage when the storage is not open.
 	Create(ctx context.Context, item Ingredient) (Ingredient, error)
+
+	// Update writes the ingredient of the catalog of a business, and
+	// answers it.
+	//
+	// The rule of the domain: the ingredient that is written is the one
+	// the owner completed, and it keeps its identity and its name. The
+	// rule of the table holds the same one as a defense in depth: the
+	// unit is one of the units of the book, the weight of a package is
+	// positive, the conversion is positive, and a certification carries
+	// its evidence or nothing.
+	//
+	// The error is ErrNotFound when the storage does not hold the
+	// ingredient, and ErrNoStorage when the storage is not open.
+	Update(ctx context.Context, item Ingredient) (Ingredient, error)
 }

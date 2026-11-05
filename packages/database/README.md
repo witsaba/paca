@@ -251,6 +251,12 @@ The catalog of the names the business buys.
 | `business_id`         | `bigint`     | Not null, the business that buys it                          |
 | `name`                | `text`       | Not null, never empty, unique inside the business             |
 | `aliases`             | `jsonb`      | Not null, default `[]`, an array of the names she uses        |
+| `unit`                | `text`       | Not null, default `''`: `g`, `kg`, `paquete` or `unidad`      |
+| `package_grams`       | `double precision` | Not null, default `0`: the weight of a package, in grams |
+| `allergens`           | `jsonb`      | Not null, default `[]`, an array of the allergens it carries  |
+| `certification_name`  | `text`       | Not null, default `''`: the claim the ingredient carries      |
+| `certification_evidence` | `text`   | Not null, default `''`: the document that proves the claim    |
+| `conversion`          | `double precision` | Not null, default `1`: the raw grams of one prepared gram |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 | `updated_at`          | `timestamptz`| Not null, default `now()`                                     |
 
@@ -262,6 +268,29 @@ and the index holds it as a defense in depth.
 **The aliases are the names the owner uses for the thing she buys.** They
 travel as JSONB: they are a list of names, and the list is what the domain
 reads back.
+
+**The unit of an ingredient is one of the units of the book.** The check is
+`ingredients_unit_check`, and it holds the four units — the gram, the
+kilogram, the package and the piece — as a defense in depth. The unit is
+empty while the owner has not declared it.
+
+**The weight of a package is what the owner declares.** The check is
+`ingredients_package_grams_check`, and the weight is never assumed: zero
+means that the owner has not declared it yet.
+
+**The allergens are the allergens the ingredient carries.** They travel as
+JSONB, like the aliases, and the check `ingredients_allergens_check` holds
+that they are a list.
+
+**A certification carries its evidence.** The check
+`ingredients_certification_check` refuses a claim without the document
+that proves it, and a claim with an evidence that is not there. The two
+fats are two rows, each one with its own certification.
+
+**The conversion is the raw grams of one prepared gram.** The check
+`ingredients_conversion_check` holds it positive, and the default is the
+one to one the owner decided for now: the grams of a recipe are the raw
+ones, and the owner declares any other factor she needs.
 
 **The catalog of a business begins empty.** There is no seed: the first
 purchase of the business creates the first name.
@@ -479,6 +508,7 @@ Record(ctx, purchase) (purchase.Purchase, error)
 
 List(ctx, businessID) ([]ingredient.Ingredient, error)
 Create(ctx, ingredient) (ingredient.Ingredient, error)
+Update(ctx, ingredient) (ingredient.Ingredient, error)
 ```
 
 **The lines of a draft travel as JSONB.** The adapter encodes them and
@@ -488,6 +518,12 @@ the row never decides what a line is.
 **The confirmation of a draft is guarded by the revision the owner saw.**
 The row is only confirmed when it still carries that revision, and the
 storage refuses the confirmation of a draft that changed under her eyes.
+
+**The completion of an ingredient is one update.** What the owner declared
+about the thing the business buys — the unit, the weight of a package, the
+allergens, the certification with its evidence, the aliases and the
+conversion — is written in one statement, and the row keeps its identity
+and its name: the completion of an ingredient never makes it another one.
 
 **The confirmation writes the purchase, its lines and the catalog in one
 transaction.** The unit of work opens it, and every repository called

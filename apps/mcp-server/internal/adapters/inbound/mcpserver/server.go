@@ -94,6 +94,21 @@ type Options struct {
 	// and every call answers that the database is not there.
 	MatchItems ports.ItemMatcher
 
+	// ReadIngredients is the use case that reads the catalog of the names
+	// the business buys, with what is known of every ingredient and what
+	// is still missing of it.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadIngredients ports.IngredientsReader
+
+	// CompleteIngredient is the use case that writes what the owner
+	// declared about an ingredient of the catalog.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	CompleteIngredient ports.IngredientCompleter
+
 	// CancelDraft is the use case that drops the draft the owner does not
 	// want.
 	//
@@ -179,7 +194,7 @@ func New(opts Options) *Server {
 	transport.registerBookTools(opts.Book)
 	transport.registerDebtTools(opts.Debts, opts.Summary)
 	transport.registerPurchaseTools(opts.DraftPurchase, opts.ConfirmPurchase, opts.CancelDraft, opts.ReadDrafts)
-	transport.registerIngredientTools(opts.MatchItems)
+	transport.registerIngredientTools(opts.MatchItems, opts.ReadIngredients, opts.CompleteIngredient)
 	transport.registerRecipeTools(opts.RecordRecipe)
 	transport.registerReferenceTools(opts.RecordReference, opts.ReadReferences)
 

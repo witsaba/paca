@@ -12,7 +12,7 @@ import (
 const createIngredient = `-- name: CreateIngredient :one
 INSERT INTO ingredients (business_id, name, aliases)
 VALUES ($1, $2, $3)
-RETURNING id, business_id, name, aliases, created_at, updated_at
+RETURNING id, business_id, name, aliases, created_at, updated_at, unit, package_grams, allergens, certification_name, certification_evidence, conversion
 `
 
 type CreateIngredientParams struct {
@@ -31,19 +31,26 @@ func (q *Queries) CreateIngredient(ctx context.Context, arg CreateIngredientPara
 		&i.Aliases,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Unit,
+		&i.PackageGrams,
+		&i.Allergens,
+		&i.CertificationName,
+		&i.CertificationEvidence,
+		&i.Conversion,
 	)
 	return i, err
 }
 
 const listIngredientsByBusiness = `-- name: ListIngredientsByBusiness :many
 
-SELECT id, business_id, name, aliases, created_at, updated_at FROM ingredients WHERE business_id = $1 ORDER BY id
+SELECT id, business_id, name, aliases, created_at, updated_at, unit, package_grams, allergens, certification_name, certification_evidence, conversion FROM ingredients WHERE business_id = $1 ORDER BY id
 `
 
 // The queries of the catalog of the names the business buys.
 //
 // The aliases of an ingredient travel as JSONB: they are the names the
-// owner uses for the thing she buys, and the adapter encodes them.
+// owner uses for the thing she buys, and the adapter encodes them. The
+// allergens travel the same way.
 //
 // Every query writes or reads one row, and every one of them is a single
 // statement: the library does not read a row to find out whether it may
@@ -64,6 +71,12 @@ func (q *Queries) ListIngredientsByBusiness(ctx context.Context, businessID int6
 			&i.Aliases,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Unit,
+			&i.PackageGrams,
+			&i.Allergens,
+			&i.CertificationName,
+			&i.CertificationEvidence,
+			&i.Conversion,
 		); err != nil {
 			return nil, err
 		}
@@ -73,4 +86,55 @@ func (q *Queries) ListIngredientsByBusiness(ctx context.Context, businessID int6
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateIngredient = `-- name: UpdateIngredient :one
+UPDATE ingredients
+SET unit = $1,
+    package_grams = $2,
+    allergens = $3,
+    certification_name = $4,
+    certification_evidence = $5,
+    conversion = $6,
+    updated_at = now()
+WHERE id = $7
+RETURNING id, business_id, name, aliases, created_at, updated_at, unit, package_grams, allergens, certification_name, certification_evidence, conversion
+`
+
+type UpdateIngredientParams struct {
+	Unit                  string
+	PackageGrams          float64
+	Allergens             []byte
+	CertificationName     string
+	CertificationEvidence string
+	Conversion            float64
+	ID                    int64
+}
+
+func (q *Queries) UpdateIngredient(ctx context.Context, arg UpdateIngredientParams) (Ingredient, error) {
+	row := q.db.QueryRow(ctx, updateIngredient,
+		arg.Unit,
+		arg.PackageGrams,
+		arg.Allergens,
+		arg.CertificationName,
+		arg.CertificationEvidence,
+		arg.Conversion,
+		arg.ID,
+	)
+	var i Ingredient
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.Name,
+		&i.Aliases,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Unit,
+		&i.PackageGrams,
+		&i.Allergens,
+		&i.CertificationName,
+		&i.CertificationEvidence,
+		&i.Conversion,
+	)
+	return i, err
 }

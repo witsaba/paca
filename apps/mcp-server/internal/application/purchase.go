@@ -27,18 +27,25 @@ import (
 // The use case also drops the drafts the owner does not want and reads the
 // pending ones back, so that a lost conversation can be recovered.
 type PurchaseService struct {
-	drafts purchase.Repository
-	clock  ports.Clock
+	drafts      purchase.Repository
+	ingredients ingredient.Repository
+	clock       ports.Clock
 }
 
 // NewPurchaseService builds the use case of the drafts.
 //
-// The repository is the port of the storage: the use case does not know
-// whether the rows live in PostgreSQL or somewhere else. The clock is the
-// port of the time: the day of a draft that names none is the day of
-// today, and the service does not read the clock of the machine by itself.
-func NewPurchaseService(drafts purchase.Repository, clock ports.Clock) *PurchaseService {
-	return &PurchaseService{drafts: drafts, clock: clock}
+// The repositories are the ports of the storage: the use case does not know
+// whether the rows live in PostgreSQL or somewhere else. The catalog of the
+// names is one of them: the unit of a line the owner did not name is the
+// unit of the ingredient. The clock is the port of the time: the day of a
+// draft that names none is the day of today, and the service does not read
+// the clock of the machine by itself.
+func NewPurchaseService(
+	drafts purchase.Repository,
+	ingredients ingredient.Repository,
+	clock ports.Clock,
+) *PurchaseService {
+	return &PurchaseService{drafts: drafts, ingredients: ingredients, clock: clock}
 }
 
 // Draft keeps the candidate the agent read as a draft of the business.
@@ -56,11 +63,16 @@ func NewPurchaseService(drafts purchase.Repository, clock ports.Clock) *Purchase
 // when it names none. The amendment grows the revision of the draft and
 // keeps the sentence the owner said the first time.
 func (s *PurchaseService) Draft(ctx context.Context, request ports.DraftPurchase) (purchase.Draft, error) {
-	if s == nil || s.drafts == nil || s.clock == nil {
+	if s == nil || s.drafts == nil || s.ingredients == nil || s.clock == nil {
 		return purchase.Draft{}, ports.ErrNoDatabase
 	}
 
-	candidate, err := s.candidateOf(request)
+	catalog, err := s.catalogOf(ctx, request.BusinessID)
+	if err != nil {
+		return purchase.Draft{}, err
+	}
+
+	candidate, err := s.candidateOf(request, catalog)
 	if err != nil {
 		return purchase.Draft{}, err
 	}
@@ -166,15 +178,32 @@ func (s *PurchaseService) Read(ctx context.Context, request ports.ReadDrafts) ([
 	return purchase.Pending(drafts, day), nil
 }
 
+// catalogOf answers the catalog of the names the business buys.
+//
+// The catalog is what the use case asks when the owner names no unit for a
+// line: the unit of the line is then the unit of the ingredient, and the
+// domain still refuses a line that ends without a unit.
+func (s *PurchaseService) catalogOf(ctx context.Context, own business.ID) (ingredient.Catalog, error) {
+	items, err := s.ingredients.List(ctx, own)
+	if err != nil {
+		return ingredient.Catalog{}, err
+	}
+
+	return ingredient.NewCatalog(own, items)
+}
+
 // candidateOf turns what the agent sent into the candidate of the domain.
 //
 // The rules are the ones of the domain: the use case asks the domain to
 // build the measure, the line and the ambiguity, and it never builds them
 // by itself.
-func (s *PurchaseService) candidateOf(request ports.DraftPurchase) (purchase.Candidate, error) {
+func (s *PurchaseService) candidateOf(
+	request ports.DraftPurchase,
+	catalog ingredient.Catalog,
+) (purchase.Candidate, error) {
 	lines := make([]purchase.Line, 0, len(request.Lines))
 	for _, one := range request.Lines {
-		measure, err := purchase.NewMeasure(one.Quantity, one.Unit)
+		measure, err := purchase.NewMeasure(one.Quantity, s.unitOfTheLine(one, catalog))
 		if err != nil {
 			return purchase.Candidate{}, err
 		}
@@ -216,6 +245,25 @@ func (s *PurchaseService) candidateOf(request ports.DraftPurchase) (purchase.Can
 		Invoice:     request.Invoice,
 		Ambiguities: ambiguities,
 	}, nil
+}
+
+// unitOfTheLine answers the unit of a line of the purchase.
+//
+// The rule of the use case: the unit of the line is the unit the owner
+// named, and the unit of the ingredient of the catalog when she named
+// none. The unit is empty when neither of them carries one, and the
+// domain refuses the line that ends without a unit.
+func (s *PurchaseService) unitOfTheLine(line ports.PurchaseLine, catalog ingredient.Catalog) string {
+	if named := strings.TrimSpace(line.Unit); named != "" {
+		return named
+	}
+
+	resolved, err := catalog.Resolve(ingredient.ID(line.IngredientID), line.Name)
+	if err != nil {
+		return ""
+	}
+
+	return resolved.Ingredient.Unit.String()
 }
 
 // dayOf answers the day the agent named.

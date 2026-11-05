@@ -207,6 +207,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 	want := []string{
 		"cancel_draft",
 		"change_user_status",
+		"complete_ingredient",
 		"complete_onboarding",
 		"confirm_purchase",
 		"draft_purchase",
@@ -218,6 +219,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_balances",
 		"read_businesses",
 		"read_drafts",
+		"read_ingredients",
 		"read_month_summary",
 		"read_movements",
 		"read_references",

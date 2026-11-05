@@ -78,8 +78,8 @@ func TestTheErrorsNameEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := Errors()
-	if len(all) != 6 {
-		t.Fatalf("the catalogue holds %d errors, want 6", len(all))
+	if len(all) != 14 {
+		t.Fatalf("the catalogue holds %d errors, want 14", len(all))
 	}
 
 	for _, err := range all {

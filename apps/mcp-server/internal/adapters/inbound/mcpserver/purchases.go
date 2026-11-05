@@ -61,8 +61,9 @@ func buildDescriptionDraftPurchase() string {
 		"  - the name is the name she said ('Harina', 'harina panadera'). A name PACA does not know is not an " +
 		"error: it is recorded as she said it.\n" +
 		"  - the quantity is a number, and it is positive.\n" +
-		"  - the unit is REQUIRED: the quantity and its unit travel together ('kg', 'g', 'paquete', 'unidad'). " +
-		"PACA refuses a line without a unit.\n" +
+		"  - the unit is the unit of that quantity ('kg', 'g', 'paquete', 'unidad'). The quantity and its unit " +
+		"travel together, and the unit of a line is the unit of the ingredient of the catalog when the owner " +
+		"named none. PACA refuses a line that ends without a unit.\n" +
 		"  - the money is the money that was paid ('total_paid') or the price of one unit ('unit_price'), in " +
 		"the currency of the book ('" + business.DefaultCurrency + "'). Never send both unless they agree: " +
 		"PACA refuses the pair that does not.\n" +
@@ -175,7 +176,7 @@ type draftPurchaseLineInput struct {
 	Quantity float64 `json:"quantity" jsonschema:"How much of it the owner bought. It is required and it is positive."`
 
 	// Unit is the unit of that quantity.
-	Unit string `json:"unit" jsonschema:"The unit of the quantity ('kg', 'g', 'paquete', 'unidad'). It is required: the quantity and its unit travel together."`
+	Unit string `json:"unit,omitempty" jsonschema:"The unit of that quantity ('kg', 'g', 'paquete', 'unidad'). It is optional: leave it out when the owner named none, and the unit of the ingredient of the catalog is used then."`
 
 	// TotalPaid is the money that was paid for the whole line.
 	TotalPaid int64 `json:"total_paid,omitempty" jsonschema:"The money that was paid for the whole line, in pesos. It is optional: leave it out when the owner did not say it."`

@@ -37,6 +37,13 @@ type ID int64
 // It carries the name the owner reads and the names she uses for it: the
 // aliases. The aliases are what makes the catalog grow with the way she
 // speaks, and not only with the way she writes.
+//
+// It carries also what the business knows of it and nobody else: the unit
+// it is bought in, the weight of a package of it, the allergens it
+// carries, the certification it has with the evidence of that
+// certification, and the conversion of its raw grams into its prepared
+// ones. Everything of it that the owner has not declared yet is empty,
+// and the book says what is missing.
 type Ingredient struct {
 	// ID is the identity of the ingredient. It is empty until the storage
 	// writes the row.
@@ -50,6 +57,28 @@ type Ingredient struct {
 
 	// Aliases are the names the owner uses for it.
 	Aliases []string
+
+	// Unit is the unit the ingredient is bought in. It is empty when the
+	// owner has not declared it yet.
+	Unit Unit
+
+	// PackageGrams is the weight of a package of the ingredient, in
+	// grams. It is zero when the owner has not declared it yet, and it is
+	// never assumed.
+	PackageGrams float64
+
+	// Allergens are the allergens the ingredient carries. They are the
+	// ones the owner declared.
+	Allergens []string
+
+	// Certification is the claim the ingredient carries and the document
+	// that proves it. It is empty when the ingredient carries no claim.
+	Certification Certification
+
+	// Conversion is the conversion of the raw into the prepared. It is
+	// the one to one the owner decided for now, until she declares
+	// another factor.
+	Conversion Conversion
 
 	// CreatedAt is the moment the row was created. The storage filled it.
 	CreatedAt time.Time
@@ -73,6 +102,11 @@ type Ingredient struct {
 // The identity of the ingredient is not set here: the storage generates it,
 // because the number is a counter of the ingredients and not a number of
 // the person.
+//
+// The unit, the weight of a package, the allergens and the certification
+// are empty: they are what the owner declares, through the tool that
+// completes the ingredient. The conversion is the one to one she decided
+// for now: the grams of a recipe are the raw ones.
 func New(own business.ID, name string, aliases []string) (Ingredient, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
@@ -83,6 +117,7 @@ func New(own business.ID, name string, aliases []string) (Ingredient, error) {
 		BusinessID: own,
 		Name:       trimmed,
 		Aliases:    aliasesOf(trimmed, aliases),
+		Conversion: Conversion{RawGrams: RawConversion},
 	}, nil
 }
 

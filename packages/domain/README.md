@@ -40,7 +40,9 @@ packages/domain/
                     port of the storage
   ingredient/       the model of the catalog of the names the business buys:
                     the name the owner reads, the names she uses for it, the
-                    matching of a name she said and the port of the storage
+                    matching of a name she said, the units of the book, the
+                    certification with its evidence, the conversion of the
+                    raw into the prepared and the port of the storage
   recipe/           the model of the recipe of the bakery: the guide to
                     learn and to teach, the ingredients with their grams, the
                     steps with their times, their temperatures and their
@@ -386,6 +388,51 @@ ingredient of the catalog, and the identity is empty when the catalog does
 not know the name: the line keeps the name as the owner said it. The
 catalog grows with the confirmation of a purchase: a name the catalog does
 not know becomes an ingredient of the business.
+
+**The unit of a line is the unit of the ingredient.** The quantity and its
+unit travel together, and the unit of a line the owner did not name is the
+unit of the ingredient of the catalog: the use case asks the catalog and
+fills it, and the domain still refuses a line that ends without a unit
+(`ErrMissingUnit`).
+
+## The units and the completion of an ingredient
+
+`ingredient.Unit` is the unit an ingredient is bought in. The units of the
+book are the four the bakery knows: the gram (`g`), the kilogram (`kg`),
+the package (`paquete`) and the piece (`unidad`). The vocabulary belongs
+to the domain (`ingredient.Units`), and the table holds the same rule as a
+defense in depth.
+
+**The conversion of a unit into the gram is declared, never assumed.** The
+gram is one and the kilogram is a thousand (`ingredient.GramsPerKilogram`).
+The package is the weight the owner declares
+(`ErrMissingPackageWeight` when she declared none), and the piece is one
+unit of the ingredient: its weight is never assumed, and it is never
+converted into grams (`ErrUnknownConversion`).
+
+**What the owner declares of an ingredient is a declaration.**
+`ingredient.Declaration` carries the unit, the weight of a package, the
+allergens, the certification with its evidence, the aliases and the
+conversion, and `ingredient.Complete` applies it to the ingredient of the
+catalog: it fills what the owner declared and keeps the rest. A field the
+owner did not declare is not a field the ingredient loses.
+
+**"Organic" is a claim that carries its evidence.**
+`ingredient.NewCertification` refuses a certification without the document
+that proves it (`ErrMissingEvidence`), and the two fats are two ingredients
+with their own certification: the domain never merges them.
+
+**The conversion of the ingredient is declared, never assumed.** The owner
+decided that, for now, the grams of a recipe are the raw ones: the
+conversion is one to one (`ingredient.RawConversion`), and the mechanism
+carries any other factor she declares later (`ErrInvalidConversion` when
+the factor is not positive).
+
+**What is missing of an ingredient is a rule of the domain.**
+`ingredient.Missing` answers what the owner has not declared yet: the unit
+the ingredient is bought in, and the weight of a package when the unit is
+the package. The alias of an ingredient is written by the completion: the
+names the owner uses for it.
 
 ## The model of the recipe
 

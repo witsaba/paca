@@ -1047,7 +1047,7 @@ its session starts.
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | `pending` |
+| T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
 | T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `pending` |
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `pending` |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
@@ -1172,3 +1172,11 @@ Two things the increment taught, carried here for the ones to come:
 
 - The reference **does not move money**: no movement of the book, no account. The price of the owner lives only in her purchases, and the margin (T16) will read both sides — the cost of what she paid and the reference of the market — side by side.
 - The market of a reference is **optional** today, because the only rule the domain states is that the source is never empty. If the owner wants the market to be part of the reference, the rule belongs in the domain first.
+
+**L23** (2026-11-05): T10 landed: the ingredient and the unit. The units are the gram, the kilogram, the package and the piece, and the conversion of a unit into the gram is **declared**: the gram is one, the kilogram is a thousand, the package is the weight the owner declares, and **the piece is never converted** — the weight of a piece is not known until she says it. The certification carries its evidence and the evidence is never empty, the allergens are declared, and the aliases are written now: the gap T5 left is closed. The tools are `read_ingredients` — the catalog with what is known of each ingredient and what is still missing of it — and `complete_ingredient`, which writes what the owner declares.
+
+Three things the increment taught, carried here for the ones to come:
+
+- The **conversion of an ingredient is declared, never assumed**. The raw conversion is one to one because the owner decided that, for now, the grams of a recipe are the raw ones, and every other factor — the potato, the starter — reaches the book through `complete_ingredient`. Nothing in the tree invents a factor: the acceptance of the increment said "declared constants", and the values of those constants are the data of the owner, not of the repository. The mechanism is in place and proved; the numbers arrive at runtime.
+- The **unit of a purchase line** is the unit of the ingredient when the owner names none: the use case asks the catalog and fills it, and the domain still refuses a line that ends without a unit.
+- A declaration **never empties** a field the owner already gave: the completion of an ingredient fills what was missing and keeps what was there.

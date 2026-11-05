@@ -227,3 +227,163 @@ func TestTheNameThatIsTakenIsRefusedForTheCaller(t *testing.T) {
 		t.Fatalf("the error is %v, want %v", err, ingredient.ErrDuplicateName)
 	}
 }
+
+// TestTheCompletionOfTheIngredientIsWrittenAndReadBack proves the rules of
+// the domain against a real database: what the owner declared about the
+// ingredient survives the trip to the storage and back: the unit, the
+// weight of a package, the allergens, the certification with its evidence
+// and the conversion.
+func TestTheCompletionOfTheIngredientIsWrittenAndReadBack(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := ingredientsRepository(t)
+	bakery := theBakeryOfTheCatalog(t, ctx)
+
+	written, err := repo.Create(ctx, theIngredientOfTheTest(t, bakery))
+	if err != nil {
+		t.Fatalf("the ingredient could not be written: %v", err)
+	}
+
+	completed, err := ingredient.Complete(written, ingredient.Declaration{
+		Unit:         ingredient.UnitPackage,
+		PackageGrams: 50000,
+		Allergens:    []string{"gluten"},
+		Certification: ingredient.Certification{
+			Name:     "Orgánico",
+			Evidence: "Certificado de la finca, 2026-02-01",
+		},
+		Conversion: ingredient.Conversion{RawGrams: 0.95},
+	})
+	if err != nil {
+		t.Fatalf("the completion was refused: %v", err)
+	}
+
+	stored, err := repo.Update(ctx, completed)
+	if err != nil {
+		t.Fatalf("the ingredient could not be completed: %v", err)
+	}
+
+	if stored.ID != written.ID {
+		t.Errorf("the identity is %d, want %d: the completion never changes the identity", stored.ID, written.ID)
+	}
+	if stored.Name != written.Name {
+		t.Errorf("the name is %q, want %q: the completion never changes the name", stored.Name, written.Name)
+	}
+	if stored.Unit != ingredient.UnitPackage {
+		t.Errorf("the unit is %q, want %q", stored.Unit, ingredient.UnitPackage)
+	}
+	if stored.PackageGrams != 50000 {
+		t.Errorf("the weight of the package is %v, want 50000", stored.PackageGrams)
+	}
+	if len(stored.Allergens) != 1 || stored.Allergens[0] != "gluten" {
+		t.Errorf("the allergens are %v, want the one of the owner", stored.Allergens)
+	}
+	if stored.Certification.Name != "Orgánico" {
+		t.Errorf("the certification is %q, want %q", stored.Certification.Name, "Orgánico")
+	}
+	if stored.Certification.Evidence != "Certificado de la finca, 2026-02-01" {
+		t.Errorf("the evidence is %q, want the document of the owner", stored.Certification.Evidence)
+	}
+	if stored.Conversion.RawGrams != 0.95 {
+		t.Errorf("the conversion is %v, want 0.95", stored.Conversion.RawGrams)
+	}
+	if len(stored.Aliases) != 1 || stored.Aliases[0] != "harina de trigo" {
+		t.Errorf("the aliases are %v, want the one of the test", stored.Aliases)
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the catalog could not be read: %v", err)
+	}
+	if len(held) != 1 {
+		t.Fatalf("the catalog holds %d ingredients, want 1", len(held))
+	}
+	if held[0].Unit != ingredient.UnitPackage {
+		t.Errorf("the unit of the catalog is %q, want %q", held[0].Unit, ingredient.UnitPackage)
+	}
+	if held[0].Conversion.RawGrams != 0.95 {
+		t.Errorf("the conversion of the catalog is %v, want 0.95", held[0].Conversion.RawGrams)
+	}
+}
+
+// TestTheTableRefusesTheUnitThatIsNotOneOfTheBook proves the rule of the
+// domain against a real database: the units of the book are the gram, the
+// kilogram, the package and the piece, and nothing else.
+func TestTheTableRefusesTheUnitThatIsNotOneOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheCatalog(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO ingredients (business_id, name, unit) VALUES ($1, $2, $3)`,
+		int64(bakery.ID), "Harina panadera", "libra",
+	)
+	if err == nil {
+		t.Fatal("the database stored a unit the book does not know, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "ingredients_unit_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "ingredients_unit_check")
+	}
+}
+
+// TestTheTableRefusesTheCertificationWithoutEvidence proves the rule of the
+// domain against a real database: a claim carries the document that proves
+// it.
+func TestTheTableRefusesTheCertificationWithoutEvidence(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheCatalog(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO ingredients (business_id, name, certification_name) VALUES ($1, $2, $3)`,
+		int64(bakery.ID), "Grasa de cerdo", "Orgánico",
+	)
+	if err == nil {
+		t.Fatal("the database stored a certification without its evidence, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "ingredients_certification_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "ingredients_certification_check")
+	}
+}
+
+// TestTheTableRefusesTheConversionThatIsNotPositive proves the rule of the
+// domain against a real database: the conversion is a number of grams, and
+// it is never zero.
+func TestTheTableRefusesTheConversionThatIsNotPositive(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheCatalog(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO ingredients (business_id, name, conversion) VALUES ($1, $2, $3)`,
+		int64(bakery.ID), "Harina panadera", 0,
+	)
+	if err == nil {
+		t.Fatal("the database stored a conversion that is not positive, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "ingredients_conversion_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "ingredients_conversion_check")
+	}
+}

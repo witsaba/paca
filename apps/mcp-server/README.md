@@ -100,16 +100,18 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty-two tools: the way PACA onboards a person, the four
+The server exposes twenty-four tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
 of the utterance — the purchase the owner just said, the purchase she
 confirmed, and the two that drop and read back the pending drafts — the
-tool of the catalog, which matches the name she said against the names the
-business buys, the tool of the recipes: the guide she just confirmed, and
-the two tools of the reference prices: the price of the market that PACA
-researched, and the reading of the ones the business holds.
+three tools of the catalog: the name she said matched against the names
+the business buys, the catalog read with what is known of every ingredient,
+and the completion of an ingredient with what the owner declared about it,
+the tool of the recipes: the guide she just confirmed, and the two tools of
+the reference prices: the price of the market that PACA researched, and
+the reading of the ones the business holds.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -132,6 +134,8 @@ researched, and the reading of the ones the business holds.
 | `cancel_draft`             | Drops the draft the owner does not want: it moves to the state `cancelled` and it never waits again. It writes nothing in the book. |
 | `read_drafts`              | Reads the pending drafts of a business, each one with what it still needs, what it was not sure about and what PACA filled, so that a lost conversation can be recovered. It writes nothing. |
 | `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
+| `read_ingredients`        | Reads the catalog of the names the business buys: every ingredient with its unit, the weight of a package, its allergens, its certification with its evidence and its conversion, and what each one is still missing. It writes nothing. |
+| `complete_ingredient`     | Writes what the owner just declared about an ingredient of the catalog: the unit it is bought in, the weight of a package, the allergens, the certification with the evidence that proves it, the names she uses for it and the conversion of its raw grams into its prepared ones. |
 | `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
 | `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
@@ -187,11 +191,14 @@ book of the business does not move until the owner says yes — and it answers
 with the three parts of the answer of Paca: what it understood, what it did
 not understand and what it still needs. The money is never inferred: a
 price the agent filled is refused, and a line the owner did not price is
-what the draft still needs. The quantity and its unit travel together, and
-when the owner named both the money that was paid and the price of the
-unit, the two must agree. The day is one of the three things Paca may fill
-by herself, so a draft that names no day is the day of today and the answer
-says so. A draft expires in seven days if the owner says nothing.
+what the draft still needs. The quantity and its unit travel together: the
+unit of a line is the unit the owner named, and the unit of the ingredient
+of the catalog when she named none, and a line that ends without a unit is
+refused. And when the owner named both the money that was paid and the
+price of the unit, the two must agree. The day is one of the three things
+Paca may fill by herself, so a draft that names no day is the day of today
+and the answer says so. A draft expires in seven days if the owner says
+nothing.
 
 **The confirmation writes the purchase and moves the money.** The tool
 `confirm_purchase` takes the business, the draft, the revision the owner
@@ -232,6 +239,21 @@ and `unknown` when none of them does. A name the catalog does not know is
 not an error: the answer says that it is new, and the confirmation of the
 purchase records it as she said it. The tool writes nothing: the catalog
 grows with the confirmation of a purchase, never with a read.
+
+**The catalog is read, and the ingredient is completed.** The tool
+`read_ingredients` reads the catalog of a business and answers with what is
+known of every ingredient — the unit it is bought in, the weight of a
+package, the allergens it carries, the certification it has and the
+conversion of its raw grams into its prepared ones, with the weight of its
+unit in grams — and with what each one is still missing, so the agent asks
+the owner for exactly what she has not said yet. The tool `complete_ingredient` writes what the owner declared
+about one of them: the unit, the weight of a package, the allergens, the
+certification with the document that proves it, the names she uses for it
+and the conversion. A claim carries its evidence: PACA refuses an
+"organic" without the document that proves it, and the two fats are two
+ingredients with their own certification. The units of the book are the
+gram, the kilogram, the package and the piece, and the weight of a package
+is never assumed.
 
 **The recipe is a guide, and it is written with the yes of the owner.** The
 tool `record_recipe` takes the business, the name the owner reads, the

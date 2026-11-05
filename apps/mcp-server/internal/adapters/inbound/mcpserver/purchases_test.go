@@ -291,7 +291,7 @@ func TestTheDescriptionOfThePurchaseToolSaysWhatItNeeds(t *testing.T) {
 		"business is REQUIRED",
 		"sentence of the owner is REQUIRED",
 		"At least one line is REQUIRED",
-		"unit is REQUIRED",
+		"unit of the ingredient of the catalog when the owner named none",
 		"never inferred",
 		"day is OPTIONAL",
 		"day of today",

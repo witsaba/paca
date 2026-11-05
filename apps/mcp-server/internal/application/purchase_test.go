@@ -91,7 +91,7 @@ func TestTheDraftIsKeptAndTheBookIsNotWritten(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -142,7 +142,7 @@ func TestTheDraftTheOwnerNamedTheDayOfKeepsThatDay(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -169,7 +169,7 @@ func TestTheDayThatIsNotADayIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -192,12 +192,76 @@ func TestTheLineWithoutAUnitIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
 		Utterance:  "Compré harina",
 		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "", 12000)},
+	})
+	if !errors.Is(err, purchase.ErrMissingUnit) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrMissingUnit)
+	}
+
+	if len(drafts.drafts) != 0 {
+		t.Errorf("the draft was left behind: the storage holds %d drafts", len(drafts.drafts))
+	}
+}
+
+// TestTheUnitOfTheLineIsTheUnitOfTheIngredient proves the rule of the
+// use case: the unit of a line is the unit the owner named, and the unit
+// of the ingredient of the catalog when she named none.
+func TestTheUnitOfTheLineIsTheUnitOfTheIngredient(t *testing.T) {
+	t.Parallel()
+
+	flour := anIngredientOfTheCatalog(t, 10, "Harina panadera", "harina")
+	completed, err := ingredient.Complete(flour, ingredient.Declaration{Unit: ingredient.UnitKilogram})
+	if err != nil {
+		t.Fatalf("the ingredient was refused: %v", err)
+	}
+
+	drafts := &fakeDrafts{}
+	catalog := &fakeIngredients{items: []ingredient.Ingredient{completed}}
+	service := application.NewPurchaseService(drafts, catalog, theClock())
+
+	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines: []ports.PurchaseLine{{
+			Name:         "Harina panadera",
+			Quantity:     25,
+			IngredientID: 10,
+			Total:        12000,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	if len(drafted.Lines) != 1 {
+		t.Fatalf("the draft holds %d lines, want 1", len(drafted.Lines))
+	}
+	if drafted.Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the unit of the line is %q, want %q", drafted.Lines[0].Measure.Unit, "kg")
+	}
+}
+
+// TestTheLineThatEndsWithoutAUnitIsRefused proves that the domain still
+// refuses a line that ends without a unit: the ingredient the catalog does
+// not know carries none.
+func TestTheLineThatEndsWithoutAUnitIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	catalog := &fakeIngredients{items: []ingredient.Ingredient{
+		anIngredientOfTheCatalog(t, 10, "Harina panadera"),
+	}}
+	service := application.NewPurchaseService(drafts, catalog, theClock())
+
+	_, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré harina",
+		Lines:      []ports.PurchaseLine{theLine("Polvasa", 1, "", 3000)},
 	})
 	if !errors.Is(err, purchase.ErrMissingUnit) {
 		t.Fatalf("the error is %v, want %v", err, purchase.ErrMissingUnit)
@@ -214,7 +278,7 @@ func TestThePriceThatWasInferredIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	inferred := theLine("Harina", 25, "kg", 12000)
 	inferred.Inferred = true
@@ -239,7 +303,7 @@ func TestTheDraftWithoutASentenceIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -261,7 +325,7 @@ func TestTheLineWithoutAPriceIsWhatTheDraftStillNeeds(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -290,7 +354,7 @@ func TestTheAmbiguityIsKeptWithItsOptions(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -318,7 +382,7 @@ func TestTheAmbiguityWithoutOptionsIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -344,7 +408,7 @@ func TestTheAmendmentGrowsTheRevision(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -388,7 +452,7 @@ func TestTheAmendmentOfADraftOfAnotherBusinessIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -423,7 +487,7 @@ func TestTheDraftOfADraftThatIsNotThereIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -441,7 +505,7 @@ func TestTheDraftOfADraftThatIsNotThereIsRefused(t *testing.T) {
 func TestTheDraftWithoutADatabaseSaysSo(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewPurchaseService(nil, theClock())
+	service := application.NewPurchaseService(nil, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -551,7 +615,7 @@ func TestTheDraftCarriesTheIdentityOfTheIngredientTheAgentChose(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	line := theLine("Harina", 25, "kg", 12000)
 	line.IngredientID = 10
@@ -583,7 +647,7 @@ func TestTheDraftOfANameTheCatalogDoesNotKnowKeepsTheName(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -757,7 +821,7 @@ func theAccountsOfTheBakery(t *testing.T) []account.Account {
 func theDraftOfTheBakery(t *testing.T, drafts *fakeDrafts) purchase.Draft {
 	t.Helper()
 
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	drafted, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1106,7 +1170,7 @@ func TestTheDraftIsCancelled(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1143,7 +1207,7 @@ func TestTheCancellationOfADraftOfAnotherBusinessIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1173,7 +1237,7 @@ func TestTheCancellationOfADraftThatIsNotThereIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Cancel(t.Context(), ports.CancelDraft{
 		BusinessID: business.ID(77),
@@ -1191,7 +1255,7 @@ func TestTheCancellationOfADraftThatIsConfirmedIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1224,7 +1288,7 @@ func TestTheCancellationOfAnExpiredDraftIsRefused(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	first, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1235,7 +1299,7 @@ func TestTheCancellationOfAnExpiredDraftIsRefused(t *testing.T) {
 		t.Fatalf("the draft could not be kept: %v", err)
 	}
 
-	_, err = application.NewPurchaseService(drafts, expiredClock()).Cancel(t.Context(), ports.CancelDraft{
+	_, err = application.NewPurchaseService(drafts, theCatalog(), expiredClock()).Cancel(t.Context(), ports.CancelDraft{
 		BusinessID: business.ID(77),
 		DraftID:    first.ID,
 	})
@@ -1255,7 +1319,7 @@ func TestThePendingDraftsAreReadWithWhatTheyNeed(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1306,7 +1370,7 @@ func TestTheExpiredDraftIsNotPending(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(77),
@@ -1317,7 +1381,7 @@ func TestTheExpiredDraftIsNotPending(t *testing.T) {
 		t.Fatalf("the draft could not be kept: %v", err)
 	}
 
-	read, err := application.NewPurchaseService(drafts, expiredClock()).Read(t.Context(), ports.ReadDrafts{
+	read, err := application.NewPurchaseService(drafts, theCatalog(), expiredClock()).Read(t.Context(), ports.ReadDrafts{
 		BusinessID: business.ID(77),
 	})
 	if err != nil {
@@ -1335,7 +1399,7 @@ func TestTheDraftsOfAnotherBusinessAreNotRead(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
-	service := application.NewPurchaseService(drafts, theClock())
+	service := application.NewPurchaseService(drafts, theCatalog(), theClock())
 
 	_, err := service.Draft(t.Context(), ports.DraftPurchase{
 		BusinessID: business.ID(88),
@@ -1361,7 +1425,7 @@ func TestTheDraftsOfAnotherBusinessAreNotRead(t *testing.T) {
 func TestTheReadOfTheDraftsWithoutADatabaseSaysSo(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewPurchaseService(nil, theClock())
+	service := application.NewPurchaseService(nil, theCatalog(), theClock())
 
 	_, err := service.Read(t.Context(), ports.ReadDrafts{BusinessID: business.ID(77)})
 	if !errors.Is(err, ports.ErrNoDatabase) {

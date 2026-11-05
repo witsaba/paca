@@ -207,13 +207,24 @@ func (c Catalog) Resolve(id ID, spoken string) (Resolution, error) {
 // recipe names the ingredients of the catalog, and this is the question the
 // catalog answers about them.
 func (c Catalog) Holds(id ID) bool {
+	_, found := c.Find(id)
+
+	return found
+}
+
+// Find answers the ingredient of that identity.
+//
+// The rule of the domain: an ingredient of another business is not in this
+// catalog, and an ingredient that was never bought is not in it either. The
+// answer is the ingredient and the truth that it was found.
+func (c Catalog) Find(id ID) (Ingredient, bool) {
 	for _, one := range c.items {
 		if one.ID == id {
-			return true
+			return one, true
 		}
 	}
 
-	return false
+	return Ingredient{}, false
 }
 
 // With answers the catalog with one more ingredient.

@@ -155,6 +155,8 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 		mcpserver.ToolCancelDraft,
 		mcpserver.ToolReadDrafts,
 		mcpserver.ToolMatchItems,
+		mcpserver.ToolReadIngredients,
+		mcpserver.ToolCompleteIngredient,
 		mcpserver.ToolRecordRecipe,
 		mcpserver.ToolRecordReference,
 		mcpserver.ToolReadReferences,

@@ -30,12 +30,18 @@ type Business struct {
 }
 
 type Ingredient struct {
-	ID         int64
-	BusinessID int64
-	Name       string
-	Aliases    []byte
-	CreatedAt  pgtype.Timestamptz
-	UpdatedAt  pgtype.Timestamptz
+	ID                    int64
+	BusinessID            int64
+	Name                  string
+	Aliases               []byte
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
+	Unit                  string
+	PackageGrams          float64
+	Allergens             []byte
+	CertificationName     string
+	CertificationEvidence string
+	Conversion            float64
 }
 
 type LedgerEntry struct {

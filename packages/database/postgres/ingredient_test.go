@@ -31,6 +31,9 @@ func TestTheRepositoryOfTheCatalogWithoutADatabaseRefusesToWork(t *testing.T) {
 	if _, err := ingredients.Create(t.Context(), ingredient.Ingredient{}); !errors.Is(err, ingredient.ErrNoStorage) {
 		t.Errorf("the error is %v, want %v", err, ingredient.ErrNoStorage)
 	}
+	if _, err := ingredients.Update(t.Context(), ingredient.Ingredient{}); !errors.Is(err, ingredient.ErrNoStorage) {
+		t.Errorf("the error is %v, want %v", err, ingredient.ErrNoStorage)
+	}
 }
 
 // TestTheAliasesOfAnIngredientTravelBothWays proves that the names the
@@ -78,6 +81,7 @@ func TestTheRowOfAnIngredientIsMappedOntoTheModel(t *testing.T) {
 		BusinessID: 77,
 		Name:       "Harina panadera",
 		Aliases:    []byte(`["harina de trigo"]`),
+		Conversion: 1,
 	})
 	if err != nil {
 		t.Fatalf("the row was refused: %v", err)
@@ -94,6 +98,84 @@ func TestTheRowOfAnIngredientIsMappedOntoTheModel(t *testing.T) {
 	}
 	if len(mapped.Aliases) != 1 || mapped.Aliases[0] != "harina de trigo" {
 		t.Errorf("the aliases are %v, want the one of the row", mapped.Aliases)
+	}
+}
+
+// TestTheRowOfTheCompletionIsMappedOntoTheModel proves that what the owner
+// declared travels the trip to the storage and back: the unit, the weight
+// of a package, the allergens, the certification with its evidence and the
+// conversion.
+func TestTheRowOfTheCompletionIsMappedOntoTheModel(t *testing.T) {
+	t.Parallel()
+
+	mapped, err := ingredientFromRow(db.Ingredient{
+		ID:                    10,
+		BusinessID:            77,
+		Name:                  "Grasa de cerdo",
+		Aliases:               []byte(`[]`),
+		Unit:                  "kg",
+		PackageGrams:          1000,
+		Allergens:             []byte(`["gluten"]`),
+		CertificationName:     "Orgánico",
+		CertificationEvidence: "Certificado de la finca, 2026-02-01",
+		Conversion:            1,
+	})
+	if err != nil {
+		t.Fatalf("the row was refused: %v", err)
+	}
+
+	if mapped.Unit != ingredient.UnitKilogram {
+		t.Errorf("the unit is %q, want %q", mapped.Unit, ingredient.UnitKilogram)
+	}
+	if mapped.PackageGrams != 1000 {
+		t.Errorf("the weight of the package is %v, want 1000", mapped.PackageGrams)
+	}
+	if len(mapped.Allergens) != 1 || mapped.Allergens[0] != "gluten" {
+		t.Errorf("the allergens are %v, want the one of the row", mapped.Allergens)
+	}
+	if mapped.Certification.Name != "Orgánico" {
+		t.Errorf("the certification is %q, want %q", mapped.Certification.Name, "Orgánico")
+	}
+	if mapped.Certification.Evidence != "Certificado de la finca, 2026-02-01" {
+		t.Errorf("the evidence is %q, want the document of the row", mapped.Certification.Evidence)
+	}
+	if mapped.Conversion.RawGrams != 1 {
+		t.Errorf("the conversion is %v, want 1", mapped.Conversion.RawGrams)
+	}
+}
+
+// TestTheRowWithAUnitTheBookDoesNotKnowIsRefused proves that the model
+// refuses a row that another writer broke: the units of the book are a
+// rule.
+func TestTheRowWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := ingredientFromRow(db.Ingredient{
+		ID:         10,
+		BusinessID: 77,
+		Name:       "Harina panadera",
+		Unit:       "libra",
+		Conversion: 1,
+	})
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+}
+
+// TestTheRowWithACertificationWithoutEvidenceIsRefused proves that the
+// model refuses a certification without the document that proves it.
+func TestTheRowWithACertificationWithoutEvidenceIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := ingredientFromRow(db.Ingredient{
+		ID:                10,
+		BusinessID:        77,
+		Name:              "Grasa de cerdo",
+		CertificationName: "Orgánico",
+		Conversion:        1,
+	})
+	if !errors.Is(err, ingredient.ErrMissingEvidence) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrMissingEvidence)
 	}
 }
 

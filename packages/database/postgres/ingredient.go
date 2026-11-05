@@ -113,6 +113,45 @@ func (r *IngredientRepository) Create(ctx context.Context, item ingredient.Ingre
 	return ingredientFromRow(row)
 }
 
+// Update writes the ingredient of the catalog of a business, and answers it
+// with the row that was written.
+//
+// The rule of the domain travels with the port: the ingredient that is
+// written is the one the owner completed, and it keeps its identity and its
+// name. The table holds the same rules as a defense in depth: the unit is
+// one of the units of the book, the weight of a package is not negative,
+// the conversion is positive, and a certification carries its evidence or
+// nothing.
+//
+// The error is ingredient.ErrNotFound when the storage does not hold the
+// ingredient, ingredient.ErrInvalidValue when the row breaks a rule of the
+// table, and ingredient.ErrNoStorage when the storage is not open.
+func (r *IngredientRepository) Update(ctx context.Context, item ingredient.Ingredient) (ingredient.Ingredient, error) {
+	if r == nil || r.pool == nil {
+		return ingredient.Ingredient{}, ingredient.ErrNoStorage
+	}
+
+	allergens, err := encodeAllergens(item.Allergens)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+
+	row, err := r.pool.queriesFor(ctx).UpdateIngredient(ctx, db.UpdateIngredientParams{
+		ID:                    int64(item.ID),
+		Unit:                  item.Unit.String(),
+		PackageGrams:          item.PackageGrams,
+		Allergens:             allergens,
+		CertificationName:     item.Certification.Name,
+		CertificationEvidence: item.Certification.Evidence,
+		Conversion:            item.Conversion.RawGrams,
+	})
+	if err != nil {
+		return ingredient.Ingredient{}, writeIngredientError(err)
+	}
+
+	return ingredientFromRow(row)
+}
+
 // ingredientFromRow maps a row of the catalog onto the model of the domain.
 //
 // The ingredient is built by the domain: the row may come from a table that
@@ -129,11 +168,51 @@ func ingredientFromRow(row db.Ingredient) (ingredient.Ingredient, error) {
 		return ingredient.Ingredient{}, err
 	}
 
+	unit, err := unitOfRow(row.Unit)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+	built.Unit = unit
+
+	allergens, err := decodeAllergens(row.Allergens)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+	built.Allergens = allergens
+
+	if row.CertificationName != "" {
+		certification, err := ingredient.NewCertification(row.CertificationName, row.CertificationEvidence)
+		if err != nil {
+			return ingredient.Ingredient{}, err
+		}
+
+		built.Certification = certification
+	}
+
+	conversion, err := ingredient.NewConversion(row.Conversion)
+	if err != nil {
+		return ingredient.Ingredient{}, err
+	}
+	built.Conversion = conversion
+
+	built.PackageGrams = row.PackageGrams
 	built.ID = ingredient.ID(row.ID)
 	built.CreatedAt = timestamp(row.CreatedAt)
 	built.UpdatedAt = timestamp(row.UpdatedAt)
 
 	return built, nil
+}
+
+// unitOfRow answers the unit of a row.
+//
+// The unit is a rule of the book: a row that carries a unit the book does
+// not know is refused, and it is never read as the unit of nothing.
+func unitOfRow(raw string) (ingredient.Unit, error) {
+	if raw == "" {
+		return "", nil
+	}
+
+	return ingredient.ParseUnit(raw)
 }
 
 // encodeAliases encodes the names the owner uses for the storage.
@@ -158,6 +237,40 @@ func decodeAliases(raw []byte) ([]string, error) {
 	var decoded []string
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return nil, fmt.Errorf("%w: the aliases of the ingredient are not a list: %w", ingredient.ErrInvalidValue, err)
+	}
+
+	return decoded, nil
+}
+
+// encodeAllergens encodes the allergens of the ingredient for the storage.
+//
+// The allergens travel as a list, the way the aliases travel.
+func encodeAllergens(allergens []string) ([]byte, error) {
+	if allergens == nil {
+		allergens = []string{}
+	}
+
+	encoded, err := json.Marshal(allergens)
+	if err != nil {
+		return nil, fmt.Errorf("%w: the allergens of the ingredient could not be encoded: %w", ingredient.ErrInvalidValue, err)
+	}
+
+	return encoded, nil
+}
+
+// decodeAllergens decodes the allergens of the ingredient from the
+// storage.
+//
+// The allergens are built by the domain: the row never decides what an
+// allergen is.
+func decodeAllergens(raw []byte) ([]string, error) {
+	if len(raw) == 0 {
+		return []string{}, nil
+	}
+
+	var decoded []string
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, fmt.Errorf("%w: the allergens of the ingredient are not a list: %w", ingredient.ErrInvalidValue, err)
 	}
 
 	return decoded, nil

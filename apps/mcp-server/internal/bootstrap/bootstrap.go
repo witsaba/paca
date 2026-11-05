@@ -206,12 +206,13 @@ func New(
 		ingredients = boundIngredients
 	}
 
-	purchaseService := application.NewPurchaseService(drafts, clock.System{})
+	purchaseService := application.NewPurchaseService(drafts, ingredients, clock.System{})
 	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, work, clock.System{})
 
 	// The catalog of the names the business buys: the name the owner reads
 	// and the names she uses for it. The tool of the catalog matches the
-	// name she said against it, and it writes nothing.
+	// name she said against it, it reads it back with what is known of
+	// every ingredient, and it writes what she declares about one of them.
 	ingredientService := application.NewIngredientService(ingredients)
 
 	// The recipe of the bakery: the guide the owner confirmed, with its
@@ -265,6 +266,8 @@ func New(
 		CancelDraft:         purchaseService,
 		ReadDrafts:          purchaseService,
 		MatchItems:          ingredientService,
+		ReadIngredients:     ingredientService,
+		CompleteIngredient:  ingredientService,
 		RecordRecipe:        recipeService,
 		RecordReference:     referenceService,
 		ReadReferences:      referenceService,

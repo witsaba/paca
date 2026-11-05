@@ -1,6 +1,6 @@
 {
   "title": "PACA architecture",
-  "brief": "A high level architecture image for the public README of PACA, the personal assistant of a one-person business: the agent, the custom MCP servers, the main database, the memory of the agent and the Telegram channel that exists today.",
+  "brief": "A high level architecture image for the public README of PACA, the personal assistant of a one-person business: the agent, the custom MCP servers, the main database, the memory of the agent and the Telegram channel that exists today. Purple-dominant field with black depth and brown warmth; type system: a serif for the display, a humanist sans for the reading, a mono for the labels, near-white text, 1.55 leading, short measures.",
   "artboards": [
     {
       "file": "01-editorial-river.html",

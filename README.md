@@ -11,7 +11,7 @@ decide so.
 
 ## How it fits together
 
-![The architecture of PACA: the owner reaches Paca through Telegram, and Paca reaches the business through the MCP server of PACA and through Engram, her own memory.](docs/paca-architecture-v3.png)
+![The architecture of PACA: the owner reaches Paca through Telegram, and Paca reaches the business through the MCP server of PACA and through Engram, her own memory.](docs/paca-architecture-v4.png)
 
 The source of the picture is [`design/paca-architecture/`](design/paca-architecture/):
 it is plain HTML, and any headless browser renders it.

@@ -5,14 +5,14 @@
     {
       "file": "01-editorial-river.html",
       "title": "Editorial river",
-      "tradeoff": "Warm, readable and human; the flow of the business reads left to right, at the cost of the technical detail",
+      "tradeoff": "Purple-dominant and editorial: black ink, brown warmth, the flow of the business reads left to right",
       "width": 1440,
       "height": 900
     },
     {
       "file": "02-blueprint.html",
       "title": "Blueprint",
-      "tradeoff": "Technical and precise, with the protocols on every edge; dark, so it suits the developer section better than the public front page",
+      "tradeoff": "Black canvas, purple and brown; technical and precise, with the protocols on every edge, at the cost of the warmth of the first board",
       "width": 1440,
       "height": 900
     },

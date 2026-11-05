@@ -62,7 +62,7 @@ func TestCreateRegistersThePersonInOnboarding(t *testing.T) {
 	}
 
 	before := time.Now().UTC()
-	created, err := repo.Create(ctx, user.ID(id), details)
+	created, err := repo.Create(ctx, user.ID(id), registrationOf(t, id, "  Ana María Torres  ", "+57 321-253-9984", "  Ana.Torres@Example.com  "))
 	if err != nil {
 		t.Fatalf("the person could not be registered: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestCreateWithADocumentIDThatIsTaken(t *testing.T) {
 
 	registerUser(t, repo, id, "The First Person")
 
-	_, err := repo.Create(ctx, user.ID(id), detailsOf(t, nextIdentifier(), "The Second Person"))
+	_, err := repo.Create(ctx, user.ID(id), registrationOf(t, nextIdentifier(), "The Second Person", "", ""))
 	if !errors.Is(err, user.ErrAlreadyExists) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrAlreadyExists)
 	}
@@ -173,12 +173,9 @@ func TestCreateWithAnEmailThatIsTaken(t *testing.T) {
 			t.Parallel()
 
 			id := nextIdentifier()
-			details, err := user.NewDetails("The Other Person", phoneOf(id), tc.email)
-			if err != nil {
-				t.Fatalf("the data of the person could not be cleaned: %v", err)
-			}
+			registration := registrationOf(t, id, "The Other Person", "", tc.email)
 
-			_, err = repo.Create(ctx, user.ID(id), details)
+			_, err := repo.Create(ctx, user.ID(id), registration)
 			if !errors.Is(err, user.ErrEmailTaken) {
 				t.Fatalf("the error is %v, want %v", err, user.ErrEmailTaken)
 			}
@@ -202,12 +199,9 @@ func TestCreateWithAPhoneThatIsTaken(t *testing.T) {
 	registerUser(t, repo, owner, "The Owner Of The Phone")
 
 	id := nextIdentifier()
-	details, err := user.NewDetails("The Other Person", phoneOf(owner), emailOf(id))
-	if err != nil {
-		t.Fatalf("the data of the person could not be cleaned: %v", err)
-	}
+	registration := registrationOf(t, id, "The Other Person", phoneOf(owner), emailOf(id))
 
-	_, err = repo.Create(ctx, user.ID(id), details)
+	_, err := repo.Create(ctx, user.ID(id), registration)
 	if !errors.Is(err, user.ErrPhoneTaken) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrPhoneTaken)
 	}
@@ -258,6 +252,10 @@ func mixedCase(email string) string {
 
 // detailsOf returns the data of a person, cleaned the way the domain cleans
 // it, with a phone and an address no other test uses.
+// detailsOf builds the partial data of a person.
+//
+// The partial data is what the update of a person takes: a field that is
+// empty is a field that does not change.
 func detailsOf(t *testing.T, id int64, fullName string) user.Details {
 	t.Helper()
 
@@ -269,11 +267,26 @@ func detailsOf(t *testing.T, id int64, fullName string) user.Details {
 	return details
 }
 
+// registrationOf builds the data that registers a person.
+//
+// The name is required, and the phone and the email are the ones the tests
+// use: an empty one is a value that was not given.
+func registrationOf(t *testing.T, id int64, fullName, phone, email string) user.Registration {
+	t.Helper()
+
+	registration, err := user.NewRegistration(fullName, phone, email)
+	if err != nil {
+		t.Fatalf("the registration of the person could not be cleaned: %v", err)
+	}
+
+	return registration
+}
+
 // registerUser registers a person through the repository and returns it.
 func registerUser(t *testing.T, repo *postgres.UserRepository, id int64, fullName string) user.User {
 	t.Helper()
 
-	created, err := repo.Create(context.Background(), user.ID(id), detailsOf(t, id, fullName))
+	created, err := repo.Create(context.Background(), user.ID(id), registrationOf(t, id, fullName, phoneOf(id), emailOf(id)))
 	if err != nil {
 		t.Fatalf("the person could not be registered: %v", err)
 	}

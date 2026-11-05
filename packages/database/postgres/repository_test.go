@@ -176,7 +176,7 @@ func TestTheRepositoryWithoutADatabaseRefusesToWork(t *testing.T) {
 
 	repository := &UserRepository{}
 
-	if _, err := repository.Create(t.Context(), 1, user.Details{}); !errors.Is(err, user.ErrNoStorage) {
+	if _, err := repository.Create(t.Context(), 1, user.Registration{FullName: "The Person"}); !errors.Is(err, user.ErrNoStorage) {
 		t.Errorf("the error is %v, want %v", err, user.ErrNoStorage)
 	}
 	if _, err := repository.Find(t.Context(), 1); !errors.Is(err, user.ErrNoStorage) {
@@ -231,7 +231,7 @@ func TestTheRepositoryCleansTheDataBeforeItWritesIt(t *testing.T) {
 
 	repository := &UserRepository{}
 
-	_, err := repository.Create(t.Context(), 1, user.Details{Phone: "3212539984"})
+	_, err := repository.Create(t.Context(), 1, user.Registration{FullName: "The Person", Phone: "3212539984"})
 	if !errors.Is(err, user.ErrInvalidPhone) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidPhone)
 	}
@@ -241,9 +241,23 @@ func TestTheRepositoryCleansTheDataBeforeItWritesIt(t *testing.T) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidPhone)
 	}
 
-	_, err = repository.Create(t.Context(), 1, user.Details{Email: "not an address"})
+	_, err = repository.Create(t.Context(), 1, user.Registration{FullName: "The Person", Email: "not an address"})
 	if !errors.Is(err, user.ErrInvalidEmail) {
 		t.Fatalf("the error is %v, want %v", err, user.ErrInvalidEmail)
+	}
+}
+
+// TestTheRepositoryRefusesARegistrationWithoutAName proves that the rule of
+// the domain reaches the adapter: a person is registered with a name.
+func TestTheRepositoryRefusesARegistrationWithoutAName(t *testing.T) {
+	t.Parallel()
+
+	repository := &UserRepository{}
+
+	_, err := repository.Create(t.Context(), 1, user.Registration{})
+
+	if !errors.Is(err, user.ErrNameRequired) {
+		t.Fatalf("the error is %v, want %v", err, user.ErrNameRequired)
 	}
 }
 

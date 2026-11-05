@@ -18,6 +18,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/witsaba/paca/packages/database v0.0.0
 	github.com/witsaba/paca/packages/domain v0.0.0
+	github.com/witsaba/paca/packages/health v0.0.0
 	github.com/witsaba/paca/packages/platform v0.0.0
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
@@ -105,6 +106,12 @@ require (
 replace github.com/witsaba/paca/packages/database => ../../packages/database
 
 replace github.com/witsaba/paca/packages/domain => ../../packages/domain
+
+// The health of the service is a module of its own too: the use case that
+// reports it and the endpoint that answers it are the same in every
+// service. A replace of a dependency is ignored, so the service carries
+// its own replace, or it cannot resolve its graph outside the workspace.
+replace github.com/witsaba/paca/packages/health => ../../packages/health
 
 // The platform is a module of its own too: the clock, the logs, the
 // telemetry, the server and the health check of the container are the same

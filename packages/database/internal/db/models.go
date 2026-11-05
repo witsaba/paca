@@ -8,6 +8,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Account struct {
+	ID           int64
+	BusinessID   int64
+	Kind         string
+	Name         string
+	Counterparty pgtype.Text
+	DueDate      pgtype.Date
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
+type Business struct {
+	ID        int64
+	OwnerID   int64
+	Kind      string
+	Name      string
+	Currency  string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type LedgerEntry struct {
+	ID              int64
+	BusinessID      int64
+	DebitAccountID  int64
+	CreditAccountID int64
+	Amount          int64
+	OccurredOn      pgtype.Date
+	Description     string
+	CreatedAt       pgtype.Timestamptz
+}
+
 type User struct {
 	ID                 int64
 	FullName           pgtype.Text

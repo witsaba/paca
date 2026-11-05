@@ -1,7 +1,13 @@
-// Package application holds the use cases of the MCP server: the rules that
-// decide what the service does, with no protocol and no infrastructure in
-// sight.
-package application
+// Package reporter holds the use case that reports the health of a service.
+//
+// The use case owns the rule that matters: one failing component makes the
+// whole service unhealthy, one degraded component makes it degraded, and a
+// service with no checks at all is healthy.
+//
+// A report is returned even when a component fails: the failure is part of
+// the report, not an error of the call. The error is reserved for the calls
+// that cannot produce a report at all, such as a cancelled context.
+package reporter
 
 import (
 	"context"
@@ -9,16 +15,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/ports"
 )
 
-// HealthService is the use case that reports the health of the service.
-//
-// It owns the rule that matters: one failing component makes the whole
-// service unhealthy, one degraded component makes it degraded, and a service
-// with no checks at all is healthy.
-type HealthService struct {
+// Service is the use case that reports the health of a service.
+type Service struct {
 	identity  health.Identity
 	checkers  []ports.Checker
 	clock     ports.Clock
@@ -26,18 +28,22 @@ type HealthService struct {
 	timeout   time.Duration
 }
 
-// NewHealthService builds the health use case.
+// New builds the health use case.
 //
 // The identity names the service in the report, the checkers are the
 // components it watches, and the timeout bounds how long a single check may
 // take.
-func NewHealthService(
+//
+// The three arguments that make no sense are refused: a report without a
+// name says nothing about the service, a report without a clock has no
+// moment, and a check without a bound may hang the report forever.
+func New(
 	identity health.Identity,
 	checkers []ports.Checker,
 	clock ports.Clock,
 	startedAt time.Time,
 	timeout time.Duration,
-) (*HealthService, error) {
+) (*Service, error) {
 	if identity.Name == "" {
 		return nil, errors.New("the health service needs the name of the service")
 	}
@@ -47,7 +53,8 @@ func NewHealthService(
 	if timeout <= 0 {
 		return nil, fmt.Errorf("the health service needs a positive check timeout, got %s", timeout)
 	}
-	return &HealthService{
+
+	return &Service{
 		identity:  identity,
 		checkers:  checkers,
 		clock:     clock,
@@ -56,13 +63,11 @@ func NewHealthService(
 	}, nil
 }
 
-// Health returns the health of the service. It implements the inbound port
-// ports.HealthQuerier.
+// Health returns the health of the service.
 //
-// A report is returned even when a component fails: the failure is part of
-// the report, not an error of the call. The error is reserved for the calls
-// that cannot produce a report at all, such as a cancelled context.
-func (s *HealthService) Health(ctx context.Context) (health.Report, error) {
+// The report carries the state of the service, how long it has been running,
+// and the outcome of every check in the order the checks ran.
+func (s *Service) Health(ctx context.Context) (health.Report, error) {
 	if err := ctx.Err(); err != nil {
 		return health.Report{}, err
 	}
@@ -87,7 +92,7 @@ func (s *HealthService) Health(ctx context.Context) (health.Report, error) {
 }
 
 // runCheck probes one component and turns its outcome into a check.
-func (s *HealthService) runCheck(ctx context.Context, checker ports.Checker) health.Check {
+func (s *Service) runCheck(ctx context.Context, checker ports.Checker) health.Check {
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 

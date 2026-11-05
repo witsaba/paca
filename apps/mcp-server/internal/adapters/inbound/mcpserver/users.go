@@ -12,18 +12,22 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
-// The names of the three tools of the users.
+// The names of the tools of the people.
 //
 // The names are the ones the agent reads in the list of the tools, so they
 // say what the tool does and not what it writes: a tool that starts an
 // onboarding is not a tool that creates a row.
+//
+// The registration of a person is not one of them: the tool of the
+// onboarding registers the person and opens their book, and one tool that
+// does the whole way is one tool the agent cannot call halfway.
 const (
-	// ToolOnboardUser registers a person and starts their onboarding.
-	ToolOnboardUser = "onboard_user"
-
 	// ToolGetUser reads the data of a person who is already registered.
 	ToolGetUser = "get_user"
 
@@ -43,20 +47,6 @@ const (
 // before it calls the tool. It says what the tool needs, what it does with
 // what it receives, and what it must not do.
 const (
-	// descriptionOnboardUser tells the agent how to start an onboarding.
-	descriptionOnboardUser = "Begin the onboarding of a person who uses PACA, and register them.\n\n" +
-		"The national document ID is REQUIRED: it is the document of the person and PACA never invents one. " +
-		"Ask the person for it, and if they do not know it, do not call this tool.\n\n" +
-		"The full name is OPTIONAL. Ask kindly for it, because a person registered with their name is a person " +
-		"the team recognises later. If the person prefers not to give it, register them anyway: an onboarding " +
-		"without a name is still a valid onboarding.\n\n" +
-		"The phone is OPTIONAL, but it must carry the country code (for example '+57 321 253 9984'). PACA cleans " +
-		"the number and stores the digits only ('573212539984'). A number without a country code is refused.\n\n" +
-		"The email is OPTIONAL, but it must be a valid address. Ask the person to confirm it before you register it.\n\n" +
-		"Try to gather as much information as the person is willing to give - the name, the phone and the email - " +
-		"and then register the user with everything you have.\n\n" +
-		"The new user starts in the 'onboarding' status, with no reason attached to it."
-
 	// descriptionChangeUserStatusHead tells the agent what the tool does and
 	// what it may do with what it receives.
 	//
@@ -99,21 +89,6 @@ const (
 		"This tool changes nothing: use " + ToolUpdateUserContactData + " to correct the data of the person, and " +
 		ToolChangeUserStatus + " to move them to another status."
 )
-
-// onboardUserInput is the input of the tool that starts an onboarding.
-type onboardUserInput struct {
-	// DocumentID is the national document ID of the person.
-	DocumentID string `json:"document_id" jsonschema:"The national document ID of the person, with digits only: '1.234.567' and '1234567' are the same person. It is required, and PACA never invents one."`
-
-	// FullName is the complete name of the person.
-	FullName string `json:"full_name,omitempty" jsonschema:"The complete name of the person. It is optional: ask kindly for it, and register the person without it when they prefer not to give it."`
-
-	// Phone is the phone number of the person.
-	Phone string `json:"phone,omitempty" jsonschema:"The phone of the person, with the country code: '+57 321 253 9984'. It is optional. PACA cleans the number and stores the digits only."`
-
-	// Email is the email address of the person.
-	Email string `json:"email,omitempty" jsonschema:"The email address of the person. It is optional, and it must be a valid address."`
-}
 
 // changeUserStatusInput is the input of the tool that moves a user.
 type changeUserStatusInput struct {
@@ -197,11 +172,6 @@ type userOutput struct {
 // the tools is a property of the server, and a call without a database
 // answers that the database is not there.
 func (s *Server) registerUserTools(users ports.UsersQuerier) {
-	sdk.AddTool(s.server, &sdk.Tool{
-		Name:        ToolOnboardUser,
-		Description: descriptionOnboardUser,
-	}, s.onboardUser(users))
-
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolGetUser,
 		Description: descriptionGetUser,
@@ -305,22 +275,6 @@ func namesOf(targets []user.Status) string {
 	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
 }
 
-// onboardUser is the handler of the tool that starts an onboarding.
-func (s *Server) onboardUser(users ports.UsersQuerier) sdk.ToolHandlerFor[onboardUserInput, userOutput] {
-	return func(ctx context.Context, _ *sdk.CallToolRequest, input onboardUserInput) (*sdk.CallToolResult, userOutput, error) {
-		if users == nil {
-			return nil, userOutput{}, ports.ErrNoDatabase
-		}
-
-		created, err := users.Onboard(ctx, input.DocumentID, input.FullName, input.Phone, input.Email)
-		if err != nil {
-			return nil, userOutput{}, s.toolError(err)
-		}
-
-		return nil, outputOf(created), nil
-	}
-}
-
 // getUser is the handler of the tool that reads the data of a user.
 //
 // The tool reads the person the document ID carries: it changes nothing, and
@@ -422,30 +376,6 @@ func timestamp(moment time.Time) string {
 	return moment.UTC().Format(time.RFC3339)
 }
 
-// The messages the agent reads when a tool fails.
-//
-// Every error of the domain has a message here, written in the words of the
-// caller: the agent reads the message, and it must know what to do about it.
-// The catalogue of the domain (`user.Errors`) names the errors that must be
-// here, and a test proves that every one of them is.
-var theMessages = map[error]string{
-	user.ErrInvalidID:             "the document ID is not a number: ask the person for the national document ID, with digits only",
-	user.ErrInvalidPhone:          "the phone number is not an international number: ask for it again with the country code, for example '+57 321 253 9984'",
-	user.ErrInvalidEmail:          "the email address is not valid: ask the person to confirm it",
-	user.ErrAlreadyExists:         "there is already a user with that document ID: do not register the person again",
-	user.ErrEmailTaken:            "that email address is already registered: ask the person for another one",
-	user.ErrPhoneTaken:            "that phone number is already registered: ask the person for another one",
-	user.ErrNotFound:              "there is no user with that document ID: check the document with the person before trying again",
-	user.ErrInvalidTransition:     "that status change is not allowed: a user never returns to the onboarding, and a status never changes to itself",
-	user.ErrObservationRequired:   "that status needs a reason: ask the person why, and send the observation",
-	user.ErrUnexpectedObservation: "that status takes no reason: send the observation only when the new status is inactive or blocked",
-	user.ErrUnknownStatus:         "the status must be active, inactive or blocked",
-	user.ErrConcurrentChange:      "the status of the user changed at the same time: read the user again and try the change once more",
-	user.ErrInvalidValue:          "the database refused the row: check the name, the phone and the email of the person",
-	user.ErrNoStorage:             "the service has no storage of the users: the users cannot be reached",
-	ports.ErrNoDatabase:           "the service has no database configured: the users cannot be reached",
-}
-
 // toolError turns the error of a use case into the message the agent reads.
 //
 // An agent cannot fix a protocol error, and it cannot fix a message that
@@ -476,15 +406,21 @@ func (s *Server) toolError(err error) error {
 	return errors.New("the tool failed for a reason the service does not know")
 }
 
-// isErrorOfTheDomain tells whether the error is one the domain of the users
-// carries.
+// isErrorOfTheDomain tells whether the error is one the domain carries.
 //
-// The catalogue of the domain names them all. The service uses it to tell a
-// missing mapping from a failure it did not expect: the first one is a
-// defect of the service, the second one belongs to the library that failed.
+// The catalogue of the domain names them all, and the book of a person has
+// its own: the people, the businesses, the accounts and the movements. The service uses
+// them to tell a missing mapping from a failure it did not expect: the first
+// one is a defect of the service, the second one belongs to the library that
+// failed.
 func isErrorOfTheDomain(err error) bool {
-	for _, known := range user.Errors() {
-		if errors.Is(err, known) {
+	known := user.Errors()
+	known = append(known, business.Errors()...)
+	known = append(known, account.Errors()...)
+	known = append(known, ledger.Errors()...)
+
+	for _, one := range known {
+		if errors.Is(err, one) {
 			return true
 		}
 	}

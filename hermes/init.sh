@@ -64,6 +64,11 @@ payload="${payload_dir}/engram"
 project="${ENGRAM_PROJECT:-paca}"
 model="${AGENT_MAIN_MODEL:-minimax/minimax-m3.1-flash}"
 
+# The address of the MCP server of PACA: the tools of the people, of the
+# business and of the book. The server is a service of the monorepository,
+# and the agent reaches it on the internal network of the stack.
+paca_mcp_url="${PACA_MCP_URL:-http://paca-mcp-server:8081/mcp}"
+
 # The bound of the wait for the payload of the memory, and the pause
 # between two attempts.
 payload_wait_seconds="${ENGRAM_PAYLOAD_WAIT_SECONDS:-60}"
@@ -174,6 +179,13 @@ hermes config set mcp_servers.engram.command /opt/engram/engram
 hermes config set mcp_servers.engram.args '["mcp","--tools=agent"]'
 hermes config set mcp_servers.engram.env "{\"ENGRAM_DATA_DIR\":\"${memory_dir}\",\"ENGRAM_PROJECT\":\"${project}\"}"
 hermes config set mcp_servers.engram.enabled true
+
+# The MCP server of PACA. The runtime reaches it over the HTTP transport:
+# the server is a service of the monorepository, it answers on the internal
+# network, and it publishes no port to the host. The runtime names its tools
+# with the prefix of the server, and Paca calls them by that name.
+hermes config set mcp_servers.paca.url "${paca_mcp_url}"
+hermes config set mcp_servers.paca.enabled true
 
 printf 'hermes: the configuration of the agent is seeded (model %s, memory %s)\n' "${model}" "${project}"
 

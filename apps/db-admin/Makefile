@@ -138,8 +138,11 @@ test:
 # The tests build the image of the service, start it against a PostgreSQL,
 # and assert that the migrations were applied and that the health endpoint
 # answers, so they need Docker.
+# The count is one: the cache of the toolchain keys the result on the sources
+# of the package of the test, and the image of the service is built inside
+# the test. A cached answer is the answer of the previous code.
 test-integration:
-	$(GO) test -tags=integration -timeout=15m -v ./test/...
+	$(GO) test -count=1 -tags=integration -timeout=15m -v ./test/...
 
 ## cover: run the test suite with coverage and check the threshold
 #

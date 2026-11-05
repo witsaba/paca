@@ -21,6 +21,9 @@ const (
 
 	// checkViolation is the code of a row that breaks a check constraint.
 	checkViolation = "23514"
+
+	// foreignKeyViolation is the code of a row that breaks a foreign key.
+	foreignKeyViolation = "23503"
 )
 
 // The names the database gives to the constraints of the table of the users.
@@ -44,7 +47,7 @@ const (
 // status: the map of the states lives in the domain, and the map needs to
 // know the state the user is in.
 type UserRepository struct {
-	queries *db.Queries
+	pool *Pool
 }
 
 // NewUserRepository returns the repository of the users, bound to the pool.
@@ -60,7 +63,7 @@ func NewUserRepository(pool *Pool) (*UserRepository, error) {
 		return nil, ErrNoPool
 	}
 
-	return &UserRepository{queries: pool.Queries()}, nil
+	return &UserRepository{pool: pool}, nil
 }
 
 // Create registers a person.
@@ -68,22 +71,23 @@ func NewUserRepository(pool *Pool) (*UserRepository, error) {
 // The statement writes the onboarding state and no observation: the new user
 // starts at the entry of the machine, and the caller does not choose it.
 //
-// The data is cleaned before it is written, so the row never carries a phone
-// with its punctuation or an address with its spaces, whatever the caller
-// sends.
+// The data is cleaned by the domain before it is written, so the row never
+// carries a name with its spaces, a phone with its punctuation or an address
+// with its spaces, whatever the caller sends.
 //
-// The error is user.ErrAlreadyExists when the document ID is taken.
-func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.Details) (user.User, error) {
-	clean, err := user.NewDetails(details.FullName, details.Phone, details.Email)
+// The error is user.ErrNameRequired when the registration carries no name,
+// and user.ErrAlreadyExists when the document ID is taken.
+func (r *UserRepository) Create(ctx context.Context, id user.ID, registration user.Registration) (user.User, error) {
+	clean, err := user.NewRegistration(registration.FullName, registration.Phone, registration.Email)
 	if err != nil {
 		return user.User{}, err
 	}
 
-	if r == nil || r.queries == nil {
+	if r == nil || r.pool == nil {
 		return user.User{}, user.ErrNoStorage
 	}
 
-	row, err := r.queries.CreateUser(ctx, db.CreateUserParams{
+	row, err := r.pool.queriesFor(ctx).CreateUser(ctx, db.CreateUserParams{
 		ID:       int64(id),
 		FullName: optionalText(clean.FullName),
 		Phone:    optionalText(clean.Phone),
@@ -103,11 +107,11 @@ func (r *UserRepository) Create(ctx context.Context, id user.ID, details user.De
 //
 // The error is user.ErrNotFound when no user carries that document ID.
 func (r *UserRepository) Find(ctx context.Context, id user.ID) (user.User, error) {
-	if r == nil || r.queries == nil {
+	if r == nil || r.pool == nil {
 		return user.User{}, user.ErrNoStorage
 	}
 
-	row, err := r.queries.GetUserByID(ctx, int64(id))
+	row, err := r.pool.queriesFor(ctx).GetUserByID(ctx, int64(id))
 	if err != nil {
 		return user.User{}, writeError(err)
 	}
@@ -120,11 +124,11 @@ func (r *UserRepository) Find(ctx context.Context, id user.ID) (user.User, error
 // The limit is the number of people the caller wants to read: the storage
 // returns at most that many, and fewer when there are not that many.
 func (r *UserRepository) List(ctx context.Context, limit int) ([]user.User, error) {
-	if r == nil || r.queries == nil {
+	if r == nil || r.pool == nil {
 		return nil, user.ErrNoStorage
 	}
 
-	rows, err := r.queries.ListUsers(ctx, int64(limit))
+	rows, err := r.pool.queriesFor(ctx).ListUsers(ctx, int64(limit))
 	if err != nil {
 		return nil, writeError(err)
 	}
@@ -157,11 +161,11 @@ func (r *UserRepository) UpdateDetails(ctx context.Context, id user.ID, details 
 		return user.User{}, err
 	}
 
-	if r == nil || r.queries == nil {
+	if r == nil || r.pool == nil {
 		return user.User{}, user.ErrNoStorage
 	}
 
-	row, err := r.queries.UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
+	row, err := r.pool.queriesFor(ctx).UpdateUserDetails(ctx, db.UpdateUserDetailsParams{
 		FullName: optionalText(clean.FullName),
 		Phone:    optionalText(clean.Phone),
 		Email:    optionalText(clean.Email),
@@ -196,7 +200,7 @@ func (r *UserRepository) ChangeStatus(ctx context.Context, id user.ID, status us
 		return user.User{}, err
 	}
 
-	if r == nil || r.queries == nil {
+	if r == nil || r.pool == nil {
 		return user.User{}, user.ErrNoStorage
 	}
 
@@ -209,7 +213,7 @@ func (r *UserRepository) ChangeStatus(ctx context.Context, id user.ID, status us
 		return user.User{}, fmt.Errorf("%w: from %q to %q", user.ErrInvalidTransition, current.Status, status)
 	}
 
-	row, err := r.queries.ChangeUserStatus(ctx, db.ChangeUserStatusParams{
+	row, err := r.pool.queriesFor(ctx).ChangeUserStatus(ctx, db.ChangeUserStatusParams{
 		Status:             status.String(),
 		StatusObservations: observationText(status, observation),
 		ID:                 int64(id),

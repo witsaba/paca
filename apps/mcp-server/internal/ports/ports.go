@@ -9,10 +9,12 @@ package ports
 import (
 	"context"
 	"errors"
-	"time"
 
-	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/user"
+	healthports "github.com/witsaba/paca/packages/health/ports"
 )
 
 // ErrNoDatabase is the error of a use case with no database behind it.
@@ -21,24 +23,34 @@ import (
 // every call says that the database is not.
 var ErrNoDatabase = errors.New("the service has no database configured")
 
-// HealthQuerier is the inbound port of the health use case. Every adapter
-// that exposes the health of the service depends on this contract, never on
-// the implementation of the use case.
-type HealthQuerier interface {
-	// Health returns the health of the service at this moment.
-	Health(ctx context.Context) (health.Report, error)
-}
+// ErrCounterpartyRequired is the error of a debt that names nobody.
+//
+// A debt is the other side of the money: a loan of a friend, a product to
+// pay later. A debt without the name of the other side is a bucket of
+// money, and nobody waits for its payment.
+var ErrCounterpartyRequired = errors.New("the debt needs the name of the other side of the money")
 
-// Checker is the outbound port of the health use case: it reports whether one
-// component of the service is healthy.
-type Checker interface {
-	// Name identifies the component the checker watches.
-	Name() string
-	// Check returns nil when the component is healthy, health.ErrDegraded
-	// when the component still works but not perfectly, and any other error
-	// when it failed.
-	Check(ctx context.Context) error
-}
+// ErrNotADebt is the error of a payment that pays something that is not a
+// debt.
+//
+// The accounts of a book are many, and only some of them carry a debt: the
+// cash does not, and neither does the salary.
+var ErrNotADebt = errors.New("that account does not carry a debt")
+
+// HealthQuerier is the inbound port of the health of the service.
+//
+// The health has one owner: the shared health library. The service publishes
+// the contract under its own name, and the contract it publishes is the one
+// of the library.
+type HealthQuerier = healthports.HealthQuerier
+
+// Checker is the outbound port of the health of the service: it reports
+// whether one component of the service is healthy.
+//
+// The health has one owner: the shared health library. The service publishes
+// the contract under its own name, and the contract it publishes is the one
+// of the library.
+type Checker = healthports.Checker
 
 // Pinger is the outbound port that asks the database whether it answers.
 //
@@ -51,23 +63,17 @@ type Pinger interface {
 }
 
 // Clock is the outbound port that tells the application what time it is.
-type Clock interface {
-	// Now returns the current time.
-	Now() time.Time
-}
+//
+// The clock of the health and the clock of the book are the same clock, and
+// the contract of the clock has one owner: the shared health library.
+type Clock = healthports.Clock
 
-// UsersQuerier is the inbound port of the three tools of the users.
+// UsersQuerier is the inbound port of the tools of the people.
 //
 // The tools of the Model Context Protocol speak in text: a document ID, a
 // name, a phone, an email. The use case speaks in the model of the domain,
 // and the port is where the two meet.
 type UsersQuerier interface {
-	// Onboard registers a person and starts their onboarding.
-	//
-	// The document ID is required: it is the number the person carries, and
-	// nothing generates it. The name, the phone and the email are optional.
-	Onboard(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
-
 	// Find returns the person who carries that document ID.
 	//
 	// The document ID is required: it is the number the person carries, and
@@ -88,4 +94,146 @@ type UsersQuerier interface {
 	// UpdateContactData writes the data of a user. A field that is empty is
 	// a field that does not change.
 	UpdateContactData(ctx context.Context, documentID, fullName, phone, email string) (user.User, error)
+}
+
+// Onboarding is the outcome of a complete onboarding: the person, the
+// business that holds their money, and the accounts of that business.
+//
+// It is the answer of the tool, and it is the shape of the contract between
+// the agent and the service.
+type Onboarding struct {
+	// User is the person, registered and active.
+	User user.User
+
+	// Business is the personal business of the person.
+	Business business.Business
+
+	// Accounts are the accounts the business starts with.
+	Accounts []account.Account
+}
+
+// OnboardingCompleter is the inbound port of the tool that completes the
+// onboarding of a person.
+//
+// The onboarding is one operation: the person is registered, their personal
+// business is opened with its accounts, and they move to the state of the
+// people who use the product.
+type OnboardingCompleter interface {
+	// Complete registers the person, opens their personal business with its
+	// accounts, and moves them to the active status.
+	//
+	// The document ID and the name are required: they are the number the
+	// person carries and the name the team recognises them by. The phone
+	// and the email are optional.
+	Complete(ctx context.Context, documentID, fullName, phone, email string) (Onboarding, error)
+}
+
+// BookQuerier is the inbound port of the tools of the book.
+//
+// The tools of the Model Context Protocol speak in text and in numbers: the
+// business, the two accounts, the amount and the day. The use case speaks in
+// the model of the domain, and the port is where the two meet.
+type BookQuerier interface {
+	// Record writes a movement of the book.
+	//
+	// The money lands in the account of the destination and comes from the
+	// account of the source. The day is the one the caller names, and the
+	// day of today when the caller names none.
+	Record(
+		ctx context.Context,
+		businessID business.ID,
+		fromAccountID, toAccountID account.ID,
+		amount ledger.Amount,
+		date, description string,
+	) (ledger.Entry, error)
+
+	// Movements returns the movements of the book between two days.
+	Movements(ctx context.Context, businessID business.ID, from, to string) ([]ledger.Entry, error)
+
+	// Balances returns the money of the business and the balance of every
+	// account of its book.
+	Balances(ctx context.Context, businessID business.ID, asOf string) (ledger.Book, []ledger.Balance, error)
+}
+
+// DebtPayment is the outcome of the payment of a debt: the movement that
+// paid it and the debt that is left.
+type DebtPayment struct {
+	// Movement is the movement that paid the debt.
+	Movement ledger.Entry
+
+	// Debt is the debt after the payment: what the person still owes.
+	Debt ledger.Debt
+}
+
+// MonthSummary is the closing of a month: what the person earned, what
+// they spent, and what they still owe.
+type MonthSummary struct {
+	// From is the first day of the month.
+	From ledger.Date
+
+	// To is the last day of the month.
+	To ledger.Date
+
+	// Summary is the money of the month.
+	Summary ledger.Summary
+
+	// Debts are the debts that were open at the end of the month.
+	Debts []ledger.Debt
+}
+
+// DebtQuerier is the inbound port of the tools of the debts.
+//
+// The tools of the Model Context Protocol speak in text and in numbers: the
+// business, the counterparty, the money and the day. The use case speaks in
+// the model of the domain, and the port is where the two meet.
+type DebtQuerier interface {
+	// Record opens a debt and writes the money that opened it.
+	//
+	// The counterparty is REQUIRED: it is the other side of the money, and
+	// a debt without it is a bucket of money. The money comes from the debt
+	// and lands in the account the caller names: the cash when a friend
+	// lends the money, the expense when a product is paid later.
+	//
+	// The day is the day the caller names, and the day of today when the
+	// caller names none. The name of the account of the debt is optional,
+	// and it is derived from the counterparty when the caller names none.
+	Record(
+		ctx context.Context,
+		businessID business.ID,
+		counterparty string,
+		amount ledger.Amount,
+		toAccountID account.ID,
+		date, description, dueDate, name string,
+	) (ledger.Debt, error)
+
+	// Debts returns the debts the book still holds: what the person owes,
+	// to whom, and the day it falls due.
+	Debts(ctx context.Context, businessID business.ID) ([]ledger.Debt, error)
+
+	// Pay writes the payment of a debt.
+	//
+	// The money leaves the account the caller names and lands in the debt,
+	// and the payment may not pass what the debt still holds.
+	Pay(
+		ctx context.Context,
+		businessID business.ID,
+		debtAccountID account.ID,
+		amount ledger.Amount,
+		fromAccountID account.ID,
+		date, description string,
+	) (DebtPayment, error)
+}
+
+// SummaryQuerier is the inbound port of the tool that closes a month.
+//
+// The closing of a month is what the person earned, what they spent, and
+// what they still owe: the three numbers a person asks for when they say
+// "how did this month go?".
+type SummaryQuerier interface {
+	// Month reads the closing of a month: the income, the expenses, the
+	// net, and the debts that were open at the end of it.
+	//
+	// The month is the one the caller names, and the month that just ended
+	// when the caller names none.
+	Month(ctx context.Context, businessID business.ID, year, month int) (MonthSummary, error)
 }

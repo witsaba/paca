@@ -78,8 +78,12 @@ type Repository interface {
 	// Create registers a person. The new user is in the onboarding status
 	// and carries no observation: the storage decides that, not the caller.
 	//
-	// The error is ErrAlreadyExists when the document ID is taken.
-	Create(ctx context.Context, id ID, details Details) (User, error)
+	// The registration carries the name of the person: a person is
+	// registered with a name, and the phone and the email are optional.
+	//
+	// The error is ErrAlreadyExists when the document ID is taken, and
+	// ErrNameRequired when the registration carries no name.
+	Create(ctx context.Context, id ID, registration Registration) (User, error)
 
 	// UpdateDetails writes the data of a user. A field that is empty is left
 	// as it is: the storage writes the fields that carry a value.

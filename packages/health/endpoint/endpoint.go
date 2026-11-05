@@ -1,30 +1,34 @@
-// Package http adapts the use cases of the service to the HTTP protocol.
+// Package endpoint holds the HTTP endpoint of the health of a service.
 //
-// The adapters translate: they read a request, they call the use case, and
-// they write a response. They hold no rule of their own.
-package http
+// The endpoint translates: it reads a request, it asks for the health, and
+// it writes a response. It holds no rule of its own, and it knows nothing
+// about how the health is measured.
+//
+// The endpoint is shared by every service of the monorepository, so the
+// answer of the health is the same everywhere: the same body, the same
+// status codes and the same path.
+package endpoint
 
 import (
 	"encoding/json"
 	"net/http"
 	"time"
 
-	"github.com/witsaba/paca/apps/db-admin/internal/ports"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/ports"
 )
 
-// HealthPath is the path of the health endpoint. It is the only route of the
-// service.
-const HealthPath = "/healthz"
+// Path is the path of the health endpoint.
+const Path = "/healthz"
 
-// HealthHandler serves the health endpoint of the service.
-type HealthHandler struct {
+// Handler serves the health endpoint of the service.
+type Handler struct {
 	query ports.HealthQuerier
 }
 
-// NewHealthHandler builds the handler of the health endpoint.
-func NewHealthHandler(query ports.HealthQuerier) *HealthHandler {
-	return &HealthHandler{query: query}
+// New builds the handler of the health endpoint.
+func New(query ports.HealthQuerier) *Handler {
+	return &Handler{query: query}
 }
 
 // healthResponse is the body of the health endpoint.
@@ -56,7 +60,7 @@ type checkResponse struct {
 // The endpoint answers 200 while the service can serve, and 503 when it
 // cannot. A degraded service still answers 200: it works, and the body says
 // that something is wrong.
-func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	report, err := h.query.Health(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, healthResponse{

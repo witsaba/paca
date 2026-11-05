@@ -26,7 +26,7 @@ internal/
   application/                 the use cases: the rules of the service
   ports/                       the contracts between the layers
   adapters/
-    inbound/http/              the HTTP adapter: the health endpoint
+    inbound/http/              the HTTP adapter: the router of the service
     inbound/mcpserver/         the MCP adapter: the official Go SDK
     outbound/serving/          the checker of the MCP transport
     outbound/database/         the checker of the database
@@ -36,8 +36,10 @@ internal/
 test/integration/              the container tests
 ```
 
-The models and the infrastructure live in the shared modules: the person and the health
-in [packages/domain](../../packages/domain), the clock, the logs, the telemetry and the
+The models and the infrastructure live in the shared modules: the person, the book of
+their money and the health in [packages/domain](../../packages/domain), the health itself
+— the use case that reports it and the endpoint that answers it — in
+[packages/health](../../packages/health), and the clock, the logs, the telemetry and the
 server in [packages/platform](../../packages/platform). The service owns only the models
 that belong to it alone, and the configuration that is its own.
 
@@ -98,25 +100,42 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes five tools: the three moments of the journey of a person
-inside PACA, and the two reads that tell the agent what PACA knows.
+The server exposes twelve tools: the way PACA onboards a person, the four
+moments of the journey of a person inside PACA, the three tools of the book
+of their money, and the four tools of their debts and of the closing of
+their month.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
-| `onboard_user`            | Registers a person and starts their onboarding.                  |
+| `complete_onboarding`     | Registers a person, opens their Personal Business with its accounts, and moves them to the active status. One call, one transaction. |
 | `get_user`                | Reads the data of a person who is already registered.            |
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+| `record_movement`         | Writes a movement of money in the book: it goes from one account to another one. |
+| `read_movements`          | Reads the movements of a period: the libro diario.              |
+| `read_balances`           | Reads the balance of every account and the money of the business: the libro mayor. |
+| `record_debt`             | Opens a debt with its counterparty and its due date, and writes the money that opened it. One call, one transaction. |
+| `list_debts`              | Reads the debts the book still holds: what the person owes, to whom, and the day it falls due. |
+| `record_debt_payment`     | Writes the payment of a debt, and refuses a payment that passes what the debt still holds. |
+| `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
+
+**There is one tool for the registration and the onboarding.** The tool of
+the onboarding registers the person and opens their book in one call, and a
+tool that registers a person and stops there is a tool the agent can call
+halfway: it leaves a person in the onboarding with no business, and the
+agent has to remember to come back.
 
 **The description of a tool is not a comment.** It is the instruction the
 agent reads before it calls the tool, so it says what the tool needs, what it
 does with what it receives, and what it must not do. The description of
-`onboard_user` tells the agent that the document ID is required and that
-PACA never invents one, that the name is optional but worth asking for
-kindly, that the phone must carry its country code, that the email must be a
-valid address, and that it should gather as much as the person is willing to
-give. The description of `change_user_status` tells the agent the moves the
+`complete_onboarding` tells the agent that the onboarding is ONE call and
+ONE transaction, that the document ID and the name are required and that
+PACA never invents the first, that the phone and the email are a favour to
+ask for kindly, that the phone must carry its country code, that the email
+must be a valid address, that the book of the person starts empty, that the
+call is safe to repeat, and it names the accounts the book starts with — a
+list read from the domain, never written a second time. The description of `change_user_status` tells the agent the moves the
 map of the states allows and the rule of the observation. The description of
 `update_user_contact_data` tells the agent that an empty field is a field
 that stays as it is. The description of `get_user` tells the agent that the
@@ -124,15 +143,25 @@ tool answers with what PACA knows about the person, and the description of
 `list_users` tells the agent to ask for the people it needs and to ask again
 when the answer carries more people than it asked for.
 
+**The money goes from one account to another one.** The tool of the movement
+takes the account the money comes from and the account it lands in, the
+way the person says it: a salary lands in the cash and comes from the
+salary. The amount is positive and it is never a fraction, the day is the
+day the money moved — the day of today when the agent names none — and the
+description is what the person reads in their book.
+
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
 address, a document that is already registered, an email that belongs to
-somebody else, a move the map does not allow, and an observation that does
-not fit the status: each one says what happened and what to do about it.
+somebody else, a move the map does not allow, an observation that does
+not fit the status, a name that is missing, a business that is already
+there, an account whose name is taken inside its business: each one says
+what happened and what to do about it.
 
 The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the
-observation. The tools only carry them to the agent.
+observation, the rule of the complete onboarding, the rule of the personal
+business and the rule of the debt. The tools only carry them to the agent.
 
 ## The endpoints
 

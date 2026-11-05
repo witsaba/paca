@@ -13,6 +13,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
 	"github.com/witsaba/paca/apps/mcp-server/internal/bootstrap"
 	"github.com/witsaba/paca/apps/mcp-server/internal/platform/config"
 )
@@ -187,8 +188,8 @@ func TestTheServiceSaysItHasNoDatabaseWhenItHasNone(t *testing.T) {
 	defer session.Close()
 
 	result, err := session.CallTool(ctx, &sdk.CallToolParams{
-		Name:      "onboard_user",
-		Arguments: map[string]any{"document_id": "1234567"},
+		Name:      "complete_onboarding",
+		Arguments: map[string]any{"document_id": "1234567", "full_name": "Ana María Pérez"},
 	})
 	if err != nil {
 		t.Fatalf("the tool failed: %v", err)
@@ -236,7 +237,26 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 5 {
-		t.Fatalf("the server exposes %d tools, want the five of the users", len(tools.Tools))
+	if len(tools.Tools) != 12 {
+		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding, the three of the book and the four of the debts", len(tools.Tools))
+	}
+
+	names := make(map[string]bool, len(tools.Tools))
+	for _, tool := range tools.Tools {
+		names[tool.Name] = true
+	}
+	for _, want := range []string{
+		mcpserver.ToolGetUser,
+		mcpserver.ToolListUsers,
+		mcpserver.ToolChangeUserStatus,
+		mcpserver.ToolUpdateUserContactData,
+		mcpserver.ToolCompleteOnboarding,
+		mcpserver.ToolRecordMovement,
+		mcpserver.ToolReadMovements,
+		mcpserver.ToolReadBalances,
+	} {
+		if !names[want] {
+			t.Errorf("the server does not expose the tool %q", want)
+		}
 	}
 }

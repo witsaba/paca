@@ -1,13 +1,13 @@
-package application_test
+package reporter_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/witsaba/paca/apps/mcp-server/internal/application"
-	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/ports"
+	"github.com/witsaba/paca/packages/health/reporter"
 )
 
 // maxHealthAllocations is the budget of the health use case. It is a budget
@@ -16,11 +16,11 @@ import (
 const maxHealthAllocations = 40
 
 // benchmarkService builds the service the benchmark and the budget check use.
-func benchmarkService(tb testing.TB) *application.HealthService {
+func benchmarkService(tb testing.TB) *reporter.Service {
 	tb.Helper()
 
 	clock := &fakeClock{now: time.Now()}
-	service, err := application.NewHealthService(
+	service, err := reporter.New(
 		health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 		[]ports.Checker{&fakeChecker{name: "mcp-transport"}},
 		clock,
@@ -28,7 +28,7 @@ func benchmarkService(tb testing.TB) *application.HealthService {
 		time.Second,
 	)
 	if err != nil {
-		tb.Fatalf("NewHealthService() = %v", err)
+		tb.Fatalf("New() = %v", err)
 	}
 	return service
 }

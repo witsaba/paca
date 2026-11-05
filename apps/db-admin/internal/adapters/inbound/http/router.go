@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/ports"
+	"github.com/witsaba/paca/packages/health/endpoint"
 	"github.com/witsaba/paca/packages/platform/server"
 )
 
@@ -40,11 +41,11 @@ type RouterConfig struct {
 // telling anything about it.
 func NewRouter(cfg RouterConfig) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET "+HealthPath, NewHealthHandler(cfg.Health))
+	mux.Handle("GET "+endpoint.Path, endpoint.New(cfg.Health))
 
 	return server.NewMiddleware(server.MiddlewareConfig{
 		Logger:         cfg.Logger,
 		TracerProvider: cfg.TracerProvider,
-		UntracedPaths:  []string{HealthPath},
+		UntracedPaths:  []string{endpoint.Path},
 	}, mux)
 }

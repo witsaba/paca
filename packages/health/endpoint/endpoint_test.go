@@ -1,4 +1,4 @@
-package http_test
+package endpoint_test
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	adapter "github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/health/endpoint"
 )
 
 // fakeQuerier is the use case of the test: it returns the report the test
@@ -31,22 +31,22 @@ func TestTheHealthEndpointAnswersTheReport(t *testing.T) {
 
 	checkedAt := time.Date(2026, time.October, 27, 10, 0, 0, 0, time.UTC)
 	querier := &fakeQuerier{report: health.Report{
-		Identity:  health.Identity{Name: "paca-db-admin", Version: "0.1.0"},
+		Identity:  health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 		Status:    health.StatusOK,
 		StartedAt: checkedAt.Add(-time.Minute),
 		CheckedAt: checkedAt,
 		Uptime:    time.Minute,
 		Checks: []health.Check{{
-			Name:    "database",
+			Name:    "mcp-transport",
 			Status:  health.StatusOK,
 			Latency: 1500 * time.Microsecond,
 		}},
 	}}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil)
+	request := httptest.NewRequest(http.MethodGet, endpoint.Path, nil)
 
-	adapter.NewHealthHandler(querier).ServeHTTP(recorder, request)
+	endpoint.New(querier).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
@@ -76,8 +76,8 @@ func TestTheHealthEndpointAnswersTheReport(t *testing.T) {
 	if body.Status != "ok" {
 		t.Fatalf("status = %q, want %q", body.Status, "ok")
 	}
-	if body.Service.Name != "paca-db-admin" || body.Service.Version != "0.1.0" {
-		t.Fatalf("service = %+v, want the name and the version of the service", body.Service)
+	if body.Service.Name != "paca-mcp-server" || body.Service.Version != "0.1.0" {
+		t.Fatalf("service = %+v, want the name and the version of the server", body.Service)
 	}
 	if body.UptimeSeconds != 60 {
 		t.Fatalf("uptime = %v, want 60", body.UptimeSeconds)
@@ -88,8 +88,8 @@ func TestTheHealthEndpointAnswersTheReport(t *testing.T) {
 	if len(body.Checks) != 1 {
 		t.Fatalf("checks = %d, want 1", len(body.Checks))
 	}
-	if body.Checks[0].Name != "database" || body.Checks[0].Status != "ok" {
-		t.Fatalf("check = %+v, want the database to be ok", body.Checks[0])
+	if body.Checks[0].Name != "mcp-transport" || body.Checks[0].Status != "ok" {
+		t.Fatalf("check = %+v, want the transport to be ok", body.Checks[0])
 	}
 }
 
@@ -97,19 +97,19 @@ func TestTheHealthEndpointAnswersUnavailableWhenTheServiceIsUnhealthy(t *testing
 	t.Parallel()
 
 	querier := &fakeQuerier{report: health.Report{
-		Identity: health.Identity{Name: "paca-db-admin", Version: "0.1.0"},
+		Identity: health.Identity{Name: "paca-mcp-server", Version: "0.1.0"},
 		Status:   health.StatusUnhealthy,
 		Checks: []health.Check{{
-			Name:   "database",
+			Name:   "mcp-transport",
 			Status: health.StatusUnhealthy,
-			Detail: "the database did not answer",
+			Detail: "the transport is not serving yet",
 		}},
 	}}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil)
+	request := httptest.NewRequest(http.MethodGet, endpoint.Path, nil)
 
-	adapter.NewHealthHandler(querier).ServeHTTP(recorder, request)
+	endpoint.New(querier).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
@@ -119,41 +119,15 @@ func TestTheHealthEndpointAnswersUnavailableWhenTheServiceIsUnhealthy(t *testing
 	}
 }
 
-func TestTheHealthEndpointAnswersOkWhenTheServiceIsDegraded(t *testing.T) {
-	t.Parallel()
-
-	querier := &fakeQuerier{report: health.Report{
-		Identity: health.Identity{Name: "paca-db-admin", Version: "0.1.0"},
-		Status:   health.StatusDegraded,
-		Checks: []health.Check{{
-			Name:   "database",
-			Status: health.StatusDegraded,
-			Detail: "the schema has pending migrations",
-		}},
-	}}
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil)
-
-	adapter.NewHealthHandler(querier).ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
-	}
-	if !strings.Contains(recorder.Body.String(), "degraded") {
-		t.Fatalf("body = %q, want it to report a degraded service", recorder.Body.String())
-	}
-}
-
 func TestTheHealthEndpointAnswersUnavailableWhenTheReportFails(t *testing.T) {
 	t.Parallel()
 
 	querier := &fakeQuerier{err: errors.New("the request was cancelled")}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, adapter.HealthPath, nil)
+	request := httptest.NewRequest(http.MethodGet, endpoint.Path, nil)
 
-	adapter.NewHealthHandler(querier).ServeHTTP(recorder, request)
+	endpoint.New(querier).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)

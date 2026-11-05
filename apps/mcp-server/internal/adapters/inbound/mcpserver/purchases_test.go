@@ -15,6 +15,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 )
@@ -86,9 +87,10 @@ func theAnswerOfTheDraft() purchase.Draft {
 		Utterance:  "Compré 25 kilos de harina",
 		Lines: []purchase.Line{
 			{
-				Name:    "Harina",
-				Measure: purchase.Measure{Quantity: 25, Unit: "kg"},
-				Price:   purchase.Price{Total: 12000},
+				Name:         "Harina",
+				Measure:      purchase.Measure{Quantity: 25, Unit: "kg"},
+				Price:        purchase.Price{Total: 12000},
+				IngredientID: ingredient.ID(10),
 			},
 		},
 		Missing:    []string{"the price of Pan"},
@@ -126,10 +128,11 @@ func TestThePurchaseToolKeepsTheDraft(t *testing.T) {
 			"invoice":     "FV-001",
 			"lines": []any{
 				map[string]any{
-					"name":       "Harina",
-					"quantity":   25,
-					"unit":       "kg",
-					"total_paid": 12000,
+					"name":          "Harina",
+					"quantity":      25,
+					"unit":          "kg",
+					"total_paid":    12000,
+					"ingredient_id": 10,
 				},
 			},
 			"ambiguities": []any{
@@ -180,6 +183,9 @@ func TestThePurchaseToolKeepsTheDraft(t *testing.T) {
 	if drafter.got.Lines[0].Total != 12000 {
 		t.Errorf("the money is %d, want 12000", drafter.got.Lines[0].Total)
 	}
+	if drafter.got.Lines[0].IngredientID != 10 {
+		t.Errorf("the identity of the ingredient is %d, want 10", drafter.got.Lines[0].IngredientID)
+	}
 	if len(drafter.got.Ambiguities) != 1 {
 		t.Fatalf("the use case received %d ambiguities, want 1", len(drafter.got.Ambiguities))
 	}
@@ -189,7 +195,7 @@ func TestThePurchaseToolKeepsTheDraft(t *testing.T) {
 
 	answer := textOf(t, result)
 	for _, want := range []string{
-		"42", "proposed", "Harina", "25", "kg", "12000",
+		"42", "proposed", "Harina", "25", "kg", "12000", "10",
 		"the price of Pan",
 		"Harina panadera",
 		"the day of the purchase is the day of today",

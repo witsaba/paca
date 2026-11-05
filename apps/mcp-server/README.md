@@ -100,12 +100,13 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes sixteen tools: the way PACA onboards a person, the four
+The server exposes seventeen tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
-four tools of their debts and of the closing of their month, and the two
-tools of the utterance: the purchase the owner just said, and the purchase
-she confirmed.
+four tools of their debts and of the closing of their month, the two tools
+of the utterance — the purchase the owner just said, and the purchase she
+confirmed — and the tool of the catalog: the name she said, against the
+names the business buys.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -125,6 +126,7 @@ she confirmed.
 | `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
 | `draft_purchase`           | Proposes the purchase the owner just said and keeps it as a draft of the business, with what it understood, what it still needs, what it was not sure about and what it filled. |
 | `confirm_purchase`         | Writes the purchase of the draft the owner confirmed and moves the money of the payment from the account that pays to the inventory. One call, one transaction. |
+| `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -197,6 +199,15 @@ nothing behind — the draft stays as it was and no purchase is written. The
 answer carries the purchase that was written and the three parts of the
 answer of Paca: what it recorded, what it did not understand and what it
 still needs.
+
+**The catalog of the names begins empty.** The tool `match_items` takes the
+business and the name as the owner said it, and it answers with the status
+of that name: `exact` when one ingredient answers it, `ambiguous` when
+several answer it — with the options, so the owner chooses with one word —
+and `unknown` when none of them does. A name the catalog does not know is
+not an error: the answer says that it is new, and the confirmation of the
+purchase records it as she said it. The tool writes nothing: the catalog
+grows with the confirmation of a purchase, never with a read.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

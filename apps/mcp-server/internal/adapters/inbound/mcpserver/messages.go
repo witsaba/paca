@@ -17,6 +17,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -116,4 +117,15 @@ var theMessages = map[error]string{
 		"and never fill a price by yourself",
 	purchase.ErrInvalidValue: "the database refused the draft: check the sentence, the lines and the day of it",
 	purchase.ErrNoStorage:    "the service has no storage of the drafts: the drafts cannot be reached",
+
+	ingredient.ErrNotFound: "there is no ingredient with that identity: read the catalog of the business before " +
+		"naming one of its ingredients",
+	ingredient.ErrInvalidName: "the name of an ingredient is not empty: write the name the person reads, the way " +
+		"she said it",
+	ingredient.ErrDuplicateName: "the business already has an ingredient with that name: use the name the person " +
+		"reads for it, and do not write a second one",
+	ingredient.ErrWrongBusiness: "the ingredient belongs to another business: match the name against the catalog " +
+		"of the business the person names",
+	ingredient.ErrInvalidValue: "the database refused the ingredient: check the name of it",
+	ingredient.ErrNoStorage:    "the service has no storage of the ingredients: the catalog cannot be reached",
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -297,6 +298,13 @@ type PurchaseLine struct {
 	// Inferred says that the price was filled by the agent and not said by
 	// the owner. The money is never inferred, and the domain refuses it.
 	Inferred bool
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to.
+	//
+	// It is zero when the catalog does not know the name: the line keeps
+	// the name as the owner said it.
+	IngredientID int64
 }
 
 // PurchaseAmbiguity is a name the agent was not sure about, with the options
@@ -411,6 +419,37 @@ type PurchaseConfirmer interface {
 	// eyes of the owner and of a draft that still needs the money of one
 	// of its lines.
 	Confirm(ctx context.Context, request ConfirmPurchase) (purchase.Confirmation, error)
+}
+
+// MatchItems is the name the owner said, and the business whose catalog
+// answers for it.
+//
+// It is the shape of the contract between the agent and the service: the
+// name travels as she said it, and the catalog answers for it.
+type MatchItems struct {
+	// BusinessID is the business that bought.
+	BusinessID business.ID
+
+	// Name is the name as the owner said it.
+	Name string
+}
+
+// ItemMatcher is the inbound port of the tool that matches a name against
+// the catalog of a business.
+//
+// The catalog is the catalog of the names the business buys: it begins
+// empty and grows with what the owner buys.
+type ItemMatcher interface {
+	// Match answers the name the owner said against the catalog of the
+	// business: the ingredient it names, the options it offers when
+	// several answer it, or the news that the catalog does not know it.
+	//
+	// The identity of the business and the name are required.
+	//
+	// The error is the error of the domain: the domain refuses a name
+	// that is not there, and a catalog that carries two ingredients with
+	// the same name.
+	Match(ctx context.Context, request MatchItems) (ingredient.Match, error)
 }
 
 // SummaryQuerier is the inbound port of the tool that closes a month.

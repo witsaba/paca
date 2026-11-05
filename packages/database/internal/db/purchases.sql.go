@@ -186,23 +186,24 @@ func (q *Queries) CreatePurchaseDraft(ctx context.Context, arg CreatePurchaseDra
 
 const createPurchaseLine = `-- name: CreatePurchaseLine :one
 INSERT INTO purchase_lines (
-    purchase_id, position, name, quantity, unit, total, unit_price
+    purchase_id, position, name, quantity, unit, total, unit_price, ingredient_id
 )
 VALUES (
     $1, $2, $3, $4,
-    $5, $6, $7
+    $5, $6, $7, $8
 )
-RETURNING id, purchase_id, position, name, quantity, unit, total, unit_price
+RETURNING id, purchase_id, position, name, quantity, unit, total, unit_price, ingredient_id
 `
 
 type CreatePurchaseLineParams struct {
-	PurchaseID int64
-	Position   int32
-	Name       string
-	Quantity   float64
-	Unit       string
-	Total      int64
-	UnitPrice  int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Quantity     float64
+	Unit         string
+	Total        int64
+	UnitPrice    int64
+	IngredientID pgtype.Int8
 }
 
 func (q *Queries) CreatePurchaseLine(ctx context.Context, arg CreatePurchaseLineParams) (PurchaseLine, error) {
@@ -214,6 +215,7 @@ func (q *Queries) CreatePurchaseLine(ctx context.Context, arg CreatePurchaseLine
 		arg.Unit,
 		arg.Total,
 		arg.UnitPrice,
+		arg.IngredientID,
 	)
 	var i PurchaseLine
 	err := row.Scan(
@@ -225,6 +227,7 @@ func (q *Queries) CreatePurchaseLine(ctx context.Context, arg CreatePurchaseLine
 		&i.Unit,
 		&i.Total,
 		&i.UnitPrice,
+		&i.IngredientID,
 	)
 	return i, err
 }

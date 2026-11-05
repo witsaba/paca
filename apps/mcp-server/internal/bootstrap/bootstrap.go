@@ -24,6 +24,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/store"
@@ -176,9 +177,11 @@ func New(
 	// The utterance of the owner: the purchase she said, kept as a draft of
 	// the business while she decides, and the purchase she confirmed. The
 	// confirmation writes the purchase and the money of the payment in one
-	// transaction. Without a database there is no draft and no purchase.
+	// transaction, and it grows the catalog of the names the business
+	// buys. Without a database there is no draft and no purchase.
 	var drafts purchase.Repository
 	var purchases purchase.Recorder
+	var ingredients ingredient.Repository
 	if pool != nil {
 		boundDrafts, err := postgres.NewPurchaseRepository(pool)
 		if err != nil {
@@ -193,10 +196,22 @@ func New(
 			return nil, fmt.Errorf("the recorder of the purchases could not be built: %w", err)
 		}
 		purchases = boundPurchases
+
+		boundIngredients, err := postgres.NewIngredientRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the ingredients could not be built: %w", err)
+		}
+		ingredients = boundIngredients
 	}
 
 	purchaseService := application.NewPurchaseService(drafts, clock.System{})
-	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, work, clock.System{})
+	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, work, clock.System{})
+
+	// The catalog of the names the business buys: the name the owner reads
+	// and the names she uses for it. The tool of the catalog matches the
+	// name she said against it, and it writes nothing.
+	ingredientService := application.NewIngredientService(ingredients)
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
@@ -214,6 +229,7 @@ func New(
 		Summary:             summaryService,
 		DraftPurchase:       purchaseService,
 		ConfirmPurchase:     confirmationService,
+		MatchItems:          ingredientService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

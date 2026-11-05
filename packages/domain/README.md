@@ -37,6 +37,9 @@ packages/domain/
                     itself: the candidate the agent proposes, the lines, the
                     measure, the money, what the draft still needs, the
                     confirmation and the port of the storage
+  ingredient/       the model of the catalog of the names the business buys:
+                    the name the owner reads, the names she uses for it, the
+                    matching of a name she said and the port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -329,6 +332,40 @@ a role without writing its name down twice.
 to `confirmed`, and the storage refuses the confirmation of a draft that is
 not the one the owner saw: the revision she saw is the revision the row
 carries.
+
+## The catalog of the names
+
+`ingredient.Ingredient` is the thing the business buys: the name the owner
+reads, the names she uses for it — its aliases — and the business that owns
+it. `ingredient.Catalog` is the set of the ingredients of a business.
+
+**The catalog begins empty and grows with what the owner buys.** The first
+purchase creates the first name, and a name the catalog does not know is
+not an error: it is recorded as the owner said it, and the answer tells
+her it is new.
+
+**The matching is a rule of the domain.** `ingredient.Catalog.Match`
+answers the name the owner said: `exact` when one ingredient answers it,
+`ambiguous` when several answer it — with the options it offers — and
+`unknown` when none of them does. The options are in the order of the
+identity of the ingredients, so the answer is the same every time.
+
+**The name is compared the way a person reads it.** Trimmed, and without
+case: `Harina` and `harina ` are the same name, and the alias `harina` is
+the same ingredient as the name `Harina panadera`.
+
+**Two ingredients of the same business never carry the same name.**
+`ingredient.NewCatalog` refuses the catalog that holds two of them
+(`ErrDuplicateName`), and the table holds the same rule as a defense in
+depth. An ingredient of another business is not in this catalog
+(`ErrWrongBusiness`).
+
+**The line of a purchase carries the ingredient it names.**
+`purchase.Line.WithIngredient` answers the line with the identity of the
+ingredient of the catalog, and the identity is empty when the catalog does
+not know the name: the line keeps the name as the owner said it. The
+catalog grows with the confirmation of a purchase: a name the catalog does
+not know becomes an ingredient of the business.
 
 ## The transaction of the storage
 

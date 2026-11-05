@@ -9,9 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 )
@@ -261,13 +263,14 @@ func (r *PurchaseRecorder) Record(ctx context.Context, written purchase.Purchase
 
 	for position, one := range written.Lines {
 		line, err := r.pool.queriesFor(ctx).CreatePurchaseLine(ctx, db.CreatePurchaseLineParams{
-			PurchaseID: row.ID,
-			Position:   int32(position + 1),
-			Name:       one.Name,
-			Quantity:   one.Measure.Quantity,
-			Unit:       one.Measure.Unit,
-			Total:      int64(one.Price.Total),
-			UnitPrice:  int64(one.Price.Unit),
+			PurchaseID:   row.ID,
+			Position:     int32(position + 1),
+			Name:         one.Name,
+			Quantity:     one.Measure.Quantity,
+			Unit:         one.Measure.Unit,
+			Total:        int64(one.Price.Total),
+			UnitPrice:    int64(one.Price.Unit),
+			IngredientID: ingredientID(one.IngredientID),
 		})
 		if err != nil {
 			return purchase.Purchase{}, writePurchaseError(err)
@@ -281,8 +284,11 @@ func (r *PurchaseRecorder) Record(ctx context.Context, written purchase.Purchase
 
 // purchaseLineFromRow maps a row of the lines of a purchase onto the model
 // of the domain.
+//
+// The identity of the ingredient is empty when the catalog did not know the
+// name: the line keeps the name the owner said.
 func purchaseLineFromRow(row db.PurchaseLine) purchase.Line {
-	return purchase.Line{
+	line := purchase.Line{
 		Name:    row.Name,
 		Measure: purchase.Measure{Quantity: row.Quantity, Unit: row.Unit},
 		Price: purchase.Price{
@@ -290,6 +296,25 @@ func purchaseLineFromRow(row db.PurchaseLine) purchase.Line {
 			Unit:  ledger.Amount(row.UnitPrice),
 		},
 	}
+
+	if row.IngredientID.Valid {
+		line.IngredientID = ingredient.ID(row.IngredientID.Int64)
+	}
+
+	return line
+}
+
+// ingredientID answers the identity of the ingredient of a line as the
+// column of the table holds it.
+//
+// The column is optional: a line of a name the catalog does not know
+// carries nothing, and the name it carries is the name the owner said.
+func ingredientID(id ingredient.ID) pgtype.Int8 {
+	if id == 0 {
+		return pgtype.Int8{}
+	}
+
+	return pgtype.Int8{Int64: int64(id), Valid: true}
 }
 
 // purchaseDraftFromRow maps a row of the drafts table onto the model of the
@@ -361,6 +386,10 @@ type lineJSON struct {
 
 	// Inferred says that the price was filled by the agent.
 	Inferred bool `json:"price_inferred"`
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to. It is zero when the catalog does not know the name.
+	IngredientID int64 `json:"ingredient_id"`
 }
 
 // ambiguityJSON is the shape of an ambiguity of a draft in the storage.
@@ -377,12 +406,13 @@ func encodeLines(lines []purchase.Line) ([]byte, error) {
 	encoded := make([]lineJSON, 0, len(lines))
 	for _, one := range lines {
 		encoded = append(encoded, lineJSON{
-			Name:      one.Name,
-			Quantity:  one.Measure.Quantity,
-			Unit:      one.Measure.Unit,
-			Total:     int64(one.Price.Total),
-			UnitPrice: int64(one.Price.Unit),
-			Inferred:  one.Price.Inferred,
+			Name:         one.Name,
+			Quantity:     one.Measure.Quantity,
+			Unit:         one.Measure.Unit,
+			Total:        int64(one.Price.Total),
+			UnitPrice:    int64(one.Price.Unit),
+			Inferred:     one.Price.Inferred,
+			IngredientID: int64(one.IngredientID),
 		})
 	}
 
@@ -418,7 +448,7 @@ func decodeLines(raw []byte) ([]purchase.Line, error) {
 			return nil, err
 		}
 
-		lines = append(lines, line)
+		lines = append(lines, line.WithIngredient(ingredient.ID(one.IngredientID)))
 	}
 
 	return lines, nil

@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 )
 
@@ -114,6 +115,25 @@ type Line struct {
 
 	// Price is the money of the line.
 	Price Price
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to.
+	//
+	// It is zero when the catalog does not know the name: the line keeps
+	// the name as the owner said it, and the catalog grows with it when
+	// the owner buys it.
+	IngredientID ingredient.ID
+}
+
+// WithIngredient answers the line with the identity of the ingredient the
+// name belongs to.
+//
+// The identity is zero when the catalog does not know the name: the line
+// keeps the name as the owner said it, and nothing else of the line moves.
+func (l Line) WithIngredient(id ingredient.ID) Line {
+	l.IngredientID = id
+
+	return l
 }
 
 // NewLine builds a line of a draft.

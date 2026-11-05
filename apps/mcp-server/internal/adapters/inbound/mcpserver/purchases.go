@@ -55,7 +55,10 @@ func buildDescriptionDraftPurchase() string {
 		"PACA refuses a line without a unit.\n" +
 		"  - the money is the money that was paid ('total_paid') or the price of one unit ('unit_price'), in " +
 		"the currency of the book ('" + business.DefaultCurrency + "'). Never send both unless they agree: " +
-		"PACA refuses the pair that does not.\n\n" +
+		"PACA refuses the pair that does not.\n" +
+		"  - the identity of the ingredient of the catalog ('ingredient_id') is OPTIONAL: send the identity the " +
+		"tool " + ToolMatchItems + " answered for the name, and leave it out when the catalog does not know " +
+		"the name.\n\n" +
 		"The money is never inferred: leave it out when the owner did not say it, and the answer will say that " +
 		"the draft still needs it. PACA refuses a price it filled by itself, and it never writes a price the " +
 		"owner did not say.\n\n" +
@@ -89,6 +92,9 @@ func buildDescriptionConfirmPurchase() string {
 		"name it when she paid with another account.\n\n" +
 		"The confirmation writes the purchase and its lines, and it moves the money of the payment from the account " +
 		"that pays to the inventory of the business: the three of them are written together or not at all.\n\n" +
+		"The confirmation grows the catalog of the business too: a name the catalog does not know becomes an " +
+		"ingredient of the business, recorded as the owner said it. A name the catalog already knows keeps the " +
+		"ingredient it has.\n\n" +
 		"A draft that expired is refused: the price of a market does not wait, and a draft expires in " +
 		fmt.Sprint(purchase.DraftLifetimeDays) +
 		" days if she says nothing. A draft that still needs the money of one of its lines is refused: the money " +
@@ -116,6 +122,10 @@ type draftPurchaseLineInput struct {
 
 	// Inferred says that the price was filled by the agent.
 	Inferred bool `json:"price_inferred,omitempty" jsonschema:"True when the price was filled by PACA and not said by the owner. The money is never inferred, and PACA refuses a price it filled."`
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to.
+	IngredientID int64 `json:"ingredient_id,omitempty" jsonschema:"The identity of the ingredient of the catalog the name belongs to. It is optional: send the identity the tool match_items answered, and leave it out when the catalog does not know the name."`
 }
 
 // draftPurchaseAmbiguityInput is one name the agent was not sure about.
@@ -170,6 +180,10 @@ type draftLineOutput struct {
 
 	// UnitPrice is the price of one unit of the line.
 	UnitPrice int64 `json:"unit_price,omitempty"`
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to.
+	IngredientID int64 `json:"ingredient_id,omitempty"`
 }
 
 // draftAmbiguityOutput is what the answer carries about one name the agent
@@ -272,6 +286,10 @@ type purchaseLineOutput struct {
 
 	// UnitPrice is the price of one unit of the line.
 	UnitPrice int64 `json:"unit_price,omitempty"`
+
+	// IngredientID is the identity of the ingredient of the catalog the
+	// name belongs to.
+	IngredientID int64 `json:"ingredient_id,omitempty"`
 }
 
 // purchaseOutput is the purchase the answer carries.
@@ -395,12 +413,13 @@ func requestOf(input draftPurchaseInput) ports.DraftPurchase {
 	lines := make([]ports.PurchaseLine, 0, len(input.Lines))
 	for _, one := range input.Lines {
 		lines = append(lines, ports.PurchaseLine{
-			Name:      one.Name,
-			Quantity:  one.Quantity,
-			Unit:      one.Unit,
-			Total:     one.TotalPaid,
-			UnitPrice: one.UnitPrice,
-			Inferred:  one.Inferred,
+			Name:         one.Name,
+			Quantity:     one.Quantity,
+			Unit:         one.Unit,
+			Total:        one.TotalPaid,
+			UnitPrice:    one.UnitPrice,
+			Inferred:     one.Inferred,
+			IngredientID: one.IngredientID,
 		})
 	}
 
@@ -432,11 +451,12 @@ func outputOfDraft(draft purchase.Draft) draftPurchaseOutput {
 	understood := make([]draftLineOutput, 0, len(draft.Lines))
 	for _, one := range draft.Lines {
 		understood = append(understood, draftLineOutput{
-			Name:      one.Name,
-			Quantity:  one.Measure.Quantity,
-			Unit:      one.Measure.Unit,
-			TotalPaid: int64(one.Price.Total),
-			UnitPrice: int64(one.Price.Unit),
+			Name:         one.Name,
+			Quantity:     one.Measure.Quantity,
+			Unit:         one.Measure.Unit,
+			TotalPaid:    int64(one.Price.Total),
+			UnitPrice:    int64(one.Price.Unit),
+			IngredientID: int64(one.IngredientID),
 		})
 	}
 
@@ -515,11 +535,12 @@ func outputOfConfirmation(confirmation purchase.Confirmation) confirmPurchaseOut
 // tool.
 func outputOfPurchaseLine(one purchase.Line) purchaseLineOutput {
 	return purchaseLineOutput{
-		Name:      one.Name,
-		Quantity:  one.Measure.Quantity,
-		Unit:      one.Measure.Unit,
-		TotalPaid: int64(one.Price.Total),
-		UnitPrice: int64(one.Price.Unit),
+		Name:         one.Name,
+		Quantity:     one.Measure.Quantity,
+		Unit:         one.Measure.Unit,
+		TotalPaid:    int64(one.Price.Total),
+		UnitPrice:    int64(one.Price.Unit),
+		IngredientID: int64(one.IngredientID),
 	}
 }
 

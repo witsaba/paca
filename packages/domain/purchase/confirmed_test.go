@@ -7,6 +7,7 @@ import (
 
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 )
 
@@ -75,6 +76,32 @@ func TestThePurchaseCarriesWhatTheOwnerSaid(t *testing.T) {
 	}
 	if written.Total != 12000 {
 		t.Errorf("the money of the purchase is %d, want 12000", written.Total)
+	}
+}
+
+// TestThePurchaseKeepsTheIdentityOfTheIngredientOfItsLines proves that the
+// purchase keeps the identity of the ingredient the catalog knows for every
+// line, and that the name is the name the owner said.
+func TestThePurchaseKeepsTheIdentityOfTheIngredientOfItsLines(t *testing.T) {
+	t.Parallel()
+
+	draft := theDraftOfTheTest(t)
+	draft.Lines = []Line{draft.Lines[0].WithIngredient(ingredient.ID(7))}
+
+	confirmation, err := Confirm(draft, Yes{Revision: 1, Word: "sí"}, theDay(2026, time.March, 2))
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	written := confirmation.Purchase
+	if len(written.Lines) != 1 {
+		t.Fatalf("the purchase holds %d lines, want 1", len(written.Lines))
+	}
+	if written.Lines[0].IngredientID != ingredient.ID(7) {
+		t.Errorf("the identity of the ingredient is %d, want 7", written.Lines[0].IngredientID)
+	}
+	if written.Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", written.Lines[0].Name, "Harina")
 	}
 }
 

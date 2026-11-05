@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 )
 
@@ -33,6 +34,33 @@ func TestTheLineCarriesTheNameTheOwnerSaidIt(t *testing.T) {
 	}
 	if line.Price.Total != 12000 {
 		t.Errorf("the money is %d, want 12000", line.Price.Total)
+	}
+}
+
+// TestTheLineCarriesTheIdentityOfTheIngredientItNames proves that a line
+// carries the identity of the ingredient of the catalog it names, and that
+// the name is kept as the owner said it: a line the catalog does not know
+// carries no identity.
+func TestTheLineCarriesTheIdentityOfTheIngredientItNames(t *testing.T) {
+	t.Parallel()
+
+	line := theLine(t, "Harina", 25, "kg", 12000)
+	if line.IngredientID != ingredient.ID(0) {
+		t.Errorf("the identity of the ingredient is %d, want none", line.IngredientID)
+	}
+
+	named := line.WithIngredient(ingredient.ID(7))
+	if named.IngredientID != ingredient.ID(7) {
+		t.Errorf("the identity of the ingredient is %d, want 7", named.IngredientID)
+	}
+	if named.Name != "Harina" {
+		t.Errorf("the name is %q, want %q", named.Name, "Harina")
+	}
+	if named.Measure.Quantity != 25 {
+		t.Errorf("the quantity is %v, want 25", named.Measure.Quantity)
+	}
+	if named.Price.Total != 12000 {
+		t.Errorf("the money is %d, want 12000", named.Price.Total)
 	}
 }
 

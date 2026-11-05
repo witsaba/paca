@@ -29,6 +29,15 @@ type Business struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Ingredient struct {
+	ID         int64
+	BusinessID int64
+	Name       string
+	Aliases    []byte
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
 type LedgerEntry struct {
 	ID              int64
 	BusinessID      int64
@@ -73,14 +82,15 @@ type PurchaseDraft struct {
 }
 
 type PurchaseLine struct {
-	ID         int64
-	PurchaseID int64
-	Position   int32
-	Name       string
-	Quantity   float64
-	Unit       string
-	Total      int64
-	UnitPrice  int64
+	ID           int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Quantity     float64
+	Unit         string
+	Total        int64
+	UnitPrice    int64
+	IngredientID pgtype.Int8
 }
 
 type User struct {

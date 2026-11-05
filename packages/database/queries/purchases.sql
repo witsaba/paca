@@ -53,11 +53,11 @@ RETURNING *;
 
 -- name: CreatePurchaseLine :one
 INSERT INTO purchase_lines (
-    purchase_id, position, name, quantity, unit, total, unit_price
+    purchase_id, position, name, quantity, unit, total, unit_price, ingredient_id
 )
 VALUES (
     sqlc.arg(purchase_id), sqlc.arg(position), sqlc.arg(name), sqlc.arg(quantity),
-    sqlc.arg(unit), sqlc.arg(total), sqlc.arg(unit_price)
+    sqlc.arg(unit), sqlc.arg(total), sqlc.arg(unit_price), sqlc.arg(ingredient_id)
 )
 RETURNING *;
 

@@ -86,6 +86,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ConfirmPurchase ports.PurchaseConfirmer
+
+	// MatchItems is the use case that matches a name the owner said
+	// against the catalog of the names the business buys.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	MatchItems ports.ItemMatcher
 }
 
 // Server is the MCP transport of the service.
@@ -137,6 +144,7 @@ func New(opts Options) *Server {
 	transport.registerBookTools(opts.Book)
 	transport.registerDebtTools(opts.Debts, opts.Summary)
 	transport.registerPurchaseTools(opts.DraftPurchase, opts.ConfirmPurchase)
+	transport.registerIngredientTools(opts.MatchItems)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

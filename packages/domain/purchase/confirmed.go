@@ -197,6 +197,7 @@ func linesOf(lines []Line) []Line {
 				Total: one.Price.Amount(one.Measure.Quantity),
 				Unit:  one.Price.Unit,
 			},
+			IngredientID: one.IngredientID,
 		})
 	}
 

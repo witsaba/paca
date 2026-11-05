@@ -1036,7 +1036,7 @@ its session starts.
 |---|---|---|---|---|
 | T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | this commit |
 | T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | this commit |
-| T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | `pending` |
+| T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | this commit |
 | T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
 | T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | this commit |
 | T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | `pending` |
@@ -1138,3 +1138,13 @@ Four things the increment taught, carried here for the ones to come:
 **L18** (2026-11-05): T7 landed: the soul carries the way Paca writes what the owner says. A sentence from the owner becomes a candidate and never a fact. She fills three things by herself — the day, the currency and the business — and nothing else; she never invents a price; when she is not sure which one the owner meant she names the two or three she knows instead of asking an open question; when several things are missing she asks only for what she cannot infer, and she groups what she asks in one message; she shows the whole record in the owner's words, with the fields she filled marked as hers, and waits; and she answers with the three parts, in this order: what she recorded, what she did not understand, and what she still needs. The sentence is kept verbatim with the record, so the record can always be read against it.
 
 The soul was the only seam of the agent that the repository owns, and it is now the place where the promise of the feature lives: the tools of the utterance are the contract, and the soul is the behavior.
+
+**L19** (2026-11-05): T5 landed: the catalog of the names. The new package of the ingredient holds the thing the business buys — the name the owner reads and the names she uses for it — and the rule of the matching: a name she said answers exact, ambiguous with its options, or unknown, and an unknown name is **new**, never an error. The tool `match_items` reads the catalog and changes nothing.
+
+One decision the increment took, and it is the kind that only the tree can teach: the catalog has to grow somewhere, and a table that no production code writes is debris that the gate refuses. The growth therefore happens **at the confirmation**: every line whose name the catalog does not know becomes an ingredient of the business, recorded as she said it, in the same transaction that writes the purchase. A name the catalog knows keeps the ingredient it has, and an ambiguous name is not resolved: the line keeps the name as she said it.
+
+Three things the increment left for the ones to come:
+
+- The **aliases** are carried by the model, the column and the adapter, but only the name is written: the increment that completes an ingredient (T10) writes the names she uses.
+- The answer of the confirmation does not name the new names: only `match_items` tells the owner that a name is new. It is a small answer that the next increment of the utterance can carry.
+- The name of an ingredient is compared the way a person reads it — trimmed and case-insensitive — and the table holds the same rule with a unique index over `lower(btrim(name))`.

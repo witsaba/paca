@@ -7,6 +7,8 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/store"
@@ -121,7 +123,10 @@ func (s *PurchaseService) candidateOf(request ports.DraftPurchase) (purchase.Can
 			return purchase.Candidate{}, err
 		}
 
-		lines = append(lines, line)
+		// The identity of the ingredient is the one the agent chose with
+		// the tool of the catalog: the line keeps it, and the name is kept
+		// as the owner said it either way.
+		lines = append(lines, line.WithIngredient(ingredient.ID(one.IngredientID)))
 	}
 
 	ambiguities := make([]purchase.Ambiguity, 0, len(request.Ambiguities))
@@ -172,16 +177,22 @@ func (s *PurchaseService) today() ledger.Date {
 // and the confirmation writes the fact: the purchase, its lines and the
 // movement of the money of the payment.
 //
+// The confirmation writes the purchase of the confirmed draft, and it
+// grows the catalog of the names the business buys: a name the catalog
+// does not know becomes an ingredient of the business, recorded as the
+// owner said it.
+//
 // The three are written in one transaction: a book that holds a purchase
 // and no movement of its money, or a movement and no purchase, lies about
 // what the owner bought.
 type ConfirmationService struct {
-	drafts    purchase.Repository
-	purchases purchase.Recorder
-	accounts  account.Repository
-	book      ledger.Repository
-	work      store.UnitOfWork
-	clock     ports.Clock
+	drafts      purchase.Repository
+	purchases   purchase.Recorder
+	accounts    account.Repository
+	book        ledger.Repository
+	ingredients ingredient.Repository
+	work        store.UnitOfWork
+	clock       ports.Clock
 }
 
 // NewConfirmationService builds the use case of the confirmation.
@@ -195,16 +206,18 @@ func NewConfirmationService(
 	purchases purchase.Recorder,
 	accounts account.Repository,
 	book ledger.Repository,
+	ingredients ingredient.Repository,
 	work store.UnitOfWork,
 	clock ports.Clock,
 ) *ConfirmationService {
 	return &ConfirmationService{
-		drafts:    drafts,
-		purchases: purchases,
-		accounts:  accounts,
-		book:      book,
-		work:      work,
-		clock:     clock,
+		drafts:      drafts,
+		purchases:   purchases,
+		accounts:    accounts,
+		book:        book,
+		ingredients: ingredients,
+		work:        work,
+		clock:       clock,
 	}
 }
 
@@ -225,7 +238,7 @@ func NewConfirmationService(
 // no purchase is written.
 func (s *ConfirmationService) Confirm(ctx context.Context, request ports.ConfirmPurchase) (purchase.Confirmation, error) {
 	if s == nil || s.drafts == nil || s.purchases == nil || s.accounts == nil || s.book == nil ||
-		s.work == nil || s.clock == nil {
+		s.ingredients == nil || s.work == nil || s.clock == nil {
 		return purchase.Confirmation{}, ports.ErrNoDatabase
 	}
 
@@ -269,7 +282,15 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 
 	var written purchase.Purchase
 	err = s.work.Do(ctx, func(ctx context.Context) error {
-		recorded, err := s.purchases.Record(ctx, confirmation.Purchase)
+		lines, err := s.resolveLines(ctx, request.BusinessID, confirmation.Purchase.Lines)
+		if err != nil {
+			return err
+		}
+
+		toWrite := confirmation.Purchase
+		toWrite.Lines = lines
+
+		recorded, err := s.purchases.Record(ctx, toWrite)
 		if err != nil {
 			return err
 		}
@@ -290,7 +311,66 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 	}
 
 	confirmation.Purchase = written
+	confirmation.Recorded = written.Lines
+
 	return confirmation, nil
+}
+
+// resolveLines answers the ingredient of every line of the purchase.
+//
+// The catalog of the business grows with what the owner buys: a name the
+// catalog does not know becomes an ingredient of the business, recorded as
+// she said it. The name of a line the catalog knows is the ingredient of
+// that line, and a name the catalog cannot answer leaves the line with the
+// name as she said it.
+//
+// The rules are the ones of the domain: the use case reads the catalog and
+// asks the domain what it knows about every name.
+func (s *ConfirmationService) resolveLines(
+	ctx context.Context,
+	own business.ID,
+	lines []purchase.Line,
+) ([]purchase.Line, error) {
+	items, err := s.ingredients.List(ctx, own)
+	if err != nil {
+		return nil, err
+	}
+
+	catalog, err := ingredient.NewCatalog(own, items)
+	if err != nil {
+		return nil, err
+	}
+
+	resolved := make([]purchase.Line, 0, len(lines))
+	for _, one := range lines {
+		resolution, err := catalog.Resolve(one.IngredientID, one.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if resolution.New {
+			created, err := ingredient.New(own, one.Name, nil)
+			if err != nil {
+				return nil, err
+			}
+
+			written, err := s.ingredients.Create(ctx, created)
+			if err != nil {
+				return nil, err
+			}
+
+			resolution.Ingredient = written
+
+			catalog, err = catalog.With(written)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		resolved = append(resolved, one.WithIngredient(resolution.Ingredient.ID))
+	}
+
+	return resolved, nil
 }
 
 // today answers the day of today.

@@ -66,6 +66,40 @@ numbers live in the conversation with the owner, which is where they belong.
 
 ---
 
+## The delivery of the feature
+
+The feature is too big for one review, and it is not one review: it is
+thirty-one increments, each one a session and a commit. The delivery keeps
+the review small.
+
+**The branch is the whole block.** `feat/bakery-business` carries every
+increment of the feature, in the order of the movements, and it is never
+merged as one pull request.
+
+**The review unit is the increment.** Each increment lands as its own commit,
+with its tests and its documentation, and the commits of one increment
+together stay inside a review of about sixty minutes.
+
+**The pull requests are the slices.** When the pull requests open, the
+feature is cut into slices of about four hundred changed lines: one
+increment, or the two that belong to the same behavior, never a part of an
+increment. The slices are stacked in the order of the movements, and each
+one states its dependency on the previous, what it delivers and what it does
+not.
+
+**The chain strategy is the owner's decision.** The two shapes of the
+chained pull requests are the stack to `main` — every slice lands in order
+and `main` stays alive and green — and the tracker, where the whole chain
+waits behind a draft that merges at the end. The first pull request asks,
+and the answer is written here.
+
+**The boundary of the first slice.** The two commits of the document are the
+design, and they are not code. The first slice of code opens with T2, the
+registration of the bakery, and it is the first thing a reviewer of Paca
+will see that is not a document.
+
+---
+
 ## Specs
 
 Each spec is the owner's own wording, quoted verbatim, except the ones marked
@@ -614,3 +648,5 @@ its session starts.
 **L11** (2026-11-05): The design corrected the map, and the correction is recorded here. The registration of the business was missing from the map of the thirty-one increments, although it is the first request the owner ever made and although every tool of the utterance needs the identity of a business: it is now Movement I (T2), before everything else (S36). The map has five movements and thirty-one increments.
 
 **L12** (2026-11-05): The decisions the design left open, carried here for the sessions to come: the cents are rounded to the nearest peso because the book counts whole pesos (S45), and that is the one place where the money of the book may have to move to centavos; the draft expires in seven days (S44) and that number may become a setting of the business; the weight of a package is unknown until she says it, so "two sacks" is a measure without a conversion to the gram until the catalog of the units arrives (T11); and the catalog of the names begins empty, so the first purchase creates the first name.
+
+**L13** (2026-11-05): The delivery of the feature was decided and written: the branch carries the whole block, the review unit is the increment, and the pull requests are the slices of about four hundred changed lines, stacked in the order of the movements. The chain strategy — the stack to `main` or the tracker — is the owner's decision when the first pull request opens, because the push and the pull requests are hers and not the feature's. The first slice of code opens with T2.

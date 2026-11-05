@@ -1,6 +1,10 @@
 package purchase
 
-import "context"
+import (
+	"context"
+
+	"github.com/witsaba/paca/packages/domain/business"
+)
 
 // Repository is the port of the storage of the drafts.
 //
@@ -36,6 +40,27 @@ type Repository interface {
 	// The error is ErrNotFound when no draft carries that identity, and
 	// ErrStaleRevision when the draft is not the one the owner saw.
 	Confirm(ctx context.Context, id DraftID, revision int) (Draft, error)
+
+	// Cancel moves the draft to the cancelled state and answers the draft.
+	//
+	// The rule of the state machine: only a draft that waits is cancelled.
+	// The row must carry the state of a draft that waits, and the storage
+	// refuses the cancellation of a draft that is confirmed or that is
+	// cancelled already.
+	//
+	// The error is ErrNotFound when no draft carries that identity, and
+	// ErrNotCancellable when the draft does not wait any more.
+	Cancel(ctx context.Context, id DraftID) (Draft, error)
+
+	// List returns the drafts of the business that wait for the yes of the
+	// owner, in the order of their identity.
+	//
+	// The list holds the drafts of the business and of no other one, and
+	// the domain decides which of them are still pending: a draft that
+	// expired is not pending any more.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Draft, error)
 }
 
 // Recorder is the port of the storage of the purchases.

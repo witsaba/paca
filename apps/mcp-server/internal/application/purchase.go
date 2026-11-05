@@ -23,6 +23,9 @@ import (
 // The use case never writes the book. A draft is a proposal, and it waits
 // for the yes of the owner: a later increment turns a confirmed draft into
 // the purchase.
+//
+// The use case also drops the drafts the owner does not want and reads the
+// pending ones back, so that a lost conversation can be recovered.
 type PurchaseService struct {
 	drafts purchase.Repository
 	clock  ports.Clock
@@ -93,12 +96,74 @@ func (s *PurchaseService) amend(
 			purchase.ErrWrongBusiness, existing.ID, existing.BusinessID)
 	}
 
-	amended, err := purchase.Amend(existing, candidate)
+	amended, err := purchase.Amend(existing, candidate, s.today())
 	if err != nil {
 		return purchase.Draft{}, err
 	}
 
 	return s.drafts.Save(ctx, amended)
+}
+
+// Cancel drops the draft the owner does not want.
+//
+// The draft belongs to its business: the cancellation of a draft of another
+// business is refused, and the draft stays as it was.
+//
+// The rules of the state machine are the ones of the domain: only a draft
+// that waits is cancelled. A draft that is confirmed already, a draft that
+// is cancelled already and a draft that expired are refused by the domain,
+// and nothing is written.
+func (s *PurchaseService) Cancel(ctx context.Context, request ports.CancelDraft) (purchase.Draft, error) {
+	if s == nil || s.drafts == nil || s.clock == nil {
+		return purchase.Draft{}, ports.ErrNoDatabase
+	}
+
+	existing, err := s.drafts.Find(ctx, request.DraftID)
+	if err != nil {
+		return purchase.Draft{}, err
+	}
+
+	if existing.BusinessID != request.BusinessID {
+		return purchase.Draft{}, fmt.Errorf("%w: the draft %d is of the business %d",
+			purchase.ErrWrongBusiness, existing.ID, existing.BusinessID)
+	}
+
+	cancelled, err := purchase.Cancel(existing, s.today())
+	if err != nil {
+		return purchase.Draft{}, err
+	}
+
+	return s.drafts.Cancel(ctx, cancelled.ID)
+}
+
+// Read answers the pending drafts of a business.
+//
+// The pending drafts are the ones that wait for the yes of the owner: the
+// domain computes the expiry when the draft is read, and an expired draft
+// does not wait any more.
+//
+// The day is the one the agent names, and the day of today when it names
+// none: the day is one of the three things Paca may fill by herself.
+func (s *PurchaseService) Read(ctx context.Context, request ports.ReadDrafts) ([]purchase.Draft, error) {
+	if s == nil || s.drafts == nil || s.clock == nil {
+		return nil, ports.ErrNoDatabase
+	}
+
+	day, err := s.dayOf(request.Day)
+	if err != nil {
+		return nil, err
+	}
+
+	if day.Time().IsZero() {
+		day = s.today()
+	}
+
+	drafts, err := s.drafts.List(ctx, request.BusinessID)
+	if err != nil {
+		return nil, err
+	}
+
+	return purchase.Pending(drafts, day), nil
 }
 
 // candidateOf turns what the agent sent into the candidate of the domain.
@@ -282,7 +347,7 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 
 	var written purchase.Purchase
 	err = s.work.Do(ctx, func(ctx context.Context) error {
-		lines, err := s.resolveLines(ctx, request.BusinessID, confirmation.Purchase.Lines)
+		lines, newNames, err := s.resolveLines(ctx, request.BusinessID, confirmation.Purchase.Lines)
 		if err != nil {
 			return err
 		}
@@ -304,6 +369,8 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 		}
 
 		written = recorded
+		confirmation.NewNames = newNames
+
 		return nil
 	})
 	if err != nil {
@@ -316,7 +383,8 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 	return confirmation, nil
 }
 
-// resolveLines answers the ingredient of every line of the purchase.
+// resolveLines answers the ingredient of every line of the purchase, and the
+// names the catalog did not know.
 //
 // The catalog of the business grows with what the owner buys: a name the
 // catalog does not know becomes an ingredient of the business, recorded as
@@ -324,53 +392,59 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 // that line, and a name the catalog cannot answer leaves the line with the
 // name as she said it.
 //
+// The names the catalog did not know are the ones the answer carries: a
+// name the catalog does not know is not an error, and the owner has to be
+// told that it is new.
+//
 // The rules are the ones of the domain: the use case reads the catalog and
 // asks the domain what it knows about every name.
 func (s *ConfirmationService) resolveLines(
 	ctx context.Context,
 	own business.ID,
 	lines []purchase.Line,
-) ([]purchase.Line, error) {
+) ([]purchase.Line, []string, error) {
 	items, err := s.ingredients.List(ctx, own)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	catalog, err := ingredient.NewCatalog(own, items)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	newNames := []string{}
 	resolved := make([]purchase.Line, 0, len(lines))
 	for _, one := range lines {
 		resolution, err := catalog.Resolve(one.IngredientID, one.Name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if resolution.New {
 			created, err := ingredient.New(own, one.Name, nil)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			written, err := s.ingredients.Create(ctx, created)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			resolution.Ingredient = written
+			newNames = append(newNames, written.Name)
 
 			catalog, err = catalog.With(written)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 
 		resolved = append(resolved, one.WithIngredient(resolution.Ingredient.ID))
 	}
 
-	return resolved, nil
+	return resolved, newNames, nil
 }
 
 // today answers the day of today.

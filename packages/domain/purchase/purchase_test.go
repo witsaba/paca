@@ -247,7 +247,7 @@ func TestTheAmendmentGrowsTheRevision(t *testing.T) {
 	amended, err := Amend(draft, Candidate{
 		Lines: []Line{theLine(t, "Harina", 30, "kg", 14400)},
 		Day:   theDay(2026, time.February, 28),
-	})
+	}, theDay(2026, time.March, 2))
 	if err != nil {
 		t.Fatalf("the amendment was refused: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestTheAmendmentWithoutALineIsRefused(t *testing.T) {
 
 	draft := Draft{Revision: 1, Day: theDay(2026, time.March, 1)}
 
-	_, err := Amend(draft, Candidate{})
+	_, err := Amend(draft, Candidate{}, theDay(2026, time.March, 2))
 	if !errors.Is(err, ErrNoLines) {
 		t.Fatalf("the error is %v, want %v", err, ErrNoLines)
 	}

@@ -196,6 +196,66 @@ func (r *PurchaseRepository) Confirm(ctx context.Context, id purchase.DraftID, r
 	return purchaseDraftFromRow(row)
 }
 
+// Cancel moves the draft to the cancelled state and answers the draft.
+//
+// The row must be one that waits: the table holds the rule of the state
+// machine as a defense in depth, and the adapter says so with the errors
+// of the port.
+//
+// The error is purchase.ErrNotCancellable when the draft does not wait any
+// more, and purchase.ErrNoStorage when the storage is not open.
+func (r *PurchaseRepository) Cancel(ctx context.Context, id purchase.DraftID) (purchase.Draft, error) {
+	if r == nil || r.pool == nil {
+		return purchase.Draft{}, purchase.ErrNoStorage
+	}
+
+	row, err := r.pool.queriesFor(ctx).CancelPurchaseDraft(ctx, db.CancelPurchaseDraftParams{
+		State:         purchase.StateCancelled.String(),
+		ID:            int64(id),
+		ExpectedState: purchase.StateProposed.String(),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return purchase.Draft{}, fmt.Errorf("%w: the draft %d does not wait any more",
+				purchase.ErrNotCancellable, id)
+		}
+
+		return purchase.Draft{}, writePurchaseError(err)
+	}
+
+	return purchaseDraftFromRow(row)
+}
+
+// List returns the drafts of the business that wait, in the order of their
+// identity.
+//
+// The error is purchase.ErrNoStorage when the storage is not open.
+func (r *PurchaseRepository) List(ctx context.Context, own business.ID) ([]purchase.Draft, error) {
+	if r == nil || r.pool == nil {
+		return nil, purchase.ErrNoStorage
+	}
+
+	rows, err := r.pool.queriesFor(ctx).ListPurchaseDraftsByBusiness(ctx, db.ListPurchaseDraftsByBusinessParams{
+		BusinessID: int64(own),
+		State:      purchase.StateProposed.String(),
+	})
+	if err != nil {
+		return nil, writePurchaseError(err)
+	}
+
+	drafts := make([]purchase.Draft, 0, len(rows))
+	for _, row := range rows {
+		draft, err := purchaseDraftFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+
+		drafts = append(drafts, draft)
+	}
+
+	return drafts, nil
+}
+
 // PurchaseRecorder is the adapter of the storage of the purchases.
 //
 // A purchase is a fact: it is written once, and it never changes. Its

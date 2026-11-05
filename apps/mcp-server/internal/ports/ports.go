@@ -421,6 +421,68 @@ type PurchaseConfirmer interface {
 	Confirm(ctx context.Context, request ConfirmPurchase) (purchase.Confirmation, error)
 }
 
+// CancelDraft is the draft the owner dropped: the business it belongs to
+// and the draft itself.
+//
+// It is the shape of the contract between the agent and the service: the
+// draft belongs to its business, and the call names both.
+type CancelDraft struct {
+	// BusinessID is the business the draft belongs to.
+	BusinessID business.ID
+
+	// DraftID is the draft the owner does not want.
+	DraftID purchase.DraftID
+}
+
+// PurchaseCanceller is the inbound port of the tool that cancels a draft.
+//
+// The tool drops the draft the owner does not want, and it answers with the
+// draft it cancelled.
+type PurchaseCanceller interface {
+	// Cancel drops the draft the owner does not want, and answers with the
+	// draft it cancelled.
+	//
+	// The identity of the business and the identity of the draft are
+	// required.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// cancellation of a draft of another business, of a draft that is
+	// confirmed already and of a draft that expired.
+	Cancel(ctx context.Context, request CancelDraft) (purchase.Draft, error)
+}
+
+// ReadDrafts is the business whose pending drafts are read, and the day of
+// the reading.
+//
+// It is the shape of the contract between the agent and the service: the
+// day is optional, and it is the day of today when the agent names none.
+type ReadDrafts struct {
+	// BusinessID is the business whose drafts are read.
+	BusinessID business.ID
+
+	// Day is the day of the reading. It is the day of today when the
+	// agent names none.
+	Day string
+}
+
+// DraftsReader is the inbound port of the tool that reads the pending
+// drafts of a business.
+//
+// The pending drafts are the ones that wait for the yes of the owner: the
+// answer carries what each one still needs, what each one was not sure
+// about and what Paca filled by herself.
+type DraftsReader interface {
+	// Read answers the pending drafts of the business, in the order of
+	// their identity.
+	//
+	// The identity of the business is required, and the list is empty when
+	// the business holds no pending draft.
+	//
+	// The error is the error of the domain: the domain refuses a day that
+	// is not a day of the book.
+	Read(ctx context.Context, request ReadDrafts) ([]purchase.Draft, error)
+}
+
 // MatchItems is the name the owner said, and the business whose catalog
 // answers for it.
 //

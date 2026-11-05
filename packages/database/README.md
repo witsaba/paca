@@ -188,9 +188,17 @@ are the reading of a sentence, and the money enters the book with the
 purchase and not with the draft.
 
 **The state is checked by the database**, against the states of the domain:
-`proposed` and `confirmed`. A draft is confirmed once, and the confirmation
-of a draft that changed under the eyes of the owner is refused by the row
-that carries the revision she saw.
+`proposed`, `confirmed`, `cancelled` and `expired`. A draft is confirmed
+once, and the confirmation of a draft that changed under the eyes of the
+owner is refused by the row that carries the revision she saw.
+
+**A draft that waits can be dropped.** The row moves to the state
+`cancelled` only when it carries the state of a draft that waits: a draft
+that is confirmed or that is cancelled already does not wait any more, and
+the row is not touched. The expiry is computed by the domain when the draft
+is read — a draft that was neither confirmed nor cancelled seven days after
+the day it was proposed reads as `expired` — and the table needs no job to
+expire anything.
 
 ### `purchases`
 

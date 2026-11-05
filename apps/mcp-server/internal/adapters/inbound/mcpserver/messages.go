@@ -109,6 +109,8 @@ var theMessages = map[error]string{
 		"the draft ('sí', 'confirmado')",
 	purchase.ErrNotProposed: "the draft is not waiting for the yes of the person: it was confirmed already, or it " +
 		"was dropped",
+	purchase.ErrNotCancellable: "the draft does not wait any more: it was confirmed already, it was dropped " +
+		"already, or it expired, and a draft that ended is never dropped again",
 	purchase.ErrStaleRevision: "the draft changed under the eyes of the person: show it again and ask for the yes " +
 		"once more",
 	purchase.ErrExpiredDraft: "the draft expired: the price of a market does not wait, and the draft must be " +

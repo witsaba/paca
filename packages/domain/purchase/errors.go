@@ -55,6 +55,11 @@ var (
 	// not waiting for the yes of the owner.
 	ErrNotProposed = errors.New("the draft is not waiting for the yes of the owner")
 
+	// ErrNotCancellable is the error of the cancellation of a draft that
+	// does not wait any more: it is confirmed already, it is cancelled
+	// already or it expired.
+	ErrNotCancellable = errors.New("the draft does not wait any more")
+
 	// ErrStaleRevision is the error of the confirmation of a draft that
 	// changed under the eyes of the owner.
 	ErrStaleRevision = errors.New("the draft changed under the eyes of the owner")
@@ -92,6 +97,7 @@ func Errors() []error {
 		ErrWrongBusiness,
 		ErrMissingConfirmation,
 		ErrNotProposed,
+		ErrNotCancellable,
 		ErrStaleRevision,
 		ErrExpiredDraft,
 		ErrStillNeeds,

@@ -71,3 +71,25 @@ UPDATE purchase_drafts
 SET state = sqlc.arg(state), updated_at = now()
 WHERE id = sqlc.arg(id) AND revision = sqlc.arg(revision) AND state = sqlc.arg(expected_state)
 RETURNING *;
+
+-- name: CancelPurchaseDraft :one
+--
+-- The row must be one that waits: the state is the one of a draft that
+-- waits for the yes of its owner. A draft that is confirmed or that is
+-- cancelled already does not wait any more, and the row is not touched.
+-- The vocabulary of the states belongs to the domain, and the caller sends
+-- both of them.
+UPDATE purchase_drafts
+SET state = sqlc.arg(state), updated_at = now()
+WHERE id = sqlc.arg(id) AND state = sqlc.arg(expected_state)
+RETURNING *;
+
+-- name: ListPurchaseDraftsByBusiness :many
+--
+-- The drafts of a business and of no other one, in the order of their
+-- identity. The state is the one of a draft that waits: the domain decides
+-- which of them are still pending, because the expiry is computed when the
+-- draft is read.
+SELECT * FROM purchase_drafts
+WHERE business_id = sqlc.arg(business_id) AND state = sqlc.arg(state)
+ORDER BY id;

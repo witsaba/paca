@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -25,6 +26,13 @@ const (
 	// ToolConfirmPurchase writes the purchase of the draft the owner
 	// confirmed, and moves the money of the payment.
 	ToolConfirmPurchase = "confirm_purchase"
+
+	// ToolCancelDraft drops the draft the owner does not want.
+	ToolCancelDraft = "cancel_draft"
+
+	// ToolReadDrafts reads the pending drafts of a business, so that a
+	// lost conversation can be recovered.
+	ToolReadDrafts = "read_drafts"
 )
 
 // The description of the tool of the utterance.
@@ -34,6 +42,8 @@ const (
 var (
 	descriptionDraftPurchase   = buildDescriptionDraftPurchase()
 	descriptionConfirmPurchase = buildDescriptionConfirmPurchase()
+	descriptionCancelDraft     = buildDescriptionCancelDraft()
+	descriptionReadDrafts      = buildDescriptionReadDrafts()
 )
 
 // buildDescriptionDraftPurchase renders the description of the tool that
@@ -94,13 +104,66 @@ func buildDescriptionConfirmPurchase() string {
 		"that pays to the inventory of the business: the three of them are written together or not at all.\n\n" +
 		"The confirmation grows the catalog of the business too: a name the catalog does not know becomes an " +
 		"ingredient of the business, recorded as the owner said it. A name the catalog already knows keeps the " +
-		"ingredient it has.\n\n" +
+		"ingredient it has. The answer names the names the catalog did not know, so the agent can tell the owner " +
+		"that a name is new.\n\n" +
 		"A draft that expired is refused: the price of a market does not wait, and a draft expires in " +
 		fmt.Sprint(purchase.DraftLifetimeDays) +
 		" days if she says nothing. A draft that still needs the money of one of its lines is refused: the money " +
 		"is never inferred.\n\n" +
 		"The answer carries the purchase that was written and the three parts of the answer of PACA: what it " +
 		"recorded, what it did not understand and what it still needs."
+}
+
+// buildDescriptionCancelDraft renders the description of the tool that
+// cancels a draft.
+//
+// The states of a draft belong to the domain, and the description reads
+// them: the vocabulary is a rule, not a promise of the transport.
+func buildDescriptionCancelDraft() string {
+	return "Drop the draft the owner does not want, and answer with the draft you cancelled.\n\n" +
+		"The business is REQUIRED: it is the business the draft belongs to.\n\n" +
+		"The draft is REQUIRED: it is the draft PACA showed her.\n\n" +
+		"The draft stops waiting: it moves to the state 'cancelled' and it never waits again. A draft that is " +
+		"confirmed already and a draft that is cancelled already are refused: they do not wait any more.\n\n" +
+		"A draft that expired is refused too: the price of a market does not wait, and the owner drafts the " +
+		"purchase again.\n\n" +
+		"This tool changes nothing in the book: it drops the draft and nothing else. The money of the book does " +
+		"not move, and no purchase is written."
+}
+
+// buildDescriptionReadDrafts renders the description of the tool that
+// reads the pending drafts.
+//
+// The states of a draft and its lifetime belong to the domain, and the
+// description reads them: the vocabulary is a rule, not a promise of the
+// transport.
+func buildDescriptionReadDrafts() string {
+	return "Read the pending drafts of a business, so that a lost conversation can be recovered.\n\n" +
+		"The business is REQUIRED: it is the business whose drafts are read.\n\n" +
+		"The day is OPTIONAL: it is the day of the reading, written the way a person writes it ('2026-03-01'), " +
+		"and it means the day of today when it is empty. The day decides which drafts are still pending.\n\n" +
+		"The answer carries every pending draft with what it still needs, what it was not sure about and what " +
+		"PACA filled by itself. Show the drafts to the owner and ask for the yes of the one she means.\n\n" +
+		"The states of a draft are " + namesOfTheStates() + ": it waits in '" + purchase.StateProposed.String() +
+		"' and it ends in one of the other three. A draft that nobody answered expires in " +
+		fmt.Sprint(purchase.DraftLifetimeDays) +
+		" days, and an expired draft is not pending any more.\n\n" +
+		"This tool changes nothing in the book: it reads the drafts and nothing else."
+}
+
+// namesOfTheStates renders the states of a draft in a sentence the agent
+// reads.
+//
+// The vocabulary belongs to the domain: the description reads it and never
+// writes it a second time.
+func namesOfTheStates() string {
+	names := make([]string, 0, len(purchase.States()))
+
+	for _, one := range purchase.States() {
+		names = append(names, "'"+one.String()+"'")
+	}
+
+	return strings.Join(names, ", ")
 }
 
 // draftPurchaseLineInput is one line of the candidate the agent read.
@@ -342,6 +405,77 @@ type confirmPurchaseOutput struct {
 
 	// StillNeeds is what the purchase still needs.
 	StillNeeds []string `json:"still_needs"`
+
+	// NewNames are the names the catalog of the business did not know: the
+	// names that became ingredients of the business with this purchase.
+	NewNames []string `json:"new_names"`
+}
+
+// cancelDraftInput is the input of the tool that cancels a draft.
+type cancelDraftInput struct {
+	// BusinessID is the business the draft belongs to.
+	BusinessID int64 `json:"business_id" jsonschema:"The identity of the business the draft belongs to. It is required."`
+
+	// DraftID is the draft the owner does not want.
+	DraftID int64 `json:"draft_id" jsonschema:"The identity of the draft the owner does not want. It is required."`
+}
+
+// cancelDraftOutput is the answer of the tool that cancels a draft.
+//
+// The answer carries the draft that was cancelled and the three parts of
+// the answer of Paca: what it understood, what it was not sure about and
+// what it filled by itself.
+type cancelDraftOutput struct {
+	// Draft is the draft that was cancelled.
+	Draft draftOutput `json:"draft"`
+
+	// Understood is what PACA understood: the lines of the draft.
+	Understood []draftLineOutput `json:"understood"`
+
+	// Missing is what the draft still needed.
+	Missing []string `json:"missing"`
+
+	// Ambiguous is what PACA was not sure about, with the options it
+	// offered.
+	Ambiguous []draftAmbiguityOutput `json:"ambiguous"`
+
+	// Inferred is what PACA filled by itself.
+	Inferred []string `json:"inferred"`
+}
+
+// readDraftsInput is the input of the tool that reads the pending drafts.
+type readDraftsInput struct {
+	// BusinessID is the business whose drafts are read.
+	BusinessID int64 `json:"business_id" jsonschema:"The identity of the business whose pending drafts are read. It is required."`
+
+	// Day is the day of the reading.
+	Day string `json:"day,omitempty" jsonschema:"The day of the reading, written as '2026-03-01'. It is optional: it means the day of today when it is empty."`
+}
+
+// pendingDraftOutput is what the answer carries about one pending draft.
+type pendingDraftOutput struct {
+	// Draft is the draft that waits.
+	Draft draftOutput `json:"draft"`
+
+	// Understood is what PACA understood: the lines of the draft.
+	Understood []draftLineOutput `json:"understood"`
+
+	// Missing is what the draft still needs.
+	Missing []string `json:"missing"`
+
+	// Ambiguous is what PACA was not sure about, with the options it
+	// offers.
+	Ambiguous []draftAmbiguityOutput `json:"ambiguous"`
+
+	// Inferred is what PACA filled by itself.
+	Inferred []string `json:"inferred"`
+}
+
+// readDraftsOutput is the answer of the tool that reads the pending
+// drafts.
+type readDraftsOutput struct {
+	// Drafts are the pending drafts of the business.
+	Drafts []pendingDraftOutput `json:"drafts"`
 }
 
 // registerPurchaseTools registers the tools of the utterance.
@@ -349,7 +483,12 @@ type confirmPurchaseOutput struct {
 // The tools are registered even when the service has no database: the list
 // of the tools is a property of the server, and a call without a database
 // answers that the database is not there.
-func (s *Server) registerPurchaseTools(drafter ports.PurchaseDrafter, confirmer ports.PurchaseConfirmer) {
+func (s *Server) registerPurchaseTools(
+	drafter ports.PurchaseDrafter,
+	confirmer ports.PurchaseConfirmer,
+	canceller ports.PurchaseCanceller,
+	reader ports.DraftsReader,
+) {
 	sdk.AddTool(s.server, &sdk.Tool{
 		Name:        ToolDraftPurchase,
 		Description: descriptionDraftPurchase,
@@ -359,6 +498,16 @@ func (s *Server) registerPurchaseTools(drafter ports.PurchaseDrafter, confirmer 
 		Name:        ToolConfirmPurchase,
 		Description: descriptionConfirmPurchase,
 	}, s.confirmPurchase(confirmer))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolCancelDraft,
+		Description: descriptionCancelDraft,
+	}, s.cancelDraft(canceller))
+
+	sdk.AddTool(s.server, &sdk.Tool{
+		Name:        ToolReadDrafts,
+		Description: descriptionReadDrafts,
+	}, s.readDrafts(reader))
 }
 
 // draftPurchase is the handler of the tool that drafts a purchase.
@@ -401,6 +550,49 @@ func (s *Server) confirmPurchase(confirmer ports.PurchaseConfirmer) sdk.ToolHand
 		}
 
 		return nil, outputOfConfirmation(confirmed), nil
+	}
+}
+
+// cancelDraft is the handler of the tool that cancels a draft.
+//
+// The tool drops the draft the owner does not want and answers with it: it
+// writes nothing in the book.
+func (s *Server) cancelDraft(canceller ports.PurchaseCanceller) sdk.ToolHandlerFor[cancelDraftInput, cancelDraftOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input cancelDraftInput) (*sdk.CallToolResult, cancelDraftOutput, error) {
+		if canceller == nil {
+			return nil, cancelDraftOutput{}, ports.ErrNoDatabase
+		}
+
+		cancelled, err := canceller.Cancel(ctx, ports.CancelDraft{
+			BusinessID: business.ID(input.BusinessID),
+			DraftID:    purchase.DraftID(input.DraftID),
+		})
+		if err != nil {
+			return nil, cancelDraftOutput{}, s.toolError(err)
+		}
+
+		return nil, outputOfCancellation(cancelled), nil
+	}
+}
+
+// readDrafts is the handler of the tool that reads the pending drafts.
+//
+// The tool reads the drafts and answers with them: it writes nothing.
+func (s *Server) readDrafts(reader ports.DraftsReader) sdk.ToolHandlerFor[readDraftsInput, readDraftsOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, input readDraftsInput) (*sdk.CallToolResult, readDraftsOutput, error) {
+		if reader == nil {
+			return nil, readDraftsOutput{}, ports.ErrNoDatabase
+		}
+
+		read, err := reader.Read(ctx, ports.ReadDrafts{
+			BusinessID: business.ID(input.BusinessID),
+			Day:        input.Day,
+		})
+		if err != nil {
+			return nil, readDraftsOutput{}, s.toolError(err)
+		}
+
+		return nil, outputOfPendingDrafts(read), nil
 	}
 }
 
@@ -448,7 +640,71 @@ func requestOf(input draftPurchaseInput) ports.DraftPurchase {
 // The answer carries the three parts of the answer of Paca: what it
 // understood, what it did not understand and what it still needs.
 func outputOfDraft(draft purchase.Draft) draftPurchaseOutput {
+	return draftPurchaseOutput{
+		Draft:      draftOutputOf(draft),
+		Understood: understoodOf(draft),
+		Missing:    emptyIfNil(draft.Missing),
+		Ambiguous:  ambiguousOf(draft),
+		Inferred:   emptyIfNil(draft.Inferred),
+	}
+}
+
+// outputOfCancellation maps the draft that was cancelled onto the answer of
+// the tool.
+//
+// The answer carries the draft and the three parts of the answer of Paca:
+// what it understood, what it was not sure about and what it filled.
+func outputOfCancellation(cancelled purchase.Draft) cancelDraftOutput {
+	return cancelDraftOutput{
+		Draft:      draftOutputOf(cancelled),
+		Understood: understoodOf(cancelled),
+		Missing:    emptyIfNil(cancelled.Missing),
+		Ambiguous:  ambiguousOf(cancelled),
+		Inferred:   emptyIfNil(cancelled.Inferred),
+	}
+}
+
+// outputOfPendingDrafts maps the pending drafts onto the answer of the
+// tool.
+//
+// Every draft carries the three parts of the answer of Paca: what it
+// understood, what it still needs and what it was not sure about.
+func outputOfPendingDrafts(drafts []purchase.Draft) readDraftsOutput {
+	pending := make([]pendingDraftOutput, 0, len(drafts))
+
+	for _, one := range drafts {
+		pending = append(pending, pendingDraftOutput{
+			Draft:      draftOutputOf(one),
+			Understood: understoodOf(one),
+			Missing:    emptyIfNil(one.Missing),
+			Ambiguous:  ambiguousOf(one),
+			Inferred:   emptyIfNil(one.Inferred),
+		})
+	}
+
+	return readDraftsOutput{Drafts: pending}
+}
+
+// draftOutputOf maps the draft of the domain onto the answer of the tool.
+func draftOutputOf(draft purchase.Draft) draftOutput {
+	return draftOutput{
+		ID:         int64(draft.ID),
+		BusinessID: int64(draft.BusinessID),
+		State:      draft.State.String(),
+		Revision:   draft.Revision,
+		Utterance:  draft.Utterance,
+		Day:        draft.Day.String(),
+		Market:     draft.Market,
+		Invoice:    draft.Invoice,
+		ProposedOn: draft.ProposedOn.String(),
+		ExpiresOn:  draft.ExpiresOn.String(),
+	}
+}
+
+// understoodOf maps the lines the agent read onto the answer of the tool.
+func understoodOf(draft purchase.Draft) []draftLineOutput {
 	understood := make([]draftLineOutput, 0, len(draft.Lines))
+
 	for _, one := range draft.Lines {
 		understood = append(understood, draftLineOutput{
 			Name:         one.Name,
@@ -460,7 +716,14 @@ func outputOfDraft(draft purchase.Draft) draftPurchaseOutput {
 		})
 	}
 
+	return understood
+}
+
+// ambiguousOf maps the names the agent was not sure about onto the answer
+// of the tool.
+func ambiguousOf(draft purchase.Draft) []draftAmbiguityOutput {
 	ambiguous := make([]draftAmbiguityOutput, 0, len(draft.Ambiguous))
+
 	for _, one := range draft.Ambiguous {
 		ambiguous = append(ambiguous, draftAmbiguityOutput{
 			Name:    one.Name,
@@ -468,24 +731,7 @@ func outputOfDraft(draft purchase.Draft) draftPurchaseOutput {
 		})
 	}
 
-	return draftPurchaseOutput{
-		Draft: draftOutput{
-			ID:         int64(draft.ID),
-			BusinessID: int64(draft.BusinessID),
-			State:      draft.State.String(),
-			Revision:   draft.Revision,
-			Utterance:  draft.Utterance,
-			Day:        draft.Day.String(),
-			Market:     draft.Market,
-			Invoice:    draft.Invoice,
-			ProposedOn: draft.ProposedOn.String(),
-			ExpiresOn:  draft.ExpiresOn.String(),
-		},
-		Understood: understood,
-		Missing:    emptyIfNil(draft.Missing),
-		Ambiguous:  ambiguous,
-		Inferred:   emptyIfNil(draft.Inferred),
-	}
+	return ambiguous
 }
 
 // outputOfConfirmation maps the outcome of the confirmation onto the answer
@@ -528,6 +774,7 @@ func outputOfConfirmation(confirmation purchase.Confirmation) confirmPurchaseOut
 		Recorded:      recorded,
 		NotUnderstood: notUnderstood,
 		StillNeeds:    emptyIfNil(confirmation.StillNeeds),
+		NewNames:      emptyIfNil(confirmation.NewNames),
 	}
 }
 

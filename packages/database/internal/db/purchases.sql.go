@@ -11,6 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelPurchaseDraft = `-- name: CancelPurchaseDraft :one
+UPDATE purchase_drafts
+SET state = $1, updated_at = now()
+WHERE id = $2 AND state = $3
+RETURNING id, business_id, state, revision, utterance, lines, missing, ambiguous, inferred, day, market, invoice, proposed_on, expires_on, created_at, updated_at
+`
+
+type CancelPurchaseDraftParams struct {
+	State         string
+	ID            int64
+	ExpectedState string
+}
+
+// The row must be one that waits: the state is the one of a draft that
+// waits for the yes of its owner. A draft that is confirmed or that is
+// cancelled already does not wait any more, and the row is not touched.
+// The vocabulary of the states belongs to the domain, and the caller sends
+// both of them.
+func (q *Queries) CancelPurchaseDraft(ctx context.Context, arg CancelPurchaseDraftParams) (PurchaseDraft, error) {
+	row := q.db.QueryRow(ctx, cancelPurchaseDraft, arg.State, arg.ID, arg.ExpectedState)
+	var i PurchaseDraft
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.State,
+		&i.Revision,
+		&i.Utterance,
+		&i.Lines,
+		&i.Missing,
+		&i.Ambiguous,
+		&i.Inferred,
+		&i.Day,
+		&i.Market,
+		&i.Invoice,
+		&i.ProposedOn,
+		&i.ExpiresOn,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const confirmPurchaseDraft = `-- name: ConfirmPurchaseDraft :one
 UPDATE purchase_drafts
 SET state = $1, updated_at = now()
@@ -258,6 +300,58 @@ func (q *Queries) GetPurchaseDraftByID(ctx context.Context, id int64) (PurchaseD
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listPurchaseDraftsByBusiness = `-- name: ListPurchaseDraftsByBusiness :many
+SELECT id, business_id, state, revision, utterance, lines, missing, ambiguous, inferred, day, market, invoice, proposed_on, expires_on, created_at, updated_at FROM purchase_drafts
+WHERE business_id = $1 AND state = $2
+ORDER BY id
+`
+
+type ListPurchaseDraftsByBusinessParams struct {
+	BusinessID int64
+	State      string
+}
+
+// The drafts of a business and of no other one, in the order of their
+// identity. The state is the one of a draft that waits: the domain decides
+// which of them are still pending, because the expiry is computed when the
+// draft is read.
+func (q *Queries) ListPurchaseDraftsByBusiness(ctx context.Context, arg ListPurchaseDraftsByBusinessParams) ([]PurchaseDraft, error) {
+	rows, err := q.db.Query(ctx, listPurchaseDraftsByBusiness, arg.BusinessID, arg.State)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PurchaseDraft{}
+	for rows.Next() {
+		var i PurchaseDraft
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.State,
+			&i.Revision,
+			&i.Utterance,
+			&i.Lines,
+			&i.Missing,
+			&i.Ambiguous,
+			&i.Inferred,
+			&i.Day,
+			&i.Market,
+			&i.Invoice,
+			&i.ProposedOn,
+			&i.ExpiresOn,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updatePurchaseDraft = `-- name: UpdatePurchaseDraft :one

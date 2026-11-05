@@ -589,3 +589,142 @@ func TestTheDraftIsConfirmedAndItNeverWaitsAgain(t *testing.T) {
 		t.Errorf("the error is %v, want %v", err, purchase.ErrStaleRevision)
 	}
 }
+
+// TestTheDraftIsCancelledAndItNeverWaitsAgain proves the rule of the state
+// machine against a real database: the draft moves to the state of the
+// cancelled, and a draft that does not wait any more is not cancelled
+// again.
+func TestTheDraftIsCancelledAndItNeverWaitsAgain(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	written, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	cancelled, err := drafts.Cancel(ctx, written.ID)
+	if err != nil {
+		t.Fatalf("the draft could not be cancelled: %v", err)
+	}
+	if cancelled.State != purchase.StateCancelled {
+		t.Errorf("the state of the draft is %q, want %q", cancelled.State, purchase.StateCancelled)
+	}
+	if cancelled.ID != written.ID {
+		t.Errorf("the identity of the draft is %d, want %d", cancelled.ID, written.ID)
+	}
+
+	found, err := drafts.Find(ctx, written.ID)
+	if err != nil {
+		t.Fatalf("the draft could not be read: %v", err)
+	}
+	if found.State != purchase.StateCancelled {
+		t.Errorf("the state of the draft is %q, want %q", found.State, purchase.StateCancelled)
+	}
+
+	_, err = drafts.Cancel(ctx, written.ID)
+	if !errors.Is(err, purchase.ErrNotCancellable) {
+		t.Errorf("the error is %v, want %v", err, purchase.ErrNotCancellable)
+	}
+}
+
+// TestThePendingDraftsOfTheBusinessAreRead proves the rule of the domain
+// against a real database: the drafts of a business are read back in the
+// order of their identity, and the drafts of another business and the
+// drafts that ended are not among them.
+func TestThePendingDraftsOfTheBusinessAreRead(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	drafts := draftsRepository(t)
+	bakery := theBakeryOfTheTest(t, ctx)
+	other := theBakeryOfTheTest(t, ctx)
+
+	first, err := drafts.Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	second := theDraftOfTheTest(bakery)
+	second.Utterance = "Compré 3 kilos de pan"
+	written, err := drafts.Save(ctx, second)
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	otherDraft := theDraftOfTheTest(other)
+	if _, err := drafts.Save(ctx, otherDraft); err != nil {
+		t.Fatalf("the draft of the other business could not be written: %v", err)
+	}
+
+	if _, err := drafts.Cancel(ctx, written.ID); err != nil {
+		t.Fatalf("the draft could not be cancelled: %v", err)
+	}
+
+	held, err := drafts.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the drafts could not be read: %v", err)
+	}
+
+	if len(held) != 1 {
+		t.Fatalf("the business holds %d pending drafts, want 1", len(held))
+	}
+	if held[0].ID != first.ID {
+		t.Errorf("the pending draft is %d, want %d", held[0].ID, first.ID)
+	}
+	if held[0].BusinessID != bakery.ID {
+		t.Errorf("the business of the draft is %d, want %d", held[0].BusinessID, bakery.ID)
+	}
+}
+
+// TestTheTableRefusesTheStateThatIsNotOneOfTheDraft proves the rule of the
+// domain against a real database: the states of a draft are the ones the
+// domain knows, and the table holds them as a defense in depth.
+func TestTheTableRefusesTheStateThatIsNotOneOfTheDraft(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO purchase_drafts (business_id, state, utterance, proposed_on, expires_on)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		int64(bakery.ID), "dropped", "Compré harina", "2026-03-15", "2026-03-22",
+	)
+	if err == nil {
+		t.Fatal("the database stored a draft in a state that is not one of the domain, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "purchase_drafts_state_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchase_drafts_state_check")
+	}
+}
+
+// TestTheTableHoldsTheStatesOfTheDraft proves the rule of the domain
+// against a real database: the table holds the whole vocabulary of the
+// states of a draft.
+func TestTheTableHoldsTheStatesOfTheDraft(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheTest(t, ctx)
+
+	for _, state := range purchase.States() {
+		_, err := theSuite.db.ExecContext(ctx,
+			`INSERT INTO purchase_drafts (business_id, state, utterance, proposed_on, expires_on)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			int64(bakery.ID), state.String(), "Compré harina", "2026-03-15", "2026-03-22",
+		)
+		if err != nil {
+			t.Errorf("the database refused the state %q: %v", state.String(), err)
+		}
+	}
+}

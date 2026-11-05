@@ -583,6 +583,7 @@ func TestTheDescriptionOfTheConfirmationToolSaysWhatItNeeds(t *testing.T) {
 		"cash of the business",
 		"writes the purchase",
 		"moves the money",
+		"names the names the catalog did not know",
 	} {
 		if !strings.Contains(description, want) {
 			t.Errorf("the description does not say %q:\n%s", want, description)
@@ -627,5 +628,356 @@ func TestTheErrorsOfTheConfirmationReachTheAgentWithAMessage(t *testing.T) {
 				t.Errorf("the answer says nothing about what to do: %s", answer)
 			}
 		})
+	}
+}
+
+// stubPurchaseCanceller is the use case that cancels a draft, in memory.
+//
+// It answers what the test tells it to answer, and it remembers what the
+// tool asked it.
+type stubPurchaseCanceller struct {
+	cancelled purchase.Draft
+	err       error
+	got       ports.CancelDraft
+	calls     int
+}
+
+// Cancel answers the cancelled draft of the test, and remembers what the
+// tool asked.
+func (s *stubPurchaseCanceller) Cancel(_ context.Context, request ports.CancelDraft) (purchase.Draft, error) {
+	s.calls++
+	s.got = request
+
+	if s.err != nil {
+		return purchase.Draft{}, s.err
+	}
+
+	return s.cancelled, nil
+}
+
+// stubDraftsReader is the use case that reads the pending drafts, in
+// memory.
+//
+// It answers what the test tells it to answer, and it remembers what the
+// tool asked it.
+type stubDraftsReader struct {
+	drafts []purchase.Draft
+	err    error
+	got    ports.ReadDrafts
+	calls  int
+}
+
+// Read answers the drafts of the test, and remembers what the tool asked.
+func (s *stubDraftsReader) Read(_ context.Context, request ports.ReadDrafts) ([]purchase.Draft, error) {
+	s.calls++
+	s.got = request
+
+	if s.err != nil {
+		return nil, s.err
+	}
+
+	return s.drafts, nil
+}
+
+// connectWithThePendingDrafts starts the transport with the stubs of the
+// tools of the pending drafts.
+func connectWithThePendingDrafts(
+	t *testing.T,
+	canceller ports.PurchaseCanceller,
+	reader ports.DraftsReader,
+) *sdk.ClientSession {
+	t.Helper()
+
+	transport := mcpserver.New(mcpserver.Options{
+		ServiceName:         "paca-mcp-server",
+		ServiceVersion:      "0.1.0",
+		Instructions:        "The PACA MCP server.",
+		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		MaxRequestBodyBytes: 1 << 20,
+		CancelDraft:         canceller,
+		ReadDrafts:          reader,
+	})
+
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+
+	client := sdk.NewClient(&sdk.Implementation{Name: "paca-mcp-server-test", Version: "0.1.0"}, nil)
+
+	session, err := client.Connect(t.Context(), &sdk.StreamableClientTransport{Endpoint: server.URL}, nil)
+	if err != nil {
+		t.Fatalf("the client could not connect to the transport: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Logf("the session did not close: %v", err)
+		}
+	})
+
+	return session
+}
+
+// theCancelledDraft is the answer the stub of the use case gives.
+func theCancelledDraft() purchase.Draft {
+	cancelled := theAnswerOfTheDraft()
+	cancelled.State = purchase.StateCancelled
+
+	return cancelled
+}
+
+// TestTheCancellationToolDropsTheDraft proves that the tool carries what
+// the agent sends to the use case, and that the answer carries the draft it
+// cancelled.
+func TestTheCancellationToolDropsTheDraft(t *testing.T) {
+	t.Parallel()
+
+	canceller := &stubPurchaseCanceller{cancelled: theCancelledDraft()}
+	session := connectWithThePendingDrafts(t, canceller, nil)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolCancelDraft,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"draft_id":    42,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if canceller.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1", canceller.calls)
+	}
+	if canceller.got.BusinessID != business.ID(77) {
+		t.Errorf("the business is %d, want 77", canceller.got.BusinessID)
+	}
+	if canceller.got.DraftID != purchase.DraftID(42) {
+		t.Errorf("the draft is %d, want 42", canceller.got.DraftID)
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{"42", "cancelled", "Compré 25 kilos de harina"} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q: %s", want, answer)
+		}
+	}
+}
+
+// TestTheCancellationToolAnswersWithoutADatabase proves that a server
+// without a database still exposes the tool, and that the call says so.
+func TestTheCancellationToolAnswersWithoutADatabase(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithThePendingDrafts(t, nil, nil)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolCancelDraft,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"draft_id":    42,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered no error, want the failure of the service")
+	}
+
+	if !strings.Contains(textOf(t, result), "database") {
+		t.Errorf("the answer does not say that the database is not there: %s", textOf(t, result))
+	}
+}
+
+// TestTheCancellationToolExplainsTheFailureToTheAgent proves that the
+// failure of the use case reaches the agent with a message of its own, and
+// never as the raw error of the domain.
+func TestTheCancellationToolExplainsTheFailureToTheAgent(t *testing.T) {
+	t.Parallel()
+
+	canceller := &stubPurchaseCanceller{err: purchase.ErrNotCancellable}
+	session := connectWithThePendingDrafts(t, canceller, nil)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolCancelDraft,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"draft_id":    42,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered no error, want the failure of the use case")
+	}
+
+	answer := textOf(t, result)
+	if answer == purchase.ErrNotCancellable.Error() {
+		t.Errorf("the answer is the raw error of the domain: %s", answer)
+	}
+	if !strings.Contains(answer, "wait") {
+		t.Errorf("the answer does not explain the failure: %s", answer)
+	}
+}
+
+// TestTheDescriptionOfTheCancellationToolSaysWhatItNeeds proves that the
+// description of the tool is a contract with the agent: it says what is
+// required and that the tool changes nothing in the book.
+func TestTheDescriptionOfTheCancellationToolSaysWhatItNeeds(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithThePendingDrafts(t, &stubPurchaseCanceller{}, nil)
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolCancelDraft)
+
+	for _, want := range []string{
+		"business is REQUIRED",
+		"draft is REQUIRED",
+		"changes nothing in the book",
+		"cancelled",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheReadToolAnswersThePendingDrafts proves that the tool carries what
+// the agent sends to the use case, and that the answer carries every
+// pending draft with what it still needs, what it was not sure about and
+// what Paca filled.
+func TestTheReadToolAnswersThePendingDrafts(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubDraftsReader{drafts: []purchase.Draft{theAnswerOfTheDraft()}}
+	session := connectWithThePendingDrafts(t, nil, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadDrafts,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if reader.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1", reader.calls)
+	}
+	if reader.got.BusinessID != business.ID(77) {
+		t.Errorf("the business is %d, want 77", reader.got.BusinessID)
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{
+		"42", "proposed", "Harina", "25", "kg", "12000",
+		"the price of Pan",
+		"Harina panadera",
+		"the day of the purchase is the day of today",
+		"2026-03-15", "2026-03-22",
+	} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q: %s", want, answer)
+		}
+	}
+}
+
+// TestTheReadToolAnswersWithoutADatabase proves that a server without a
+// database still exposes the tool, and that the call says so.
+func TestTheReadToolAnswersWithoutADatabase(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithThePendingDrafts(t, nil, nil)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadDrafts,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered no error, want the failure of the service")
+	}
+
+	if !strings.Contains(textOf(t, result), "database") {
+		t.Errorf("the answer does not say that the database is not there: %s", textOf(t, result))
+	}
+}
+
+// TestTheDescriptionOfTheReadToolSaysWhatItNeeds proves that the
+// description of the tool is a contract with the agent: it says what is
+// required and that the tool changes nothing in the book.
+func TestTheDescriptionOfTheReadToolSaysWhatItNeeds(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithThePendingDrafts(t, nil, &stubDraftsReader{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolReadDrafts)
+
+	for _, want := range []string{
+		"business is REQUIRED",
+		"day is OPTIONAL",
+		"day of today",
+		"changes nothing in the book",
+		"what it still needs",
+		"what it was not sure about",
+		"what PACA filled",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheConfirmationToolNamesTheNamesTheCatalogDidNotKnow proves that the
+// answer of the confirmation names the names the catalog did not know, so
+// the agent can tell the owner that a name is new.
+func TestTheConfirmationToolNamesTheNamesTheCatalogDidNotKnow(t *testing.T) {
+	t.Parallel()
+
+	answer := theAnswerOfTheConfirmation()
+	answer.NewNames = []string{"Harina"}
+
+	confirmer := &stubPurchaseConfirmer{confirmation: answer}
+	session := connectWithTheUtterance(t, &stubPurchaseDrafter{}, confirmer)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolConfirmPurchase,
+		Arguments: map[string]any{
+			"business_id":    77,
+			"draft_id":       42,
+			"revision":       1,
+			"confirmed_with": "sí",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if !strings.Contains(textOf(t, result), "new_names") {
+		t.Errorf("the answer does not name the new names: %s", textOf(t, result))
 	}
 }

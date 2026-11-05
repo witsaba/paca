@@ -619,9 +619,10 @@ session, and the worker that writes it reads this document and nothing else.
   copy of the flour.
 - The yield is a declared constant, never measured per bake. The steps keep
   their order, and a step may be named by its cue.
-- The tool `draft_recipe` proposes the recipe the way the utterance proposes
-  the purchase: it keeps what is missing and what is ambiguous, and it waits
-  for the yes.
+- The tool `record_recipe` writes the recipe with the confirmation of the
+  owner, the way the purchase is written: the domain refuses a recipe that
+  is not whole — no name, no yield, an ingredient without its grams — and
+  the message of the refusal says what the agent has to ask for.
 - The table of the recipes, the repository, and the container test.
 
 **In scope:** `packages/domain/recipe`, `packages/domain/ingredient`,
@@ -1037,7 +1038,7 @@ its session starts.
 | T3 | S21, S37, S41, S42, S44, S47, S48 | The draft of the utterance and the tool that proposes it | inline | this commit |
 | T4 | S16, S19, S20, S43, S45, S47, S48 | The purchase and the tool that writes it | inline | this commit |
 | T5 | S46, S47 | The catalog of the names the business buys and the tool that matches them | inline | this commit |
-| T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | `pending` |
+| T6 | S41, S44, S47 | The pending drafts: the tool that cancels them and the one that reads them | inline | this commit |
 | T7 | S38, S39, S40, S49 | The instructions of Paca in the soul | inline | this commit |
 | T8 | S11, S12, S19, S34, S47 | The recipe and the tool that captures it | inline | `pending` |
 | T9 | S17, S18, S47 | The reference prices and their tools | inline | `pending` |
@@ -1148,3 +1149,11 @@ Three things the increment left for the ones to come:
 - The **aliases** are carried by the model, the column and the adapter, but only the name is written: the increment that completes an ingredient (T10) writes the names she uses.
 - The answer of the confirmation does not name the new names: only `match_items` tells the owner that a name is new. It is a small answer that the next increment of the utterance can carry.
 - The name of an ingredient is compared the way a person reads it — trimmed and case-insensitive — and the table holds the same rule with a unique index over `lower(btrim(name))`.
+
+**L20** (2026-11-05): T6 landed: the pending drafts. The state machine of the draft lives in the domain — a draft starts in `proposed` and ends in `confirmed`, `cancelled` or `expired`, and it never returns to `proposed`. The tools are `cancel_draft` and `read_drafts`: the second one recovers the pending drafts of a business with what each one still needs, what it was not sure about and what Paca filled, so a lost conversation is never a lost record.
+
+Three things the increment taught, carried here for the ones to come:
+
+- The expiry is **computed by the domain when the draft is read**, on the day the caller names. The table needs no job to expire anything, and the row keeps the state it was written with: an expired draft is still `proposed` in the table, and the domain reads it as `expired`. The vocabulary of the domain and the check of the table agree, and the table was widened with a migration of its own.
+- The amendment of a draft now takes the day, and it refuses a draft that ended or expired: an amendment is a move inside the life of a draft, not a way to bring it back.
+- The answer of `confirm_purchase` now names the names the catalog did not know, so the agent can tell the owner that a name is new. The gap T5 left is closed.

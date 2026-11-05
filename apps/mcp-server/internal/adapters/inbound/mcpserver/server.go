@@ -93,6 +93,20 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	MatchItems ports.ItemMatcher
+
+	// CancelDraft is the use case that drops the draft the owner does not
+	// want.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	CancelDraft ports.PurchaseCanceller
+
+	// ReadDrafts is the use case that reads the pending drafts of a
+	// business, so that a lost conversation can be recovered.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadDrafts ports.DraftsReader
 }
 
 // Server is the MCP transport of the service.
@@ -143,7 +157,7 @@ func New(opts Options) *Server {
 	transport.registerBusinessTools(opts.OpenBusiness, opts.ReadBusinesses)
 	transport.registerBookTools(opts.Book)
 	transport.registerDebtTools(opts.Debts, opts.Summary)
-	transport.registerPurchaseTools(opts.DraftPurchase, opts.ConfirmPurchase)
+	transport.registerPurchaseTools(opts.DraftPurchase, opts.ConfirmPurchase, opts.CancelDraft, opts.ReadDrafts)
 	transport.registerIngredientTools(opts.MatchItems)
 
 	handler := sdk.NewStreamableHTTPHandler(

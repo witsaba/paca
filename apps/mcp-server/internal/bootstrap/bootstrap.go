@@ -229,6 +229,8 @@ func New(
 		Summary:             summaryService,
 		DraftPurchase:       purchaseService,
 		ConfirmPurchase:     confirmationService,
+		CancelDraft:         purchaseService,
+		ReadDrafts:          purchaseService,
 		MatchItems:          ingredientService,
 	})
 

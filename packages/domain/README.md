@@ -295,6 +295,20 @@ money is never one of them.
 a market does not wait. An amendment grows the revision of the draft and
 keeps the sentence the owner said the first time.
 
+**A draft never returns to `proposed`.** The state machine of the draft is
+in the domain: a draft starts in `proposed` and it ends in `confirmed`,
+`cancelled` or `expired`, and `purchase.States` is the vocabulary of it.
+`purchase.Cancel` drops the draft the owner does not want and refuses the
+draft that does not wait any more (`ErrNotCancellable`), and the amendment
+of a draft that ended is refused (`ErrNotProposed`).
+
+**The expiry is computed when the draft is read.** `purchase.Draft.ReadsAs`
+answers the state a draft reads as on a day: a draft that was neither
+confirmed nor cancelled seven days after the day it was proposed reads as
+`expired`, and the storage needs no job to expire anything.
+`purchase.Pending` answers the drafts of a business that still wait for the
+yes of the owner.
+
 ## The model of the purchase
 
 `purchase.Purchase` is the fact of what the business bought: the business,

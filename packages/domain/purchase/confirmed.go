@@ -101,6 +101,13 @@ type Confirmation struct {
 	// confirmation was accepted: a purchase without the money of its
 	// lines is refused.
 	StillNeeds []string
+
+	// NewNames are the names the catalog of the business did not know: the
+	// names that became ingredients of the business with this purchase.
+	//
+	// A name the catalog does not know is not an error: it is recorded as
+	// the owner said it, and the answer tells her that it is new.
+	NewNames []string
 }
 
 // Confirm turns a draft into the purchase it describes.

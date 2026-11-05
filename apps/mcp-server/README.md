@@ -126,6 +126,8 @@ names the business buys.
 | `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
 | `draft_purchase`           | Proposes the purchase the owner just said and keeps it as a draft of the business, with what it understood, what it still needs, what it was not sure about and what it filled. |
 | `confirm_purchase`         | Writes the purchase of the draft the owner confirmed and moves the money of the payment from the account that pays to the inventory. One call, one transaction. |
+| `cancel_draft`             | Drops the draft the owner does not want: it moves to the state `cancelled` and it never waits again. It writes nothing in the book. |
+| `read_drafts`              | Reads the pending drafts of a business, each one with what it still needs, what it was not sure about and what PACA filled, so that a lost conversation can be recovered. It writes nothing. |
 | `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
@@ -198,7 +200,23 @@ of its lines: the money is never inferred. A refused confirmation leaves
 nothing behind — the draft stays as it was and no purchase is written. The
 answer carries the purchase that was written and the three parts of the
 answer of Paca: what it recorded, what it did not understand and what it
-still needs.
+still needs. The answer names the names the catalog of the business did not
+know: a name the catalog does not know is not an error, it is recorded as
+the owner said it, and the agent tells her that the name is new.
+
+**The pending drafts can be dropped and read back.** The tool `cancel_draft`
+takes the business and the draft, and it drops the draft the owner does not
+want: the draft moves to the state `cancelled` and it never waits again. A
+draft that is confirmed already and a draft that is cancelled already are
+refused — they do not wait any more — and so is a draft that expired: the
+price of a market does not wait. The tool `read_drafts` takes the business
+and answers with the drafts that still wait for the yes of the owner, each
+one with what it still needs, what it was not sure about and what PACA
+filled by herself: a lost conversation is recovered from the book of the
+business and not from the memory of the model. The day is optional and it
+means the day of today when it is empty: the day decides which drafts are
+still pending, because the expiry is computed when the draft is read. Both
+tools change nothing in the book.
 
 **The catalog of the names begins empty.** The tool `match_items` takes the
 business and the name as the owner said it, and it answers with the status

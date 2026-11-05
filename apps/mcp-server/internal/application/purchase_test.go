@@ -22,9 +22,11 @@ import (
 // use case reads a draft before it amends it, and the test proves that it
 // did.
 type fakeDrafts struct {
-	drafts []purchase.Draft
-	read   int
-	err    error
+	drafts   []purchase.Draft
+	read     int
+	listed   int
+	lastList business.ID
+	err      error
 }
 
 // Save writes the draft and remembers it.
@@ -471,6 +473,55 @@ func (f *fakeDrafts) Confirm(_ context.Context, id purchase.DraftID, revision in
 	}
 
 	return purchase.Draft{}, purchase.ErrNotFound
+}
+
+// Cancel moves the draft to the cancelled state, and remembers it.
+//
+// The fake holds the rule of the table: only a draft that waits is
+// cancelled.
+func (f *fakeDrafts) Cancel(_ context.Context, id purchase.DraftID) (purchase.Draft, error) {
+	if f.err != nil {
+		return purchase.Draft{}, f.err
+	}
+
+	for index, one := range f.drafts {
+		if one.ID != id {
+			continue
+		}
+
+		if one.State != purchase.StateProposed {
+			return purchase.Draft{}, fmt.Errorf("%w: the draft is in the state %q",
+				purchase.ErrNotCancellable, one.State)
+		}
+
+		f.drafts[index].State = purchase.StateCancelled
+		return f.drafts[index], nil
+	}
+
+	return purchase.Draft{}, purchase.ErrNotFound
+}
+
+// List answers the drafts of the business that wait, and remembers that it
+// was asked.
+//
+// The fake holds the rule of the table: the drafts of the other businesses
+// are not listed, and a draft that ended is not listed either.
+func (f *fakeDrafts) List(_ context.Context, own business.ID) ([]purchase.Draft, error) {
+	f.listed++
+	f.lastList = own
+
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	held := make([]purchase.Draft, 0, len(f.drafts))
+	for _, one := range f.drafts {
+		if one.BusinessID == own && one.State == purchase.StateProposed {
+			held = append(held, one)
+		}
+	}
+
+	return held, nil
 }
 
 // The fake of the storage of the purchases.
@@ -1046,5 +1097,336 @@ func TestTheConfirmationWithoutADatabaseSaysSo(t *testing.T) {
 	})
 	if !errors.Is(err, ports.ErrNoDatabase) {
 		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
+	}
+}
+
+// TestTheDraftIsCancelled proves that the owner drops the draft she does
+// not want, and that the draft of the business stops waiting.
+func TestTheDraftIsCancelled(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	first, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	cancelled, err := service.Cancel(t.Context(), ports.CancelDraft{
+		BusinessID: business.ID(77),
+		DraftID:    first.ID,
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be cancelled: %v", err)
+	}
+
+	if cancelled.State != purchase.StateCancelled {
+		t.Errorf("the state of the answer is %q, want %q", cancelled.State, purchase.StateCancelled)
+	}
+	if cancelled.ID != first.ID {
+		t.Errorf("the identity of the draft is %d, want %d", cancelled.ID, first.ID)
+	}
+	if drafts.drafts[0].State != purchase.StateCancelled {
+		t.Errorf("the state of the draft is %q, want %q", drafts.drafts[0].State, purchase.StateCancelled)
+	}
+}
+
+// TestTheCancellationOfADraftOfAnotherBusinessIsRefused proves that a
+// draft belongs to its business, and that the refused call leaves the
+// draft as it was.
+func TestTheCancellationOfADraftOfAnotherBusinessIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	first, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	_, err = service.Cancel(t.Context(), ports.CancelDraft{
+		BusinessID: business.ID(88),
+		DraftID:    first.ID,
+	})
+	if !errors.Is(err, purchase.ErrWrongBusiness) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrWrongBusiness)
+	}
+
+	if drafts.drafts[0].State != purchase.StateProposed {
+		t.Errorf("the state of the draft is %q, want %q", drafts.drafts[0].State, purchase.StateProposed)
+	}
+}
+
+// TestTheCancellationOfADraftThatIsNotThereIsRefused proves that a draft
+// that does not exist is not cancelled.
+func TestTheCancellationOfADraftThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	_, err := service.Cancel(t.Context(), ports.CancelDraft{
+		BusinessID: business.ID(77),
+		DraftID:    purchase.DraftID(999),
+	})
+	if !errors.Is(err, purchase.ErrNotFound) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrNotFound)
+	}
+}
+
+// TestTheCancellationOfADraftThatIsConfirmedIsRefused proves the rule of
+// the state machine: a draft that is confirmed already does not wait any
+// more, and the refused call leaves it as it was.
+func TestTheCancellationOfADraftThatIsConfirmedIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	first, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	drafts.drafts[0].State = purchase.StateConfirmed
+
+	_, err = service.Cancel(t.Context(), ports.CancelDraft{
+		BusinessID: business.ID(77),
+		DraftID:    first.ID,
+	})
+	if !errors.Is(err, purchase.ErrNotCancellable) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrNotCancellable)
+	}
+
+	if drafts.drafts[0].State != purchase.StateConfirmed {
+		t.Errorf("the state of the draft is %q, want %q", drafts.drafts[0].State, purchase.StateConfirmed)
+	}
+}
+
+// TestTheCancellationOfAnExpiredDraftIsRefused proves the rule of the
+// domain: the price of a market does not wait, and an expired draft is
+// dead.
+func TestTheCancellationOfAnExpiredDraftIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	first, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	_, err = application.NewPurchaseService(drafts, expiredClock()).Cancel(t.Context(), ports.CancelDraft{
+		BusinessID: business.ID(77),
+		DraftID:    first.ID,
+	})
+	if !errors.Is(err, purchase.ErrExpiredDraft) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrExpiredDraft)
+	}
+
+	if drafts.drafts[0].State != purchase.StateProposed {
+		t.Errorf("the state of the draft is %q, want %q", drafts.drafts[0].State, purchase.StateProposed)
+	}
+}
+
+// TestThePendingDraftsAreReadWithWhatTheyNeed proves that the pending
+// drafts of a business are read back with what each one still needs, with
+// what each one was not sure about and with what Paca filled.
+func TestThePendingDraftsAreReadWithWhatTheyNeed(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	_, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré harina y pan",
+		Lines: []ports.PurchaseLine{
+			theLine("Harina", 25, "kg", 12000),
+			theLine("Pan", 3, "unidad", 0),
+		},
+		Ambiguities: []ports.PurchaseAmbiguity{
+			{Name: "harina", Options: []string{"Harina panadera", "Harina de trigo"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	read, err := service.Read(t.Context(), ports.ReadDrafts{BusinessID: business.ID(77)})
+	if err != nil {
+		t.Fatalf("the drafts could not be read: %v", err)
+	}
+
+	if drafts.lastList != business.ID(77) {
+		t.Errorf("the drafts that were read are the ones of %d, want 77", drafts.lastList)
+	}
+	if len(read) != 1 {
+		t.Fatalf("the answer holds %d drafts, want 1", len(read))
+	}
+
+	pending := read[0]
+	if pending.State != purchase.StateProposed {
+		t.Errorf("the state of the draft is %q, want %q", pending.State, purchase.StateProposed)
+	}
+	if len(pending.Missing) != 1 || pending.Missing[0] != "the price of Pan" {
+		t.Errorf("the draft needs %v, want the price of the bread", pending.Missing)
+	}
+	if len(pending.Ambiguous) != 1 || len(pending.Ambiguous[0].Options) != 2 {
+		t.Errorf("the ambiguities of the draft are %v, want the two options", pending.Ambiguous)
+	}
+	if len(pending.Inferred) != 1 {
+		t.Errorf("Paca filled %v, want the day of the purchase", pending.Inferred)
+	}
+}
+
+// TestTheExpiredDraftIsNotPending proves the rule of the domain: the
+// expiry is computed when the draft is read, and an expired draft does not
+// wait any more.
+func TestTheExpiredDraftIsNotPending(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	_, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	read, err := application.NewPurchaseService(drafts, expiredClock()).Read(t.Context(), ports.ReadDrafts{
+		BusinessID: business.ID(77),
+	})
+	if err != nil {
+		t.Fatalf("the drafts could not be read: %v", err)
+	}
+
+	if len(read) != 0 {
+		t.Errorf("the answer holds %d drafts, want none", len(read))
+	}
+}
+
+// TestTheDraftsOfAnotherBusinessAreNotRead proves that a draft belongs to
+// its business, and that the pending drafts of a business are its own.
+func TestTheDraftsOfAnotherBusinessAreNotRead(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	service := application.NewPurchaseService(drafts, theClock())
+
+	_, err := service.Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(88),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kg", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	read, err := service.Read(t.Context(), ports.ReadDrafts{BusinessID: business.ID(77)})
+	if err != nil {
+		t.Fatalf("the drafts could not be read: %v", err)
+	}
+
+	if len(read) != 0 {
+		t.Errorf("the answer holds %d drafts, want none", len(read))
+	}
+}
+
+// TestTheReadOfTheDraftsWithoutADatabaseSaysSo proves that a service
+// without a database says so.
+func TestTheReadOfTheDraftsWithoutADatabaseSaysSo(t *testing.T) {
+	t.Parallel()
+
+	service := application.NewPurchaseService(nil, theClock())
+
+	_, err := service.Read(t.Context(), ports.ReadDrafts{BusinessID: business.ID(77)})
+	if !errors.Is(err, ports.ErrNoDatabase) {
+		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
+	}
+}
+
+// TestTheConfirmationNamesTheNamesTheCatalogDidNotKnow proves that a name
+// the catalog does not know is not an error: the answer names it, so the
+// agent can tell the owner that the name is new.
+func TestTheConfirmationNamesTheNamesTheCatalogDidNotKnow(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	purchases := &fakePurchases{}
+	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
+	book := &fakeBook{}
+	ingredients := &fakeIngredients{}
+
+	draft := theDraftOfTheBakery(t, drafts)
+
+	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+		BusinessID:    business.ID(77),
+		DraftID:       draft.ID,
+		Revision:      draft.Revision,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	if len(confirmation.NewNames) != 1 {
+		t.Fatalf("the answer names %v, want the name of the flour", confirmation.NewNames)
+	}
+	if confirmation.NewNames[0] != "Harina" {
+		t.Errorf("the new name is %q, want %q", confirmation.NewNames[0], "Harina")
+	}
+}
+
+// TestTheConfirmationNamesNoNameTheCatalogKnows proves that the answer
+// names nothing when the catalog already knows every name.
+func TestTheConfirmationNamesNoNameTheCatalogKnows(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	purchases := &fakePurchases{}
+	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
+	book := &fakeBook{}
+	ingredients := &fakeIngredients{items: []ingredient.Ingredient{
+		anIngredientOfTheCatalog(t, 10, "Harina", "harina"),
+	}}
+
+	draft := theDraftOfTheBakery(t, drafts)
+
+	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+		BusinessID:    business.ID(77),
+		DraftID:       draft.ID,
+		Revision:      draft.Revision,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	if len(confirmation.NewNames) != 0 {
+		t.Errorf("the answer names %v, want nothing", confirmation.NewNames)
 	}
 }

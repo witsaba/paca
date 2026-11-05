@@ -44,8 +44,8 @@ type DraftID int64
 // State is the state of a draft.
 //
 // A draft is proposed, and it waits: the states it ends in - confirmed,
-// cancelled and expired - come with the increment that writes the purchase
-// and the one that cancels a draft.
+// cancelled and expired - are the ones it keeps. A draft never returns to
+// proposed.
 type State string
 
 const (
@@ -56,6 +56,18 @@ const (
 	// StateConfirmed is the state of a draft the owner confirmed: the
 	// purchase is written, and the draft never waits again.
 	StateConfirmed State = "confirmed"
+
+	// StateCancelled is the state of a draft the owner dropped: it does not
+	// want it, and the draft never waits again.
+	StateCancelled State = "cancelled"
+
+	// StateExpired is the state of a draft nobody answered: the price of a
+	// market does not wait.
+	//
+	// The state is computed by the domain when the draft is read, and it is
+	// never written to the storage: the row keeps the state it was written
+	// with.
+	StateExpired State = "expired"
 )
 
 // String returns the name of the state.
@@ -63,6 +75,15 @@ const (
 // It is the name the storage holds, with no translation in between.
 func (s State) String() string {
 	return string(s)
+}
+
+// States returns the states a draft can be in, in the life of a draft.
+//
+// The vocabulary belongs to the domain: the description of the tools reads
+// it, and the check of the table holds the same rule as a defense in
+// depth.
+func States() []State {
+	return []State{StateProposed, StateConfirmed, StateCancelled, StateExpired}
 }
 
 // DraftLifetimeDays is the lifetime of a draft, in days.
@@ -254,9 +275,23 @@ func NewDraft(
 // The day of the draft is kept when the new reading names none, and so is
 // the list of the things Paca filled: the owner corrected the price, not
 // the day.
-func Amend(draft Draft, candidate Candidate) (Draft, error) {
+//
+// The rules of the state machine hold here: only a draft that waits is
+// amended, and a draft never returns to proposed. The error is
+// ErrNotProposed when the draft does not wait any more, and ErrExpiredDraft
+// when it expired: the price of a market does not wait, and the owner
+// drafts the purchase again.
+func Amend(draft Draft, candidate Candidate, today ledger.Date) (Draft, error) {
 	if len(candidate.Lines) == 0 {
 		return Draft{}, fmt.Errorf("%w: the amendment proposes nothing", ErrNoLines)
+	}
+
+	if draft.State != StateProposed {
+		return Draft{}, fmt.Errorf("%w: the draft is in the state %q", ErrNotProposed, draft.State)
+	}
+
+	if today.After(draft.ExpiresOn) {
+		return Draft{}, fmt.Errorf("%w: the draft expired the day %v", ErrExpiredDraft, draft.ExpiresOn)
 	}
 
 	day := candidate.Day

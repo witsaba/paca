@@ -152,6 +152,8 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 		mcpserver.ToolReadMonthSummary,
 		mcpserver.ToolDraftPurchase,
 		mcpserver.ToolConfirmPurchase,
+		mcpserver.ToolCancelDraft,
+		mcpserver.ToolReadDrafts,
 		mcpserver.ToolMatchItems,
 	}
 	if len(tools.Tools) != len(want) {

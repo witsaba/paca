@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty tools: the way PACA onboards a person, the four
+The server exposes thirty-one tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -114,7 +114,7 @@ the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
 the business holds and what it cost, the tool of the labour she just
 confirmed, the tool of the overhead of the house, the tool of the report
-of the real price and the tool of the margin.
+of the real price, the tool of the margin and the tool of the production.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -148,6 +148,7 @@ of the real price and the tool of the margin.
 | `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and the overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
 | `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
 | `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. It writes nothing. |
+| `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -336,6 +337,25 @@ that compares, because the market of today is the last one that was seen.
 When the owner expects the references to be fresh, the agent sends
 `max_age_days`, and the ones older than that are marked as old, with their
 age. The tool writes nothing.
+
+**The production is derived, never typed.** The tool `record_production`
+writes what the bakery made on a day: the recipe she made, the day she
+made it, the grams that went in, the money of the layers the production
+consumed and the units that came out, each one with the day it expires.
+The grams and the units are never asked to the owner: the grams come from
+the layers of the stock in the order of FIFO — the oldest layer is the
+first one that leaves — and the units are the yield of the recipe, each
+one with the day of the production plus the shelf life of the recipe. The
+quantity that is left of each layer is the quantity it held minus what the
+production took from it, and the unit travels with it: the book never
+subtracts a gram from a kilogram. A production the stock cannot cover is
+refused, and the answer says that the purchase of the missing ingredient
+comes first. The production and the layers it consumed are written in one
+transaction: a production whose layers did not leave the stock leaves
+nothing behind. The recipe is named by her name or by its identity, and a
+name that more than one recipe carries is refused: the book never guesses
+which recipe she made. The word she used to confirm it is kept with the
+record, and her sentence is kept verbatim when she said one.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

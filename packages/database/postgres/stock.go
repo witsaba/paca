@@ -136,6 +136,47 @@ func (r *StockRepository) List(ctx context.Context, own business.ID) ([]purchase
 	return layers, nil
 }
 
+// WriteRemaining writes the quantity that is left of the layers of the
+// stock after the production took from them.
+//
+// The rule of the domain: the quantity that is left of a layer is the
+// quantity it held minus the quantity the production took from it, and the
+// quantity and its unit travel together: the remaining carries the unit of
+// the layer it belongs to, and the storage never subtracts a gram from a
+// kilogram. The layers leave the stock in the order of the FIFO, and the
+// storage never takes more of a layer than it holds.
+//
+// The row is written only when the layer still holds what the production
+// read: a layer that changed under the production is refused.
+//
+// The error is purchase.ErrInvalidValue when the row breaks a rule of the
+// table, purchase.ErrNotFound when the layer is not there, and
+// purchase.ErrNoStorage when the storage is not open.
+func (r *StockRepository) WriteRemaining(ctx context.Context, remaining []purchase.Remaining) error {
+	if r == nil || r.pool == nil {
+		return purchase.ErrNoStorage
+	}
+
+	for _, one := range remaining {
+		row, err := r.pool.queriesFor(ctx).TakeStockLayer(ctx, db.TakeStockLayerParams{
+			Remaining: one.Left.Quantity,
+			ID:        int64(one.LayerID),
+			Unit:      one.Left.Unit,
+			Held:      one.Held.Quantity,
+		})
+		if err != nil {
+			return writeRemainingError(err)
+		}
+
+		if row.Remaining != one.Left.Quantity {
+			return fmt.Errorf("%w: the layer %d holds %v and not %v",
+				purchase.ErrInvalidValue, one.LayerID, row.Remaining, one.Left.Quantity)
+		}
+	}
+
+	return nil
+}
+
 // rowOfALayer is what a row of the layers carries, however it was read.
 type rowOfALayer struct {
 	ID                 int64
@@ -304,6 +345,29 @@ func writeLayerError(err error) error {
 		return fmt.Errorf("%w: the purchase or the ingredient of the layer is not there", purchase.ErrNotFound)
 	case checkViolation:
 		return fmt.Errorf("%w: the constraint %q refused the row", purchase.ErrInvalidValue, pgErr.ConstraintName)
+	}
+
+	return err
+}
+
+// writeRemainingError translates the truth of the database into the errors
+// of the port of the layers.
+//
+// The layer that is not there is a layer the storage does not hold, and a
+// layer that changed under the production is a row the database refused.
+func writeRemainingError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return purchase.ErrNotFound
+	}
+
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return err
+	}
+
+	if pgErr.Code == checkViolation {
+		return fmt.Errorf("%w: the constraint %q refused the row",
+			purchase.ErrInvalidValue, pgErr.ConstraintName)
 	}
 
 	return err

@@ -794,6 +794,26 @@ func (f *fakeLayers) List(_ context.Context, own business.ID) ([]purchase.Layer,
 	return held, nil
 }
 
+// WriteRemaining writes the quantity that is left of the layers and
+// remembers them.
+func (f *fakeLayers) WriteRemaining(_ context.Context, remaining []purchase.Remaining) error {
+	if f.err != nil {
+		return f.err
+	}
+
+	for _, one := range remaining {
+		for index, held := range f.layers {
+			if held.ID != one.LayerID {
+				continue
+			}
+
+			f.layers[index].Left = one.Left
+		}
+	}
+
+	return nil
+}
+
 // The fake of the transaction of the storage.
 //
 // It keeps what the work wrote, and it gives it back when the work fails: a

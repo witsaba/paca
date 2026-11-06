@@ -38,6 +38,31 @@ type Take struct {
 	Money ledger.Amount
 }
 
+// Remaining is what is left of a layer of the stock after a production
+// took from it.
+//
+// The rule of the domain: the quantity that is left of a layer is the
+// quantity it held minus what the production took from it, and the
+// quantity and its unit travel together: the remaining carries the unit of
+// the layer it belongs to, and the book never subtracts a gram from a
+// kilogram.
+//
+// The layers leave the stock in the order of the FIFO: the oldest layer is
+// the first one that leaves, and the storage never takes more of a layer
+// than it holds.
+type Remaining struct {
+	// LayerID is the layer the production took from.
+	LayerID LayerID
+
+	// Held is the quantity the layer held before the production took from
+	// it, with the unit of the layer.
+	Held Measure
+
+	// Left is the quantity that is left of the layer, with the unit of the
+	// layer.
+	Left Measure
+}
+
 // Consumption is what a batch took from the stock of one ingredient.
 //
 // The recipe consumes the layers in the order of the FIFO: the oldest
@@ -61,6 +86,10 @@ type Consumption struct {
 	// Takes are the layers the batch took from, in the order they leave the
 	// stock: the oldest one is the first.
 	Takes []Take
+
+	// Remaining is what is left of the layers the batch took from: the
+	// quantity each of them held and the quantity that is left of it.
+	Remaining []Remaining
 
 	// Unknown says that the money of the ingredient is not derivable: the
 	// stock holds it in a unit the book never converts into grams, and the
@@ -168,8 +197,17 @@ func Consume(layers []Layer, of ingredient.ID, grams float64, item ingredient.In
 		}
 
 		takenInUnits := taken / perUnit
-		left := one.Left.Quantity - takenInUnits
-		money := one.Cost - one.moneyOf(left)
+
+		// The quantity that is left of the layer is what it held minus
+		// what the take took from it: the rule of the domain, and the
+		// money of the layer follows the quantity of it, pro rata the
+		// quantity that is left.
+		consumed, err := one.Consumed(Take{Quantity: takenInUnits, Unit: one.Left.Unit})
+		if err != nil {
+			return Consumption{}, err
+		}
+
+		money := one.moneyOf(one.Left.Quantity) - one.moneyOf(consumed.Left.Quantity)
 
 		consumption.Takes = append(consumption.Takes, Take{
 			LayerID:    one.ID,
@@ -179,6 +217,12 @@ func Consume(layers []Layer, of ingredient.ID, grams float64, item ingredient.In
 			Unit:       one.Bought.Unit,
 			Grams:      taken,
 			Money:      money,
+		})
+
+		consumption.Remaining = append(consumption.Remaining, Remaining{
+			LayerID: one.ID,
+			Held:    one.Left,
+			Left:    consumed.Left,
 		})
 
 		consumption.Taken += taken

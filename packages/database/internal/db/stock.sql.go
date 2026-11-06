@@ -194,3 +194,62 @@ func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int6
 	}
 	return items, nil
 }
+
+const takeStockLayer = `-- name: TakeStockLayer :one
+UPDATE stock_layers
+SET remaining = $1
+WHERE id = $2
+  AND unit = $3
+  AND remaining = $4
+RETURNING id, business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost
+`
+
+type TakeStockLayerParams struct {
+	Remaining float64
+	ID        int64
+	Unit      string
+	Held      float64
+}
+
+type TakeStockLayerRow struct {
+	ID           int64
+	BusinessID   int64
+	IngredientID int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Day          pgtype.Date
+	Quantity     float64
+	Unit         string
+	Remaining    float64
+	Cost         int64
+}
+
+// The query writes the quantity that is left of a layer after the
+// production took from it: the quantity and its unit travel together, and
+// the storage never writes a quantity of another unit than the one the
+// layer holds. The row is written only when the layer still holds what the
+// production read: a layer that changed under the production is refused.
+func (q *Queries) TakeStockLayer(ctx context.Context, arg TakeStockLayerParams) (TakeStockLayerRow, error) {
+	row := q.db.QueryRow(ctx, takeStockLayer,
+		arg.Remaining,
+		arg.ID,
+		arg.Unit,
+		arg.Held,
+	)
+	var i TakeStockLayerRow
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.IngredientID,
+		&i.PurchaseID,
+		&i.Position,
+		&i.Name,
+		&i.Day,
+		&i.Quantity,
+		&i.Unit,
+		&i.Remaining,
+		&i.Cost,
+	)
+	return i, err
+}

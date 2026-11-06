@@ -189,6 +189,14 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadMargin ports.MarginReader
+
+	// RecordProduction is the use case that writes the production of the
+	// bakery: what came out of the oven on one day, with the units that
+	// came out of it and the day each one expires.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordProduction ports.ProductionRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -249,6 +257,7 @@ func New(opts Options) *Server {
 	transport.registerOverheadTools(opts.RecordOverhead)
 	transport.registerRealPriceTools(opts.ReadRealPrice)
 	transport.registerMarginTools(opts.ReadMargin)
+	transport.registerProductionTools(opts.RecordProduction)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

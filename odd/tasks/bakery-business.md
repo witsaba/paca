@@ -1059,7 +1059,7 @@ its session starts.
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T17 | S22, S23, S47 | The production and the tool that records it | inline | `pending` |
+| T17 | S22, S23, S47 | The production and the tool that records it | inline | this commit |
 | T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `pending` |
 | T19 | S24, S25 | The waste and the tool that records it | inline | `pending` |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `pending` |
@@ -1254,3 +1254,13 @@ Three things the increment taught, carried here for the ones to come:
 - **The margin compares the DIRECT cost only**: the percent over the direct cost is a markup over the ingredients, and the tool says so. The margin over the whole cost arrives when the layers are read together.
 
 **Deviation**: the rule of the margin lives in `packages/domain/recipe` (the domain of `purchase` cannot import `recipe`, and the margin needs the yield of the recipe), and the age of a reference lives in `packages/domain/purchase`, as the acceptance expected.
+
+**L31** (2026-11-06): T17 landed: **the production**. The production is **derived, never typed**: the owner names the recipe (by identity, or by the name she reads — a name that more than one recipe carries is refused, because the book never guesses), confirms it with her word, and the book derives the grams that went in, the money of the layers that gave them, and the units that came out. The production, the layers it consumed and the units it makes are written in ONE transaction. The tool is `record_production`, and the transport carries thirty-one tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The layers really leave the stock**: the production takes them in the order of the FIFO, and the quantity that is LEFT of every layer is written back. The write is guarded (`WHERE id = … AND unit = … AND remaining = held`), so a layer that changed under the production is refused instead of being overwritten.
+- **The money of a take is the money that was left before minus the money that is left after**: a gram is never paid for twice, and the formula of T12 was wrong for a partly consumed layer — the new one is right for both.
+- **The expiry of a produced unit is the day of the production plus the declared shelf life of the recipe** — approximate until the owner corrects it, and the correction is T18.
+
+**Deviation**: the model of the production lives in `packages/domain/recipe`, not in a package of its own: the production needs the yield and the shelf life of the recipe, and the direction of the dependencies forbids `purchase` from reaching for `recipe`.

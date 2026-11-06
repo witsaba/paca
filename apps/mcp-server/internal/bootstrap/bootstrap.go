@@ -323,6 +323,31 @@ func New(
 	// and no reference to compare.
 	marginService := application.NewMarginService(batchCostService, references, ingredients, clock.System{})
 
+	// The production of the bakery: what came out of the oven on one day.
+	// The production consumes the layers of the stock in the order of the
+	// FIFO and makes the units of the yield of the recipe, each one with
+	// the day it expires. The production and the layers it consumes are
+	// written in one transaction. Without a database there is no
+	// production to write.
+	var productions recipe.ProductionRepository
+	if pool != nil {
+		boundProductions, err := postgres.NewProductionRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the productions could not be built: %w", err)
+		}
+		productions = boundProductions
+	}
+
+	productionService := application.NewProductionService(
+		recipeReader,
+		layers,
+		ingredients,
+		productions,
+		work,
+		clock.System{},
+	)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -353,6 +378,7 @@ func New(
 		RecordOverhead:      overheadService,
 		ReadRealPrice:       realPriceService,
 		ReadMargin:          marginService,
+		RecordProduction:    productionService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

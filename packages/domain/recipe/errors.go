@@ -105,6 +105,53 @@ var (
 	// electricity of the house that belongs to the oven, and it is greater
 	// than zero and not greater than the electricity itself.
 	ErrInvalidAllocation = errors.New("the allocation of the overhead is a share of the electricity")
+
+	// ErrMissingRecipe is the error of a production that names no recipe:
+	// the production is the fact of a recipe being made, and a production
+	// of no recipe is a production of nothing.
+	ErrMissingRecipe = errors.New("the production names the recipe it was made of")
+
+	// ErrAmbiguousRecipe is the error of a name of a recipe that more
+	// than one recipe of the business carries: the owner chooses with one
+	// word, and the book never guesses which recipe she made.
+	ErrAmbiguousRecipe = errors.New("the business holds more than one recipe with that name")
+
+	// ErrUnknownRecipe is the error of a name of a recipe that no recipe
+	// of the business carries: the owner named a recipe the book does not
+	// hold, and the book says so instead of writing a production of
+	// nothing.
+	ErrUnknownRecipe = errors.New("the business holds no recipe with that name")
+
+	// ErrMissingProductionDay is the error of a production of no day: a
+	// production of no time is a production of nothing.
+	ErrMissingProductionDay = errors.New("the production carries the day it was made")
+
+	// ErrMissingProductionConfirmation is the error of a production without
+	// the word the owner used to confirm it: the word is kept with the
+	// record.
+	ErrMissingProductionConfirmation = errors.New("the production carries the word of the owner")
+
+	// ErrMissingProductionGrams is the error of a production that carries
+	// no grams that went in: the production consumed the layers of the
+	// stock, and the grams it consumed are what it carries.
+	ErrMissingProductionGrams = errors.New("the production carries the grams that went in")
+
+	// ErrMissingProductionUnits is the error of a production that made no
+	// unit: the units are what came out of the oven.
+	ErrMissingProductionUnits = errors.New("the production made no unit")
+
+	// ErrInvalidProductionMoney is the error of a production whose money
+	// is negative: the money of a production is the money of the layers it
+	// consumed, and the money of the book is never negative.
+	ErrInvalidProductionMoney = errors.New("the money of the production is not negative")
+
+	// ErrMissingStock is the error of a production the stock cannot cover:
+	// a batch that cannot be baked is not a batch.
+	ErrMissingStock = errors.New("the stock does not hold what the recipe needs")
+
+	// ErrUnknownStock is the error of a production whose ingredients the
+	// book cannot weigh: the grams that went in are never assumed.
+	ErrUnknownStock = errors.New("the stock holds an ingredient the book cannot weigh")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -133,5 +180,15 @@ func Errors() []error {
 		ErrMissingElectricity,
 		ErrMissingOvenHours,
 		ErrInvalidAllocation,
+		ErrMissingRecipe,
+		ErrAmbiguousRecipe,
+		ErrUnknownRecipe,
+		ErrMissingProductionDay,
+		ErrMissingProductionConfirmation,
+		ErrMissingProductionGrams,
+		ErrMissingProductionUnits,
+		ErrInvalidProductionMoney,
+		ErrMissingStock,
+		ErrUnknownStock,
 	}
 }

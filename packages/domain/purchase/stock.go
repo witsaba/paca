@@ -82,6 +82,33 @@ func (l Layer) Open() bool {
 	return l.Left.Quantity > 0
 }
 
+// Consumed answers the layer with the quantity that is left of it after the take.
+//
+// The rule of the domain: the quantity that is left of a layer is what it
+// held minus what the take took from it, and the quantity and its unit
+// travel together: the take carries the unit of the layer it came from, and
+// the answer carries it too. The quantity that is left is never more than
+// what the layer bought and never less than nothing: a layer that gave
+// everything it held is left with nothing.
+//
+// The error is ErrInvalidUnit when the take carries another unit than the
+// layer holds.
+func (l Layer) Consumed(take Take) (Layer, error) {
+	if take.Unit != l.Left.Unit {
+		return Layer{}, fmt.Errorf("%w: the take carries the unit %q and the layer holds the unit %q",
+			ErrInvalidUnit, take.Unit, l.Left.Unit)
+	}
+
+	left := l.Left.Quantity - take.Quantity
+	if left < 0 {
+		left = 0
+	}
+
+	l.Left = Measure{Quantity: left, Unit: l.Left.Unit}
+
+	return l, nil
+}
+
 // Checked answers the layer when it is whole, and the error when it is
 // not.
 //

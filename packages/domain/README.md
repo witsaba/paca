@@ -48,8 +48,10 @@ packages/domain/
                     learn and to teach, the ingredients with their grams, the
                     steps with their times, their temperatures and their
                     cues, the yield, the shelf life, the cost of a batch,
-                    the labour of the owner, the overhead of the house, the
-                    report of the real price, and the port of the storage
+                    the labour of the owner, the overhead of the house,
+                    the report of the real price, the production of the day
+                    with the units it made and the day they expire, and the
+                    port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -720,6 +722,62 @@ the recipe needs. The money of the market is unknown when one of the
 ingredients has no reference, when the reference is in a unit the book
 never converts and when the weight of the package is not declared: a sum
 that hides a missing part is a lie, and the answer says what is missing.
+
+## The model of the production
+
+`recipe.Production` is what the bakery made on a day: the recipe it was
+made of, the day it was made, the grams that went in, the money of the
+layers it consumed and the units that came out. It lives in the package of
+the recipe, next to the recipe it is made of: the recipe declares the yield
+of the units and the shelf life of them, and the production is the day
+those units came out.
+
+**The production is derived, never typed.** `recipe.ProductionOf` reads the
+recipe, the layers of the stock and the catalog of the names, and it builds
+the production out of them. The grams that went in are the grams the
+layers gave, and the units that came out are the yield of the recipe: the
+book never asks the owner for a number it can read.
+
+**The production consumes the layers in the order of the FIFO.** The oldest
+layer leaves first, and `purchase.Consume` is where that order lives. The
+production carries the layers it consumed in `Takes`, in the order they
+left the stock, and what is left of each of them in `Remaining`.
+
+**The quantity that is left of a layer is the quantity it held minus what
+the production took from it, and the unit travels with it.**
+`purchase.Layer.Consumed` states the rule and refuses a take whose unit is
+not the unit of the layer (`ErrInvalidUnit`): the book never subtracts a
+gram from a kilogram. The storage writes what is left of the layer with the
+unit of the layer, and it writes it only when the layer still holds what
+the production read.
+
+**The money of the production is the money of the layers it consumed, pro
+rata the quantity that was taken.** The money of the book counts whole
+pesos, and it is never inferred: the money of what was taken is the money
+of what the layer held minus the money of what is left of it.
+
+**Every unit carries the day it expires.** The day of the expiry is the day
+of the production plus the shelf life of the recipe, and it is approximate
+until the owner corrects it. A production that made no unit is not a
+production (`ErrMissingProductionUnits`), and a unit that expires before
+the production is refused.
+
+**The production is written with the word of the owner.** The day is there
+(`ErrMissingProductionDay`), the recipe is there (`ErrMissingRecipe`), and
+the word she used to confirm it is kept with the record
+(`ErrMissingProductionConfirmation`). The sentence of the owner is
+optional, and it is kept verbatim when she said one.
+
+**A production the stock cannot cover is refused.** The stock that does not
+hold what the recipe needs is refused (`ErrMissingStock`), and so is the
+stock that holds an ingredient in a unit the book cannot weigh
+(`ErrUnknownStock`): the weight of a piece is never assumed.
+
+**A production names ONE recipe.** The name of a recipe is not unique
+inside the business, and `recipe.TheRecipeNamed` refuses a name that more
+than one recipe carries (`ErrAmbiguousRecipe`): the book never guesses
+which recipe she made. A name that no recipe of the business carries is
+refused too (`ErrUnknownRecipe`).
 
 ## The model of the reference price
 

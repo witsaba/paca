@@ -337,3 +337,90 @@ func TestTheLayerIsRefusedWhenItIsOfAnotherIngredientThanItsLine(t *testing.T) {
 		t.Fatalf("the error is %v, want %v", err, ErrLayerNotTied)
 	}
 }
+
+// TestTheQuantityThatIsLeftOfALayerIsWhatItHeldMinusWhatTheTakeTookFrom
+// It proves the rule of the domain: the quantity that is left of a layer is
+// the quantity it held minus the quantity the take took from it, and the
+// quantity and its unit travel together.
+//
+// The rule was open until the production (T17): nothing consumed a layer
+// before it, and the rule of the money of a partly consumed layer had no
+// second exit to be proved by.
+func TestTheQuantityThatIsLeftOfALayerIsWhatItHeldMinusWhatTheTakeTookFromIt(t *testing.T) {
+	t.Parallel()
+
+	layer := aLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+		theDay(2026, time.March, 1), ID(9))
+	layer.Left = Measure{Quantity: 20, Unit: "kg"}
+
+	consumed, err := layer.Consumed(Take{Quantity: 5, Unit: "kg"})
+	if err != nil {
+		t.Fatalf("the layer was refused: %v", err)
+	}
+
+	if consumed.Left.Quantity != 15 {
+		t.Errorf("the quantity that is left of the layer is %v, want 15", consumed.Left.Quantity)
+	}
+	if consumed.Left.Unit != "kg" {
+		t.Errorf("the unit of what is left of the layer is %q, want %q", consumed.Left.Unit, "kg")
+	}
+}
+
+// TestTheQuantityThatIsLeftOfALayerIsNeverLessThanNothing proves the rule
+// of the domain: a layer that gave everything it held is left with nothing,
+// and the book never leaves a layer with a fraction of a gram that nobody
+// bought.
+func TestTheQuantityThatIsLeftOfALayerIsNeverLessThanNothing(t *testing.T) {
+	t.Parallel()
+
+	layer := aLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+		theDay(2026, time.March, 1), ID(9))
+	layer.Left = Measure{Quantity: 1, Unit: "kg"}
+
+	consumed, err := layer.Consumed(Take{Quantity: 2, Unit: "kg"})
+	if err != nil {
+		t.Fatalf("the layer was refused: %v", err)
+	}
+
+	if consumed.Left.Quantity != 0 {
+		t.Errorf("the quantity that is left of the layer is %v, want 0", consumed.Left.Quantity)
+	}
+}
+
+// TestTheLayerIsRefusedWhenTheTakeCarriesAnotherUnit proves the rule of
+// the domain: the quantity and its unit travel together, and a take of
+// another unit never touches the layer.
+func TestTheLayerIsRefusedWhenTheTakeCarriesAnotherUnit(t *testing.T) {
+	t.Parallel()
+
+	layer := aLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+		theDay(2026, time.March, 1), ID(9))
+
+	_, err := layer.Consumed(Take{Quantity: 5, Unit: "g"})
+	if !errors.Is(err, ErrInvalidUnit) {
+		t.Fatalf("the error is %v, want %v", err, ErrInvalidUnit)
+	}
+}
+
+// TestTheMoneyOfWhatIsTakenFromALayerIsTheMoneyThatIsLeftOfIt proves the
+// rule of the domain: the money of a take is the money that was left of the
+// layer before the take minus the money that is left of it after it.
+func TestTheMoneyOfWhatIsTakenFromALayerIsTheMoneyThatIsLeftOfIt(t *testing.T) {
+	t.Parallel()
+
+	layer := aLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+		theDay(2026, time.March, 1), ID(9))
+	layer.Left = Measure{Quantity: 20, Unit: "kg"}
+
+	consumption, err := Consume([]Layer{layer}, ingredient.ID(10), 5000, theFlourOfTheTest())
+	if err != nil {
+		t.Fatalf("the consumption was refused: %v", err)
+	}
+
+	// Five kilos of a layer of twenty-five that cost twelve thousand: the
+	// layer held twenty kilos worth nine thousand six hundred, and it is
+	// left with fifteen kilos worth seven thousand two hundred.
+	if consumption.Money != ledger.Amount(2400) {
+		t.Errorf("the money of the take is %d, want 2400", consumption.Money)
+	}
+}

@@ -192,6 +192,24 @@ var theMessages = map[error]string{
 		"ran, because without them the money of the oven has no rate",
 	recipe.ErrInvalidAllocation: "the allocation is not a share of the electricity: ask the owner what share of " +
 		"the electricity of the house belongs to the oven (0.6 is six of every ten pesos)",
+	recipe.ErrMissingRecipe: "the production names no recipe: ask the owner what she made, and send the recipe she means",
+	recipe.ErrAmbiguousRecipe: "the business holds more than one recipe with that name: ask the owner which recipe " +
+		"she made, and send the identity of the one she means",
+	recipe.ErrUnknownRecipe: "the business holds no recipe with that name: read the recipes of the business, and send " +
+		"the identity of the recipe she made",
+	recipe.ErrMissingProductionDay: "the production carries no day: ask the owner what day she made it, and never invent one",
+	recipe.ErrMissingProductionConfirmation: "the production carries no word of the owner: send the word she used to " +
+		"confirm it ('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrMissingProductionGrams: "the production carries no grams that went in: the stock does not hold what " +
+		"the recipe needs, and PACA never guesses the grams",
+	recipe.ErrMissingProductionUnits: "the production made no unit: the recipe declares no yield, and a production " +
+		"without units is not a production",
+	recipe.ErrInvalidProductionMoney: "the money of the production is not a number of pesos: the money of the book " +
+		"counts whole pesos, and PACA never infers it",
+	recipe.ErrMissingStock: "the stock does not hold what the recipe needs: record the purchase of the missing " +
+		"ingredient first, and record the production after it",
+	recipe.ErrUnknownStock: "the stock holds an ingredient in a unit the book cannot weigh: ask the owner how much " +
+		"the package weighs, and never assume the weight of a piece",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

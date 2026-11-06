@@ -1117,3 +1117,53 @@ type ReferencesReader interface {
 	// ingredient the catalog of the business does not hold.
 	Read(ctx context.Context, request ReadReferences) ([]purchase.Reference, error)
 }
+
+// RecordProduction is the production the owner confirmed: the recipe she
+// made, the day she made it and the word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// recipe and the day are what she said, and PACA never infers either of
+// them. The grams that went in and the units that came out are derived by
+// the domain: the book never asks the owner for a number it can read.
+type RecordProduction struct {
+	// BusinessID is the business the production belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the recipe she made. It is zero when
+	// the agent names the recipe with its name.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the recipe she made. It is
+	// empty when the agent names the recipe with its identity.
+	RecipeName string
+
+	// Day is the day the production was made. It is the day of today
+	// when the agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word the owner used to confirm the production.
+	ConfirmedWith string
+}
+
+// ProductionRecorder is the inbound port of the tool that records the
+// production.
+//
+// The tool writes the production of the business and answers it with it: the
+// recipe she made, the day, the grams that went in, the money of the layers
+// the production consumed and the units that came out, each one with the
+// day it expires.
+//
+// The identity of the business, the recipe and the word of the owner are
+// required. The day and the sentence of the owner are optional, and the day
+// is the day of today when the agent names none.
+//
+// The error is the error of the domain: the domain refuses a production
+// without a recipe, without the day it was made and without the word of the
+// owner, and it refuses a production the stock cannot cover.
+type ProductionRecorder interface {
+	// Record writes the production of the business and answers it with it.
+	Record(ctx context.Context, request RecordProduction) (recipe.Production, error)
+}

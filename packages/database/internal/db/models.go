@@ -94,6 +94,38 @@ type PriceReference struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type Production struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	GramsIn       float64
+	Money         int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type ProductionLayer struct {
+	ID           int64
+	ProductionID int64
+	Position     int32
+	LayerID      int64
+	PurchaseID   int64
+	Quantity     float64
+	Unit         string
+	Grams        float64
+	Money        int64
+}
+
+type ProductionUnit struct {
+	ID           int64
+	ProductionID int64
+	Position     int32
+	Grams        float64
+	ExpiresOn    pgtype.Date
+}
+
 type Purchase struct {
 	ID            int64
 	BusinessID    int64

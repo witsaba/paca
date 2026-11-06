@@ -130,3 +130,26 @@ type OverheadReader interface {
 	// The error is ErrNoStorage when the storage is not open.
 	List(ctx context.Context, own business.ID) ([]Overhead, error)
 }
+
+// ProductionRepository is the port of the storage of the productions.
+//
+// The port is what a use case needs: the tool of the production writes the
+// fact of what the bakery made on a day, with the units that came out of
+// it, and the storage keeps them in the book of the business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type ProductionRepository interface {
+	// Record writes the production of the business with the units that
+	// came out of it, and answers it with the identity that the storage
+	// generated.
+	//
+	// The units of a production are rows of their own table, and the
+	// storage writes them with it: a production without its units is not a
+	// production.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business or the recipe is not there,
+	// and ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, production Production) (Production, error)
+}

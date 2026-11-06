@@ -56,3 +56,17 @@ JOIN purchases ON purchases.id = layers.purchase_id
 LEFT JOIN purchase_lines lines ON lines.purchase_id = layers.purchase_id AND lines.position = layers.position
 WHERE layers.business_id = sqlc.arg(business_id) AND purchases.business_id = sqlc.arg(business_id)
 ORDER BY layers.day, layers.purchase_id, layers.id;
+
+-- name: TakeStockLayer :one
+--
+-- The query writes the quantity that is left of a layer after the
+-- production took from it: the quantity and its unit travel together, and
+-- the storage never writes a quantity of another unit than the one the
+-- layer holds. The row is written only when the layer still holds what the
+-- production read: a layer that changed under the production is refused.
+UPDATE stock_layers
+SET remaining = sqlc.arg(remaining)
+WHERE id = sqlc.arg(id)
+  AND unit = sqlc.arg(unit)
+  AND remaining = sqlc.arg(held)
+RETURNING id, business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost;

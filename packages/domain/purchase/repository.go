@@ -102,6 +102,25 @@ type LayerRepository interface {
 	//
 	// The error is ErrNoStorage when the storage is not open.
 	List(ctx context.Context, own business.ID) ([]Layer, error)
+
+	// WriteRemaining writes the quantity that is left of the layers of the
+	// stock.
+	//
+	// The rule of the domain: the quantity that is left of a layer is the
+	// quantity it held minus the quantity the production took from it, and
+	// the quantity and its unit travel together: the remaining carries the
+	// unit of the layer it belongs to, and the book never subtracts a gram
+	// from a kilogram. The layers leave the stock in the order of the FIFO:
+	// the oldest layer is the first one that leaves.
+	//
+	// The storage writes the quantity the domain computed, and it writes it
+	// only when the layer still holds what the production read: a layer
+	// that changed under the production is refused.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the layer is not there, and ErrNoStorage
+	// when the storage is not open.
+	WriteRemaining(ctx context.Context, remaining []Remaining) error
 }
 
 // ReferenceRepository is the port of the storage of the reference prices.

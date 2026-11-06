@@ -1051,7 +1051,7 @@ its session starts.
 | T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b` and the correction of this commit |
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | this commit |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | this commit |
-| T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
+| T14 | S5, S9 | The overhead, and the tool that records it | inline | this commit |
 | T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `pending` |
 | T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `pending` |
 
@@ -1226,3 +1226,13 @@ Three things the increment taught, carried here for the ones to come:
 - **The labor is the owner's alone**: the model has no employee and no payroll, and a domain test pins it. The payroll of an employee is a model of its own, and it does not exist yet.
 - **The money of a labor record is derived, never stored**: the table keeps the hours and the value of the hour, and the money is computed from them — a second truth about the same money would drift.
 - **The labor is a fact of the business, not a movement of the book**: it moves no money of the ledger yet. The account of the labor exists in the seed of T2, and the decision of whether the labor writes a movement belongs to T14 or T15.
+
+**L28** (2026-11-06): T14 landed: **the overhead**. The owner declares three facts and never a price: the electricity the house used, the hours the oven ran, and the share of that electricity that belongs to the oven. The money of the overhead is **derived, never typed and never stored**: the electricity times the share, rounded to whole pesos; the rate of the house is that money divided by the hours the oven ran; the overhead of a batch is the hours of the oven of the steps of the recipe times that rate. The overhead travels BESIDE the direct cost and beside the labor — three layers of the cost, none added to another. The tool is `record_overhead`, and the transport carries twenty-eight tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **A rate is the last thing the owner declared**: the value of the hour of the labor and the rate of the house follow the same rule. The table keeps the history and the book values with the last declaration.
+- **A batch of an earlier day is valued with the rate of today.** That is an approximation of the electricity of a period, and the rule is stated in the domain so that nobody believes a number it does not have.
+- **The overhead moves no money of the ledger**: the account exists in the seed of T2, and the decision of writing the movement belongs to T15.
+
+**Open for the owner**: the share of the electricity that belongs to the oven was read as a share (0 < share ≤ 1). Another shape — a money per hour of the oven, for example — is possible, and the change lives in the domain, in the argument of the tool and in the migration.

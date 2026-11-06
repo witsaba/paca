@@ -838,6 +838,61 @@ type LaborRecorder interface {
 	Record(ctx context.Context, request RecordLabor) (recipe.Labor, error)
 }
 
+// RecordOverhead is the overhead the owner declared: the electricity of the
+// house, the hours the oven ran, the allocation of the electricity that
+// belongs to the oven, the day it was declared and the word she used to
+// confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// electricity and the allocation are what she said, and PACA never infers
+// either of them.
+type RecordOverhead struct {
+	// BusinessID is the business the overhead belongs to.
+	BusinessID business.ID
+
+	// Electricity is the money of the electricity of the house, in whole
+	// pesos. It is declared by the owner, and it is never inferred.
+	Electricity int64
+
+	// OvenHours is the number of hours the oven ran.
+	OvenHours float64
+
+	// Allocation is the share of the electricity of the house that belongs
+	// to the oven.
+	Allocation float64
+
+	// Day is the day the overhead was declared. It is the day of today
+	// when the agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word the owner used to confirm the overhead.
+	ConfirmedWith string
+}
+
+// OverheadRecorder is the inbound port of the tool that records the
+// overhead.
+//
+// The tool writes the electricity of the house, the hours of the oven and
+// the allocation the owner declared, and the domain decides what an
+// overhead is.
+type OverheadRecorder interface {
+	// Record writes the overhead of the business and answers it with it.
+	//
+	// The identity of the business, the electricity of the house, the
+	// hours of the oven, the allocation and the word of the owner are
+	// required. The day and the sentence of the owner are optional, and
+	// the day is the day of today when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses an
+	// overhead without the electricity of the house, without the hours of
+	// the oven, without an allocation that is a share, without the day it
+	// was declared and without the word of the owner.
+	Record(ctx context.Context, request RecordOverhead) (recipe.Overhead, error)
+}
+
 // SummaryQuerier is the inbound port of the tool that closes a month.
 //
 // The closing of a month is what the person earned, what they spent, and

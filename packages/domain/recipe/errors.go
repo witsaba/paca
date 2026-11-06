@@ -85,9 +85,26 @@ var (
 	// the waiting, and no other one is guessed.
 	ErrUnknownLaborKind = errors.New("the kind of the labor is one of the three kinds of the book")
 
-	// ErrMissingBusiness is the error of a labor of no business: the
-	// labor of the bakery belongs to the business that works it.
-	ErrMissingBusiness = errors.New("the labor belongs to a business")
+	// ErrMissingBusiness is the error of a labor or of an overhead of no
+	// business: the labor of the bakery and the overhead of its house
+	// belong to the business that works it.
+	ErrMissingBusiness = errors.New("the labor and the overhead belong to a business")
+
+	// ErrMissingElectricity is the error of an overhead without the
+	// electricity of the house: the money of the electricity is declared
+	// by the owner, and it is never inferred.
+	ErrMissingElectricity = errors.New("the overhead carries the electricity of the house the owner declared")
+
+	// ErrMissingOvenHours is the error of an overhead without the hours of
+	// the oven: without them the money of the oven has no rate, and a
+	// rate nobody declared is a rate PACA invented.
+	ErrMissingOvenHours = errors.New("the overhead carries the hours of the oven")
+
+	// ErrInvalidAllocation is the error of an allocation that is not a
+	// share of the electricity: the owner declares the share of the
+	// electricity of the house that belongs to the oven, and it is greater
+	// than zero and not greater than the electricity itself.
+	ErrInvalidAllocation = errors.New("the allocation of the overhead is a share of the electricity")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -113,5 +130,8 @@ func Errors() []error {
 		ErrMissingDay,
 		ErrUnknownLaborKind,
 		ErrMissingBusiness,
+		ErrMissingElectricity,
+		ErrMissingOvenHours,
+		ErrInvalidAllocation,
 	}
 }

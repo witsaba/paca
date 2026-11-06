@@ -93,3 +93,40 @@ type LaborReader interface {
 	// The error is ErrNoStorage when the storage is not open.
 	List(ctx context.Context, own business.ID) ([]Labor, error)
 }
+
+// OverheadRepository is the port of the storage of the overhead.
+//
+// The port is what a use case needs: the tool of the overhead writes the
+// electricity of the house, the hours of the oven and the allocation the
+// owner declared, and the storage keeps them in the book of the business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type OverheadRepository interface {
+	// Record writes the overhead of the business and answers it with the
+	// identity that the storage generated.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business is not there, and
+	// ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, overhead Overhead) (Overhead, error)
+}
+
+// OverheadReader is the port of the storage that reads the overhead back.
+//
+// The port is what a use case needs: the rate of the overhead of the house
+// is read from the overhead of the business, and the overhead of a batch
+// is valued with it.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type OverheadReader interface {
+	// List returns the overhead of the business, in the order of the day
+	// it was declared and of its identity.
+	//
+	// The list holds the overhead of the business and of no other one,
+	// and it is empty when the business declared none yet.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Overhead, error)
+}

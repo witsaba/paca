@@ -51,6 +51,9 @@ func buildDescriptionReadBatchCost() string {
 		"  - the LABOR of the batch, beside the direct cost and never inside it: the hours of the steps of the " +
 		"recipe in the three kinds of the labor - the hands, the oven and the waiting - and the money of them, " +
 		"valued with the value of the hour the owner declared;\n" +
+		"  - the OVERHEAD of the batch, beside the direct cost and beside the labor and never inside either one: " +
+		"the hours of the oven of the steps of the recipe and the money of them, valued with the rate of the " +
+		"overhead of the house the owner declared;\n" +
 		"  - the cost per unit, per gram and per kilogram: the money of the book counts whole pesos, and these " +
 		"three are rates;\n" +
 		"  - for every ingredient of the recipe: the grams the recipe needs, the grams the stock gave to the " +
@@ -161,6 +164,31 @@ type batchCostLaborOutput struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// batchCostOverheadOutput is what the answer carries about the overhead of
+// the batch.
+//
+// The overhead is a layer of the cost of its own: it travels beside the
+// direct cost and beside the labor, and it is never added to either one.
+type batchCostOverheadOutput struct {
+	// OvenHours is the number of hours the batch was in the oven.
+	OvenHours float64 `json:"oven_hours"`
+
+	// Rate is the money of one hour of the oven that valued the overhead,
+	// in pesos.
+	Rate float64 `json:"rate"`
+
+	// Money is the money of the overhead of the batch, in whole pesos.
+	Money int64 `json:"money"`
+
+	// Unknown says that the money of the overhead is not derivable: the
+	// owner has not declared the overhead of the house.
+	Unknown bool `json:"unknown"`
+
+	// Reason says why the money of the overhead is not derivable, in the
+	// words of the book.
+	Reason string `json:"reason,omitempty"`
+}
+
 // batchCostOutput is what the answer carries about one recipe.
 type batchCostOutput struct {
 	// RecipeID is the recipe the cost is of.
@@ -181,6 +209,10 @@ type batchCostOutput struct {
 	// Labor is the labor of the batch: the hours of the steps of the
 	// recipe and the money of them.
 	Labor batchCostLaborOutput `json:"labor"`
+
+	// Overhead is the overhead of the batch: the hours of the oven of the
+	// steps of the recipe and the money of them.
+	Overhead batchCostOverheadOutput `json:"overhead"`
 
 	// PerUnit is the money of the batch per unit it makes.
 	PerUnit float64 `json:"per_unit"`
@@ -284,6 +316,13 @@ func outputOfCost(cost recipe.Cost) batchCostOutput {
 			Money:        int64(cost.Labor.Money),
 			Unknown:      cost.Labor.Unknown,
 			Reason:       cost.Labor.Reason,
+		},
+		Overhead: batchCostOverheadOutput{
+			OvenHours: cost.Overhead.OvenHours,
+			Rate:      cost.Overhead.Rate,
+			Money:     int64(cost.Overhead.Money),
+			Unknown:   cost.Overhead.Unknown,
+			Reason:    cost.Overhead.Reason,
 		},
 		Lines: make([]batchCostLineOutput, 0, len(cost.Lines)),
 	}

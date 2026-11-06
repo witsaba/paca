@@ -556,10 +556,10 @@ it does not know instead of guessing: an ingredient the stock holds in
 pieces or in a package without a declared weight has no rate per gram, and
 the answer names it.
 
-**The cost is direct.** The overhead (T14) is not in it yet, and the field
-is named `direct` so that no layer hides inside another one. The labour of
-the batch is carried beside it, in `recipe.Cost.Labor`, and the two are
-never added into one number.
+**The cost is direct.** The overhead (T14) is carried beside it, in
+`recipe.Cost.Overhead`, and the labour of the batch is carried beside it
+too, in `recipe.Cost.Labor`. The three layers are never added into one
+number: the report of the real price shows them apart.
 
 ## The labour of the bakery
 
@@ -593,6 +593,44 @@ does not know the value of the hour says so instead of guessing it.
 **The labour is of the owner alone.** The payroll of the employees is out of
 scope for now, and the model of the labour of an employee does not exist
 yet: `recipe.Labor` names no employee, because it has none.
+
+## The overhead of the house
+
+`recipe.Overhead` is the overhead of the house of the bakery, as the owner
+declared it: the electricity the house used, the hours the oven ran, the
+allocation she declared, the day it was declared and the word she used to
+confirm it. It lives in the package of the recipe, next to the cost of the
+batch it is a layer of.
+
+**The overhead is the electricity of the house and the hours of the oven.**
+The electricity is positive (`ErrMissingElectricity`) and it is declared by
+the owner: the money of the house is not a number PACA invents. The hours
+of the oven are positive (`ErrMissingOvenHours`): without them the money of
+the oven has no rate, and a rate nobody declared is a rate PACA invented.
+
+**The allocation is declared by the owner.** It is the share of the
+electricity of the house that belongs to the oven, and it is a share: it is
+greater than zero and not greater than one (`ErrInvalidAllocation`). The
+money of the overhead is the electricity of the house times the allocation,
+and the book rounds it to the nearest peso because the money of the book
+counts whole pesos.
+
+**The overhead of a batch is derived, never typed.** `recipe.OverheadOf`
+reads the steps of the recipe and counts the hours of the oven of it — the
+steps the owner said are the oven — and values them with the rate of the
+house. The steps of the hands and of the waiting are the labour of the
+batch, not the overhead of it.
+
+**The rate of the house is derived from what the owner declared.**
+`recipe.TheOverheadRateOf` takes the last overhead the business declared —
+the rate of a house does not wait — and answers the money of one hour of
+the oven. A business that declared none has no rate, and the batch says
+that it does not know it: the money of the house is never inferred.
+
+**The overhead is a fact of the business.** It moves no money of the ledger
+yet: the account of the overhead exists in the seed of the business, and
+the decision of whether the overhead writes a movement belongs to the
+report of the real price.
 
 ## The model of the reference price
 

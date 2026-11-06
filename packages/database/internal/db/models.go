@@ -68,6 +68,18 @@ type LedgerEntry struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type Overhead struct {
+	ID            int64
+	BusinessID    int64
+	Day           pgtype.Date
+	Electricity   int64
+	OvenHours     float64
+	Allocation    float64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type PriceReference struct {
 	ID            int64
 	BusinessID    int64

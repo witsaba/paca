@@ -184,8 +184,14 @@ var theMessages = map[error]string{
 	recipe.ErrMissingDay: "the labor carries no day: say the day the labor was worked, and never invent one",
 	recipe.ErrUnknownLaborKind: "the kind of the labor is not one of the three kinds PACA knows: use 'hands_on', " +
 		"'oven' or 'waiting'",
-	recipe.ErrMissingBusiness: "the business is required: send the identity of the business the labor belongs to, " +
+	recipe.ErrMissingBusiness: "the business is required: send the identity of the business the record belongs to, " +
 		"and PACA never invents one",
+	recipe.ErrMissingElectricity: "the overhead carries no electricity: ask the owner what the electricity of the " +
+		"house cost, and never fill it by yourself",
+	recipe.ErrMissingOvenHours: "the overhead carries no hours of the oven: ask the owner how many hours the oven " +
+		"ran, because without them the money of the oven has no rate",
+	recipe.ErrInvalidAllocation: "the allocation is not a share of the electricity: ask the owner what share of " +
+		"the electricity of the house belongs to the oven (0.6 is six of every ten pesos)",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

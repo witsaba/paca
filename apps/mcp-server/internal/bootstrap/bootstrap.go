@@ -282,12 +282,31 @@ func New(
 
 	laborService := application.NewLaborService(labors, clock.System{})
 
+	// The overhead of the house: the electricity the owner paid, the hours
+	// the oven ran and the allocation she declared. The overhead of a
+	// batch is derived from the hours of the oven of the steps of the
+	// recipe, and it is valued with the rate of the house. Without a
+	// database there is no overhead to write nor to read.
+	var overheads recipe.OverheadRepository
+	var overheadReader recipe.OverheadReader
+	if pool != nil {
+		boundOverheads, err := postgres.NewOverheadRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the overhead could not be built: %w", err)
+		}
+		overheads = boundOverheads
+		overheadReader = boundOverheads
+	}
+
+	overheadService := application.NewOverheadService(overheads, clock.System{})
+
 	// The cost of a batch: what the recipe of the bakery costs right now.
 	// The cost is derived from the layers that the recipe consumes, and
 	// the valuation is FIFO: the oldest layer is the first one that
 	// leaves. Without a database there is no recipe to read and no layer
 	// to value.
-	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader)
+	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader, overheadReader)
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
@@ -316,6 +335,7 @@ func New(
 		ReadStock:           stockService,
 		ReadBatchCost:       batchCostService,
 		RecordLabor:         laborService,
+		RecordOverhead:      overheadService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

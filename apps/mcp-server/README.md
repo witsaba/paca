@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty-seven tools: the way PACA onboards a person, the four
+The server exposes twenty-eight tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -112,7 +112,8 @@ and the completion of an ingredient with what the owner declared about it,
 the tool of the recipes: the guide she just confirmed, the two tools of
 the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
-the business holds and what it cost.
+the business holds and what it cost, the tool of the labour she just
+confirmed, and the tool of the overhead of the house.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -141,8 +142,9 @@ the business holds and what it cost.
 | `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
 | `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. It writes nothing. |
-| `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost and the LABOUR of the batch travel apart: the overhead is not in it yet. It writes nothing. |
+| `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one. It writes nothing. |
 | `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. The money of the labour is never inferred, and the payroll of the employees is out of scope for now. |
+| `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and the overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a

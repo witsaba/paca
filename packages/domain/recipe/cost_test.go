@@ -115,7 +115,7 @@ func TestTheCostOfABatchIsDerivedFromTheLayers(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestTheCostAnswersPerUnitPerGramAndPerKilogram(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestTheCostIsNotCompleteWhenTheStockDoesNotHoldTheRecipe(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestTheCostOfAnIngredientTheCatalogDoesNotHoldIsNotDerivable(t *testing.T) 
 		t.Fatalf("the recipe was refused: %v", err)
 	}
 
-	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t), ledger.Amount(0))
+	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestTheCostOfAnIngredientTheRecipeNamesTwiceIsTheCostOfTheGrams(t *testing.
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0))
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestTheCostCarriesTheLaborBesideTheDirectCost(t *testing.T) {
 		t.Fatalf("the recipe was refused: %v", err)
 	}
 
-	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(20000))
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(20000), recipe.OverheadRate{})
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -368,5 +368,69 @@ func TestTheCostCarriesTheLaborBesideTheDirectCost(t *testing.T) {
 	}
 	if cost.Labor.Value != ledger.Amount(20000) {
 		t.Errorf("the value of the hour is %d, want 20000", cost.Labor.Value)
+	}
+}
+
+// TestTheCostCarriesTheOverheadBesideTheDirectCostAndTheLabor proves the
+// rule of the domain: the three layers of the cost of a batch are never
+// hidden inside one another.
+//
+// The direct cost is the money of the ingredients, the labor is the money
+// of the hours of the steps and the overhead is the money of the hours of
+// the oven of the steps: the three are carried apart, and none of them is
+// added to the direct cost.
+func TestTheCostCarriesTheOverheadBesideTheDirectCostAndTheLabor(t *testing.T) {
+	t.Parallel()
+
+	layers := []purchase.Layer{
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+			theDayOfTheCost(), purchase.ID(9)),
+	}
+
+	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	if err != nil {
+		t.Fatalf("the ingredient of the recipe was refused: %v", err)
+	}
+
+	hornear, err := recipe.NewStep("Hornear.", "", 45, 220, recipe.LaborOven)
+	if err != nil {
+		t.Fatalf("the step was refused: %v", err)
+	}
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name:          "Pan de molde",
+		Ingredients:   []recipe.Ingredient{flour},
+		Steps:         []recipe.Step{hornear},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t),
+		ledger.Amount(20000), recipe.OverheadRate{MoneyPerOvenHour: 1500})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if cost.Direct != ledger.Amount(240) {
+		t.Errorf("the direct cost of the batch is %d, want 240", cost.Direct)
+	}
+	if cost.Labor.Money != ledger.Amount(15000) {
+		t.Errorf("the money of the labor is %d, want 15000", cost.Labor.Money)
+	}
+	if cost.Overhead.Money != ledger.Amount(1125) {
+		t.Errorf("the money of the overhead is %d, want 1125", cost.Overhead.Money)
+	}
+	if cost.Overhead.Unknown {
+		t.Error("the money of the overhead is not derivable, want the money of the hours of the oven")
+	}
+	if cost.Overhead.OvenHours != 0.75 {
+		t.Errorf("the hours of the oven are %v, want 0.75", cost.Overhead.OvenHours)
+	}
+	if cost.Overhead.Rate != 1500 {
+		t.Errorf("the money of the hour of the oven is %v, want 1500", cost.Overhead.Rate)
 	}
 }

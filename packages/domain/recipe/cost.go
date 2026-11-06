@@ -47,8 +47,8 @@ type CostLine struct {
 //
 // The cost is the direct cost of the batch: the money of the ingredients it
 // consumes. The labor and the overhead are layers of their own, and they
-// are never hidden inside this number: the labor of the batch is carried
-// beside the direct cost, and the overhead will be carried beside it too.
+// are never hidden inside this number: the labor of the batch and the
+// overhead of the batch are carried beside the direct cost.
 type Cost struct {
 	// RecipeID is the recipe the cost is of.
 	RecipeID ID
@@ -70,6 +70,15 @@ type Cost struct {
 	// direct cost, and the report of the real price shows the two
 	// apart.
 	Labor LaborCost
+
+	// Overhead is the overhead of the batch: the hours of the oven of the
+	// steps of the recipe, and the money of them at the rate of the
+	// overhead of the house.
+	//
+	// It is a layer of the cost of its own: it is never added to the
+	// direct cost nor to the labor, and the report of the real price
+	// shows the three apart.
+	Overhead OverheadCost
 
 	// Yield is what the recipe makes: the units it makes and the weight of
 	// each one.
@@ -103,6 +112,10 @@ type Cost struct {
 // The labor of the batch is derived from the hours of its steps, and it is
 // carried beside the direct cost: the two are never added into one number.
 //
+// The overhead of the batch is derived from the hours of the oven of its
+// steps, and it is carried beside the direct cost and beside the labor:
+// the three layers are never added into one number.
+//
 // The cost answers per unit, per gram and per kilogram: the money of the
 // book counts whole pesos, and the money of the batch is whole pesos, and
 // the three answers are rates.
@@ -118,6 +131,7 @@ func CostOf(
 	layers []purchase.Layer,
 	catalog ingredient.Catalog,
 	hourValue ledger.Amount,
+	overheadRate OverheadRate,
 ) (Cost, error) {
 	lines := make([]CostLine, 0, len(baked.Ingredients))
 	direct := ledger.Amount(0)
@@ -125,6 +139,11 @@ func CostOf(
 	complete := true
 
 	labor, err := LaborOf(baked, hourValue)
+	if err != nil {
+		return Cost{}, err
+	}
+
+	overhead, err := OverheadOf(baked, overheadRate)
 	if err != nil {
 		return Cost{}, err
 	}
@@ -180,6 +199,7 @@ func CostOf(
 		Lines:    lines,
 		Direct:   direct,
 		Labor:    labor,
+		Overhead: overhead,
 		Yield:    baked.Yield,
 		Complete: complete,
 		Missing:  missing,

@@ -28,6 +28,11 @@ import (
 // value of the hour the owner declared. It is never added to the direct
 // cost.
 //
+// The overhead of the batch is a layer of the cost of its own as well: it
+// is derived from the hours of the oven of the steps of the recipe, and
+// it is valued with the rate of the overhead of the house the owner
+// declared. It is never added to the direct cost nor to the labor.
+//
 // The use case never decides what a batch costs: the domain builds the
 // cost, and the use case carries the recipe and the layers to it.
 type BatchCostService struct {
@@ -35,6 +40,7 @@ type BatchCostService struct {
 	layers      purchase.LayerRepository
 	ingredients ingredient.Repository
 	labors      recipe.LaborReader
+	overheads   recipe.OverheadReader
 }
 
 // NewBatchCostService builds the use case of the cost of a batch.
@@ -42,16 +48,24 @@ type BatchCostService struct {
 // The repositories are the ports of the storage: the use case does not know
 // whether the rows live in PostgreSQL or somewhere else. The catalog of the
 // names is one of them: the answer carries the name the owner reads of
-// every ingredient of the recipe. The labor is another one: the answer
-// carries the labor of the batch, valued with the value of the hour the
-// owner declared.
+// every ingredient of the recipe. The labor and the overhead are two more:
+// the answer carries the labor of the batch, valued with the value of the
+// hour the owner declared, and the overhead of the batch, valued with the
+// rate of the overhead of the house.
 func NewBatchCostService(
 	recipes recipe.Reader,
 	layers purchase.LayerRepository,
 	ingredients ingredient.Repository,
 	labors recipe.LaborReader,
+	overheads recipe.OverheadReader,
 ) *BatchCostService {
-	return &BatchCostService{recipes: recipes, layers: layers, ingredients: ingredients, labors: labors}
+	return &BatchCostService{
+		recipes:     recipes,
+		layers:      layers,
+		ingredients: ingredients,
+		labors:      labors,
+		overheads:   overheads,
+	}
 }
 
 // Read answers the cost of the batches of the recipes of the business.
@@ -68,7 +82,8 @@ func NewBatchCostService(
 // layers and the catalog, and it asks the domain to build the cost. It
 // never decides what a batch costs.
 func (s *BatchCostService) Read(ctx context.Context, request ports.ReadBatchCost) ([]recipe.Cost, error) {
-	if s == nil || s.recipes == nil || s.layers == nil || s.ingredients == nil || s.labors == nil {
+	if s == nil || s.recipes == nil || s.layers == nil || s.ingredients == nil ||
+		s.labors == nil || s.overheads == nil {
 		return nil, ports.ErrNoDatabase
 	}
 
@@ -107,10 +122,20 @@ func (s *BatchCostService) Read(ctx context.Context, request ports.ReadBatchCost
 
 	hourValue := recipe.TheHourValueOf(labors)
 
+	// The rate of the overhead of the house is derived from what the
+	// owner declared, and the last declaration is the one that counts:
+	// the overhead of a batch is valued with it, and it is never guessed.
+	overheads, err := s.overheads.List(ctx, own)
+	if err != nil {
+		return nil, err
+	}
+
+	overheadRate := recipe.TheOverheadRateOf(overheads)
+
 	costs := make([]recipe.Cost, 0, len(baked))
 
 	for _, one := range baked {
-		cost, err := recipe.CostOf(one, layers, catalog, hourValue)
+		cost, err := recipe.CostOf(one, layers, catalog, hourValue, overheadRate)
 		if err != nil {
 			return nil, err
 		}

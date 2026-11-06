@@ -135,6 +135,9 @@ type ReferenceDefinition struct {
 //   - the price is a price: it is positive, and it is whole pesos;
 //   - the price carries its unit: a price without a unit is a number nobody
 //     can compare with anything;
+//   - the unit of the price is the unit the book knows: the way the
+//     research named it ("kilos") is read and normalised, and a unit the
+//     book does not know is refused with the error of the domain;
 //   - the reference carries its source: a price without a source is a price
 //     nobody can check;
 //   - the reference carries the day it was seen: a price that never was is
@@ -159,6 +162,11 @@ func NewReference(own business.ID, definition ReferenceDefinition) (Reference, e
 		return Reference{}, fmt.Errorf("%w: the price of the reference carries its unit", ErrMissingReferenceUnit)
 	}
 
+	known, err := ingredient.ParseUnit(unit)
+	if err != nil {
+		return Reference{}, fmt.Errorf("%w: the price of the reference carries the unit %q", err, unit)
+	}
+
 	source := strings.TrimSpace(definition.Source)
 	if source == "" {
 		return Reference{}, fmt.Errorf("%w: the reference carries the place the price was read", ErrMissingSource)
@@ -177,7 +185,7 @@ func NewReference(own business.ID, definition ReferenceDefinition) (Reference, e
 		BusinessID:    own,
 		IngredientID:  definition.IngredientID,
 		Price:         definition.Price,
-		Unit:          unit,
+		Unit:          known.String(),
 		Market:        strings.TrimSpace(definition.Market),
 		Source:        source,
 		SeenOn:        definition.SeenOn,

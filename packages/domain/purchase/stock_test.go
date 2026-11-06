@@ -226,8 +226,13 @@ func TestTheLayerCheckedRefusesEveryBrokenRow(t *testing.T) {
 }
 
 // TestTheLayerCarriesTheCanonicalUnitOfTheBook proves that the layer
-// carries the unit the book knows: the layer is derived, and the way the
-// owner said it is kept in the purchase.
+// carries the unit the book knows: the layer is derived, and the purchase
+// it comes from carries the unit of the book too.
+//
+// The rule that changed: the purchase keeps the unit of the book as well,
+// and not only the layer. The way the owner said the unit ("kilos") is
+// normalised where the book stores the measurement, and the sentence of the
+// owner keeps the exact wording.
 func TestTheLayerCarriesTheCanonicalUnitOfTheBook(t *testing.T) {
 	t.Parallel()
 
@@ -245,9 +250,9 @@ func TestTheLayerCarriesTheCanonicalUnitOfTheBook(t *testing.T) {
 	if layer.Left.Unit != "kg" {
 		t.Errorf("the unit of what is left is %q, want %q", layer.Left.Unit, "kg")
 	}
-	if bought.Lines[0].Measure.Unit != "kilos" {
-		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
-			bought.Lines[0].Measure.Unit, "kilos")
+	if bought.Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the book stores the unit of the book",
+			bought.Lines[0].Measure.Unit, "kg")
 	}
 }
 
@@ -255,11 +260,18 @@ func TestTheLayerCarriesTheCanonicalUnitOfTheBook(t *testing.T) {
 // line whose unit is not one of the units of the book has no layer: the
 // quantity and its unit travel together, and the unit of the book is a
 // rule of the domain.
+//
+// The line is built the way a row another writer broke it: the measure
+// carries the unit, and the domain is the one that refuses it.
 func TestTheLayerOfALineWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
 	t.Parallel()
 
 	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
-		aLineOfTheCatalog(t, "Harina", 25, "libra", 12000, ingredient.ID(10)))
+		Line{
+			Name:    "Harina",
+			Measure: Measure{Quantity: 25, Unit: "libra"},
+			Price:   Price{Total: 12000},
+		}.WithIngredient(ingredient.ID(10)))
 
 	_, err := newLayer(bought, bought.Lines[0], 1)
 	if !errors.Is(err, ingredient.ErrUnknownUnit) {

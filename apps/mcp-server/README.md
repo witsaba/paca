@@ -196,7 +196,8 @@ price the agent filled is refused, and a line the owner did not price is
 what the draft still needs. The quantity and its unit travel together: the
 unit of a line is the unit the owner named, and the unit of the ingredient
 of the catalog when she named none, and a line that ends without a unit is
-refused. And when the owner named both the money that was paid and the
+refused. The unit is stored the way the BOOK knows it: Paca reads the way
+she says it ("kilos", "gramos") and saves "kg", "g", "paquete", "unidad". And when the owner named both the money that was paid and the
 price of the unit, the two must agree. The day is one of the three things
 Paca may fill by herself, so a draft that names no day is the day of today
 and the answer says so. A draft expires in seven days if the owner says
@@ -297,9 +298,9 @@ answer carries the layers in that order. The order of the output by expiry
 is a different rule, and it does not live here. The quantity and its unit
 travel together: the layers bought in different units are held apart, and
 the book never adds a gram to a kilogram. The layer carries the unit the
-book knows (`g`, `kg`, `paquete`, `unidad`): the way the owner said it is
-kept in the purchase, and the layer of that purchase is in the unit of the
-book.
+book knows (`g`, `kg`, `paquete`, `unidad`), and so does the purchase it
+comes from: the way the owner said it is read by the domain and never
+stored.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

@@ -2,6 +2,7 @@ package ingredient
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -38,13 +39,19 @@ const GramsPerKilogram = 1000.0
 // theSpokenUnits are the names the owner and the agent say for the units.
 //
 // The values of the units are the ones the storage and the protocol carry:
-// the names a person says are read the way a person reads them.
+// the names a person says are read the way a person reads them. The list
+// is the vocabulary of the domain, and it holds the plain ways a person
+// says the four units of the book - and nothing else: a unit the book does
+// not know stays unknown.
 var theSpokenUnits = map[string]Unit{
 	"g":          UnitGram,
 	"gr":         UnitGram,
+	"gram":       UnitGram,
 	"gramo":      UnitGram,
 	"gramos":     UnitGram,
+	"grs":        UnitGram,
 	"kg":         UnitKilogram,
+	"kgs":        UnitKilogram,
 	"kilo":       UnitKilogram,
 	"kilos":      UnitKilogram,
 	"kilogramo":  UnitKilogram,
@@ -64,6 +71,23 @@ var theSpokenUnits = map[string]Unit{
 // depth.
 func Units() []Unit {
 	return []Unit{UnitGram, UnitKilogram, UnitPackage, UnitPiece}
+}
+
+// SpokenUnits returns the ways the owner and the agent say the units of the
+// book, in the order a person reads them.
+//
+// The list is the declared vocabulary of the domain: the description of the
+// tools reads it, so the agent sends the unit the way the owner said it.
+// The list holds no unit the book does not know.
+func SpokenUnits() []string {
+	spoken := make([]string, 0, len(theSpokenUnits))
+	for name := range theSpokenUnits {
+		spoken = append(spoken, name)
+	}
+
+	sort.Strings(spoken)
+
+	return spoken
 }
 
 // String returns the name of the unit.
@@ -94,4 +118,19 @@ func ParseUnit(spoken string) (Unit, error) {
 	}
 
 	return unit, nil
+}
+
+// namesOfTheUnits renders the units of the book in a sentence the caller
+// reads.
+//
+// The vocabulary belongs to the domain: the message of a refusal names the
+// units the book knows, and it never writes them a second time.
+func namesOfTheUnits() string {
+	names := make([]string, 0, len(Units()))
+
+	for _, one := range Units() {
+		names = append(names, one.String())
+	}
+
+	return strings.Join(names, ", ")
 }

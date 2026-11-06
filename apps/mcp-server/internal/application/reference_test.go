@@ -133,6 +133,54 @@ func TestTheReferenceIsWrittenWithTheConfirmationOfTheOwner(t *testing.T) {
 	}
 }
 
+// TestTheReferenceCarriesTheUnitOfTheBook proves that the unit of a
+// reference is the unit the book knows: the research may name the unit the
+// way a person says it, and the book keeps the unit it knows. The sentence
+// of the owner keeps the exact wording.
+func TestTheReferenceCarriesTheUnitOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	references := &fakeReferences{}
+	service := application.NewReferenceService(references, theCatalogOfTheTest(t), theClock())
+
+	request := theReferenceOfTheTest()
+	request.Unit = "kilos"
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the reference could not be written: %v", err)
+	}
+
+	if written.Unit != "kg" {
+		t.Errorf("the unit is %q, want %q: the book stores the unit of the book", written.Unit, "kg")
+	}
+	if written.Utterance != "La harina está a 480 el kilo en la plaza" {
+		t.Errorf("the sentence is %q, want the one of the owner", written.Utterance)
+	}
+}
+
+// TestTheReferenceWithAUnitTheBookDoesNotKnowIsRefused proves that a unit
+// the book does not know is refused by the domain, and that no reference is
+// written: the unit of the book is a rule.
+func TestTheReferenceWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	references := &fakeReferences{}
+	service := application.NewReferenceService(references, theCatalogOfTheTest(t), theClock())
+
+	request := theReferenceOfTheTest()
+	request.Unit = "libra"
+
+	_, err := service.Record(t.Context(), request)
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+
+	if len(references.written) != 0 {
+		t.Errorf("the storage holds %d references, want none", len(references.written))
+	}
+}
+
 // TestTheReferenceWithoutTheIngredientOfTheCatalogIsRefused proves that the
 // use case refuses a reference of an ingredient the catalog of the business
 // does not hold, and that it leaves nothing behind.

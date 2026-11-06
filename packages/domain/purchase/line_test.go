@@ -2,6 +2,7 @@ package purchase
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/witsaba/paca/packages/domain/ingredient"
@@ -89,6 +90,97 @@ func TestTheMeasureWithoutAUnitIsRefused(t *testing.T) {
 	_, err := NewMeasure(25, "   ")
 	if !errors.Is(err, ErrMissingUnit) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingUnit)
+	}
+}
+
+// TestTheMeasureCarriesTheUnitTheBookKnows proves the rule of the domain:
+// the unit of a measurement the book stores is the unit the book knows. The
+// owner may say the unit the way she says it, and the book keeps the unit
+// it knows.
+func TestTheMeasureCarriesTheUnitTheBookKnows(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		spoken string
+		want   string
+	}{
+		"the kilos are the kilograms":   {spoken: "kilos", want: "kg"},
+		"the kilos in singular":         {spoken: "kilo", want: "kg"},
+		"the gramos are the grams":      {spoken: "gramos", want: "g"},
+		"the grams":                     {spoken: "gr", want: "g"},
+		"the paquetes are the packages": {spoken: "paquetes", want: "paquete"},
+		"the piezas are the pieces":     {spoken: "piezas", want: "unidad"},
+		"the unidades":                  {spoken: "unidades", want: "unidad"},
+	}
+
+	for name, one := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			measure, err := NewMeasure(25, one.spoken)
+			if err != nil {
+				t.Fatalf("the measure was refused: %v", err)
+			}
+
+			if measure.Unit != one.want {
+				t.Errorf("the unit is %q, want %q", measure.Unit, one.want)
+			}
+		})
+	}
+}
+
+// TestTheMeasureWithAUnitTheBookDoesNotKnowIsRefused proves that a unit the
+// book does not know is never guessed and never dropped: the measure is
+// refused with the error of the domain, and the message names the units of
+// the book.
+func TestTheMeasureWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewMeasure(1, "libra")
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+
+	for _, unit := range ingredient.Units() {
+		if !strings.Contains(err.Error(), unit.String()) {
+			t.Errorf("the message %q does not name the unit %q of the book", err.Error(), unit.String())
+		}
+	}
+}
+
+// TestTheLineCarriesTheUnitOfTheBookAndTheNameOfTheOwner proves the rule of
+// the domain: the unit of a line is the unit the book knows, and the name
+// of the ingredient is the name the owner said.
+func TestTheLineCarriesTheUnitOfTheBookAndTheNameOfTheOwner(t *testing.T) {
+	t.Parallel()
+
+	measure, err := NewMeasure(25, "kilos")
+	if err != nil {
+		t.Fatalf("the measure was refused: %v", err)
+	}
+
+	line, err := NewLine("Harina", measure, Price{Total: 12000})
+	if err != nil {
+		t.Fatalf("the line was refused: %v", err)
+	}
+
+	if line.Measure.Unit != "kg" {
+		t.Errorf("the unit of the line is %q, want %q", line.Measure.Unit, "kg")
+	}
+	if line.Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", line.Name, "Harina")
+	}
+}
+
+// TestTheLineWithAUnitTheBookDoesNotKnowIsRefused proves that a line whose
+// unit the book does not know is refused, and that nothing of it is kept:
+// the unit of the book is a rule of the domain.
+func TestTheLineWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewLine("Harina", Measure{Quantity: 1, Unit: "libra"}, Price{Total: 1000})
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
 	}
 }
 

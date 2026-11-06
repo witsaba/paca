@@ -134,6 +134,43 @@ func TestTheReferenceWithoutItsUnitIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheReferenceCarriesTheUnitTheBookKnows proves the rule of the domain:
+// the unit of a reference is the unit the book knows. The research may name
+// the unit the way a person says it, and the book keeps the unit it knows.
+func TestTheReferenceCarriesTheUnitTheBookKnows(t *testing.T) {
+	t.Parallel()
+
+	definition := theReferenceOfTheTests()
+	definition.Unit = "kilos"
+
+	reference, err := NewReference(business.ID(77), definition)
+	if err != nil {
+		t.Fatalf("the reference was refused: %v", err)
+	}
+
+	if reference.Unit != "kg" {
+		t.Errorf("the unit is %q, want %q", reference.Unit, "kg")
+	}
+	if reference.Utterance != definition.Utterance {
+		t.Errorf("the sentence is %q, want %q", reference.Utterance, definition.Utterance)
+	}
+}
+
+// TestTheReferenceWithAUnitTheBookDoesNotKnowIsRefused proves that a unit
+// the book does not know is refused with the error of the domain, and that
+// no reference is written: the unit of the book is a rule.
+func TestTheReferenceWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	definition := theReferenceOfTheTests()
+	definition.Unit = "libra"
+
+	_, err := NewReference(business.ID(77), definition)
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+}
+
 // TestTheReferenceWithoutItsSourceIsRefused proves the rule of the domain: a
 // price without a source is a price nobody can check.
 func TestTheReferenceWithoutItsSourceIsRefused(t *testing.T) {

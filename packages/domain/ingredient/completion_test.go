@@ -249,6 +249,22 @@ func TestTheCertificationWithoutEvidenceIsRefusedByTheCompletion(t *testing.T) {
 	}
 }
 
+// TestTheUnitOfTheIngredientIsTheUnitOfTheBook proves that the unit the
+// ingredient is bought in is the unit the book knows: the way the owner
+// declared it ("kilos") is read and normalised.
+func TestTheUnitOfTheIngredientIsTheUnitOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	completed, err := Complete(anIngredient(t, 10, business.ID(77), "Harina"), Declaration{Unit: Unit("kilos")})
+	if err != nil {
+		t.Fatalf("the ingredient was refused: %v", err)
+	}
+
+	if completed.Unit != UnitKilogram {
+		t.Errorf("the unit is %q, want %q", completed.Unit, UnitKilogram)
+	}
+}
+
 // TestTheUnitTheBookDoesNotKnowIsRefusedByTheCompletion proves that the
 // completion refuses a unit the book does not know.
 func TestTheUnitTheBookDoesNotKnowIsRefusedByTheCompletion(t *testing.T) {

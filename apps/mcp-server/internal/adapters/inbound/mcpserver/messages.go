@@ -92,7 +92,7 @@ var theMessages = map[error]string{
 	purchase.ErrInvalidName:     "the name of a line is not empty: write the name the person read, the way she said it",
 	purchase.ErrInvalidQuantity: "the quantity of a line is not positive: ask the person how much she bought",
 	purchase.ErrMissingUnit: "the line carries no unit: ask the person in which unit she bought it ('kilos', " +
-		"'paquetes', 'unidades')",
+		"'paquetes', 'unidades'), and PACA keeps the unit of the book",
 	purchase.ErrInvalidPrice: "the money of a line is not a number of pesos: ask the person what she paid",
 	purchase.ErrPriceMismatch: "the money paid and the price of the unit do not agree: ask the person which of the " +
 		"two is the right one",
@@ -179,7 +179,7 @@ var theMessages = map[error]string{
 	purchase.ErrInvalidReferencePrice: "the price of the reference is not a positive number of pesos: ask for the " +
 		"price that was seen, and never fill it by yourself",
 	purchase.ErrMissingReferenceUnit: "the price of the reference carries no unit: ask in which unit the price was " +
-		"seen ('kg', 'libra', 'paquete', 'unidad')",
+		"seen ('kg', 'gramos', 'paquete', 'unidad'), and PACA keeps the unit of the book",
 	purchase.ErrMissingSource: "the reference carries no source: say where the price was read, because a price " +
 		"without a source is a price nobody can check",
 	purchase.ErrMissingDay: "the reference carries no day: say the day the price was seen, and never invent one",

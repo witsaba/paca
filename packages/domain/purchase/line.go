@@ -13,6 +13,10 @@ import (
 //
 // The quantity and its unit travel together: a quantity alone is a number
 // nobody can buy, and a unit alone is a word nobody can count.
+//
+// The unit of a measure is the unit the book knows: the measure is what the
+// book stores, and the book stores the gram, the kilogram, the package and
+// the piece.
 type Measure struct {
 	// Quantity is how much of the thing the owner named.
 	Quantity float64
@@ -26,6 +30,12 @@ type Measure struct {
 //
 // The quantity is positive, and the unit is not empty: the two travel
 // together.
+//
+// The unit is the unit the book knows: the way the owner said it ("kilos",
+// "gramos") is read and normalised, and the measure carries the unit of
+// the book ("kg", "g"). A unit the book does not know is refused with the
+// error of the domain (ingredient.ErrUnknownUnit): it is never guessed and
+// never dropped.
 func NewMeasure(quantity float64, unit string) (Measure, error) {
 	if quantity <= 0 {
 		return Measure{}, fmt.Errorf("%w: %v", ErrInvalidQuantity, quantity)
@@ -36,7 +46,12 @@ func NewMeasure(quantity float64, unit string) (Measure, error) {
 		return Measure{}, fmt.Errorf("%w: the measure of a line carries its unit", ErrMissingUnit)
 	}
 
-	return Measure{Quantity: quantity, Unit: trimmed}, nil
+	known, err := ingredient.ParseUnit(trimmed)
+	if err != nil {
+		return Measure{}, fmt.Errorf("%w: the measure of a line carries the unit %q", err, trimmed)
+	}
+
+	return Measure{Quantity: quantity, Unit: known.String()}, nil
 }
 
 // Price is the money of a line: the money that was paid for it, or the
@@ -143,6 +158,11 @@ func (l Line) WithIngredient(id ingredient.ID) Line {
 // The measure carries the quantity and its unit: the two travel together,
 // and a line without a unit is refused.
 //
+// The unit of the measure is the unit the book knows: the line stores the
+// unit of the book, and the way the owner said it is kept in the name of
+// the ingredient and in the sentence of her utterance. A unit the book
+// does not know is refused with the error of the domain.
+//
 // The money may be absent: a line the owner did not price is a line the
 // draft still needs, and the draft says so. The money is never inferred: a
 // price the agent filled is refused.
@@ -155,12 +175,9 @@ func NewLine(name string, measure Measure, price Price) (Line, error) {
 		return Line{}, fmt.Errorf("%w: the name of a line is not empty", ErrInvalidName)
 	}
 
-	if measure.Quantity <= 0 {
-		return Line{}, fmt.Errorf("%w: %v", ErrInvalidQuantity, measure.Quantity)
-	}
-
-	if strings.TrimSpace(measure.Unit) == "" {
-		return Line{}, fmt.Errorf("%w: the measure of a line carries its unit", ErrMissingUnit)
+	canonical, err := NewMeasure(measure.Quantity, measure.Unit)
+	if err != nil {
+		return Line{}, err
 	}
 
 	if price.Inferred {
@@ -171,10 +188,10 @@ func NewLine(name string, measure Measure, price Price) (Line, error) {
 		return Line{}, fmt.Errorf("%w: the money of the line %q is not negative", ErrInvalidPrice, trimmed)
 	}
 
-	if !price.AgreesWith(measure.Quantity) {
+	if !price.AgreesWith(canonical.Quantity) {
 		return Line{}, fmt.Errorf("%w: the line %q carries a total of %d and a unit of %d",
 			ErrPriceMismatch, trimmed, price.Total, price.Unit)
 	}
 
-	return Line{Name: trimmed, Measure: measure, Price: price}, nil
+	return Line{Name: trimmed, Measure: canonical, Price: price}, nil
 }

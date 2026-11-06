@@ -290,7 +290,8 @@ options — and what Paca filled by herself is `Inferred`.
 **The money is never inferred.** `purchase.NewLine` refuses a price the
 agent filled (`ErrInferredPrice`), and a line the owner did not price is
 what the draft still needs. The quantity and its unit travel together:
-`purchase.NewMeasure` refuses a quantity without a unit. When the owner
+`purchase.NewMeasure` refuses a quantity without a unit, and it reads the
+unit the owner said it and keeps the unit the book knows. When the owner
 named both the money that was paid and the price of the unit, the two must
 agree, and the domain refuses the pair that does not.
 
@@ -384,8 +385,8 @@ gram to a kilogram.
 
 **The layer carries the unit the book knows.** The layer is derived, and the
 unit it carries is the one of the book (`g`, `kg`, `paquete`, `unidad`): the
-way the owner said it — "kilos" — is kept in the purchase, and the layer of
-that purchase is in kilograms. A line whose unit is not one of the units of
+purchase stores the unit of the book too, and the layer of that purchase is
+in kilograms. A line whose unit is not one of the units of
 the book has no layer, and a layer that carries another unit is refused
 (`ErrInvalidUnit`, `ingredient.ErrUnknownUnit`).
 

@@ -52,8 +52,9 @@ func buildDescriptionRecordReference() string {
 		"business does not hold.\n\n" +
 		"The price is REQUIRED: the price that was seen, in whole pesos ('" + business.DefaultCurrency + "'). The " +
 		"money of the book counts whole pesos, like everywhere else.\n\n" +
-		"The unit is REQUIRED: the unit of that price ('kg', 'libra', 'paquete', 'unidad'). A price without a unit " +
-		"is a number nobody can compare with anything, and PACA refuses it.\n\n" +
+		"The unit is REQUIRED: the unit of that price, the way the owner says it (" + namesOfTheSpokenUnits() + "). " +
+		"The book stores the unit of the book (" + namesOfTheUnits() + "), and PACA refuses a unit it does not " +
+		"know. A price without a unit is a number nobody can compare with anything, and PACA refuses it.\n\n" +
 		"The source is REQUIRED: the place the price was read ('Boletín de precios al por mayor, DANE', the " +
 		"listing of the store). A price without a source is a price nobody can check, and PACA refuses it.\n\n" +
 		"The day is OPTIONAL: the day the price was seen, written the way a person writes it ('2026-03-01'). It is " +
@@ -93,7 +94,7 @@ type recordReferenceInput struct {
 	Price int64 `json:"price" jsonschema:"The price that was seen, in whole pesos. It is required and it is positive."`
 
 	// Unit is the unit of that price.
-	Unit string `json:"unit" jsonschema:"The unit of the price ('kg', 'libra', 'paquete', 'unidad'). It is required."`
+	Unit string `json:"unit" jsonschema:"The unit of the price, the way the owner says it ('kilos', 'gramos', 'paquetes', 'piezas'). It is required. PACA keeps the unit of the book ('g', 'kg', 'paquete', 'unidad')."`
 
 	// Market is the market where the price was seen.
 	Market string `json:"market,omitempty" jsonschema:"The market where the price was seen ('Plaza de Mercado'). It is optional: leave it out when the research named none."`

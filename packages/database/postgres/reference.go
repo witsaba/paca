@@ -23,6 +23,7 @@ import (
 const (
 	priceReferencesPriceConstraint         = "price_references_price_positive_check"
 	priceReferencesUnitConstraint          = "price_references_unit_not_empty_check"
+	priceReferencesCanonicalUnitConstraint = "price_references_unit_check"
 	priceReferencesSourceConstraint        = "price_references_source_not_empty_check"
 	priceReferencesConfirmedWithConstraint = "price_references_confirmed_with_not_empty_check"
 )
@@ -185,6 +186,7 @@ func writeReferenceError(err error) error {
 		switch pgErr.ConstraintName {
 		case priceReferencesPriceConstraint,
 			priceReferencesUnitConstraint,
+			priceReferencesCanonicalUnitConstraint,
 			priceReferencesSourceConstraint,
 			priceReferencesConfirmedWithConstraint:
 			return fmt.Errorf("%w: the constraint %q refused the row", purchase.ErrInvalidValue, pgErr.ConstraintName)

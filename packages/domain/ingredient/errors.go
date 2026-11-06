@@ -1,6 +1,9 @@
 package ingredient
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // The errors of the domain of the ingredient.
 //
@@ -33,8 +36,8 @@ var (
 
 	// ErrUnknownUnit is the error of a unit the book does not know: the
 	// gram, the kilogram, the package and the piece are the units of the
-	// book.
-	ErrUnknownUnit = errors.New("the unit is not one of the units the book knows")
+	// book, and the message names them.
+	ErrUnknownUnit = fmt.Errorf("the unit is not one of the units the book knows: %s", namesOfTheUnits())
 
 	// ErrInvalidQuantity is the error of a quantity that is not positive.
 	ErrInvalidQuantity = errors.New("the quantity of an ingredient is not positive")

@@ -2,6 +2,7 @@ package ingredient
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/witsaba/paca/packages/domain/business"
@@ -87,6 +88,30 @@ func TestTheUnitTheOwnerNamedIsReadTheWayAPersonReadsIt(t *testing.T) {
 	}
 }
 
+// TestThePlainWaysTheOwnerSaysTheUnitsAreTheOnesOfTheBook proves that the
+// vocabulary of the spoken units is the declared one of the domain: the
+// plain ways a person says the four units of the book are read, and they
+// answer the unit the book knows.
+func TestThePlainWaysTheOwnerSaysTheUnitsAreTheOnesOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]Unit{
+		"gram": UnitGram,
+		"grs":  UnitGram,
+		"kgs":  UnitKilogram,
+	}
+
+	for spoken, want := range cases {
+		unit, err := ParseUnit(spoken)
+		if err != nil {
+			t.Fatalf("the unit %q was refused: %v", spoken, err)
+		}
+		if unit != want {
+			t.Errorf("the unit %q is %q, want %q", spoken, unit, want)
+		}
+	}
+}
+
 // TestTheUnitTheBookDoesNotKnowIsRefused proves that a unit the book does
 // not know is never guessed: the units of the book are a rule.
 func TestTheUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
@@ -106,6 +131,21 @@ func TestTheUnitThatIsNotThereIsRefused(t *testing.T) {
 	_, err := ParseUnit("   ")
 	if !errors.Is(err, ErrUnknownUnit) {
 		t.Fatalf("the error is %v, want %v", err, ErrUnknownUnit)
+	}
+}
+
+// TestTheErrorOfAnUnknownUnitNamesTheUnitsOfTheBook proves that the
+// message of the refusal names the units the book knows: the caller reads
+// what it may send.
+func TestTheErrorOfAnUnknownUnitNamesTheUnitsOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseUnit("libra")
+
+	for _, unit := range Units() {
+		if !strings.Contains(err.Error(), unit.String()) {
+			t.Errorf("the message %q does not name the unit %q of the book", err.Error(), unit.String())
+		}
 	}
 }
 

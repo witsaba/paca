@@ -220,6 +220,22 @@ func namesOfTheUnits() string {
 	return strings.Join(names, ", ")
 }
 
+// namesOfTheSpokenUnits renders the ways the owner says the units of the
+// book in a sentence the agent reads.
+//
+// The vocabulary belongs to the domain: the description reads it and never
+// writes it a second time. The agent sends the unit the way the owner said
+// it, and the book keeps the unit of the book.
+func namesOfTheSpokenUnits() string {
+	names := make([]string, 0, len(ingredient.SpokenUnits()))
+
+	for _, one := range ingredient.SpokenUnits() {
+		names = append(names, "'"+one+"'")
+	}
+
+	return strings.Join(names, ", ")
+}
+
 // readIngredientsInput is the input of the tool that reads the catalog of
 // a business.
 type readIngredientsInput struct {

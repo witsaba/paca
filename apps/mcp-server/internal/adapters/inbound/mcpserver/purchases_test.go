@@ -207,6 +207,52 @@ func TestThePurchaseToolKeepsTheDraft(t *testing.T) {
 	}
 }
 
+// TestThePurchaseToolAcceptsTheUnitTheWayTheOwnerSaysIt proves that the
+// tool carries the unit the way the owner said it to the use case, and that
+// the answer shows the unit of the book: the tool translates, and the
+// domain decides.
+func TestThePurchaseToolAcceptsTheUnitTheWayTheOwnerSaysIt(t *testing.T) {
+	t.Parallel()
+
+	drafter := &stubPurchaseDrafter{draft: theAnswerOfTheDraft()}
+	session := connectWithPurchases(t, drafter)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolDraftPurchase,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"utterance":   "Compré 25 kilos de harina",
+			"lines": []any{
+				map[string]any{
+					"name":       "Harina",
+					"quantity":   25,
+					"unit":       "kilos",
+					"total_paid": 12000,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if len(drafter.got.Lines) != 1 {
+		t.Fatalf("the use case received %d lines, want 1", len(drafter.got.Lines))
+	}
+	if drafter.got.Lines[0].Unit != "kilos" {
+		t.Errorf("the unit the use case received is %q, want %q: the tool carries the way the owner said it",
+			drafter.got.Lines[0].Unit, "kilos")
+	}
+
+	answer := textOf(t, result)
+	if !strings.Contains(answer, `"unit":"kg"`) {
+		t.Errorf("the answer does not show the unit of the book: %s", answer)
+	}
+}
+
 // TestThePurchaseToolAnswersWithoutADatabase proves that a server without
 // a database still exposes the tool, and that the call says so.
 func TestThePurchaseToolAnswersWithoutADatabase(t *testing.T) {

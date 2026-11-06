@@ -229,7 +229,7 @@ The lines of a purchase: what was bought, how much of it and what it cost.
 | `position`            | `integer`    | Not null, positive, unique inside the purchase                |
 | `name`                | `text`       | Not null, never empty: the name the owner said                |
 | `quantity`            | `double precision` | Not null, positive                                      |
-| `unit`                | `text`       | Not null, never empty                                        |
+| `unit`                | `text`       | Not null, one of `g`, `kg`, `paquete`, `unidad`              |
 | `total`               | `bigint`     | Not null, never negative                                     |
 | `unit_price`          | `bigint`     | Not null, never negative                                     |
 | `ingredient_id`       | `bigint`     | Optional: the ingredient of the catalog the name belongs to   |
@@ -240,6 +240,12 @@ the position of a line is the order the owner said it in.
 **The name of the line is the name the owner said.** The identity of the
 ingredient is optional: it is there when the catalog knows the name, and it
 is empty when it does not.
+
+**The unit of the line is the unit of the book.** The owner may say the unit
+the way she says it — "kilos", "gramos" — and the domain is what turns the
+wording into the unit of the book (`g`, `kg`, `paquete`, `unidad`). The
+check of the table holds the same rule as a defense in depth
+(`purchase_lines_unit_check`).
 
 ### `stock_layers`
 
@@ -405,7 +411,7 @@ day it was read.
 | `business_id`         | `bigint`     | Not null, the business that researched it                     |
 | `ingredient_id`       | `bigint`     | Not null, the ingredient of the catalog                       |
 | `price`               | `bigint`     | Not null, positive: the price that was seen, in whole pesos  |
-| `unit`                | `text`       | Not null, never empty: the unit of that price                 |
+| `unit`                | `text`       | Not null, one of `g`, `kg`, `paquete`, `unidad`: the unit of that price |
 | `market`              | `text`       | Optional: the market where the price was seen                 |
 | `source`              | `text`       | Not null, never empty: the place the price was read           |
 | `seen_on`             | `date`       | Not null: the day the price was seen                          |
@@ -420,6 +426,12 @@ Paca found, and the rule lives in the domain.
 **The source is never empty.** A price without a source is a price nobody
 can check, and the check of the table holds the rule of the domain as a
 defense in depth.
+
+**The unit of the reference is the unit of the book.** The research may name
+the unit the way a person says it — "kilos" — and the domain is what turns
+the wording into the unit of the book (`g`, `kg`, `paquete`, `unidad`). The
+check of the table holds the same rule as a defense in depth
+(`price_references_unit_check`).
 
 **The ingredient of a reference is the ingredient of the catalog.** The
 column carries a foreign key to `ingredients`, and the reference never

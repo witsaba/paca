@@ -1636,11 +1636,14 @@ func TestTheConfirmationNamesNoNameTheCatalogKnows(t *testing.T) {
 	}
 }
 
-// TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOf
-// TheBook proves that the sentence of the owner keeps the exact wording and
-// that the layer carries the unit the book knows: the layer is derived, and
-// the stock never adds a gram to a kilogram.
-func TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOfTheBook(t *testing.T) {
+// TestTheConfirmationKeepsTheSentenceOfTheOwnerAndWritesTheUnitOfTheBook
+// proves that the sentence of the owner keeps the exact wording and that
+// the purchase and its layer carry the unit the book knows: the layer is
+// derived, and the stock never adds a gram to a kilogram.
+//
+// The rule that changed: the purchase keeps the unit of the book too, and
+// not only the layer.
+func TestTheConfirmationKeepsTheSentenceOfTheOwnerAndWritesTheUnitOfTheBook(t *testing.T) {
 	t.Parallel()
 
 	drafts := &fakeDrafts{}
@@ -1669,9 +1672,13 @@ func TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOfTheBo
 		t.Fatalf("the confirmation was refused: %v", err)
 	}
 
-	if purchases.purchases[0].Lines[0].Measure.Unit != "kilos" {
-		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
-			purchases.purchases[0].Lines[0].Measure.Unit, "kilos")
+	if purchases.purchases[0].Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the book stores the unit of the book",
+			purchases.purchases[0].Lines[0].Measure.Unit, "kg")
+	}
+	if purchases.purchases[0].Utterance != "Compré 25 kilos de harina" {
+		t.Errorf("the sentence is %q, want %q: the sentence of the owner keeps the exact wording",
+			purchases.purchases[0].Utterance, "Compré 25 kilos de harina")
 	}
 
 	if len(layers.layers) != 1 {
@@ -1679,5 +1686,64 @@ func TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOfTheBo
 	}
 	if layers.layers[0].Bought.Unit != "kg" {
 		t.Errorf("the unit of what the layer bought is %q, want %q", layers.layers[0].Bought.Unit, "kg")
+	}
+}
+
+// TestTheDraftCarriesTheUnitOfTheBookAndTheSentenceOfTheOwner proves that
+// the unit of a line is the unit the book knows: the owner may say the
+// unit the way she says it, and the draft stores the unit of the book. The
+// name of the ingredient and the sentence of the utterance keep the wording
+// of the owner.
+func TestTheDraftCarriesTheUnitOfTheBookAndTheSentenceOfTheOwner(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+
+	drafted, err := application.NewPurchaseService(drafts, theCatalog(), theClock()).Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kilos", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	if len(drafted.Lines) != 1 {
+		t.Fatalf("the draft carries %d lines, want 1", len(drafted.Lines))
+	}
+	if drafted.Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the unit of the line is %q, want %q: the book stores the unit of the book",
+			drafted.Lines[0].Measure.Unit, "kg")
+	}
+	if drafted.Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q: the name is the name the owner said",
+			drafted.Lines[0].Name, "Harina")
+	}
+	if drafted.Utterance != "Compré 25 kilos de harina" {
+		t.Errorf("the sentence is %q, want %q: the sentence of the owner keeps the exact wording",
+			drafted.Utterance, "Compré 25 kilos de harina")
+	}
+}
+
+// TestTheDraftOfALineWithAUnitTheBookDoesNotKnowIsRefused proves that a
+// line whose unit the book does not know is refused by the domain, and that
+// no draft is kept: the unit of the book is a rule, and it is never
+// guessed.
+func TestTheDraftOfALineWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+
+	_, err := application.NewPurchaseService(drafts, theCatalog(), theClock()).Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 1 libra de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 1, "libra", 1000)},
+	})
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+
+	if len(drafts.drafts) != 0 {
+		t.Errorf("the drafts hold %d drafts, want none", len(drafts.drafts))
 	}
 }

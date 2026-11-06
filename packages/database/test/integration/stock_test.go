@@ -308,8 +308,10 @@ func TestTheTableOfTheLayersRefusesTwoLayersOfTheSameLine(t *testing.T) {
 // thePurchaseWithTheUnitOfTheOwner builds the purchase whose line names
 // the unit the way the owner said it.
 //
-// The sentence of the owner keeps the exact wording, and the layer that is
-// derived from it carries the unit the book knows.
+// The sentence of the owner keeps the exact wording, and the line of the
+// purchase carries the unit the book knows: the domain is what turns the
+// wording into the unit, and the layer that is derived from it carries the
+// same unit.
 func thePurchaseWithTheUnitOfTheOwner(
 	t *testing.T,
 	ctx context.Context,
@@ -323,6 +325,16 @@ func thePurchaseWithTheUnitOfTheOwner(
 		t.Fatalf("the draft could not be written: %v", err)
 	}
 
+	measure, err := purchase.NewMeasure(25, "kilos")
+	if err != nil {
+		t.Fatalf("the measure was refused: %v", err)
+	}
+
+	line, err := purchase.NewLine("Harina", measure, purchase.Price{Total: 12000})
+	if err != nil {
+		t.Fatalf("the line was refused: %v", err)
+	}
+
 	return purchase.Purchase{
 		DraftID:       draft.ID,
 		BusinessID:    bakery.ID,
@@ -330,22 +342,20 @@ func thePurchaseWithTheUnitOfTheOwner(
 		Utterance:     draft.Utterance,
 		ConfirmedWith: "sí",
 		Lines: []purchase.Line{
-			{
-				Name:         "Harina",
-				Measure:      purchase.Measure{Quantity: 25, Unit: "kilos"},
-				Price:        purchase.Price{Total: 12000},
-				IngredientID: of,
-			},
+			line.WithIngredient(of),
 		},
 		Total: 12000,
 	}
 }
 
-// TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook proves
-// that the sentence of the owner keeps the exact wording and that the layer
-// carries the unit of the book: the layer is derived, and the stock never
-// adds a gram to a kilogram.
-func TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook(t *testing.T) {
+// TestThePurchaseKeepsTheSentenceOfTheOwnerAndTheUnitOfTheBook proves that
+// the sentence of the owner keeps the exact wording and that the purchase
+// and its layer carry the unit of the book: the layer is derived, and the
+// stock never adds a gram to a kilogram.
+//
+// The rule that changed: the purchase keeps the unit of the book too, and
+// not only the layer.
+func TestThePurchaseKeepsTheSentenceOfTheOwnerAndTheUnitOfTheBook(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -358,9 +368,13 @@ func TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook(t *testing.
 		t.Fatalf("the purchase could not be written: %v", err)
 	}
 
-	if bought.Lines[0].Measure.Unit != "kilos" {
-		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
-			bought.Lines[0].Measure.Unit, "kilos")
+	if bought.Lines[0].Measure.Unit != "kg" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the book stores the unit of the book",
+			bought.Lines[0].Measure.Unit, "kg")
+	}
+	if bought.Utterance != "Compré 25 kilos de harina" {
+		t.Errorf("the sentence is %q, want %q: the sentence of the owner keeps the exact wording",
+			bought.Utterance, "Compré 25 kilos de harina")
 	}
 
 	written, err := repo.Record(ctx, theLayersOfThePurchase(t, bought, flour.ID))
@@ -380,6 +394,37 @@ func TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook(t *testing.
 	}
 	if held[0].Bought.Unit != "kg" {
 		t.Errorf("the unit of what the layer bought is %q, want %q", held[0].Bought.Unit, "kg")
+	}
+}
+
+// TestTheLineOfAPurchaseWithAUnitTheBookDoesNotKnowIsRefused proves the
+// rule of the table: the unit of a line is one of the four units of the
+// book, and the table refuses the row another writer wrote with a unit that
+// is not one of them.
+func TestTheLineOfAPurchaseWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO purchase_lines (purchase_id, position, name, quantity, unit, total, unit_price)
+		 VALUES ($1, 1, 'Harina', 25, 'libra', 12000, 0)`,
+		int64(bought.ID),
+	)
+	if err == nil {
+		t.Fatal("the row with the unit of a stranger was written, want the refusal of the table")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "purchase_lines_unit_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "purchase_lines_unit_check")
 	}
 }
 

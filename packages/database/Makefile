@@ -49,7 +49,7 @@ COVER_PKGS ?= $(shell $(GO) list ./... | grep -v '/internal/db' | grep -v '/data
 # measures what can be asserted without a database, and the container tests
 # measure the rest. The files below belong to the second half: their queries
 # run against PostgreSQL, and the container tests are what prove them.
-COVER_EXCLUDE_FILES ?= packages/database/postgres/(repository|business|account|ledger|unit_of_work|purchase|ingredient|recipe|reference|stock)\.go
+COVER_EXCLUDE_FILES ?= packages/database/postgres/(repository|business|account|ledger|unit_of_work|purchase|ingredient|recipe|reference|stock|labor)\.go
 
 .DEFAULT_GOAL := help
 

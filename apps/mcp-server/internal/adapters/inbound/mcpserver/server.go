@@ -158,6 +158,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadBatchCost ports.BatchCostReader
+
+	// RecordLabor is the use case that writes the labor the owner worked
+	// and the value of the hour she declared.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordLabor ports.LaborRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -214,6 +221,7 @@ func New(opts Options) *Server {
 	transport.registerReferenceTools(opts.RecordReference, opts.ReadReferences)
 	transport.registerStockTools(opts.ReadStock)
 	transport.registerBatchCostTools(opts.ReadBatchCost)
+	transport.registerLaborTools(opts.RecordLabor)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

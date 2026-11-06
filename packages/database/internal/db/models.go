@@ -44,6 +44,19 @@ type Ingredient struct {
 	Conversion            float64
 }
 
+type Labor struct {
+	ID            int64
+	BusinessID    int64
+	Day           pgtype.Date
+	HandsOnHours  float64
+	OvenHours     float64
+	WaitingHours  float64
+	HourValue     int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type LedgerEntry struct {
 	ID              int64
 	BusinessID      int64
@@ -141,6 +154,7 @@ type RecipeStep struct {
 	Cue         string
 	Minutes     int32
 	Temperature float64
+	LaborKind   string
 }
 
 type StockLayer struct {

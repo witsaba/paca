@@ -69,8 +69,8 @@ func theRecipeOfTheTest(bakery business.Business, flour ingredient.Ingredient) r
 			{IngredientID: flour.ID, Grams: 500},
 		},
 		Steps: []recipe.Step{
-			{Instruction: "Mezclar la harina con el agua y amasar.", Cue: "la masa que holds la forma", Minutes: 20, Temperature: 24},
-			{Instruction: "Hornear.", Minutes: 45, Temperature: 220},
+			{Instruction: "Mezclar la harina con el agua y amasar.", Cue: "la masa que holds la forma", Minutes: 20, Temperature: 24, Kind: recipe.LaborHandsOn},
+			{Instruction: "Hornear.", Minutes: 45, Temperature: 220, Kind: recipe.LaborOven},
 		},
 		Yield:         recipe.Yield{Units: 10, Grams: 90},
 		ShelfLifeDays: 3,
@@ -192,7 +192,7 @@ func TestTheStepsOfTheRecipeKeepTheirOrder(t *testing.T) {
 	}
 
 	rows, err := theSuite.db.QueryContext(ctx,
-		`SELECT instruction, cue, minutes, temperature FROM recipe_steps WHERE recipe_id = $1 ORDER BY position`,
+		`SELECT instruction, cue, minutes, temperature, labor_kind FROM recipe_steps WHERE recipe_id = $1 ORDER BY position`,
 		written.ID)
 	if err != nil {
 		t.Fatalf("the steps of the recipe could not be read: %v", err)
@@ -204,12 +204,13 @@ func TestTheStepsOfTheRecipeKeepTheirOrder(t *testing.T) {
 		cue         string
 		minutes     int
 		temperature float64
+		laborKind   string
 	}
 
 	steps := make([]step, 0, 2)
 	for rows.Next() {
 		var one step
-		if err := rows.Scan(&one.instruction, &one.cue, &one.minutes, &one.temperature); err != nil {
+		if err := rows.Scan(&one.instruction, &one.cue, &one.minutes, &one.temperature, &one.laborKind); err != nil {
 			t.Fatalf("the step of the recipe could not be read: %v", err)
 		}
 
@@ -231,6 +232,9 @@ func TestTheStepsOfTheRecipeKeepTheirOrder(t *testing.T) {
 	if steps[0].minutes != 20 {
 		t.Errorf("the time of the first step is %d minutes, want 20", steps[0].minutes)
 	}
+	if steps[0].laborKind != "hands_on" {
+		t.Errorf("the kind of labor of the first step is %q, want %q", steps[0].laborKind, "hands_on")
+	}
 	if steps[0].temperature != 24 {
 		t.Errorf("the temperature of the first step is %v, want 24", steps[0].temperature)
 	}
@@ -242,6 +246,9 @@ func TestTheStepsOfTheRecipeKeepTheirOrder(t *testing.T) {
 	}
 	if steps[1].minutes != 45 || steps[1].temperature != 220 {
 		t.Errorf("the second step is %+v, want 45 minutes at 220 degrees", steps[1])
+	}
+	if steps[1].laborKind != "oven" {
+		t.Errorf("the kind of labor of the second step is %q, want %q", steps[1].laborKind, "oven")
 	}
 }
 
@@ -448,6 +455,9 @@ func TestTheRecipeIsReadBackWithItsIngredientsAndItsSteps(t *testing.T) {
 	}
 	if found.Steps[1].Temperature != 220 {
 		t.Errorf("the temperature of the second step is %v, want 220", found.Steps[1].Temperature)
+	}
+	if found.Steps[1].Kind != recipe.LaborOven {
+		t.Errorf("the kind of labor of the second step is %q, want %q", found.Steps[1].Kind, recipe.LaborOven)
 	}
 	if found.Yield.Units != 10 || found.Yield.Grams != 90 {
 		t.Errorf("the yield of the recipe is %+v, want 10 units of 90 grams", found.Yield)

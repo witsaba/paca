@@ -23,12 +23,18 @@ import (
 // is the first one that leaves, and the money of what is taken is the money
 // of the layer, pro rata the quantity that was taken.
 //
+// The labor of the batch is a layer of the cost of its own: it is derived
+// from the hours of the steps of the recipe, and it is valued with the
+// value of the hour the owner declared. It is never added to the direct
+// cost.
+//
 // The use case never decides what a batch costs: the domain builds the
 // cost, and the use case carries the recipe and the layers to it.
 type BatchCostService struct {
 	recipes     recipe.Reader
 	layers      purchase.LayerRepository
 	ingredients ingredient.Repository
+	labors      recipe.LaborReader
 }
 
 // NewBatchCostService builds the use case of the cost of a batch.
@@ -36,13 +42,16 @@ type BatchCostService struct {
 // The repositories are the ports of the storage: the use case does not know
 // whether the rows live in PostgreSQL or somewhere else. The catalog of the
 // names is one of them: the answer carries the name the owner reads of
-// every ingredient of the recipe.
+// every ingredient of the recipe. The labor is another one: the answer
+// carries the labor of the batch, valued with the value of the hour the
+// owner declared.
 func NewBatchCostService(
 	recipes recipe.Reader,
 	layers purchase.LayerRepository,
 	ingredients ingredient.Repository,
+	labors recipe.LaborReader,
 ) *BatchCostService {
-	return &BatchCostService{recipes: recipes, layers: layers, ingredients: ingredients}
+	return &BatchCostService{recipes: recipes, layers: layers, ingredients: ingredients, labors: labors}
 }
 
 // Read answers the cost of the batches of the recipes of the business.
@@ -59,7 +68,7 @@ func NewBatchCostService(
 // layers and the catalog, and it asks the domain to build the cost. It
 // never decides what a batch costs.
 func (s *BatchCostService) Read(ctx context.Context, request ports.ReadBatchCost) ([]recipe.Cost, error) {
-	if s == nil || s.recipes == nil || s.layers == nil || s.ingredients == nil {
+	if s == nil || s.recipes == nil || s.layers == nil || s.ingredients == nil || s.labors == nil {
 		return nil, ports.ErrNoDatabase
 	}
 
@@ -88,10 +97,20 @@ func (s *BatchCostService) Read(ctx context.Context, request ports.ReadBatchCost
 		return nil, err
 	}
 
+	// The value of the hour is what the owner declared, and the last
+	// declaration is the one that counts: the labor of a batch is valued
+	// with it, and it is never guessed.
+	labors, err := s.labors.List(ctx, own)
+	if err != nil {
+		return nil, err
+	}
+
+	hourValue := recipe.TheHourValueOf(labors)
+
 	costs := make([]recipe.Cost, 0, len(baked))
 
 	for _, one := range baked {
-		cost, err := recipe.CostOf(one, layers, catalog)
+		cost, err := recipe.CostOf(one, layers, catalog, hourValue)
 		if err != nil {
 			return nil, err
 		}

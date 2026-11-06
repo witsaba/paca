@@ -633,7 +633,8 @@ type RecipeIngredient struct {
 //
 // The instruction is what the owner does, the cue is the sign she looks
 // for, and the time and the temperature are there only when she named
-// them.
+// them. The kind of the labor is there only when she named it too: the
+// labor of the hands is the one a step carries when it names none.
 type RecipeStep struct {
 	// Instruction is what the owner does in this step.
 	Instruction string
@@ -648,6 +649,11 @@ type RecipeStep struct {
 	// Temperature is the temperature of the step, in degrees Celsius. It
 	// is zero when the owner named none.
 	Temperature float64
+
+	// LaborKind is the kind of the labor the step is ('hands_on',
+	// 'oven', 'waiting'). It is empty when the owner named none, and
+	// the labor of the hands is the one a step carries then.
+	LaborKind string
 }
 
 // RecordRecipe is the recipe the owner confirmed: the business it belongs
@@ -776,6 +782,60 @@ type BatchCostReader interface {
 	// that is not there, a recipe of another business and a business that
 	// is not there.
 	Read(ctx context.Context, request ReadBatchCost) ([]recipe.Cost, error)
+}
+
+// RecordLabor is the labor the owner declared: the hours she worked, in
+// the three kinds of the labor, the value of the hour, the day it was
+// worked and the word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// hours and the value of the hour are what she said, and PACA never infers
+// either of them.
+type RecordLabor struct {
+	// BusinessID is the business the labor belongs to.
+	BusinessID business.ID
+
+	// HandsOnHours is the number of hours the hands of the owner were
+	// on the dough.
+	HandsOnHours float64
+
+	// OvenHours is the number of hours the batch was in the oven.
+	OvenHours float64
+
+	// WaitingHours is the number of hours the dough waited.
+	WaitingHours float64
+
+	// HourValue is the value of the hour, in whole pesos. It is declared
+	// by the owner, and it is never inferred.
+	HourValue int64
+
+	// Day is the day the labor was worked. It is the day of today when
+	// the agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word the owner used to confirm the labor.
+	ConfirmedWith string
+}
+
+// LaborRecorder is the inbound port of the tool that records the labor.
+//
+// The tool writes the hours the owner worked and the value of the hour she
+// declared, and the domain decides what a labor is.
+type LaborRecorder interface {
+	// Record writes the labor of the business and answers it with it.
+	//
+	// The identity of the business, the hours of the labor, the value of
+	// the hour and the word of the owner are required. The day and the
+	// sentence of the owner are optional, and the day is the day of
+	// today when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses a labor
+	// without hours, without the value of the hour, without the day it
+	// was worked and without the word of the owner.
+	Record(ctx context.Context, request RecordLabor) (recipe.Labor, error)
 }
 
 // SummaryQuerier is the inbound port of the tool that closes a month.

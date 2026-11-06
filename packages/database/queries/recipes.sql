@@ -22,10 +22,10 @@ VALUES (sqlc.arg(recipe_id), sqlc.arg(position), sqlc.arg(ingredient_id), sqlc.a
 RETURNING *;
 
 -- name: CreateRecipeStep :one
-INSERT INTO recipe_steps (recipe_id, position, instruction, cue, minutes, temperature)
+INSERT INTO recipe_steps (recipe_id, position, instruction, cue, minutes, temperature, labor_kind)
 VALUES (
     sqlc.arg(recipe_id), sqlc.arg(position), sqlc.arg(instruction), sqlc.arg(cue),
-    sqlc.arg(minutes), sqlc.arg(temperature)
+    sqlc.arg(minutes), sqlc.arg(temperature), sqlc.arg(labor_kind)
 )
 RETURNING *;
 
@@ -54,7 +54,7 @@ ORDER BY position;
 -- name: ListRecipeStepsByRecipe :many
 --
 -- The steps of the recipe, in the order the owner said them.
-SELECT id, recipe_id, position, instruction, cue, minutes, temperature
+SELECT id, recipe_id, position, instruction, cue, minutes, temperature, labor_kind
 FROM recipe_steps
 WHERE recipe_id = sqlc.arg(recipe_id)
 ORDER BY position;

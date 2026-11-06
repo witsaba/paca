@@ -290,3 +290,40 @@ func TestTheReadBatchCostToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 		t.Errorf("the use case was called %d times, want none", reader.calls)
 	}
 }
+
+// TestTheReadBatchCostToolCarriesTheLaborBesideTheDirectCost proves that
+// the answer of the tool carries the labor of the batch beside the direct
+// cost: the two layers of the cost are never hidden inside one another.
+func TestTheReadBatchCostToolCarriesTheLaborBesideTheDirectCost(t *testing.T) {
+	t.Parallel()
+
+	costs := theCostOfTheTest(t)
+	costs[0].Labor = recipe.LaborCost{
+		Hours: recipe.Hours{HandsOn: 0.5, Oven: 0.75, Waiting: 1},
+		Value: ledger.Amount(20000),
+		Money: ledger.Amount(45000),
+	}
+
+	reader := &stubBatchCostReader{costs: costs}
+	session := connectWithTheBatchCost(t, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadBatchCost,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{"hands_on_hours", "oven_hours", "waiting_hours", "45000", "20000"} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not carry %q:\n%s", want, answer)
+		}
+	}
+}

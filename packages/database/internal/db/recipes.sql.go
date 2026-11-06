@@ -95,12 +95,12 @@ func (q *Queries) CreateRecipeIngredient(ctx context.Context, arg CreateRecipeIn
 }
 
 const createRecipeStep = `-- name: CreateRecipeStep :one
-INSERT INTO recipe_steps (recipe_id, position, instruction, cue, minutes, temperature)
+INSERT INTO recipe_steps (recipe_id, position, instruction, cue, minutes, temperature, labor_kind)
 VALUES (
     $1, $2, $3, $4,
-    $5, $6
+    $5, $6, $7
 )
-RETURNING id, recipe_id, position, instruction, cue, minutes, temperature
+RETURNING id, recipe_id, position, instruction, cue, minutes, temperature, labor_kind
 `
 
 type CreateRecipeStepParams struct {
@@ -110,6 +110,7 @@ type CreateRecipeStepParams struct {
 	Cue         string
 	Minutes     int32
 	Temperature float64
+	LaborKind   string
 }
 
 func (q *Queries) CreateRecipeStep(ctx context.Context, arg CreateRecipeStepParams) (RecipeStep, error) {
@@ -120,6 +121,7 @@ func (q *Queries) CreateRecipeStep(ctx context.Context, arg CreateRecipeStepPara
 		arg.Cue,
 		arg.Minutes,
 		arg.Temperature,
+		arg.LaborKind,
 	)
 	var i RecipeStep
 	err := row.Scan(
@@ -130,6 +132,7 @@ func (q *Queries) CreateRecipeStep(ctx context.Context, arg CreateRecipeStepPara
 		&i.Cue,
 		&i.Minutes,
 		&i.Temperature,
+		&i.LaborKind,
 	)
 	return i, err
 }
@@ -192,7 +195,7 @@ func (q *Queries) ListRecipeIngredientsByRecipe(ctx context.Context, recipeID in
 }
 
 const listRecipeStepsByRecipe = `-- name: ListRecipeStepsByRecipe :many
-SELECT id, recipe_id, position, instruction, cue, minutes, temperature
+SELECT id, recipe_id, position, instruction, cue, minutes, temperature, labor_kind
 FROM recipe_steps
 WHERE recipe_id = $1
 ORDER BY position
@@ -216,6 +219,7 @@ func (q *Queries) ListRecipeStepsByRecipe(ctx context.Context, recipeID int64) (
 			&i.Cue,
 			&i.Minutes,
 			&i.Temperature,
+			&i.LaborKind,
 		); err != nil {
 			return nil, err
 		}

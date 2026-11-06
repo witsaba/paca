@@ -46,7 +46,8 @@ packages/domain/
   recipe/           the model of the recipe of the bakery: the guide to
                     learn and to teach, the ingredients with their grams, the
                     steps with their times, their temperatures and their
-                    cues, the yield, the shelf life and the port of the
+                    cues, the yield, the shelf life, the cost of a batch
+                    and the labour of the owner, and the port of the
                     storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
@@ -555,9 +556,43 @@ it does not know instead of guessing: an ingredient the stock holds in
 pieces or in a package without a declared weight has no rate per gram, and
 the answer names it.
 
-**The cost is direct.** The labour (T13) and the overhead (T14) are not in
-it yet, and the field is named `direct` so that no layer hides inside
-another one.
+**The cost is direct.** The overhead (T14) is not in it yet, and the field
+is named `direct` so that no layer hides inside another one. The labour of
+the batch is carried beside it, in `recipe.Cost.Labor`, and the two are
+never added into one number.
+
+## The labour of the bakery
+
+`recipe.Labor` is the labour of the owner, as she declared it: the hours she
+worked, in the three kinds of the labour — the hands, the oven and the
+waiting — the value of the hour, the day it was worked and the word she used
+to confirm it. It lives in the package of the recipe, next to the cost of
+the batch it is a layer of.
+
+**The labour is measured in hours, in three kinds.** `recipe.Hours` holds
+the hours of the hands, of the oven and of the waiting apart, and
+`recipe.NewHours` refuses the hours that are negative
+(`ErrInvalidHours`): a negative number of hours is a number nobody worked.
+The kinds are the vocabulary of the domain: `recipe.LaborKinds` names the
+three of them and `recipe.ParseLaborKind` reads the way the owner says them
+(`hands_on`, `oven`, `waiting`), and a kind the book does not know is
+refused (`ErrUnknownLaborKind`).
+
+**The value of the hour is declared by the owner.** It is positive
+(`ErrMissingHourValue`), and the money of the work of a person is never a
+number PACA invents. The money of the labour is the hours of it times the
+value of the hour, and the book rounds it to the nearest peso because the
+money of the book counts whole pesos.
+
+**The labour of a batch is derived from the hours of its steps.**
+`recipe.LaborOf` adds the time of every step of the recipe to the kind of
+labour the step is, and values it with the value of the hour. A step the
+owner did not qualify is a step she did with her hands, and the answer that
+does not know the value of the hour says so instead of guessing it.
+
+**The labour is of the owner alone.** The payroll of the employees is out of
+scope for now, and the model of the labour of an employee does not exist
+yet: `recipe.Labor` names no employee, because it has none.
 
 ## The model of the reference price
 

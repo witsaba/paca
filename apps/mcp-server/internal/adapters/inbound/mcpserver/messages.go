@@ -175,6 +175,17 @@ var theMessages = map[error]string{
 	recipe.ErrNoStorage: "the service has no storage of the recipes: the book of the bakery cannot be reached",
 	recipe.ErrWrongBusiness: "the recipe belongs to another business: read the cost of a batch of the " +
 		"business the person names",
+	recipe.ErrInvalidHours: "the hours of the labor are not a number of hours: a negative number of hours is a " +
+		"number nobody worked",
+	recipe.ErrMissingHours: "the labor carries no hours: ask the owner how many hours she worked, and in which " +
+		"of the three kinds of the labor",
+	recipe.ErrMissingHourValue: "the value of the hour is not declared: ask the owner what the hour of her work " +
+		"is worth, and never fill it by yourself",
+	recipe.ErrMissingDay: "the labor carries no day: say the day the labor was worked, and never invent one",
+	recipe.ErrUnknownLaborKind: "the kind of the labor is not one of the three kinds PACA knows: use 'hands_on', " +
+		"'oven' or 'waiting'",
+	recipe.ErrMissingBusiness: "the business is required: send the identity of the business the labor belongs to, " +
+		"and PACA never invents one",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

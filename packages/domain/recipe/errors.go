@@ -61,6 +61,33 @@ var (
 	// recipe belongs to the business that owns it, and the cost of a batch
 	// is read for one business.
 	ErrWrongBusiness = errors.New("the recipe belongs to another business")
+
+	// ErrInvalidHours is the error of hours of the labor that are not a
+	// number of hours: a negative number of hours is a number nobody
+	// worked.
+	ErrInvalidHours = errors.New("the hours of the labor are not negative")
+
+	// ErrMissingHours is the error of a labor without hours: the hours of
+	// the owner are the fact, and a labor without them is nothing.
+	ErrMissingHours = errors.New("the labor carries the hours of the owner")
+
+	// ErrMissingHourValue is the error of a labor whose value of the hour
+	// was not declared: the money of the work of a person is never
+	// inferred.
+	ErrMissingHourValue = errors.New("the labor carries the value of the hour the owner declared")
+
+	// ErrMissingDay is the error of a labor without the day it was
+	// worked: a labor of no day is a labor of no time.
+	ErrMissingDay = errors.New("the labor carries the day it was worked")
+
+	// ErrUnknownLaborKind is the error of a kind of the labor the book
+	// does not know: the kinds of the labor are the hands, the oven and
+	// the waiting, and no other one is guessed.
+	ErrUnknownLaborKind = errors.New("the kind of the labor is one of the three kinds of the book")
+
+	// ErrMissingBusiness is the error of a labor of no business: the
+	// labor of the bakery belongs to the business that works it.
+	ErrMissingBusiness = errors.New("the labor belongs to a business")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -80,5 +107,11 @@ func Errors() []error {
 		ErrInvalidValue,
 		ErrNoStorage,
 		ErrWrongBusiness,
+		ErrInvalidHours,
+		ErrMissingHours,
+		ErrMissingHourValue,
+		ErrMissingDay,
+		ErrUnknownLaborKind,
+		ErrMissingBusiness,
 	}
 }

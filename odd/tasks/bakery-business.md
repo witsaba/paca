@@ -1050,7 +1050,7 @@ its session starts.
 | T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
 | T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b` and the correction of this commit |
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | this commit |
-| T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
+| T13 | S5, S9 | The labor, and the tool that records it | inline | this commit |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
 | T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `pending` |
 | T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `pending` |
@@ -1218,3 +1218,11 @@ Four things the increment taught, carried here for the ones to come:
 - **The layer is tied to the line of its purchase** (F5): the domain re-derives the layer from the line and refuses it when the money, the quantity or the ingredient differ, and two container tests break a real row to prove that the read of the stock refuses it.
 - **The cost is DIRECT and says its name.** The labour (T13) and the overhead (T14) are not in it, and the field is called `direct` so that no layer of cost hides inside another one.
 - **An answer that does not know says so.** An ingredient the stock holds in pieces, or in a package without a declared weight, has no rate per gram: the cost names it instead of guessing.
+
+**L27** (2026-11-06): T13 landed: **the labor**. The labor is measured in hours and in three kinds — the hands, the oven and the waiting — and the hours of each kind are held apart. The **value of the hour is declared by the owner** and never inferred: the money of a labor record is its hours times that value, rounded to whole pesos, and the value of the hour of a business is the last one she declared. The **labor of a batch is derived, never typed**: every step of the recipe adds its minutes to the kind of labor it carries. The direct cost and the labor travel APART (`direct` and `labor` in the answer), so no layer of cost hides inside another one. The tool is `record_labor`, and the transport carries twenty-seven tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The labor is the owner's alone**: the model has no employee and no payroll, and a domain test pins it. The payroll of an employee is a model of its own, and it does not exist yet.
+- **The money of a labor record is derived, never stored**: the table keeps the hours and the value of the hour, and the money is computed from them — a second truth about the same money would drift.
+- **The labor is a fact of the business, not a movement of the book**: it moves no money of the ledger yet. The account of the labor exists in the seed of T2, and the decision of whether the labor writes a movement belongs to T14 or T15.

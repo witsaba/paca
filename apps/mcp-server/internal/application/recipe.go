@@ -107,7 +107,12 @@ func definitionOf(request ports.RecordRecipe) (recipe.Definition, error) {
 
 	steps := make([]recipe.Step, 0, len(request.Steps))
 	for _, one := range request.Steps {
-		built, err := recipe.NewStep(one.Instruction, one.Cue, one.Minutes, one.Temperature)
+		kind, err := recipe.ParseLaborKind(one.LaborKind)
+		if err != nil {
+			return recipe.Definition{}, err
+		}
+
+		built, err := recipe.NewStep(one.Instruction, one.Cue, one.Minutes, one.Temperature, kind)
 		if err != nil {
 			return recipe.Definition{}, err
 		}

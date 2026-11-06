@@ -25,6 +25,12 @@
 // The cost of a batch of the recipe is here too: it is derived from the
 // layers of the stock that the recipe consumes, and it is never typed.
 //
+// The labor of the bakery is here as well: the hours the owner works, in
+// the three kinds of the labor - the hands, the oven and the waiting - the
+// value of the hour she declares, and the labor of a batch, which is
+// derived from the hours of the steps of the recipe. The labor is a layer
+// of the cost of its own, and it is never hidden inside the direct cost.
+//
 // The package imports nothing but the standard library, the model of the
 // business that owns the recipe, the model of the catalog of the ingredients
 // it names and the model of the stock it is valued with.
@@ -120,6 +126,12 @@ func NewIngredient(id ingredient.ID, grams float64) (Ingredient, error) {
 // and neither when she did not: the zero of the time and of the temperature
 // is the absence of them, because a number PACA invented is a lie in the
 // guide.
+//
+// The step carries the kind of the labor it is: the hands, the oven or the
+// waiting. The labor of a batch is derived from the hours of its steps,
+// and the kind is what says in which of the three kinds the hours of the
+// step are counted. The kind the owner did not name is the labor of the
+// hands.
 type Step struct {
 	// Instruction is what the owner does in this step.
 	Instruction string
@@ -135,13 +147,21 @@ type Step struct {
 	// Temperature is the temperature of the step, in degrees Celsius. It
 	// is zero when the owner named none.
 	Temperature float64
+
+	// Kind is the kind of the labor the step is: the hands, the oven or
+	// the waiting.
+	Kind LaborKind
 }
 
 // NewStep builds a step of a recipe.
 //
-// The rule of the domain: the instruction is not empty, and the
-// temperature is not below the absolute zero.
-func NewStep(instruction, cue string, minutes int, temperature float64) (Step, error) {
+// The rule of the domain: the instruction is not empty, the temperature is
+// not below the absolute zero, and the kind of the labor is one of the
+// three kinds of the book.
+//
+// The kind the owner did not name is the labor of the hands: a step she did
+// not qualify is a step she did with her hands.
+func NewStep(instruction, cue string, minutes int, temperature float64, kind LaborKind) (Step, error) {
 	trimmed := strings.TrimSpace(instruction)
 	if trimmed == "" {
 		return Step{}, fmt.Errorf("%w: the step carries no instruction", ErrMissingInstruction)
@@ -151,11 +171,17 @@ func NewStep(instruction, cue string, minutes int, temperature float64) (Step, e
 		return Step{}, fmt.Errorf("%w: the temperature of the step is %v degrees", ErrInvalidTemperature, temperature)
 	}
 
+	labour, err := ParseLaborKind(string(kind))
+	if err != nil {
+		return Step{}, err
+	}
+
 	return Step{
 		Instruction: trimmed,
 		Cue:         strings.TrimSpace(cue),
 		Minutes:     minutes,
 		Temperature: temperature,
+		Kind:        labour,
 	}, nil
 }
 
@@ -281,6 +307,13 @@ func New(own business.ID, definition Definition) (Recipe, error) {
 		if strings.TrimSpace(one.Instruction) == "" {
 			return Recipe{}, fmt.Errorf("%w: a step of the recipe carries no instruction", ErrMissingInstruction)
 		}
+
+		labour, err := ParseLaborKind(string(one.Kind))
+		if err != nil {
+			return Recipe{}, err
+		}
+
+		one.Kind = labour
 
 		steps = append(steps, one)
 	}

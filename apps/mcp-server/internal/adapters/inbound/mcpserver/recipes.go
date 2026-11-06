@@ -51,7 +51,10 @@ func buildDescriptionRecordRecipe() string {
 		"she named none.\n" +
 		"  - minutes is OPTIONAL: the time of the step, in minutes. Leave it out when she named none.\n" +
 		"  - temperature is OPTIONAL: the temperature of the step, in degrees Celsius. Leave it out when she " +
-		"named none.\n\n" +
+		"named none.\n" +
+		"  - labor_kind is OPTIONAL: the kind of the labor the step is ('" + theNamesOfTheKindsOfTheLabor() +
+		"'). The owner says it in many ways ('" + theSpokenNamesOfTheKindsOfTheLabor() + "'), and PACA keeps " +
+		"the kind of the book. Leave it out when she named none, and the step is then the labor of the hands.\n\n" +
 		"The steps keep the order the owner said them in: send them in that order, and PACA writes them in that " +
 		"order.\n\n" +
 		"yield_units is REQUIRED: the number of units the recipe makes. yield_grams is REQUIRED: the weight of " +
@@ -88,6 +91,9 @@ type recordRecipeStepInput struct {
 
 	// Temperature is the temperature of the step, in degrees Celsius.
 	Temperature float64 `json:"temperature,omitempty" jsonschema:"The temperature of the step, in degrees Celsius. It is optional: leave it out when the owner named none."`
+
+	// LaborKind is the kind of the labor the step is.
+	LaborKind string `json:"labor_kind,omitempty" jsonschema:"The kind of the labor the step is ('hands_on', 'oven', 'waiting'). It is optional: leave it out when the owner named none, and the step is then the labor of the hands."`
 }
 
 // recordRecipeInput is the input of the tool that records a recipe.
@@ -143,6 +149,9 @@ type recipeStepOutput struct {
 
 	// Temperature is the temperature of the step, in degrees Celsius.
 	Temperature float64 `json:"temperature,omitempty"`
+
+	// LaborKind is the kind of the labor the step is.
+	LaborKind string `json:"labor_kind,omitempty"`
 }
 
 // recordRecipeOutput is the answer of the tool that records a recipe.
@@ -233,6 +242,7 @@ func requestOfRecipe(input recordRecipeInput) ports.RecordRecipe {
 			Cue:         one.Cue,
 			Minutes:     one.Minutes,
 			Temperature: one.Temperature,
+			LaborKind:   one.LaborKind,
 		})
 	}
 
@@ -269,6 +279,7 @@ func outputOfRecipe(recorded recipe.Recipe) recordRecipeOutput {
 			Cue:         one.Cue,
 			Minutes:     one.Minutes,
 			Temperature: one.Temperature,
+			LaborKind:   one.Kind.String(),
 		})
 	}
 

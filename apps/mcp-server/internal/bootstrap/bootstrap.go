@@ -263,12 +263,31 @@ func New(
 	// Without a database there is no stock to read.
 	stockService := application.NewStockService(layers, ingredients)
 
+	// The labor of the owner: the hours she worked, in the three kinds of
+	// the labor, and the value of the hour she declared. The labor of a
+	// batch is derived from the hours of the steps of the recipe, and it
+	// is valued with the value of the hour. Without a database there is
+	// no labor to write nor to read.
+	var labors recipe.LaborRepository
+	var laborReader recipe.LaborReader
+	if pool != nil {
+		boundLabors, err := postgres.NewLaborRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the labor could not be built: %w", err)
+		}
+		labors = boundLabors
+		laborReader = boundLabors
+	}
+
+	laborService := application.NewLaborService(labors, clock.System{})
+
 	// The cost of a batch: what the recipe of the bakery costs right now.
 	// The cost is derived from the layers that the recipe consumes, and
 	// the valuation is FIFO: the oldest layer is the first one that
 	// leaves. Without a database there is no recipe to read and no layer
 	// to value.
-	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients)
+	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader)
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
@@ -296,6 +315,7 @@ func New(
 		ReadReferences:      referenceService,
 		ReadStock:           stockService,
 		ReadBatchCost:       batchCostService,
+		RecordLabor:         laborService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

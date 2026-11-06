@@ -47,7 +47,8 @@ type CostLine struct {
 //
 // The cost is the direct cost of the batch: the money of the ingredients it
 // consumes. The labor and the overhead are layers of their own, and they
-// are never hidden inside this number.
+// are never hidden inside this number: the labor of the batch is carried
+// beside the direct cost, and the overhead will be carried beside it too.
 type Cost struct {
 	// RecipeID is the recipe the cost is of.
 	RecipeID ID
@@ -61,6 +62,14 @@ type Cost struct {
 
 	// Direct is the money of the batch, in whole pesos.
 	Direct ledger.Amount
+
+	// Labor is the labor of the batch: the hours of the steps of the
+	// recipe, in the three kinds of the labor, and the money of them.
+	//
+	// It is a layer of the cost of its own: it is never added to the
+	// direct cost, and the report of the real price shows the two
+	// apart.
+	Labor LaborCost
 
 	// Yield is what the recipe makes: the units it makes and the weight of
 	// each one.
@@ -91,6 +100,9 @@ type Cost struct {
 // - and the money of what it takes is the money of the layer, pro rata the
 // quantity that was taken.
 //
+// The labor of the batch is derived from the hours of its steps, and it is
+// carried beside the direct cost: the two are never added into one number.
+//
 // The cost answers per unit, per gram and per kilogram: the money of the
 // book counts whole pesos, and the money of the batch is whole pesos, and
 // the three answers are rates.
@@ -101,11 +113,21 @@ type Cost struct {
 //
 // The error is the error of the domain: the recipe that needs no grams of
 // an ingredient is not a recipe.
-func CostOf(baked Recipe, layers []purchase.Layer, catalog ingredient.Catalog) (Cost, error) {
+func CostOf(
+	baked Recipe,
+	layers []purchase.Layer,
+	catalog ingredient.Catalog,
+	hourValue ledger.Amount,
+) (Cost, error) {
 	lines := make([]CostLine, 0, len(baked.Ingredients))
 	direct := ledger.Amount(0)
 	missing := []string{}
 	complete := true
+
+	labor, err := LaborOf(baked, hourValue)
+	if err != nil {
+		return Cost{}, err
+	}
 
 	for _, one := range gramsOfTheRecipe(baked) {
 		line := CostLine{
@@ -157,6 +179,7 @@ func CostOf(baked Recipe, layers []purchase.Layer, catalog ingredient.Catalog) (
 		Name:     baked.Name,
 		Lines:    lines,
 		Direct:   direct,
+		Labor:    labor,
 		Yield:    baked.Yield,
 		Complete: complete,
 		Missing:  missing,

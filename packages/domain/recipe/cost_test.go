@@ -115,7 +115,7 @@ func TestTheCostOfABatchIsDerivedFromTheLayers(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestTheCostAnswersPerUnitPerGramAndPerKilogram(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestTheCostIsNotCompleteWhenTheStockDoesNotHoldTheRecipe(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t))
+	cost, err := recipe.CostOf(theRecipeOfTheCost(t), layers, theCatalogOfTheTest(t), ledger.Amount(0))
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestTheCostOfAnIngredientTheCatalogDoesNotHoldIsNotDerivable(t *testing.T) 
 		t.Fatalf("the recipe was refused: %v", err)
 	}
 
-	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t))
+	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t), ledger.Amount(0))
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestTheCostOfAnIngredientTheRecipeNamesTwiceIsTheCostOfTheGrams(t *testing.
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t))
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0))
 	if err != nil {
 		t.Fatalf("the cost was refused: %v", err)
 	}
@@ -309,5 +309,64 @@ func TestTheCostOfAnIngredientTheRecipeNamesTwiceIsTheCostOfTheGrams(t *testing.
 	}
 	if cost.Lines[0].Missing != 0 {
 		t.Errorf("the flour is missing %v grams, want none", cost.Lines[0].Missing)
+	}
+}
+
+// TestTheCostCarriesTheLaborBesideTheDirectCost proves the rule of the
+// domain: the layers of the cost of a batch are never hidden inside one
+// another.
+//
+// The direct cost is the money of the ingredients, and the labor is the
+// money of the hours of the steps: the two are carried apart, and the
+// labor is never added to the direct cost.
+func TestTheCostCarriesTheLaborBesideTheDirectCost(t *testing.T) {
+	t.Parallel()
+
+	layers := []purchase.Layer{
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+			theDayOfTheCost(), purchase.ID(9)),
+	}
+
+	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	if err != nil {
+		t.Fatalf("the ingredient of the recipe was refused: %v", err)
+	}
+
+	hornear, err := recipe.NewStep("Hornear.", "", 45, 220, recipe.LaborOven)
+	if err != nil {
+		t.Fatalf("the step was refused: %v", err)
+	}
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name:          "Pan de molde",
+		Ingredients:   []recipe.Ingredient{flour},
+		Steps:         []recipe.Step{hornear},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(20000))
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if cost.Direct != ledger.Amount(240) {
+		t.Errorf("the direct cost of the batch is %d, want 240", cost.Direct)
+	}
+	if cost.Labor.Money != ledger.Amount(15000) {
+		t.Errorf("the money of the labor is %d, want 15000", cost.Labor.Money)
+	}
+	if cost.Labor.Unknown {
+		t.Error("the money of the labor is not derivable, want the money of the hours")
+	}
+	if cost.Labor.Hours.Oven != 0.75 {
+		t.Errorf("the hours of the oven are %v, want 0.75", cost.Labor.Hours.Oven)
+	}
+	if cost.Labor.Value != ledger.Amount(20000) {
+		t.Errorf("the value of the hour is %d, want 20000", cost.Labor.Value)
 	}
 }

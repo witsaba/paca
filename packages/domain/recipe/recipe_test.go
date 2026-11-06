@@ -130,7 +130,7 @@ func TestTheStepsKeepTheirOrder(t *testing.T) {
 func TestTheStepWithoutATimeNorATemperatureCarriesNeither(t *testing.T) {
 	t.Parallel()
 
-	step, err := recipe.NewStep("Reposo de la masa", "", 0, 0)
+	step, err := recipe.NewStep("Reposo de la masa", "", 0, 0, recipe.LaborWaiting)
 	if err != nil {
 		t.Fatalf("the step was refused: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestTheRecipeWithoutStepsIsRefused(t *testing.T) {
 func TestTheStepWithoutItsInstructionIsRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := recipe.NewStep("  ", "la masa que holds la forma", 20, 24); !errors.Is(err, recipe.ErrMissingInstruction) {
+	if _, err := recipe.NewStep("  ", "la masa que holds la forma", 20, 24, recipe.LaborHandsOn); !errors.Is(err, recipe.ErrMissingInstruction) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingInstruction)
 	}
 
@@ -277,7 +277,7 @@ func TestTheRecipeWithoutItsShelfLifeIsRefused(t *testing.T) {
 func TestTheStepBelowTheAbsoluteZeroIsRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := recipe.NewStep("Hornear", "", 45, -300); !errors.Is(err, recipe.ErrInvalidTemperature) {
+	if _, err := recipe.NewStep("Hornear", "", 45, -300, recipe.LaborOven); !errors.Is(err, recipe.ErrInvalidTemperature) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidTemperature)
 	}
 }
@@ -313,8 +313,8 @@ func TestTheErrorsNameEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := recipe.Errors()
-	if len(all) != 14 {
-		t.Fatalf("the catalogue holds %d errors, want 14", len(all))
+	if len(all) != 20 {
+		t.Fatalf("the catalogue holds %d errors, want 20", len(all))
 	}
 
 	for _, err := range all {

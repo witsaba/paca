@@ -47,7 +47,10 @@ func buildDescriptionReadBatchCost() string {
 		"The answer carries, for every recipe:\n\n" +
 		"  - the name the owner reads and the yield of the recipe: the units it makes and the weight of each one;\n" +
 		"  - the DIRECT cost of the batch, in whole pesos ('" + business.DefaultCurrency + "'): the money of the " +
-		"ingredients it consumes, without the labor and without the overhead;\n" +
+		"ingredients it consumes, without the overhead;\n" +
+		"  - the LABOR of the batch, beside the direct cost and never inside it: the hours of the steps of the " +
+		"recipe in the three kinds of the labor - the hands, the oven and the waiting - and the money of them, " +
+		"valued with the value of the hour the owner declared;\n" +
 		"  - the cost per unit, per gram and per kilogram: the money of the book counts whole pesos, and these " +
 		"three are rates;\n" +
 		"  - for every ingredient of the recipe: the grams the recipe needs, the grams the stock gave to the " +
@@ -122,6 +125,42 @@ type batchCostLineOutput struct {
 	Layers []batchCostLayerOutput `json:"layers"`
 }
 
+// batchCostLaborOutput is what the answer carries about the labor of the
+// batch.
+//
+// The labor is a layer of the cost of its own: it travels beside the direct
+// cost, and it is never added to it.
+type batchCostLaborOutput struct {
+	// HandsOnHours is the number of hours the hands of the owner were on
+	// the dough.
+	HandsOnHours float64 `json:"hands_on_hours"`
+
+	// OvenHours is the number of hours the batch was in the oven.
+	OvenHours float64 `json:"oven_hours"`
+
+	// WaitingHours is the number of hours the dough waited.
+	WaitingHours float64 `json:"waiting_hours"`
+
+	// TotalHours is the number of hours of the labor, in the three kinds
+	// together.
+	TotalHours float64 `json:"total_hours"`
+
+	// HourValue is the value of the hour that valued the labor, in whole
+	// pesos.
+	HourValue int64 `json:"hour_value"`
+
+	// Money is the money of the labor of the batch, in whole pesos.
+	Money int64 `json:"money"`
+
+	// Unknown says that the money of the labor is not derivable: the
+	// owner has not declared the value of the hour.
+	Unknown bool `json:"unknown"`
+
+	// Reason says why the money of the labor is not derivable, in the
+	// words of the book.
+	Reason string `json:"reason,omitempty"`
+}
+
 // batchCostOutput is what the answer carries about one recipe.
 type batchCostOutput struct {
 	// RecipeID is the recipe the cost is of.
@@ -138,6 +177,10 @@ type batchCostOutput struct {
 
 	// Direct is the money of the batch, in whole pesos.
 	Direct int64 `json:"direct"`
+
+	// Labor is the labor of the batch: the hours of the steps of the
+	// recipe and the money of them.
+	Labor batchCostLaborOutput `json:"labor"`
 
 	// PerUnit is the money of the batch per unit it makes.
 	PerUnit float64 `json:"per_unit"`
@@ -232,7 +275,17 @@ func outputOfCost(cost recipe.Cost) batchCostOutput {
 		PerKilogram: cost.PerKilogram,
 		Complete:    cost.Complete,
 		Missing:     cost.Missing,
-		Lines:       make([]batchCostLineOutput, 0, len(cost.Lines)),
+		Labor: batchCostLaborOutput{
+			HandsOnHours: cost.Labor.Hours.HandsOn,
+			OvenHours:    cost.Labor.Hours.Oven,
+			WaitingHours: cost.Labor.Hours.Waiting,
+			TotalHours:   cost.Labor.Hours.Total(),
+			HourValue:    int64(cost.Labor.Value),
+			Money:        int64(cost.Labor.Money),
+			Unknown:      cost.Labor.Unknown,
+			Reason:       cost.Labor.Reason,
+		},
+		Lines: make([]batchCostLineOutput, 0, len(cost.Lines)),
 	}
 
 	if answer.Missing == nil {

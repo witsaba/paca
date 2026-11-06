@@ -154,6 +154,7 @@ func (r *RecipeRepository) write(ctx context.Context, queries *db.Queries, writt
 			Cue:         one.Cue,
 			Minutes:     minutes,
 			Temperature: one.Temperature,
+			LaborKind:   one.Kind.String(),
 		})
 		if err != nil {
 			return recipe.Recipe{}, writeRecipeError(err)
@@ -164,6 +165,7 @@ func (r *RecipeRepository) write(ctx context.Context, queries *db.Queries, writt
 			Cue:         step.Cue,
 			Minutes:     int(step.Minutes),
 			Temperature: step.Temperature,
+			Kind:        recipe.LaborKind(step.LaborKind),
 		})
 	}
 
@@ -304,6 +306,7 @@ func (r *RecipeRepository) recipeOf(ctx context.Context, row rowOfARecipe) (reci
 			Cue:         one.Cue,
 			Minutes:     int(one.Minutes),
 			Temperature: one.Temperature,
+			Kind:        recipe.LaborKind(one.LaborKind),
 		})
 	}
 

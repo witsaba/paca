@@ -80,7 +80,7 @@ func TestTheCostOfTheBatchIsDerivedFromTheStock(t *testing.T) {
 	recipes := &fakeRecipes{held: []recipe.Recipe{theRecipeOfTheCost(t)}}
 	layers := &fakeLayers{layers: theLayersOfTheCost()}
 
-	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t))
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
 
 	costs, err := service.Read(t.Context(), ports.ReadBatchCost{BusinessID: business.ID(77)})
 	if err != nil {
@@ -113,7 +113,7 @@ func TestTheCostOfTheRecipeTheAgentNames(t *testing.T) {
 	recipes := &fakeRecipes{held: []recipe.Recipe{theRecipeOfTheCost(t), other}}
 	layers := &fakeLayers{layers: theLayersOfTheCost()}
 
-	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t))
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
 
 	costs, err := service.Read(t.Context(), ports.ReadBatchCost{
 		BusinessID: business.ID(77),
@@ -142,7 +142,7 @@ func TestTheCostOfTheRecipeOfAnotherBusinessIsRefused(t *testing.T) {
 	recipes := &fakeRecipes{held: []recipe.Recipe{other}}
 	layers := &fakeLayers{layers: theLayersOfTheCost()}
 
-	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t))
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
 
 	_, err := service.Read(t.Context(), ports.ReadBatchCost{
 		BusinessID: business.ID(77),
@@ -161,7 +161,7 @@ func TestTheCostOfARecipeThatIsNotThereIsRefused(t *testing.T) {
 	recipes := &fakeRecipes{}
 	layers := &fakeLayers{}
 
-	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t))
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
 
 	_, err := service.Read(t.Context(), ports.ReadBatchCost{
 		BusinessID: business.ID(77),
@@ -177,7 +177,7 @@ func TestTheCostOfARecipeThatIsNotThereIsRefused(t *testing.T) {
 func TestTheCostWithoutADatabaseSaysSo(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewBatchCostService(nil, nil, nil)
+	service := application.NewBatchCostService(nil, nil, nil, nil)
 
 	_, err := service.Read(t.Context(), ports.ReadBatchCost{BusinessID: business.ID(77)})
 	if !errors.Is(err, ports.ErrNoDatabase) {
@@ -194,10 +194,53 @@ func TestTheCostOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	recipes := &fakeRecipes{}
 	layers := &fakeLayers{}
 
-	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t))
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
 
 	_, err := service.Read(t.Context(), ports.ReadBatchCost{BusinessID: business.ID(0)})
 	if !errors.Is(err, purchase.ErrMissingBusiness) {
 		t.Fatalf("the error is %v, want %v", err, purchase.ErrMissingBusiness)
+	}
+}
+
+// TestTheCostOfTheBatchCarriesTheLaborBesideTheDirectCost proves that the
+// labor of the batch is a layer of the cost of its own: it is derived from
+// the hours of the steps of the recipe, valued with the value of the hour
+// the owner declared, and it is never added to the direct cost.
+func TestTheCostOfTheBatchCarriesTheLaborBesideTheDirectCost(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheCost(t)
+	baked.Steps = []recipe.Step{
+		{Instruction: "Hornear.", Minutes: 45, Kind: recipe.LaborOven},
+	}
+
+	recipes := &fakeRecipes{held: []recipe.Recipe{baked}}
+	layers := &fakeLayers{layers: theLayersOfTheCost()}
+
+	service := application.NewBatchCostService(recipes, layers, theCatalogOfTheCost(t), theLaborOfTheBusiness(t))
+
+	costs, err := service.Read(t.Context(), ports.ReadBatchCost{BusinessID: business.ID(77)})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if len(costs) != 1 {
+		t.Fatalf("the answer carries %d costs, want 1", len(costs))
+	}
+	if costs[0].Labor.Hours.Oven != 0.75 {
+		t.Errorf("the hours of the oven are %v, want 0.75", costs[0].Labor.Hours.Oven)
+	}
+	if costs[0].Labor.Value != ledger.Amount(20000) {
+		t.Errorf("the value of the hour is %d, want 20000", costs[0].Labor.Value)
+	}
+	if costs[0].Labor.Money != ledger.Amount(15000) {
+		t.Errorf("the money of the labor is %d, want 15000", costs[0].Labor.Money)
+	}
+	if costs[0].Labor.Unknown {
+		t.Error("the money of the labor is not derivable, want the money of the hours")
+	}
+	if costs[0].Direct != ledger.Amount(240) {
+		t.Errorf("the direct cost of the batch is %d, want 240: the labor is never added to it",
+			costs[0].Direct)
 	}
 }

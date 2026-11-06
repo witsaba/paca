@@ -18,7 +18,10 @@ import (
 // proves what it wrote.
 type fakeRecipes struct {
 	written []recipe.Recipe
+	held    []recipe.Recipe
 	err     error
+	found   recipe.ID
+	listed  business.ID
 }
 
 // Record writes the recipe and remembers it.
@@ -31,6 +34,41 @@ func (f *fakeRecipes) Record(_ context.Context, written recipe.Recipe) (recipe.R
 	f.written = append(f.written, written)
 
 	return written, nil
+}
+
+// Find answers the recipe that carries that identity, and remembers it.
+func (f *fakeRecipes) Find(_ context.Context, id recipe.ID) (recipe.Recipe, error) {
+	f.found = id
+
+	if f.err != nil {
+		return recipe.Recipe{}, f.err
+	}
+
+	for _, one := range f.held {
+		if one.ID == id {
+			return one, nil
+		}
+	}
+
+	return recipe.Recipe{}, recipe.ErrNotFound
+}
+
+// List answers the recipes of the business, and remembers it.
+func (f *fakeRecipes) List(_ context.Context, own business.ID) ([]recipe.Recipe, error) {
+	f.listed = own
+
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	held := make([]recipe.Recipe, 0, len(f.held))
+	for _, one := range f.held {
+		if one.BusinessID == own {
+			held = append(held, one)
+		}
+	}
+
+	return held, nil
 }
 
 // theCatalogOfTheTest answers the catalog the tests of the recipe use.

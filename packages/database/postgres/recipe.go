@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
@@ -185,6 +186,144 @@ func (r *RecipeRepository) write(ctx context.Context, queries *db.Queries, writt
 	recorded.CreatedAt = timestamp(row.CreatedAt)
 
 	return recorded, nil
+}
+
+// Find returns the recipe that carries that identity, with its ingredients
+// and its steps.
+//
+// The recipe is built by the domain: the row never decides what a recipe
+// is, and a row that another writer broke is refused.
+//
+// The error is recipe.ErrNotFound when no recipe carries that identity, and
+// recipe.ErrNoStorage when the storage is not open.
+func (r *RecipeRepository) Find(ctx context.Context, id recipe.ID) (recipe.Recipe, error) {
+	if r == nil || r.pool == nil {
+		return recipe.Recipe{}, recipe.ErrNoStorage
+	}
+
+	row, err := r.pool.queriesFor(ctx).GetRecipeByID(ctx, int64(id))
+	if err != nil {
+		return recipe.Recipe{}, writeRecipeError(err)
+	}
+
+	return r.recipeOf(ctx, rowOfARecipe{
+		ID:            row.ID,
+		BusinessID:    row.BusinessID,
+		Name:          row.Name,
+		YieldUnits:    row.YieldUnits,
+		YieldGrams:    row.YieldGrams,
+		ShelfLifeDays: row.ShelfLifeDays,
+		Utterance:     row.Utterance,
+		ConfirmedWith: row.ConfirmedWith,
+		CreatedAt:     row.CreatedAt,
+	})
+}
+
+// List returns the recipes of the business, with their ingredients and
+// their steps.
+//
+// The recipes are read in the order of their identity, so the answer is the
+// same every time it is read.
+//
+// The error is recipe.ErrNoStorage when the storage is not open.
+func (r *RecipeRepository) List(ctx context.Context, own business.ID) ([]recipe.Recipe, error) {
+	if r == nil || r.pool == nil {
+		return nil, recipe.ErrNoStorage
+	}
+
+	rows, err := r.pool.queriesFor(ctx).ListRecipesByBusiness(ctx, int64(own))
+	if err != nil {
+		return nil, writeRecipeError(err)
+	}
+
+	recipes := make([]recipe.Recipe, 0, len(rows))
+
+	for _, row := range rows {
+		built, err := r.recipeOf(ctx, rowOfARecipe{
+			ID:            row.ID,
+			BusinessID:    row.BusinessID,
+			Name:          row.Name,
+			YieldUnits:    row.YieldUnits,
+			YieldGrams:    row.YieldGrams,
+			ShelfLifeDays: row.ShelfLifeDays,
+			Utterance:     row.Utterance,
+			ConfirmedWith: row.ConfirmedWith,
+			CreatedAt:     row.CreatedAt,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		recipes = append(recipes, built)
+	}
+
+	return recipes, nil
+}
+
+// rowOfARecipe is what a row of the recipes carries, however it was read.
+type rowOfARecipe struct {
+	ID            int64
+	BusinessID    int64
+	Name          string
+	YieldUnits    int32
+	YieldGrams    float64
+	ShelfLifeDays int32
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+// recipeOf builds the recipe of a row with its ingredients and its steps,
+// and asks the domain whether it is whole.
+//
+// A recipe without its ingredients and its steps is not a recipe, and the
+// domain refuses it.
+func (r *RecipeRepository) recipeOf(ctx context.Context, row rowOfARecipe) (recipe.Recipe, error) {
+	ingredientRows, err := r.pool.queriesFor(ctx).ListRecipeIngredientsByRecipe(ctx, row.ID)
+	if err != nil {
+		return recipe.Recipe{}, writeRecipeError(err)
+	}
+
+	ingredients := make([]recipe.Ingredient, 0, len(ingredientRows))
+	for _, one := range ingredientRows {
+		ingredients = append(ingredients, recipe.Ingredient{
+			IngredientID: ingredient.ID(one.IngredientID),
+			Grams:        one.Grams,
+		})
+	}
+
+	stepRows, err := r.pool.queriesFor(ctx).ListRecipeStepsByRecipe(ctx, row.ID)
+	if err != nil {
+		return recipe.Recipe{}, writeRecipeError(err)
+	}
+
+	steps := make([]recipe.Step, 0, len(stepRows))
+	for _, one := range stepRows {
+		steps = append(steps, recipe.Step{
+			Instruction: one.Instruction,
+			Cue:         one.Cue,
+			Minutes:     int(one.Minutes),
+			Temperature: one.Temperature,
+		})
+	}
+
+	built, err := recipe.New(business.ID(row.BusinessID), recipe.Definition{
+		Name:          row.Name,
+		Ingredients:   ingredients,
+		Steps:         steps,
+		Yield:         recipe.Yield{Units: int(row.YieldUnits), Grams: row.YieldGrams},
+		ShelfLifeDays: int(row.ShelfLifeDays),
+		Utterance:     row.Utterance,
+		ConfirmedWith: row.ConfirmedWith,
+	})
+	if err != nil {
+		return recipe.Recipe{}, err
+	}
+
+	built.ID = recipe.ID(row.ID)
+	built.CreatedAt = timestamp(row.CreatedAt)
+
+	return built, nil
 }
 
 // countOf returns the count as the column of the table holds it.

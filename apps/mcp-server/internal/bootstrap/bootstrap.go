@@ -226,8 +226,9 @@ func New(
 	// The recipe of the bakery: the guide the owner confirmed, with its
 	// ingredients of the catalog, its steps and its yield. The recipe is
 	// written in the book of the business, and without a database there is
-	// no recipe to write.
+	// no recipe to write nor to read.
 	var recipes recipe.Repository
+	var recipeReader recipe.Reader
 	if pool != nil {
 		boundRecipes, err := postgres.NewRecipeRepository(pool)
 		if err != nil {
@@ -235,6 +236,7 @@ func New(
 			return nil, fmt.Errorf("the repository of the recipes could not be built: %w", err)
 		}
 		recipes = boundRecipes
+		recipeReader = boundRecipes
 	}
 
 	recipeService := application.NewRecipeService(recipes, ingredients)
@@ -261,6 +263,13 @@ func New(
 	// Without a database there is no stock to read.
 	stockService := application.NewStockService(layers, ingredients)
 
+	// The cost of a batch: what the recipe of the bakery costs right now.
+	// The cost is derived from the layers that the recipe consumes, and
+	// the valuation is FIFO: the oldest layer is the first one that
+	// leaves. Without a database there is no recipe to read and no layer
+	// to value.
+	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -286,6 +295,7 @@ func New(
 		RecordReference:     referenceService,
 		ReadReferences:      referenceService,
 		ReadStock:           stockService,
+		ReadBatchCost:       batchCostService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

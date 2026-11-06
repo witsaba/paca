@@ -28,3 +28,33 @@ VALUES (
     sqlc.arg(minutes), sqlc.arg(temperature)
 )
 RETURNING *;
+
+-- name: GetRecipeByID :one
+SELECT id, business_id, name, yield_units, yield_grams, shelf_life_days, utterance, confirmed_with, created_at
+FROM recipes
+WHERE id = sqlc.arg(id);
+
+-- name: ListRecipesByBusiness :many
+--
+-- The recipes of a business and of no other one, in the order of their
+-- identity: the answer is the same every time it is read.
+SELECT id, business_id, name, yield_units, yield_grams, shelf_life_days, utterance, confirmed_with, created_at
+FROM recipes
+WHERE business_id = sqlc.arg(business_id)
+ORDER BY id;
+
+-- name: ListRecipeIngredientsByRecipe :many
+--
+-- The ingredients of the recipe, in the order the owner said them.
+SELECT id, recipe_id, position, ingredient_id, grams
+FROM recipe_ingredients
+WHERE recipe_id = sqlc.arg(recipe_id)
+ORDER BY position;
+
+-- name: ListRecipeStepsByRecipe :many
+--
+-- The steps of the recipe, in the order the owner said them.
+SELECT id, recipe_id, position, instruction, cue, minutes, temperature
+FROM recipe_steps
+WHERE recipe_id = sqlc.arg(recipe_id)
+ORDER BY position;

@@ -395,3 +395,96 @@ func TestTheRecipeThatIsRefusedLeavesNothingBehind(t *testing.T) {
 		t.Errorf("the database stored %d recipes of the refused one, want none", recipes)
 	}
 }
+
+// TestTheRecipeIsReadBackWithItsIngredientsAndItsSteps proves that the
+// recipes are read back whole: the recipe carries its name, its yield, its
+// shelf life, its sentence and the word of the owner, and it carries the
+// ingredients with their grams and the steps in the order the owner said
+// them.
+//
+// The cost of a batch is derived from the recipe and from the layers of the
+// stock, and the recipe is never read back as a list of ingredients.
+func TestTheRecipeIsReadBackWithItsIngredientsAndItsSteps(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := recipesRepository(t)
+	bakery := theBakeryOfTheRecipes(t, ctx)
+	flour := theFlourOfTheRecipes(t, ctx, bakery)
+
+	written, err := repo.Record(ctx, theRecipeOfTheTest(bakery, flour))
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	found, err := repo.Find(ctx, written.ID)
+	if err != nil {
+		t.Fatalf("the recipe could not be read: %v", err)
+	}
+
+	if found.ID != written.ID {
+		t.Errorf("the identity of the recipe is %d, want %d", found.ID, written.ID)
+	}
+	if found.BusinessID != bakery.ID {
+		t.Errorf("the business of the recipe is %d, want %d", found.BusinessID, bakery.ID)
+	}
+	if found.Name != "Pan de molde" {
+		t.Errorf("the name of the recipe is %q, want %q", found.Name, "Pan de molde")
+	}
+	if len(found.Ingredients) != 1 {
+		t.Fatalf("the recipe carries %d ingredients, want 1", len(found.Ingredients))
+	}
+	if found.Ingredients[0].IngredientID != flour.ID {
+		t.Errorf("the ingredient of the recipe is %d, want %d", found.Ingredients[0].IngredientID, flour.ID)
+	}
+	if found.Ingredients[0].Grams != 500 {
+		t.Errorf("the grams of the ingredient are %v, want 500", found.Ingredients[0].Grams)
+	}
+	if len(found.Steps) != 2 {
+		t.Fatalf("the recipe carries %d steps, want 2", len(found.Steps))
+	}
+	if found.Steps[0].Instruction != "Mezclar la harina con el agua y amasar." {
+		t.Errorf("the first step is %q, want the one the owner said", found.Steps[0].Instruction)
+	}
+	if found.Steps[1].Temperature != 220 {
+		t.Errorf("the temperature of the second step is %v, want 220", found.Steps[1].Temperature)
+	}
+	if found.Yield.Units != 10 || found.Yield.Grams != 90 {
+		t.Errorf("the yield of the recipe is %+v, want 10 units of 90 grams", found.Yield)
+	}
+	if found.ShelfLifeDays != 3 {
+		t.Errorf("the shelf life of the recipe is %d days, want 3", found.ShelfLifeDays)
+	}
+	if found.Utterance != "El pan de molde lleva 500 gramos de harina" {
+		t.Errorf("the sentence of the recipe is %q, want the one of the owner", found.Utterance)
+	}
+	if found.ConfirmedWith != "sí" {
+		t.Errorf("the word of the confirmation is %q, want %q", found.ConfirmedWith, "sí")
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the recipes could not be read: %v", err)
+	}
+	if len(held) != 1 {
+		t.Fatalf("the bakery holds %d recipes, want 1", len(held))
+	}
+	if held[0].ID != written.ID {
+		t.Errorf("the recipe of the list is %d, want %d", held[0].ID, written.ID)
+	}
+}
+
+// TestTheRecipeThatIsNotThereIsRefused proves that the storage refuses a
+// recipe that does not exist, and that it never answers a recipe of
+// nothing.
+func TestTheRecipeThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := recipesRepository(t)
+
+	_, err := repo.Find(ctx, recipe.ID(999999))
+	if !errors.Is(err, recipe.ErrNotFound) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrNotFound)
+	}
+}

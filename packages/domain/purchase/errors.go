@@ -131,6 +131,12 @@ var (
 	// business that is not there: the stock belongs to a business, and
 	// there is no stock of nobody.
 	ErrMissingBusiness = errors.New("the stock is read for a business")
+
+	// ErrLayerNotTied is the error of a layer whose money is not the money
+	// of the line of the purchase it comes from: the layer is derived from
+	// the purchase, and a row another writer broke is never read as a
+	// layer.
+	ErrLayerNotTied = errors.New("the money of the layer is the money of the line of its purchase")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -166,5 +172,6 @@ func Errors() []error {
 		ErrInvalidUnit,
 		ErrLayerOfAnotherBusiness,
 		ErrMissingBusiness,
+		ErrLayerNotTied,
 	}
 }

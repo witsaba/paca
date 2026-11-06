@@ -527,6 +527,38 @@ the record (`ErrMissingConfirmation`). The sentence of the owner is
 optional: the recipe is the record, and the sentence is kept with it when
 she said one.
 
+## The cost of a batch
+
+`recipe.Cost` is what a batch of a recipe costs today: the direct cost, the
+money of the layers of the stock that the recipe consumes. It is **derived,
+never typed**: `recipe.CostOf` reads the layers of the stock and takes what
+the recipe needs, and the price of the owner never reaches it.
+
+**The recipe consumes the layers in the order of the FIFO.** The oldest
+layer leaves first, and `purchase.Consume` is where that order lives: the
+consumption of a layer is taken, and the layer that is left keeps its place
+in the queue.
+
+**The money of what is left of a layer is the money of what it bought, pro
+rata the quantity that is left.** `purchase.Layer.MoneyLeft` states the
+rule, and the book rounds it to the nearest peso because the money of the
+book counts whole pesos. The stock carries the money of what it still holds,
+never the money of what it bought.
+
+**The layer is tied to the line of its purchase.** `purchase.Layer.CheckedAgainstTheLine`
+re-derives the layer from the line and refuses it when the money, the
+quantity or the ingredient differ (`ErrLayerNotTied`): a row another writer
+broke is never read as the stock of the business.
+
+**The cost answers per unit, per gram and per kilogram**, and it says what
+it does not know instead of guessing: an ingredient the stock holds in
+pieces or in a package without a declared weight has no rate per gram, and
+the answer names it.
+
+**The cost is direct.** The labour (T13) and the overhead (T14) are not in
+it yet, and the field is named `direct` so that no layer hides inside
+another one.
+
 ## The model of the reference price
 
 `purchase.Reference` is what the market was seen at: the ingredient it is

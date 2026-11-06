@@ -16,6 +16,12 @@
 -- whose purchase is of another business. The domain holds the same rule,
 -- and the query holds it as a defense in depth.
 --
+-- The line of the purchase is read with the layer too: the money of the
+-- layer is the money of the line it comes from, and a row another writer
+-- broke with another money is refused by the domain, and never read as a
+-- layer of the stock. The line is read with a join on the outside, so a
+-- layer whose line is not there is refused and not hidden.
+--
 -- Every query writes or reads one row, and every one of them is a single
 -- statement: the library does not read a row to find out whether it may
 -- write it.
@@ -41,8 +47,12 @@ JOIN purchases ON purchases.id = written.purchase_id;
 -- name: ListStockLayersByBusiness :many
 SELECT layers.id, layers.business_id, layers.ingredient_id, layers.purchase_id, layers.position,
        layers.name, layers.day, layers.quantity, layers.unit, layers.remaining, layers.cost,
-       layers.created_at, purchases.business_id AS purchase_business_id
+       layers.created_at, purchases.business_id AS purchase_business_id,
+       lines.ingredient_id AS line_ingredient_id, lines.name AS line_name,
+       lines.quantity AS line_quantity, lines.unit AS line_unit,
+       lines.total AS line_total, lines.unit_price AS line_unit_price
 FROM stock_layers layers
 JOIN purchases ON purchases.id = layers.purchase_id
+LEFT JOIN purchase_lines lines ON lines.purchase_id = layers.purchase_id AND lines.position = layers.position
 WHERE layers.business_id = sqlc.arg(business_id) AND purchases.business_id = sqlc.arg(business_id)
 ORDER BY layers.day, layers.purchase_id, layers.id;

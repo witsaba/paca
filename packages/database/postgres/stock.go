@@ -173,8 +173,13 @@ func layerFromWrittenRow(row db.CreateStockLayerRow) (purchase.Layer, error) {
 
 // layerFromListedRow maps a row of the layers that was read back onto the
 // model of the domain.
+//
+// The line of the purchase is read with the layer, and the domain asks
+// whether the layer is the layer of that line: the money of the layer is
+// the money of the line of the purchase, and a row that another writer
+// broke is refused.
 func layerFromListedRow(row db.ListStockLayersByBusinessRow) (purchase.Layer, error) {
-	return layerOf(rowOfALayer{
+	layer, err := layerOf(rowOfALayer{
 		ID:                 row.ID,
 		BusinessID:         row.BusinessID,
 		IngredientID:       row.IngredientID,
@@ -188,6 +193,54 @@ func layerFromListedRow(row db.ListStockLayersByBusinessRow) (purchase.Layer, er
 		Cost:               row.Cost,
 		PurchaseBusinessID: row.PurchaseBusinessID,
 	})
+	if err != nil {
+		return purchase.Layer{}, err
+	}
+
+	line, err := lineOfThePurchase(row)
+	if err != nil {
+		return purchase.Layer{}, err
+	}
+
+	bought := purchase.Purchase{
+		ID:         purchase.ID(row.PurchaseID),
+		BusinessID: business.ID(row.PurchaseBusinessID),
+		Day:        ledger.NewDate(row.Day.Time),
+		Lines:      []purchase.Line{line},
+	}
+
+	if err := layer.CheckedAgainstTheLine(bought, line, int(row.Position)); err != nil {
+		return purchase.Layer{}, err
+	}
+
+	return layer, nil
+}
+
+// lineOfThePurchase builds the line of the purchase the layer comes from.
+//
+// The line is read with the layer: the money of the layer is the money of
+// the line, and a layer that comes from no line of its purchase is
+// refused instead of being read as a layer of the stock.
+func lineOfThePurchase(row db.ListStockLayersByBusinessRow) (purchase.Line, error) {
+	if !row.LineIngredientID.Valid || !row.LineName.Valid || !row.LineQuantity.Valid ||
+		!row.LineUnit.Valid || !row.LineTotal.Valid || !row.LineUnitPrice.Valid {
+		return purchase.Line{}, fmt.Errorf("%w: the layer of the purchase %d comes from no line of it",
+			purchase.ErrLayerNotTied, row.PurchaseID)
+	}
+
+	line, err := purchase.NewLine(
+		row.LineName.String,
+		purchase.Measure{Quantity: row.LineQuantity.Float64, Unit: row.LineUnit.String},
+		purchase.Price{
+			Total: ledger.Amount(row.LineTotal.Int64),
+			Unit:  ledger.Amount(row.LineUnitPrice.Int64),
+		},
+	)
+	if err != nil {
+		return purchase.Line{}, err
+	}
+
+	return line.WithIngredient(ingredient.ID(row.LineIngredientID.Int64)), nil
 }
 
 // layerOf builds the layer of the domain out of a row, and asks the domain

@@ -739,6 +739,45 @@ type StockReader interface {
 	Read(ctx context.Context, request ReadStock) (purchase.Stock, error)
 }
 
+// ReadBatchCost is the recipe whose cost is read, and the business it
+// belongs to.
+//
+// It is the shape of the contract between the agent and the service: the
+// recipe is optional, and the zero identity and the empty name answer the
+// cost of every recipe of the business.
+type ReadBatchCost struct {
+	// BusinessID is the business whose cost is read.
+	BusinessID business.ID
+
+	// RecipeID is the recipe the caller asks about. It is zero when the
+	// caller names the recipe with its name, or when the caller asks for
+	// every recipe of the business.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the recipe. It is empty
+	// when the caller names the recipe with its identity.
+	RecipeName string
+}
+
+// BatchCostReader is the inbound port of the tool that reads the cost of a
+// batch.
+//
+// The cost of a batch is derived from the layers that the recipe consumes,
+// and never typed: the tool reads what the recipe costs right now.
+type BatchCostReader interface {
+	// Read answers the cost of the batches of the recipes of the business.
+	//
+	// The identity of the business is required. The recipe is optional:
+	// the identity of a recipe answers the cost of that recipe, the name
+	// of a recipe answers the cost of the recipes that carry it, and
+	// neither of them answers the cost of every recipe of the business.
+	//
+	// The error is the error of the domain: the domain refuses a recipe
+	// that is not there, a recipe of another business and a business that
+	// is not there.
+	Read(ctx context.Context, request ReadBatchCost) ([]recipe.Cost, error)
+}
+
 // SummaryQuerier is the inbound port of the tool that closes a month.
 //
 // The closing of a month is what the person earned, what they spent, and

@@ -173,6 +173,8 @@ var theMessages = map[error]string{
 	recipe.ErrInvalidValue: "the database refused the recipe: check the name, the ingredients, the steps, the " +
 		"yield and the shelf life of it",
 	recipe.ErrNoStorage: "the service has no storage of the recipes: the book of the bakery cannot be reached",
+	recipe.ErrWrongBusiness: "the recipe belongs to another business: read the cost of a batch of the " +
+		"business the person names",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",
@@ -194,4 +196,7 @@ var theMessages = map[error]string{
 		"business never holds the layer of a purchase of another one",
 	purchase.ErrMissingBusiness: "the business is required: send the identity of the business whose stock " +
 		"you read, and PACA never invents one",
+	purchase.ErrLayerNotTied: "the row of the layer was broken: the money of the layer is the money of the " +
+		"line of the purchase it comes from, and a layer that carries another money is never read as a layer " +
+		"of the stock",
 }

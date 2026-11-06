@@ -22,9 +22,12 @@
 // ingredient without its grams, a step without its instruction. The refusal
 // says what the agent has to ask for.
 //
+// The cost of a batch of the recipe is here too: it is derived from the
+// layers of the stock that the recipe consumes, and it is never typed.
+//
 // The package imports nothing but the standard library, the model of the
-// business that owns the recipe and the model of the catalog of the
-// ingredients it names.
+// business that owns the recipe, the model of the catalog of the ingredients
+// it names and the model of the stock it is valued with.
 package recipe
 
 import (

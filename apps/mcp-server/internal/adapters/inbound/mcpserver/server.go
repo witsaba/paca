@@ -150,6 +150,14 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadStock ports.StockReader
+
+	// ReadBatchCost is the use case that reads the cost of a batch of a
+	// recipe: what the recipe costs right now, derived from the layers of
+	// the stock.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadBatchCost ports.BatchCostReader
 }
 
 // Server is the MCP transport of the service.
@@ -205,6 +213,7 @@ func New(opts Options) *Server {
 	transport.registerRecipeTools(opts.RecordRecipe)
 	transport.registerReferenceTools(opts.RecordReference, opts.ReadReferences)
 	transport.registerStockTools(opts.ReadStock)
+	transport.registerBatchCostTools(opts.ReadBatchCost)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

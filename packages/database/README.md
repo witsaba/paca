@@ -281,6 +281,14 @@ domain's, and the query holds it as a defense in depth: the layers of a
 business are read with the purchase of every layer, and a layer whose
 purchase is of another business is never in the answer.
 
+**The money of the layer is the money of the line of its purchase.** The
+rule is the domain's, and the query reads the line of the purchase with
+the layer: the adapter asks the domain whether the layer is the layer of
+that line, and a row another writer broke with another money - or with
+another quantity - is refused and never read as a layer of the stock. The
+line is read with a join on the outside, so a layer whose line is not
+there is refused too, and not hidden.
+
 ### `ingredients`
 
 The catalog of the names the business buys.
@@ -360,6 +368,12 @@ of its own.
 **The sentence of the owner is optional.** The recipe is the record, and the
 sentence is kept with it when she said one: the column carries an empty
 string and never NULL.
+
+**The recipe is read back whole.** The recipe carries its ingredients with
+their grams and its steps in the order the owner said them, and they are
+read with it: the cost of a batch is derived from the recipe and from the
+layers of the stock, and a recipe read without its ingredients is not a
+recipe.
 
 ### `recipe_ingredients`
 
@@ -596,6 +610,12 @@ another writer broke is refused. The layer is asked before it is written,
 too: a layer that claims another business than its purchase never reaches
 the table.
 
+**The money of the layer is the money of the line of its purchase.** The
+line is read with the layer, and the domain asks whether the layer is the
+layer of that line (`purchase.Layer.CheckedAgainstTheLine`): a row broken
+with another money, or with another quantity, is refused with
+`purchase.ErrLayerNotTied`, and it is never read as a layer of the stock.
+
 ## The repository of the recipes
 
 The adapter writes the recipe of the bakery through the port of the domain
@@ -605,11 +625,24 @@ The adapter writes the recipe of the bakery through the port of the domain
 Record(ctx, recipe) (recipe.Recipe, error)
 ```
 
+And it reads the recipes back through the other port of the domain
+(`recipe.Reader`):
+
+```go
+Find(ctx, recipeID) (recipe.Recipe, error)
+List(ctx, businessID) ([]recipe.Recipe, error)
+```
+
 **The recipe, its ingredients and its steps are written in one
 transaction.** The repository opens it when the caller did not, and it
 joins the transaction it finds when the caller did: a recipe whose
 ingredient is not in the catalog leaves nothing behind, because a guide
 without its ingredients teaches nothing.
+
+**The recipes are read back with their rows.** The recipe is read, and its
+ingredients and its steps are read with it: a recipe without them is not a
+recipe, and the model is built by the domain, through its own
+constructors.
 
 **The row never decides what a recipe is.** The model is built by the
 domain, through its own constructors: a row that breaks a rule of it is

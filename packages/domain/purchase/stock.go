@@ -159,8 +159,8 @@ type Holding struct {
 	// unit of the holding.
 	Quantity float64
 
-	// Cost is the money of the holding, in whole pesos: the money of the
-	// layers that are still open.
+	// Cost is the money of the holding, in whole pesos: the money of what
+	// is left of the layers that are still open.
 	Cost ledger.Amount
 
 	// Layers are the layers of the holding, in the order they leave the
@@ -435,11 +435,16 @@ func quantityOf(layers []Layer) float64 {
 }
 
 // costOf answers the money of the layers, in whole pesos.
+//
+// The rule of the domain: the money of what is left of a layer is the money
+// of what it bought, pro rata the quantity that is left. The stock carries
+// the money of what it still holds, and never the money of what it already
+// spent.
 func costOf(layers []Layer) ledger.Amount {
 	cost := ledger.Amount(0)
 
 	for _, one := range layers {
-		cost += one.Cost
+		cost += one.MoneyLeft()
 	}
 
 	return cost

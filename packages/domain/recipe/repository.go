@@ -1,6 +1,10 @@
 package recipe
 
-import "context"
+import (
+	"context"
+
+	"github.com/witsaba/paca/packages/domain/business"
+)
 
 // Repository is the port of the storage of the recipes.
 //
@@ -22,4 +26,33 @@ type Repository interface {
 	// table, ErrNotFound when the business or the ingredient of the
 	// recipe is not there, and ErrNoStorage when the storage is not open.
 	Record(ctx context.Context, recipe Recipe) (Recipe, error)
+}
+
+// Reader is the port of the storage that reads the recipes back.
+//
+// The port is what a use case needs: the cost of a batch is derived from
+// the recipe and from the layers of the stock, and the use case reads the
+// recipe before it values it.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type Reader interface {
+	// Find returns the recipe that carries that identity, with its
+	// ingredients and its steps.
+	//
+	// A recipe without its ingredients and its steps is not a recipe, and
+	// the storage reads them with it.
+	//
+	// The error is ErrNotFound when no recipe carries that identity, and
+	// ErrNoStorage when the storage is not open.
+	Find(ctx context.Context, id ID) (Recipe, error)
+
+	// List returns the recipes of the business, with their ingredients and
+	// their steps, in the order of their identity.
+	//
+	// The list holds the recipes of the business and of no other one, and
+	// it is empty when the business wrote no recipe yet.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Recipe, error)
 }

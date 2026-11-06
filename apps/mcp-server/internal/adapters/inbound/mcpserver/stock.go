@@ -47,6 +47,8 @@ func buildDescriptionReadStock() string {
 		"  - the money the stock cost, in whole pesos ('" + business.DefaultCurrency + "').\n\n" +
 		"The stock of an ingredient is the sum of the layers that are still open, and the layers bought in " +
 		"different units are held apart: the quantity and its unit travel together.\n\n" +
+		"The money of a layer that is partly consumed is the money of what is left of it: the money of what it " +
+		"bought, pro rata the quantity that is left.\n\n" +
 		"This tool changes nothing: it reads the stock of the business and it writes nothing."
 }
 

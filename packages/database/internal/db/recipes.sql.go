@@ -133,3 +133,135 @@ func (q *Queries) CreateRecipeStep(ctx context.Context, arg CreateRecipeStepPara
 	)
 	return i, err
 }
+
+const getRecipeByID = `-- name: GetRecipeByID :one
+SELECT id, business_id, name, yield_units, yield_grams, shelf_life_days, utterance, confirmed_with, created_at
+FROM recipes
+WHERE id = $1
+`
+
+func (q *Queries) GetRecipeByID(ctx context.Context, id int64) (Recipe, error) {
+	row := q.db.QueryRow(ctx, getRecipeByID, id)
+	var i Recipe
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.Name,
+		&i.YieldUnits,
+		&i.YieldGrams,
+		&i.ShelfLifeDays,
+		&i.Utterance,
+		&i.ConfirmedWith,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listRecipeIngredientsByRecipe = `-- name: ListRecipeIngredientsByRecipe :many
+SELECT id, recipe_id, position, ingredient_id, grams
+FROM recipe_ingredients
+WHERE recipe_id = $1
+ORDER BY position
+`
+
+// The ingredients of the recipe, in the order the owner said them.
+func (q *Queries) ListRecipeIngredientsByRecipe(ctx context.Context, recipeID int64) ([]RecipeIngredient, error) {
+	rows, err := q.db.Query(ctx, listRecipeIngredientsByRecipe, recipeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RecipeIngredient{}
+	for rows.Next() {
+		var i RecipeIngredient
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeID,
+			&i.Position,
+			&i.IngredientID,
+			&i.Grams,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecipeStepsByRecipe = `-- name: ListRecipeStepsByRecipe :many
+SELECT id, recipe_id, position, instruction, cue, minutes, temperature
+FROM recipe_steps
+WHERE recipe_id = $1
+ORDER BY position
+`
+
+// The steps of the recipe, in the order the owner said them.
+func (q *Queries) ListRecipeStepsByRecipe(ctx context.Context, recipeID int64) ([]RecipeStep, error) {
+	rows, err := q.db.Query(ctx, listRecipeStepsByRecipe, recipeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RecipeStep{}
+	for rows.Next() {
+		var i RecipeStep
+		if err := rows.Scan(
+			&i.ID,
+			&i.RecipeID,
+			&i.Position,
+			&i.Instruction,
+			&i.Cue,
+			&i.Minutes,
+			&i.Temperature,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecipesByBusiness = `-- name: ListRecipesByBusiness :many
+SELECT id, business_id, name, yield_units, yield_grams, shelf_life_days, utterance, confirmed_with, created_at
+FROM recipes
+WHERE business_id = $1
+ORDER BY id
+`
+
+// The recipes of a business and of no other one, in the order of their
+// identity: the answer is the same every time it is read.
+func (q *Queries) ListRecipesByBusiness(ctx context.Context, businessID int64) ([]Recipe, error) {
+	rows, err := q.db.Query(ctx, listRecipesByBusiness, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Recipe{}
+	for rows.Next() {
+		var i Recipe
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.Name,
+			&i.YieldUnits,
+			&i.YieldGrams,
+			&i.ShelfLifeDays,
+			&i.Utterance,
+			&i.ConfirmedWith,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

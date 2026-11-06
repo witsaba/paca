@@ -611,3 +611,40 @@ func TestTheStockNeedsTheBusinessItIsReadFor(t *testing.T) {
 		t.Errorf("the business is %d, want 77", own)
 	}
 }
+
+// TestTheStockCarriesTheMoneyOfWhatIsLeftOfItsLayers proves the rule of the
+// domain: the money of what is left of a layer is the money of what it
+// bought, pro rata the quantity that is left, and the stock carries the
+// money of what it still holds.
+//
+// The rule was open (F4 of the verification of T11): a layer that holds a
+// fifth of what it bought still carried the whole money.
+func TestTheStockCarriesTheMoneyOfWhatIsLeftOfItsLayers(t *testing.T) {
+	t.Parallel()
+
+	layer := Layer{
+		ID:                 LayerID(3),
+		BusinessID:         business.ID(77),
+		PurchaseBusinessID: business.ID(77),
+		IngredientID:       ingredient.ID(10),
+		Name:               "Harina panadera",
+		PurchaseID:         ID(9),
+		Position:           1,
+		Day:                theDay(2026, time.March, 1),
+		Bought:             Measure{Quantity: 25, Unit: "kg"},
+		Left:               Measure{Quantity: 5, Unit: "kg"},
+		Cost:               ledger.Amount(12000),
+	}
+
+	stock := StockOf([]Layer{layer}, theCatalogOfTheTest(t))
+
+	if len(stock.Holdings) != 1 {
+		t.Fatalf("the stock holds %d holdings, want 1", len(stock.Holdings))
+	}
+	if stock.Holdings[0].Cost != ledger.Amount(2400) {
+		t.Errorf("the money of the holding is %d, want 2400", stock.Holdings[0].Cost)
+	}
+	if stock.Cost != ledger.Amount(2400) {
+		t.Errorf("the money of the stock is %d, want 2400", stock.Cost)
+	}
+}

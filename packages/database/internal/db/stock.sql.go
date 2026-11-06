@@ -78,6 +78,12 @@ type CreateStockLayerRow struct {
 // whose purchase is of another business. The domain holds the same rule,
 // and the query holds it as a defense in depth.
 //
+// The line of the purchase is read with the layer too: the money of the
+// layer is the money of the line it comes from, and a row another writer
+// broke with another money is refused by the domain, and never read as a
+// layer of the stock. The line is read with a join on the outside, so a
+// layer whose line is not there is refused and not hidden.
+//
 // Every query writes or reads one row, and every one of them is a single
 // statement: the library does not read a row to find out whether it may
 // write it.
@@ -116,9 +122,13 @@ func (q *Queries) CreateStockLayer(ctx context.Context, arg CreateStockLayerPara
 const listStockLayersByBusiness = `-- name: ListStockLayersByBusiness :many
 SELECT layers.id, layers.business_id, layers.ingredient_id, layers.purchase_id, layers.position,
        layers.name, layers.day, layers.quantity, layers.unit, layers.remaining, layers.cost,
-       layers.created_at, purchases.business_id AS purchase_business_id
+       layers.created_at, purchases.business_id AS purchase_business_id,
+       lines.ingredient_id AS line_ingredient_id, lines.name AS line_name,
+       lines.quantity AS line_quantity, lines.unit AS line_unit,
+       lines.total AS line_total, lines.unit_price AS line_unit_price
 FROM stock_layers layers
 JOIN purchases ON purchases.id = layers.purchase_id
+LEFT JOIN purchase_lines lines ON lines.purchase_id = layers.purchase_id AND lines.position = layers.position
 WHERE layers.business_id = $1 AND purchases.business_id = $1
 ORDER BY layers.day, layers.purchase_id, layers.id
 `
@@ -137,6 +147,12 @@ type ListStockLayersByBusinessRow struct {
 	Cost               int64
 	CreatedAt          pgtype.Timestamptz
 	PurchaseBusinessID int64
+	LineIngredientID   pgtype.Int8
+	LineName           pgtype.Text
+	LineQuantity       pgtype.Float8
+	LineUnit           pgtype.Text
+	LineTotal          pgtype.Int8
+	LineUnitPrice      pgtype.Int8
 }
 
 func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int64) ([]ListStockLayersByBusinessRow, error) {
@@ -162,6 +178,12 @@ func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int6
 			&i.Cost,
 			&i.CreatedAt,
 			&i.PurchaseBusinessID,
+			&i.LineIngredientID,
+			&i.LineName,
+			&i.LineQuantity,
+			&i.LineUnit,
+			&i.LineTotal,
+			&i.LineUnitPrice,
 		); err != nil {
 			return nil, err
 		}

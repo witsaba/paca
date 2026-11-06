@@ -617,3 +617,71 @@ func TestThePurchaseAndItsLayersAreOneTransaction(t *testing.T) {
 		t.Errorf("the layers were left behind: %d layers of the business", layers)
 	}
 }
+
+// TestTheLayerWhoseMoneyWasBrokenIsRefused proves the rule of the domain
+// against a real database: the money of the layer is the money of the line
+// of the purchase it comes from, and a row another writer broke is never
+// read as a layer of the stock.
+//
+// The rule was open (F5 of the verification of T11): a row broken with
+// another positive money passed the table and the domain.
+func TestTheLayerWhoseMoneyWasBrokenIsRefused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := layersRepository(t)
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	written, err := repo.Record(ctx, theLayersOfThePurchase(t, bought, flour.ID))
+	if err != nil {
+		t.Fatalf("the layers could not be written: %v", err)
+	}
+	if len(written) != 1 {
+		t.Fatalf("the purchase derived %d layers, want 1", len(written))
+	}
+
+	// Another writer breaks the row: the money of the layer is not the
+	// money of the line of the purchase any more.
+	if _, err := theSuite.db.ExecContext(ctx,
+		`UPDATE stock_layers SET cost = 9999 WHERE id = $1`, int64(written[0].ID)); err != nil {
+		t.Fatalf("the row could not be broken: %v", err)
+	}
+
+	_, err = repo.List(ctx, bakery.ID)
+	if !errors.Is(err, purchase.ErrLayerNotTied) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrLayerNotTied)
+	}
+}
+
+// TestTheLayerWhoseQuantityWasBrokenIsRefused proves that the tie of the
+// layer with the line of the purchase holds the quantity too: a row broken
+// with another quantity is never read as a layer of the stock.
+func TestTheLayerWhoseQuantityWasBrokenIsRefused(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := layersRepository(t)
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	written, err := repo.Record(ctx, theLayersOfThePurchase(t, bought, flour.ID))
+	if err != nil {
+		t.Fatalf("the layers could not be written: %v", err)
+	}
+	if len(written) != 1 {
+		t.Fatalf("the purchase derived %d layers, want 1", len(written))
+	}
+
+	if _, err := theSuite.db.ExecContext(ctx,
+		`UPDATE stock_layers SET quantity = 24, remaining = 24 WHERE id = $1`, int64(written[0].ID)); err != nil {
+		t.Fatalf("the row could not be broken: %v", err)
+	}
+
+	_, err = repo.List(ctx, bakery.ID)
+	if !errors.Is(err, purchase.ErrLayerNotTied) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrLayerNotTied)
+	}
+}

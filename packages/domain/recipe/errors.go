@@ -56,6 +56,11 @@ var (
 	// ErrNoStorage is the error of a port of the storage that has no
 	// storage behind it.
 	ErrNoStorage = errors.New("the storage of the recipes is not open")
+
+	// ErrWrongBusiness is the error of a recipe of another business: the
+	// recipe belongs to the business that owns it, and the cost of a batch
+	// is read for one business.
+	ErrWrongBusiness = errors.New("the recipe belongs to another business")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -74,5 +79,6 @@ func Errors() []error {
 		ErrMissingShelfLife,
 		ErrInvalidValue,
 		ErrNoStorage,
+		ErrWrongBusiness,
 	}
 }

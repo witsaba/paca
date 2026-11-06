@@ -1049,7 +1049,7 @@ its session starts.
 |---|---|---|---|---|
 | T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
 | T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b` and the correction of this commit |
-| T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `pending` |
+| T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | this commit |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
 | T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `pending` |
@@ -1207,3 +1207,14 @@ Four things the verification taught, carried here for the ones to come:
 - **The money of the layer is not tied to the line of the purchase** (F5 of the verification): a row another writer broke with another positive money passes the table and the domain. The tie belongs to the increment that consumes the layer.
 
 **Open for the owner**: the purchase line keeps the way the owner said the unit ("kilos") while the layer carries the unit of the book ("kg"). The alternative — the purchase line also carries the unit of the book, and the wording stays in the sentence of the owner — is one decision, and it belongs to the next increment that touches the line.
+
+**L26** (2026-11-06): the owner decided the unit: **Paca saves the unit of the book**, whatever the way she says it ("kilos", "gramos", "paquetes" become "kg", "g", "paquete"), and the wording of her sentence and of the name of the ingredient stays as she said it. The rule lives in the domain — the measure of a line and the unit of a reference are read with the vocabulary of the owner and stored the way the book knows them — and a unit the book does not know ("libra") is refused with the error that names the four units. The tables hold the rule as defense in depth, and the migration normalises the rows that exist before it adds the rule.
+
+T12 landed too: **the cost of a batch**. The cost is **derived, never typed**: it is read from the layers of the stock that the recipe consumes, in the order of the FIFO, and it answers per unit, per gram and per kilogram. The tool is `read_batch_cost`, and the transport carries twenty-six tools.
+
+Four things the increment taught, carried here for the ones to come:
+
+- **The money of what is left of a layer is the money of what it bought, pro rata.** The rule closes what the verification of T11 left open (F4): the stock carries the money of what it still holds, and a take never pays twice for the same gram.
+- **The layer is tied to the line of its purchase** (F5): the domain re-derives the layer from the line and refuses it when the money, the quantity or the ingredient differ, and two container tests break a real row to prove that the read of the stock refuses it.
+- **The cost is DIRECT and says its name.** The labour (T13) and the overhead (T14) are not in it, and the field is called `direct` so that no layer of cost hides inside another one.
+- **An answer that does not know says so.** An ingredient the stock holds in pieces, or in a package without a declared weight, has no rate per gram: the cost names it instead of guessing.

@@ -116,6 +116,21 @@ var (
 	// of its purchase: the position of the line is positive, and it is
 	// the order the owner said the line in.
 	ErrInvalidPosition = errors.New("the position of the line of the layer is positive")
+
+	// ErrInvalidUnit is the error of a layer whose unit is not one of the
+	// four units of the book: the layer carries the unit the book knows,
+	// and the way the owner said it is kept in the purchase.
+	ErrInvalidUnit = errors.New("the unit of the layer is one of the units of the book")
+
+	// ErrLayerOfAnotherBusiness is the error of a layer that claims
+	// another business than the purchase it comes from: the layer is
+	// derived from the purchase, and it belongs to its business.
+	ErrLayerOfAnotherBusiness = errors.New("the layer belongs to the business of its purchase")
+
+	// ErrMissingBusiness is the error of a stock that is read for a
+	// business that is not there: the stock belongs to a business, and
+	// there is no stock of nobody.
+	ErrMissingBusiness = errors.New("the stock is read for a business")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -148,5 +163,8 @@ func Errors() []error {
 		ErrLayerWithoutIngredient,
 		ErrInvalidLayer,
 		ErrInvalidPosition,
+		ErrInvalidUnit,
+		ErrLayerOfAnotherBusiness,
+		ErrMissingBusiness,
 	}
 }

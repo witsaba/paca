@@ -6,7 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
@@ -34,24 +33,31 @@ func TestTheRepositoryOfTheLayersWithoutADatabaseRefusesToWork(t *testing.T) {
 	}
 }
 
+// aRowOfALayer is a row of the layers that is whole: every rule of the
+// domain holds for it.
+func aRowOfALayer() rowOfALayer {
+	return rowOfALayer{
+		ID:                 3,
+		BusinessID:         77,
+		IngredientID:       10,
+		PurchaseID:         9,
+		Position:           1,
+		Name:               "Harina panadera",
+		Quantity:           25,
+		Unit:               "kg",
+		Remaining:          25,
+		Cost:               12000,
+		PurchaseBusinessID: 77,
+	}
+}
+
 // TestTheRowOfALayerIsMappedOntoTheModel proves that the row is mapped
 // onto the model of the domain, and that the model decides what a layer
 // is.
 func TestTheRowOfALayerIsMappedOntoTheModel(t *testing.T) {
 	t.Parallel()
 
-	mapped, err := layerFromRow(db.StockLayer{
-		ID:           3,
-		BusinessID:   77,
-		IngredientID: 10,
-		PurchaseID:   9,
-		Position:     1,
-		Name:         "Harina panadera",
-		Quantity:     25,
-		Unit:         "kg",
-		Remaining:    25,
-		Cost:         12000,
-	})
+	mapped, err := layerOf(aRowOfALayer())
 	if err != nil {
 		t.Fatalf("the row was refused: %v", err)
 	}
@@ -61,6 +67,9 @@ func TestTheRowOfALayerIsMappedOntoTheModel(t *testing.T) {
 	}
 	if mapped.BusinessID != business.ID(77) {
 		t.Errorf("the business is %d, want 77", mapped.BusinessID)
+	}
+	if mapped.PurchaseBusinessID != business.ID(77) {
+		t.Errorf("the business of the purchase is %d, want 77", mapped.PurchaseBusinessID)
 	}
 	if mapped.IngredientID != ingredient.ID(10) {
 		t.Errorf("the ingredient is %d, want 10", mapped.IngredientID)
@@ -88,20 +97,42 @@ func TestTheRowOfALayerIsMappedOntoTheModel(t *testing.T) {
 func TestTheRowOfALayerWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
 	t.Parallel()
 
-	_, err := layerFromRow(db.StockLayer{
-		ID:           3,
-		BusinessID:   77,
-		IngredientID: 10,
-		PurchaseID:   9,
-		Position:     1,
-		Name:         "Harina panadera",
-		Quantity:     25,
-		Unit:         "libra",
-		Remaining:    25,
-		Cost:         12000,
-	})
+	row := aRowOfALayer()
+	row.Unit = "libra"
+
+	_, err := layerOf(row)
 	if !errors.Is(err, ingredient.ErrUnknownUnit) {
 		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+}
+
+// TestTheRowWithAUnitThatIsNotTheOneOfTheBookIsRefused proves that the
+// model refuses a row that another writer broke: the layer carries the
+// unit the book knows, and never the way the owner said it.
+func TestTheRowWithAUnitThatIsNotTheOneOfTheBookIsRefused(t *testing.T) {
+	t.Parallel()
+
+	row := aRowOfALayer()
+	row.Unit = "kilos"
+
+	_, err := layerOf(row)
+	if !errors.Is(err, purchase.ErrInvalidUnit) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrInvalidUnit)
+	}
+}
+
+// TestTheRowOfALayerOfAnotherBusinessIsRefused proves that the model
+// refuses a row that another writer broke: the layer belongs to the
+// business of its purchase.
+func TestTheRowOfALayerOfAnotherBusinessIsRefused(t *testing.T) {
+	t.Parallel()
+
+	row := aRowOfALayer()
+	row.BusinessID = 78
+
+	_, err := layerOf(row)
+	if !errors.Is(err, purchase.ErrLayerOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrLayerOfAnotherBusiness)
 	}
 }
 
@@ -111,18 +142,10 @@ func TestTheRowOfALayerWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
 func TestTheRowThatHoldsMoreThanItBoughtIsRefused(t *testing.T) {
 	t.Parallel()
 
-	_, err := layerFromRow(db.StockLayer{
-		ID:           3,
-		BusinessID:   77,
-		IngredientID: 10,
-		PurchaseID:   9,
-		Position:     1,
-		Name:         "Harina panadera",
-		Quantity:     25,
-		Unit:         "kg",
-		Remaining:    30,
-		Cost:         12000,
-	})
+	row := aRowOfALayer()
+	row.Remaining = 30
+
+	_, err := layerOf(row)
 	if !errors.Is(err, purchase.ErrInvalidLayer) {
 		t.Fatalf("the error is %v, want %v", err, purchase.ErrInvalidLayer)
 	}

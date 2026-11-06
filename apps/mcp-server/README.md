@@ -291,11 +291,15 @@ ingredient, the quantity with its unit, the money it cost, the day it was
 bought and the purchase it comes from. The tool `read_stock` reads what the
 business holds — the quantity of every ingredient, the layers that are
 still open and the money the stock cost — and it writes nothing. The
-valuation is FIFO: the oldest layer is the first one that leaves, and the
+business is required, and the tool refuses the business that is not there.
+The valuation is FIFO: the oldest layer is the first one that leaves, and the
 answer carries the layers in that order. The order of the output by expiry
 is a different rule, and it does not live here. The quantity and its unit
 travel together: the layers bought in different units are held apart, and
-the book never adds a gram to a kilogram.
+the book never adds a gram to a kilogram. The layer carries the unit the
+book knows (`g`, `kg`, `paquete`, `unidad`): the way the owner said it is
+kept in the purchase, and the layer of that purchase is in the unit of the
+book.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

@@ -372,15 +372,22 @@ open.** `purchase.StockOf` answers what the business holds: the quantity it
 holds, the money it cost and the layers that are still open. A layer that is
 closed — nothing is left of it — is not in the answer.
 
-**The valuation is FIFO.** `purchase.ByFIFO` answers the layers in the order
-they leave the stock: the oldest layer is the first one that leaves. Two
-layers bought the same day are read by the identity of their purchase, so
-the answer is the same every time it is read. The order of the output by
+**The valuation is FIFO.** The layers of every holding are read in the
+order they leave the stock: the oldest layer is the first one that leaves.
+Two layers bought the same day are read by the identity of their purchase,
+so the answer is the same every time it is read. The order of the output by
 expiry is a different rule, and it does not live here.
 
 **The quantity and its unit travel together.** The layers of an ingredient
 that were bought in different units are held apart: the book never adds a
 gram to a kilogram.
+
+**The layer carries the unit the book knows.** The layer is derived, and the
+unit it carries is the one of the book (`g`, `kg`, `paquete`, `unidad`): the
+way the owner said it — "kilos" — is kept in the purchase, and the layer of
+that purchase is in kilograms. A line whose unit is not one of the units of
+the book has no layer, and a layer that carries another unit is refused
+(`ErrInvalidUnit`, `ingredient.ErrUnknownUnit`).
 
 **A layer that is not whole is refused.** `purchase.Layer.Checked` refuses
 the layer that names nothing of the catalog, that bought no quantity, that
@@ -389,9 +396,18 @@ comes from no line of its purchase and whose money is negative
 (`ErrInvalidLayer`, `ErrInvalidPosition`). The storage reads the layer
 through it, and a row that another writer broke is never read as a layer.
 
+**A layer belongs to the business of its purchase.** The layer carries the
+business of the purchase it comes from, and a layer that claims another
+business is refused (`ErrLayerOfAnotherBusiness`). The stock of a business
+never holds the layer of a purchase of another one.
+
 **A layer comes from one line of its purchase.** The position of the layer
 is the position of the line it comes from: it is the order the owner said
 the line in, and it is unique inside the purchase.
+
+**The stock belongs to a business.** `purchase.TheBusinessOfTheStock` answers
+the business whose stock is read, and it refuses the business that is not
+there (`ErrMissingBusiness`): there is no stock of nobody.
 
 ## The catalog of the names
 

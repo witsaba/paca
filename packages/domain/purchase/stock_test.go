@@ -79,7 +79,7 @@ func TestTheLayerIsDerivedFromThePurchase(t *testing.T) {
 	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
 		aLineOfTheCatalog(t, "Harina", 25, "kg", 12000, ingredient.ID(10)))
 
-	layer, err := NewLayer(bought, bought.Lines[0], 1)
+	layer, err := newLayer(bought, bought.Lines[0], 1)
 	if err != nil {
 		t.Fatalf("the layer was refused: %v", err)
 	}
@@ -107,6 +107,166 @@ func TestTheLayerIsDerivedFromThePurchase(t *testing.T) {
 	}
 }
 
+// aWholeLayer is a layer that is whole: every rule of Checked holds for
+// it, and the tests break one rule at a time.
+func aWholeLayer() Layer {
+	return Layer{
+		ID:                 LayerID(3),
+		BusinessID:         business.ID(77),
+		PurchaseBusinessID: business.ID(77),
+		IngredientID:       ingredient.ID(10),
+		Name:               "Harina panadera",
+		PurchaseID:         ID(9),
+		Position:           1,
+		Day:                theDay(2026, time.March, 1),
+		Bought:             Measure{Quantity: 25, Unit: "kg"},
+		Left:               Measure{Quantity: 25, Unit: "kg"},
+		Cost:               ledger.Amount(12000),
+	}
+}
+
+// TestTheLayerIsWholeProvesThatAWholeLayerIsAccepted proves that the
+// layer that breaks no rule is accepted: the check is not a ceremony.
+func TestTheLayerIsWholeProvesThatAWholeLayerIsAccepted(t *testing.T) {
+	t.Parallel()
+
+	whole := aWholeLayer()
+
+	if _, err := whole.Checked(); err != nil {
+		t.Fatalf("the layer was refused: %v", err)
+	}
+}
+
+// TestTheLayerCheckedRefusesEveryBrokenRow proves every rule of the
+// domain of the layer, one at a time: the layer names the ingredient of
+// the catalog, it belongs to the business of its purchase, the quantity it
+// bought is positive, the position of its line is positive, the unit is
+// one of the units of the book, what is left of it is never more than
+// what it bought, what is left of it is in the unit it bought, and the
+// money is not negative.
+//
+// The rules of a domain are proved without a database.
+func TestTheLayerCheckedRefusesEveryBrokenRow(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		breaks func(l *Layer)
+		wants  error
+	}{
+		{
+			name:   "the layer names nothing of the catalog",
+			breaks: func(l *Layer) { l.IngredientID = 0 },
+			wants:  ErrLayerWithoutIngredient,
+		},
+		{
+			name:   "the layer claims another business than its purchase",
+			breaks: func(l *Layer) { l.BusinessID = business.ID(78) },
+			wants:  ErrLayerOfAnotherBusiness,
+		},
+		{
+			name:   "the layer bought no quantity",
+			breaks: func(l *Layer) { l.Bought.Quantity = 0 },
+			wants:  ErrInvalidQuantity,
+		},
+		{
+			name:   "the layer bought a negative quantity",
+			breaks: func(l *Layer) { l.Bought.Quantity = -1 },
+			wants:  ErrInvalidQuantity,
+		},
+		{
+			name:   "the layer comes from no line of its purchase",
+			breaks: func(l *Layer) { l.Position = 0 },
+			wants:  ErrInvalidPosition,
+		},
+		{
+			name:   "the layer carries a unit the book does not know",
+			breaks: func(l *Layer) { l.Bought.Unit = "libra" },
+			wants:  ingredient.ErrUnknownUnit,
+		},
+		{
+			name:   "the layer carries a unit that is not the one of the book",
+			breaks: func(l *Layer) { l.Bought.Unit = "kilos" },
+			wants:  ErrInvalidUnit,
+		},
+		{
+			name:   "the layer holds more than it bought",
+			breaks: func(l *Layer) { l.Left.Quantity = 26 },
+			wants:  ErrInvalidLayer,
+		},
+		{
+			name:   "the layer holds a negative quantity",
+			breaks: func(l *Layer) { l.Left.Quantity = -1 },
+			wants:  ErrInvalidLayer,
+		},
+		{
+			name:   "the layer holds another unit than the one it bought",
+			breaks: func(l *Layer) { l.Left.Unit = "g" },
+			wants:  ErrInvalidLayer,
+		},
+		{
+			name:   "the money of the layer is negative",
+			breaks: func(l *Layer) { l.Cost = -1 },
+			wants:  ErrInvalidPrice,
+		},
+	}
+
+	for _, one := range cases {
+		t.Run(one.name, func(t *testing.T) {
+			t.Parallel()
+
+			broken := aWholeLayer()
+			one.breaks(&broken)
+
+			if _, err := broken.Checked(); !errors.Is(err, one.wants) {
+				t.Fatalf("the error is %v, want %v", err, one.wants)
+			}
+		})
+	}
+}
+
+// TestTheLayerCarriesTheCanonicalUnitOfTheBook proves that the layer
+// carries the unit the book knows: the layer is derived, and the way the
+// owner said it is kept in the purchase.
+func TestTheLayerCarriesTheCanonicalUnitOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
+		aLineOfTheCatalog(t, "Harina", 25, "kilos", 12000, ingredient.ID(10)))
+
+	layer, err := newLayer(bought, bought.Lines[0], 1)
+	if err != nil {
+		t.Fatalf("the layer was refused: %v", err)
+	}
+
+	if layer.Bought.Unit != "kg" {
+		t.Errorf("the unit of what it bought is %q, want %q", layer.Bought.Unit, "kg")
+	}
+	if layer.Left.Unit != "kg" {
+		t.Errorf("the unit of what is left is %q, want %q", layer.Left.Unit, "kg")
+	}
+	if bought.Lines[0].Measure.Unit != "kilos" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
+			bought.Lines[0].Measure.Unit, "kilos")
+	}
+}
+
+// TestTheLayerOfALineWithAUnitTheBookDoesNotKnowIsRefused proves that a
+// line whose unit is not one of the units of the book has no layer: the
+// quantity and its unit travel together, and the unit of the book is a
+// rule of the domain.
+func TestTheLayerOfALineWithAUnitTheBookDoesNotKnowIsRefused(t *testing.T) {
+	t.Parallel()
+
+	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
+		aLineOfTheCatalog(t, "Harina", 25, "libra", 12000, ingredient.ID(10)))
+
+	_, err := newLayer(bought, bought.Lines[0], 1)
+	if !errors.Is(err, ingredient.ErrUnknownUnit) {
+		t.Fatalf("the error is %v, want %v", err, ingredient.ErrUnknownUnit)
+	}
+}
+
 // TestTheLayerOfALineTheCatalogDoesNotKnowIsRefused proves that a line
 // that names nothing of the catalog has no layer: a layer without its
 // ingredient is not a layer.
@@ -116,7 +276,7 @@ func TestTheLayerOfALineTheCatalogDoesNotKnowIsRefused(t *testing.T) {
 	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
 		theLine(t, "Harina", 25, "kg", 12000))
 
-	_, err := NewLayer(bought, bought.Lines[0], 1)
+	_, err := newLayer(bought, bought.Lines[0], 1)
 	if !errors.Is(err, ErrLayerWithoutIngredient) {
 		t.Fatalf("the error is %v, want %v", err, ErrLayerWithoutIngredient)
 	}
@@ -131,7 +291,7 @@ func TestTheLayerOfALineWithoutAPositionIsRefused(t *testing.T) {
 	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
 		aLineOfTheCatalog(t, "Harina", 25, "kg", 12000, ingredient.ID(10)))
 
-	_, err := NewLayer(bought, bought.Lines[0], 0)
+	_, err := newLayer(bought, bought.Lines[0], 0)
 	if !errors.Is(err, ErrInvalidPosition) {
 		t.Fatalf("the error is %v, want %v", err, ErrInvalidPosition)
 	}
@@ -398,5 +558,44 @@ func TestTheLayersOfOneIngredientAreTheOnesOfThatIngredient(t *testing.T) {
 	}
 	if held[0].IngredientID != ingredient.ID(10) {
 		t.Errorf("the layer is of the ingredient %d, want 10", held[0].IngredientID)
+	}
+}
+
+// TestTheLayerBelongsToTheBusinessOfItsPurchase proves the rule of the
+// domain: a layer is derived from its purchase, and it belongs to the
+// business of that purchase.
+func TestTheLayerBelongsToTheBusinessOfItsPurchase(t *testing.T) {
+	t.Parallel()
+
+	bought := thePurchaseOfTheTest(t, theDay(2026, time.March, 1),
+		aLineOfTheCatalog(t, "Harina", 25, "kg", 12000, ingredient.ID(10)))
+
+	layer, err := newLayer(bought, bought.Lines[0], 1)
+	if err != nil {
+		t.Fatalf("the layer was refused: %v", err)
+	}
+
+	if layer.PurchaseBusinessID != bought.BusinessID {
+		t.Errorf("the business of the purchase of the layer is %d, want %d",
+			layer.PurchaseBusinessID, bought.BusinessID)
+	}
+}
+
+// TestTheStockNeedsTheBusinessItIsReadFor proves the rule of the domain:
+// the stock belongs to a business, and a request that names no business is
+// refused: there is no stock of nobody.
+func TestTheStockNeedsTheBusinessItIsReadFor(t *testing.T) {
+	t.Parallel()
+
+	if _, err := TheBusinessOfTheStock(0); !errors.Is(err, ErrMissingBusiness) {
+		t.Fatalf("the error is %v, want %v", err, ErrMissingBusiness)
+	}
+
+	own, err := TheBusinessOfTheStock(business.ID(77))
+	if err != nil {
+		t.Fatalf("the business was refused: %v", err)
+	}
+	if own != business.ID(77) {
+		t.Errorf("the business is %d, want 77", own)
 	}
 }

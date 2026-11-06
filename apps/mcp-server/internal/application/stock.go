@@ -50,6 +50,9 @@ func NewStockService(
 // The ingredient is optional: the zero identity answers the whole business,
 // and an identity answers the stock of that ingredient alone.
 //
+// The business is required: the stock belongs to a business, and the use
+// case refuses the business that is not there.
+//
 // The rules are the ones of the domain: the use case reads the layers and
 // the catalog, and it asks the domain to build the stock. It never decides
 // what the business holds.
@@ -58,13 +61,18 @@ func (s *StockService) Read(ctx context.Context, request ports.ReadStock) (purch
 		return purchase.Stock{}, ports.ErrNoDatabase
 	}
 
-	layers, err := s.layers.List(ctx, request.BusinessID)
+	own, err := purchase.TheBusinessOfTheStock(request.BusinessID)
+	if err != nil {
+		return purchase.Stock{}, err
+	}
+
+	layers, err := s.layers.List(ctx, own)
 	if err != nil {
 		return purchase.Stock{}, err
 	}
 
 	if request.IngredientID != 0 {
-		err := s.holds(ctx, request.BusinessID, ingredient.ID(request.IngredientID))
+		err := s.holds(ctx, own, ingredient.ID(request.IngredientID))
 		if err != nil {
 			return purchase.Stock{}, err
 		}
@@ -72,12 +80,12 @@ func (s *StockService) Read(ctx context.Context, request ports.ReadStock) (purch
 		layers = purchase.OfIngredient(layers, ingredient.ID(request.IngredientID))
 	}
 
-	items, err := s.ingredients.List(ctx, request.BusinessID)
+	items, err := s.ingredients.List(ctx, own)
 	if err != nil {
 		return purchase.Stock{}, err
 	}
 
-	catalog, err := ingredient.NewCatalog(request.BusinessID, items)
+	catalog, err := ingredient.NewCatalog(own, items)
 	if err != nil {
 		return purchase.Stock{}, err
 	}

@@ -188,4 +188,10 @@ var theMessages = map[error]string{
 	purchase.ErrInvalidLayer: "the layer is not whole: what it holds is not what it bought, and the storage " +
 		"refused the row",
 	purchase.ErrInvalidPosition: "the layer comes from no line of its purchase: the storage refused the row",
+	purchase.ErrInvalidUnit: "the unit of the layer is not one of the units PACA knows: use 'g', 'kg', " +
+		"'paquete' or 'unidad', the way the owner buys the thing",
+	purchase.ErrLayerOfAnotherBusiness: "the layer belongs to the business of its purchase: the stock of a " +
+		"business never holds the layer of a purchase of another one",
+	purchase.ErrMissingBusiness: "the business is required: send the identity of the business whose stock " +
+		"you read, and PACA never invents one",
 }

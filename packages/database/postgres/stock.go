@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
@@ -52,6 +53,10 @@ func NewStockRepository(pool *Pool) (*StockRepository, error) {
 // comes from: a layer is derived from one line and from no other, and the
 // unique index of the table holds the rule as a defense in depth.
 //
+// The layer is asked before it is written: the domain decides what a layer
+// is, and a layer that claims another business than its purchase is
+// refused before the storage hears of it.
+//
 // The error is purchase.ErrInvalidValue when the row breaks a rule of the
 // table, purchase.ErrNotFound when the purchase or the ingredient of the
 // layer is not there, and purchase.ErrNoStorage when the storage is not
@@ -64,6 +69,10 @@ func (r *StockRepository) Record(ctx context.Context, layers []purchase.Layer) (
 	written := make([]purchase.Layer, 0, len(layers))
 
 	for _, one := range layers {
+		if _, err := one.Checked(); err != nil {
+			return nil, err
+		}
+
 		position, err := positionOf(one.Position)
 		if err != nil {
 			return nil, err
@@ -85,7 +94,7 @@ func (r *StockRepository) Record(ctx context.Context, layers []purchase.Layer) (
 			return nil, writeLayerError(err)
 		}
 
-		layer, err := layerFromRow(row)
+		layer, err := layerFromWrittenRow(row)
 		if err != nil {
 			return nil, err
 		}
@@ -98,6 +107,10 @@ func (r *StockRepository) Record(ctx context.Context, layers []purchase.Layer) (
 
 // List returns the layers of a business, in the order they leave the
 // stock: the oldest layer is the first.
+//
+// The query reads the purchase of every layer with it: a layer belongs to
+// the business of its purchase, and the stock of a business never holds
+// the layer of a purchase of another one.
 //
 // The error is purchase.ErrNoStorage when the storage is not open.
 func (r *StockRepository) List(ctx context.Context, own business.ID) ([]purchase.Layer, error) {
@@ -112,7 +125,7 @@ func (r *StockRepository) List(ctx context.Context, own business.ID) ([]purchase
 
 	layers := make([]purchase.Layer, 0, len(rows))
 	for _, row := range rows {
-		layer, err := layerFromRow(row)
+		layer, err := layerFromListedRow(row)
 		if err != nil {
 			return nil, err
 		}
@@ -123,23 +136,79 @@ func (r *StockRepository) List(ctx context.Context, own business.ID) ([]purchase
 	return layers, nil
 }
 
-// layerFromRow maps a row of the layers onto the model of the domain.
+// rowOfALayer is what a row of the layers carries, however it was read.
+type rowOfALayer struct {
+	ID                 int64
+	BusinessID         int64
+	IngredientID       int64
+	PurchaseID         int64
+	Position           int32
+	Name               string
+	Day                pgtype.Date
+	Quantity           float64
+	Unit               string
+	Remaining          float64
+	Cost               int64
+	PurchaseBusinessID int64
+}
+
+// layerFromWrittenRow maps the row of a layer that was just written onto
+// the model of the domain.
+func layerFromWrittenRow(row db.CreateStockLayerRow) (purchase.Layer, error) {
+	return layerOf(rowOfALayer{
+		ID:                 row.ID,
+		BusinessID:         row.BusinessID,
+		IngredientID:       row.IngredientID,
+		PurchaseID:         row.PurchaseID,
+		Position:           row.Position,
+		Name:               row.Name,
+		Day:                row.Day,
+		Quantity:           row.Quantity,
+		Unit:               row.Unit,
+		Remaining:          row.Remaining,
+		Cost:               row.Cost,
+		PurchaseBusinessID: row.PurchaseBusinessID,
+	})
+}
+
+// layerFromListedRow maps a row of the layers that was read back onto the
+// model of the domain.
+func layerFromListedRow(row db.ListStockLayersByBusinessRow) (purchase.Layer, error) {
+	return layerOf(rowOfALayer{
+		ID:                 row.ID,
+		BusinessID:         row.BusinessID,
+		IngredientID:       row.IngredientID,
+		PurchaseID:         row.PurchaseID,
+		Position:           row.Position,
+		Name:               row.Name,
+		Day:                row.Day,
+		Quantity:           row.Quantity,
+		Unit:               row.Unit,
+		Remaining:          row.Remaining,
+		Cost:               row.Cost,
+		PurchaseBusinessID: row.PurchaseBusinessID,
+	})
+}
+
+// layerOf builds the layer of the domain out of a row, and asks the domain
+// whether it is whole.
 //
 // The layer is built by the domain: the row may come from a table that was
 // changed by another writer, and the model does not trust a stranger with
 // a layer it does not know.
-func layerFromRow(row db.StockLayer) (purchase.Layer, error) {
+func layerOf(row rowOfALayer) (purchase.Layer, error) {
 	layer := purchase.Layer{
-		ID:           purchase.LayerID(row.ID),
-		BusinessID:   business.ID(row.BusinessID),
-		IngredientID: ingredient.ID(row.IngredientID),
-		Name:         row.Name,
-		PurchaseID:   purchase.ID(row.PurchaseID),
-		Position:     int(row.Position),
-		Day:          ledger.NewDate(row.Day.Time),
-		Bought:       purchase.Measure{Quantity: row.Quantity, Unit: row.Unit},
-		Left:         purchase.Measure{Quantity: row.Remaining, Unit: row.Unit},
-		Cost:         ledger.Amount(row.Cost),
+		ID:                 purchase.LayerID(row.ID),
+		BusinessID:         business.ID(row.BusinessID),
+		PurchaseBusinessID: business.ID(row.PurchaseBusinessID),
+		IngredientID:       ingredient.ID(row.IngredientID),
+		Name:               row.Name,
+		PurchaseID:         purchase.ID(row.PurchaseID),
+		Position:           int(row.Position),
+		Day:                ledger.NewDate(row.Day.Time),
+		Bought:             purchase.Measure{Quantity: row.Quantity, Unit: row.Unit},
+		Left:               purchase.Measure{Quantity: row.Remaining, Unit: row.Unit},
+		Cost:               ledger.Amount(row.Cost),
 	}
 
 	return layer.Checked()

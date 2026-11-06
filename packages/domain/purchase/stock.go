@@ -35,6 +35,14 @@ type Layer struct {
 	// BusinessID is the business that bought it.
 	BusinessID business.ID
 
+	// PurchaseBusinessID is the business of the purchase the layer comes
+	// from.
+	//
+	// The layer is derived from the purchase, and it belongs to the
+	// business of that purchase: a layer that claims another business is
+	// not a layer of this stock, and it is refused.
+	PurchaseBusinessID business.ID
+
 	// IngredientID is the ingredient of the catalog the layer is of.
 	IngredientID ingredient.ID
 
@@ -78,15 +86,23 @@ func (l Layer) Open() bool {
 // not.
 //
 // The rule of the domain: the layer names the ingredient of the catalog,
-// the quantity it bought is positive, the unit is one of the units of the
-// book, what is left of it is never more than what it bought, and the
-// money is not negative.
+// it belongs to the business of its purchase, the quantity it bought is
+// positive, the unit is one of the units of the book, what is left of it
+// is never more than what it bought, and the money is not negative.
+//
+// The unit of the layer is the unit the book knows: the layer is derived,
+// and the way the owner said the unit is kept in the purchase.
 //
 // A row that another writer broke is refused, and it is never read as a
 // layer of the stock.
 func (l Layer) Checked() (Layer, error) {
 	if l.IngredientID == 0 {
 		return Layer{}, fmt.Errorf("%w: the layer names nothing of the catalog", ErrLayerWithoutIngredient)
+	}
+
+	if l.BusinessID != l.PurchaseBusinessID {
+		return Layer{}, fmt.Errorf("%w: the layer claims the business %d and it comes from the purchase of the business %d",
+			ErrLayerOfAnotherBusiness, l.BusinessID, l.PurchaseBusinessID)
 	}
 
 	if l.Bought.Quantity <= 0 {
@@ -97,8 +113,14 @@ func (l Layer) Checked() (Layer, error) {
 		return Layer{}, fmt.Errorf("%w: the layer is the line %d of its purchase", ErrInvalidPosition, l.Position)
 	}
 
-	if _, err := ingredient.ParseUnit(l.Bought.Unit); err != nil {
+	unit, err := ingredient.ParseUnit(l.Bought.Unit)
+	if err != nil {
 		return Layer{}, err
+	}
+
+	if unit.String() != l.Bought.Unit {
+		return Layer{}, fmt.Errorf("%w: the layer carries the unit %q and the book knows it as %q",
+			ErrInvalidUnit, l.Bought.Unit, unit.String())
 	}
 
 	if l.Left.Quantity < 0 || l.Left.Quantity > l.Bought.Quantity {
@@ -160,7 +182,7 @@ type Stock struct {
 	Cost ledger.Amount
 }
 
-// NewLayer derives the layer of a line of a purchase.
+// newLayer derives the layer of a line of a purchase.
 //
 // The purchase is the fact and the layer is derived from it: the layer
 // carries the ingredient of the line, the quantity that was bought with
@@ -171,9 +193,14 @@ type Stock struct {
 // line the catalog does not know has no layer, and the error is
 // ErrLayerWithoutIngredient: the layer would name nothing at all.
 //
+// The unit of the layer is the unit the book knows: the layer is derived,
+// and the way the owner said it ("kilos") is kept in the purchase, while
+// the layer carries the unit of the book ("kg"). A line whose unit is not
+// one of the units of the book has no layer.
+//
 // The position is the position of the line in the purchase: it is positive,
 // and it is the order the owner said the line in.
-func NewLayer(bought Purchase, line Line, position int) (Layer, error) {
+func newLayer(bought Purchase, line Line, position int) (Layer, error) {
 	if line.IngredientID == 0 {
 		return Layer{}, fmt.Errorf("%w: the line %q of the purchase %d names nothing of the catalog",
 			ErrLayerWithoutIngredient, line.Name, bought.ID)
@@ -187,21 +214,30 @@ func NewLayer(bought Purchase, line Line, position int) (Layer, error) {
 		return Layer{}, fmt.Errorf("%w: the layer of the line %q carries its unit", ErrMissingUnit, line.Name)
 	}
 
+	unit, err := ingredient.ParseUnit(line.Measure.Unit)
+	if err != nil {
+		return Layer{}, fmt.Errorf("%w: the line %q of the purchase %d carries the unit %q",
+			err, line.Name, bought.ID, line.Measure.Unit)
+	}
+
 	if position <= 0 {
 		return Layer{}, fmt.Errorf("%w: the layer is the line %d of the purchase %d",
 			ErrInvalidPosition, position, bought.ID)
 	}
 
+	measure := Measure{Quantity: line.Measure.Quantity, Unit: unit.String()}
+
 	return Layer{
-		BusinessID:   bought.BusinessID,
-		IngredientID: line.IngredientID,
-		Name:         line.Name,
-		PurchaseID:   bought.ID,
-		Position:     position,
-		Day:          bought.Day,
-		Bought:       line.Measure,
-		Left:         line.Measure,
-		Cost:         line.Price.Amount(line.Measure.Quantity),
+		BusinessID:         bought.BusinessID,
+		PurchaseBusinessID: bought.BusinessID,
+		IngredientID:       line.IngredientID,
+		Name:               line.Name,
+		PurchaseID:         bought.ID,
+		Position:           position,
+		Day:                bought.Day,
+		Bought:             measure,
+		Left:               measure,
+		Cost:               line.Price.Amount(line.Measure.Quantity),
 	}, nil
 }
 
@@ -223,7 +259,7 @@ func LayersOf(bought Purchase) ([]Layer, error) {
 			continue
 		}
 
-		layer, err := NewLayer(bought, one, position+1)
+		layer, err := newLayer(bought, one, position+1)
 		if err != nil {
 			return nil, err
 		}
@@ -234,11 +270,11 @@ func LayersOf(bought Purchase) ([]Layer, error) {
 	return layers, nil
 }
 
-// Open answers the layers that are still open.
+// open answers the layers that are still open.
 //
 // The stock is the sum of the layers that are still open: a layer that is
 // closed - nothing is left of it - is not in the answer.
-func Open(layers []Layer) []Layer {
+func open(layers []Layer) []Layer {
 	opened := make([]Layer, 0, len(layers))
 
 	for _, one := range layers {
@@ -266,7 +302,7 @@ func OfIngredient(layers []Layer, of ingredient.ID) []Layer {
 	return held
 }
 
-// ByFIFO answers the layers in the order they leave the stock.
+// byFIFO answers the layers in the order they leave the stock.
 //
 // The valuation is FIFO: the oldest layer is the first one that leaves.
 // The order is the day the layer was bought, and the identity of the
@@ -275,7 +311,7 @@ func OfIngredient(layers []Layer, of ingredient.ID) []Layer {
 //
 // The order of the output by expiry is a different rule, and it belongs to
 // the units of the bakery: the model keeps the two apart.
-func ByFIFO(layers []Layer) []Layer {
+func byFIFO(layers []Layer) []Layer {
 	ordered := make([]Layer, len(layers))
 	copy(ordered, layers)
 
@@ -308,6 +344,20 @@ func leavesFirst(one, other Layer) bool {
 	return one.ID < other.ID
 }
 
+// TheBusinessOfTheStock answers the business whose stock is read.
+//
+// The rule of the domain: the stock belongs to a business, and a request
+// that names no business is refused: there is no stock of nobody.
+//
+// The error is ErrMissingBusiness when the caller names no business.
+func TheBusinessOfTheStock(own business.ID) (business.ID, error) {
+	if own <= 0 {
+		return 0, fmt.Errorf("%w: the stock is read for the business %d", ErrMissingBusiness, own)
+	}
+
+	return own, nil
+}
+
 // StockOf answers what the business holds.
 //
 // The stock of an ingredient is the sum of the layers that are still open,
@@ -321,7 +371,7 @@ func leavesFirst(one, other Layer) bool {
 // The name of the holding is the name the owner reads of the ingredient,
 // and it is the name of the layer when the catalog does not know it.
 func StockOf(layers []Layer, catalog ingredient.Catalog) Stock {
-	opened := Open(layers)
+	opened := open(layers)
 	holdings := make([]Holding, 0, len(opened))
 	cost := ledger.Amount(0)
 
@@ -345,7 +395,7 @@ func StockOf(layers []Layer, catalog ingredient.Catalog) Stock {
 	}
 
 	for index := range holdings {
-		holdings[index].Layers = ByFIFO(holdings[index].Layers)
+		holdings[index].Layers = byFIFO(holdings[index].Layers)
 		holdings[index].Quantity = quantityOf(holdings[index].Layers)
 		holdings[index].Cost = costOf(holdings[index].Layers)
 		cost += holdings[index].Cost

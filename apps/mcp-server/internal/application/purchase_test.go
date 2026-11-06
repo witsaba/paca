@@ -1635,3 +1635,49 @@ func TestTheConfirmationNamesNoNameTheCatalogKnows(t *testing.T) {
 		t.Errorf("the answer names %v, want nothing", confirmation.NewNames)
 	}
 }
+
+// TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOf
+// TheBook proves that the sentence of the owner keeps the exact wording and
+// that the layer carries the unit the book knows: the layer is derived, and
+// the stock never adds a gram to a kilogram.
+func TestTheConfirmationKeepsTheUnitOfTheOwnerAndWritesTheLayerWithTheOneOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	purchases := &fakePurchases{}
+	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
+	book := &fakeBook{}
+	ingredients := &fakeIngredients{}
+	layers := &fakeLayers{}
+
+	drafted, err := application.NewPurchaseService(drafts, theCatalog(), theClock()).Draft(t.Context(), ports.DraftPurchase{
+		BusinessID: business.ID(77),
+		Utterance:  "Compré 25 kilos de harina",
+		Lines:      []ports.PurchaseLine{theLine("Harina", 25, "kilos", 12000)},
+	})
+	if err != nil {
+		t.Fatalf("the draft could not be kept: %v", err)
+	}
+
+	_, err = theConfirmation(drafts, purchases, accounts, book, ingredients, layers, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+		BusinessID:    business.ID(77),
+		DraftID:       drafted.ID,
+		Revision:      drafted.Revision,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	if purchases.purchases[0].Lines[0].Measure.Unit != "kilos" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
+			purchases.purchases[0].Lines[0].Measure.Unit, "kilos")
+	}
+
+	if len(layers.layers) != 1 {
+		t.Fatalf("the stock holds %d layers, want the one of the purchase", len(layers.layers))
+	}
+	if layers.layers[0].Bought.Unit != "kg" {
+		t.Errorf("the unit of what the layer bought is %q, want %q", layers.layers[0].Bought.Unit, "kg")
+	}
+}

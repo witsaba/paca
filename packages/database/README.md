@@ -266,7 +266,14 @@ nobody types a layer.
 
 **The quantity and its unit travel together.** The unit is one of the four
 the book knows, and what is left of a layer is never more than what it
-bought.
+bought. The layer is derived, and the unit it carries is the one of the
+book: the way the owner said it is kept in the purchase, and the layer of
+that purchase is in the unit of the book.
+
+**The layer belongs to the business of its purchase.** The rule is the
+domain's, and the query holds it as a defense in depth: the layers of a
+business are read with the purchase of every layer, and a layer whose
+purchase is of another business is never in the answer.
 
 ### `ingredients`
 
@@ -573,7 +580,9 @@ List(ctx, businessID) ([]purchase.Layer, error)
 The layers of a business are read in the order they leave the stock: the
 oldest layer is the first. The row never decides what a layer is: the
 domain reads it back through `purchase.Layer.Checked`, and a row that
-another writer broke is refused.
+another writer broke is refused. The layer is asked before it is written,
+too: a layer that claims another business than its purchase never reaches
+the table.
 
 ## The repository of the recipes
 

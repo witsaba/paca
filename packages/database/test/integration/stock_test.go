@@ -4,6 +4,7 @@ package integration_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -301,5 +302,273 @@ func TestTheTableOfTheLayersRefusesTwoLayersOfTheSameLine(t *testing.T) {
 	if pgErr.ConstraintName != "stock_layers_one_per_line" {
 		t.Errorf("the constraint of the error is %q, want %q",
 			pgErr.ConstraintName, "stock_layers_one_per_line")
+	}
+}
+
+// thePurchaseWithTheUnitOfTheOwner builds the purchase whose line names
+// the unit the way the owner said it.
+//
+// The sentence of the owner keeps the exact wording, and the layer that is
+// derived from it carries the unit the book knows.
+func thePurchaseWithTheUnitOfTheOwner(
+	t *testing.T,
+	ctx context.Context,
+	bakery business.Business,
+	of ingredient.ID,
+) purchase.Purchase {
+	t.Helper()
+
+	draft, err := draftsRepository(t).Save(ctx, theDraftOfTheTest(bakery))
+	if err != nil {
+		t.Fatalf("the draft could not be written: %v", err)
+	}
+
+	return purchase.Purchase{
+		DraftID:       draft.ID,
+		BusinessID:    bakery.ID,
+		Day:           draft.Day,
+		Utterance:     draft.Utterance,
+		ConfirmedWith: "sí",
+		Lines: []purchase.Line{
+			{
+				Name:         "Harina",
+				Measure:      purchase.Measure{Quantity: 25, Unit: "kilos"},
+				Price:        purchase.Price{Total: 12000},
+				IngredientID: of,
+			},
+		},
+		Total: 12000,
+	}
+}
+
+// TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook proves
+// that the sentence of the owner keeps the exact wording and that the layer
+// carries the unit of the book: the layer is derived, and the stock never
+// adds a gram to a kilogram.
+func TestThePurchaseKeepsTheUnitOfTheOwnerAndItsLayerTheOneOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := layersRepository(t)
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+
+	bought, err := purchasesRecorder(t).Record(ctx, thePurchaseWithTheUnitOfTheOwner(t, ctx, bakery, flour.ID))
+	if err != nil {
+		t.Fatalf("the purchase could not be written: %v", err)
+	}
+
+	if bought.Lines[0].Measure.Unit != "kilos" {
+		t.Errorf("the unit of the line of the purchase is %q, want %q: the sentence of the owner keeps the exact wording",
+			bought.Lines[0].Measure.Unit, "kilos")
+	}
+
+	written, err := repo.Record(ctx, theLayersOfThePurchase(t, bought, flour.ID))
+	if err != nil {
+		t.Fatalf("the layers could not be written: %v", err)
+	}
+	if written[0].Bought.Unit != "kg" {
+		t.Errorf("the unit of what the layer bought is %q, want %q", written[0].Bought.Unit, "kg")
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the layers could not be read: %v", err)
+	}
+	if len(held) != 1 {
+		t.Fatalf("the stock holds %d layers, want 1", len(held))
+	}
+	if held[0].Bought.Unit != "kg" {
+		t.Errorf("the unit of what the layer bought is %q, want %q", held[0].Bought.Unit, "kg")
+	}
+}
+
+// TestTheLayerOfAnotherBusinessIsNotReadAsTheStockOfABusiness proves that
+// the stock of a business never holds the layer of a purchase of another
+// one: the layer belongs to the business of its purchase.
+func TestTheLayerOfAnotherBusinessIsNotReadAsTheStockOfABusiness(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := layersRepository(t)
+	bakery := theBakeryOfTheLayers(t, ctx)
+	other := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	// The row another writer broke: the layer claims the other business,
+	// and it comes from a purchase of the bakery.
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO stock_layers (business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+		int64(other.ID), int64(flour.ID), int64(bought.ID), 1, "Harina",
+		ledger.NewDate(time.Date(2026, time.March, 15, 0, 0, 0, 0, time.UTC)).String(),
+		25, "kg", 25, 12000,
+	)
+	if err != nil {
+		t.Fatalf("the row could not be written: %v", err)
+	}
+
+	held, err := repo.List(ctx, other.ID)
+	if err != nil {
+		t.Fatalf("the layers could not be read: %v", err)
+	}
+	if len(held) != 0 {
+		t.Errorf("the stock of the other business holds %d layers, want none", len(held))
+	}
+}
+
+// TestTheStorageRefusesALayerOfAnotherBusiness proves that the domain
+// refuses a layer that claims another business than the purchase it comes
+// from, and that nothing is written.
+func TestTheStorageRefusesALayerOfAnotherBusiness(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := layersRepository(t)
+	bakery := theBakeryOfTheLayers(t, ctx)
+	other := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	layers := theLayersOfThePurchase(t, bought, flour.ID)
+	layers[0].BusinessID = other.ID
+
+	if _, err := repo.Record(ctx, layers); !errors.Is(err, purchase.ErrLayerOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrLayerOfAnotherBusiness)
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the layers could not be read: %v", err)
+	}
+	if len(held) != 0 {
+		t.Errorf("the stock holds %d layers, want none", len(held))
+	}
+}
+
+// TestTheRefusedLayerLeavesNeitherThePurchaseNorTheLayerBehind proves that
+// the purchase and its layers are written in one transaction: a layer the
+// storage refuses takes the purchase with it, and nothing is left behind.
+func TestTheRefusedLayerLeavesNeitherThePurchaseNorTheLayerBehind(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+	bought := thePurchaseWithTheUnitOfTheOwner(t, ctx, bakery, flour.ID)
+
+	recorder := purchasesRecorder(t)
+	repo := layersRepository(t)
+	work, err := postgres.NewUnitOfWork(theSuite.pool)
+	if err != nil {
+		t.Fatalf("the unit of work could not be created: %v", err)
+	}
+
+	err = work.Do(ctx, func(ctx context.Context) error {
+		recorded, err := recorder.Record(ctx, bought)
+		if err != nil {
+			return err
+		}
+
+		layers, err := purchase.LayersOf(recorded)
+		if err != nil {
+			return err
+		}
+
+		// The layer names an ingredient that is not there: the domain
+		// cannot know it, and the table refuses the row.
+		layers[0].IngredientID = ingredient.ID(999_999_999)
+
+		_, err = repo.Record(ctx, layers)
+
+		return err
+	})
+	if err == nil {
+		t.Fatal("the transaction was committed, want the layer refused")
+	}
+
+	var purchases int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM purchases WHERE business_id = $1`, int64(bakery.ID)).Scan(&purchases); err != nil {
+		t.Fatalf("the purchases could not be counted: %v", err)
+	}
+	if purchases != 0 {
+		t.Errorf("the purchase was left behind: %d purchases of the business", purchases)
+	}
+
+	var layers int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM stock_layers WHERE business_id = $1`, int64(bakery.ID)).Scan(&layers); err != nil {
+		t.Fatalf("the layers could not be counted: %v", err)
+	}
+	if layers != 0 {
+		t.Errorf("the layers were left behind: %d layers of the business", layers)
+	}
+}
+
+// TestThePurchaseAndItsLayersAreOneTransaction proves that the purchase and
+// the layers that come from it are written in the same transaction: a
+// failure that comes after them leaves neither the purchase nor the layer
+// behind.
+func TestThePurchaseAndItsLayersAreOneTransaction(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheLayers(t, ctx)
+	flour := theIngredientOfTheLayers(t, ctx, bakery)
+
+	// The purchase that is already written: its layer is written inside
+	// the transaction of the test, and it goes back with it.
+	written := thePurchaseOfTheLayers(t, ctx, bakery, flour.ID)
+
+	// The purchase that the transaction writes: it goes back with it too.
+	bought := thePurchaseWithTheUnitOfTheOwner(t, ctx, bakery, flour.ID)
+
+	recorder := purchasesRecorder(t)
+	repo := layersRepository(t)
+	work, err := postgres.NewUnitOfWork(theSuite.pool)
+	if err != nil {
+		t.Fatalf("the unit of work could not be created: %v", err)
+	}
+
+	err = work.Do(ctx, func(ctx context.Context) error {
+		if _, err := repo.Record(ctx, theLayersOfThePurchase(t, written, flour.ID)); err != nil {
+			return err
+		}
+
+		recorded, err := recorder.Record(ctx, bought)
+		if err != nil {
+			return err
+		}
+
+		if _, err := repo.Record(ctx, theLayersOfThePurchase(t, recorded, flour.ID)); err != nil {
+			return err
+		}
+
+		// The movement of the money of the payment failed: the purchase
+		// and the layers that come from it go back with it.
+		return errors.New("the movement of the money of the payment failed")
+	})
+	if err == nil {
+		t.Fatal("the transaction was committed, want the failure of the movement of the money")
+	}
+
+	var purchases int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM purchases WHERE business_id = $1`, int64(bakery.ID)).Scan(&purchases); err != nil {
+		t.Fatalf("the purchases could not be counted: %v", err)
+	}
+	if purchases != 1 {
+		t.Errorf("the business holds %d purchases, want the one that was written before the transaction", purchases)
+	}
+
+	var layers int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM stock_layers WHERE business_id = $1`, int64(bakery.ID)).Scan(&layers); err != nil {
+		t.Fatalf("the layers could not be counted: %v", err)
+	}
+	if layers != 0 {
+		t.Errorf("the layers were left behind: %d layers of the business", layers)
 	}
 }

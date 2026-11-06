@@ -132,3 +132,20 @@ func TestTheStockWithoutADatabaseSaysSo(t *testing.T) {
 		t.Fatalf("the error is %v, want %v", err, ports.ErrNoDatabase)
 	}
 }
+
+// TestTheStockOfABusinessThatIsNotThereIsRefused proves that the stock
+// belongs to a business: a request that names no business is refused, and
+// the use case never answers the stock of nobody.
+func TestTheStockOfABusinessThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	layers := &fakeLayers{}
+	ingredients := &fakeIngredients{}
+
+	service := application.NewStockService(layers, ingredients)
+
+	_, err := service.Read(t.Context(), ports.ReadStock{BusinessID: business.ID(0)})
+	if !errors.Is(err, purchase.ErrMissingBusiness) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrMissingBusiness)
+	}
+}

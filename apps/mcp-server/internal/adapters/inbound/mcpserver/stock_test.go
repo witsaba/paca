@@ -223,3 +223,29 @@ func TestTheDescriptionOfTheStockToolSaysThatTheValuationIsFIFO(t *testing.T) {
 		}
 	}
 }
+
+// TestTheReadStockToolRefusesTheBusinessThatIsNotThere proves that the
+// business is required: the tool refuses the business that is not there,
+// and it never asks the use case for the stock of nobody.
+func TestTheReadStockToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubStockReader{read: theStockOfTheTest(t)}
+	session := connectWithTheStock(t, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadStock,
+		Arguments: map[string]any{
+			"business_id": 0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered a stock, want the refusal of the business that is not there")
+	}
+	if reader.calls != 0 {
+		t.Errorf("the use case was called %d times, want none", reader.calls)
+	}
+}

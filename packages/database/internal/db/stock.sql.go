@@ -13,15 +13,22 @@ import (
 
 const createStockLayer = `-- name: CreateStockLayer :one
 
-INSERT INTO stock_layers (
-    business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost
+WITH written AS (
+    INSERT INTO stock_layers (
+        business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost
+    )
+    VALUES (
+        $1, $2, $3, $4,
+        $5, $6, $7, $8, $9,
+        $10
+    )
+    RETURNING id, business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost, created_at
 )
-VALUES (
-    $1, $2, $3, $4,
-    $5, $6, $7, $8, $9,
-    $10
-)
-RETURNING id, business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost, created_at
+SELECT written.id, written.business_id, written.ingredient_id, written.purchase_id, written.position,
+       written.name, written.day, written.quantity, written.unit, written.remaining, written.cost,
+       written.created_at, purchases.business_id AS purchase_business_id
+FROM written
+JOIN purchases ON purchases.id = written.purchase_id
 `
 
 type CreateStockLayerParams struct {
@@ -37,6 +44,22 @@ type CreateStockLayerParams struct {
 	Cost         int64
 }
 
+type CreateStockLayerRow struct {
+	ID                 int64
+	BusinessID         int64
+	IngredientID       int64
+	PurchaseID         int64
+	Position           int32
+	Name               string
+	Day                pgtype.Date
+	Quantity           float64
+	Unit               string
+	Remaining          float64
+	Cost               int64
+	CreatedAt          pgtype.Timestamptz
+	PurchaseBusinessID int64
+}
+
 // The queries of the layers of the stock.
 //
 // A layer is derived from a purchase: it is written with the purchase it
@@ -50,10 +73,15 @@ type CreateStockLayerParams struct {
 // the oldest layer is the first. The order of the output by expiry is a
 // different rule, and it does not live here.
 //
+// Every query reads the purchase of the layer with it: the layer belongs
+// to the business of its purchase, and the query never answers a layer
+// whose purchase is of another business. The domain holds the same rule,
+// and the query holds it as a defense in depth.
+//
 // Every query writes or reads one row, and every one of them is a single
 // statement: the library does not read a row to find out whether it may
 // write it.
-func (q *Queries) CreateStockLayer(ctx context.Context, arg CreateStockLayerParams) (StockLayer, error) {
+func (q *Queries) CreateStockLayer(ctx context.Context, arg CreateStockLayerParams) (CreateStockLayerRow, error) {
 	row := q.db.QueryRow(ctx, createStockLayer,
 		arg.BusinessID,
 		arg.IngredientID,
@@ -66,7 +94,7 @@ func (q *Queries) CreateStockLayer(ctx context.Context, arg CreateStockLayerPara
 		arg.Remaining,
 		arg.Cost,
 	)
-	var i StockLayer
+	var i CreateStockLayerRow
 	err := row.Scan(
 		&i.ID,
 		&i.BusinessID,
@@ -80,25 +108,46 @@ func (q *Queries) CreateStockLayer(ctx context.Context, arg CreateStockLayerPara
 		&i.Remaining,
 		&i.Cost,
 		&i.CreatedAt,
+		&i.PurchaseBusinessID,
 	)
 	return i, err
 }
 
 const listStockLayersByBusiness = `-- name: ListStockLayersByBusiness :many
-SELECT id, business_id, ingredient_id, purchase_id, position, name, day, quantity, unit, remaining, cost, created_at FROM stock_layers
-WHERE business_id = $1
-ORDER BY day, purchase_id, id
+SELECT layers.id, layers.business_id, layers.ingredient_id, layers.purchase_id, layers.position,
+       layers.name, layers.day, layers.quantity, layers.unit, layers.remaining, layers.cost,
+       layers.created_at, purchases.business_id AS purchase_business_id
+FROM stock_layers layers
+JOIN purchases ON purchases.id = layers.purchase_id
+WHERE layers.business_id = $1 AND purchases.business_id = $1
+ORDER BY layers.day, layers.purchase_id, layers.id
 `
 
-func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int64) ([]StockLayer, error) {
+type ListStockLayersByBusinessRow struct {
+	ID                 int64
+	BusinessID         int64
+	IngredientID       int64
+	PurchaseID         int64
+	Position           int32
+	Name               string
+	Day                pgtype.Date
+	Quantity           float64
+	Unit               string
+	Remaining          float64
+	Cost               int64
+	CreatedAt          pgtype.Timestamptz
+	PurchaseBusinessID int64
+}
+
+func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int64) ([]ListStockLayersByBusinessRow, error) {
 	rows, err := q.db.Query(ctx, listStockLayersByBusiness, businessID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []StockLayer{}
+	items := []ListStockLayersByBusinessRow{}
 	for rows.Next() {
-		var i StockLayer
+		var i ListStockLayersByBusinessRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.BusinessID,
@@ -112,6 +161,7 @@ func (q *Queries) ListStockLayersByBusiness(ctx context.Context, businessID int6
 			&i.Remaining,
 			&i.Cost,
 			&i.CreatedAt,
+			&i.PurchaseBusinessID,
 		); err != nil {
 			return nil, err
 		}

@@ -1048,7 +1048,7 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
-| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | this commit |
+| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b` and the correction of this commit |
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `pending` |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
@@ -1188,3 +1188,22 @@ Three things the increment taught, carried here for the ones to come:
 - **The layers of an ingredient bought in different units are held apart.** The quantity and its unit travel together, and the book never adds a gram to a kilogram: the holding of an ingredient is the holding of one unit, and the stock holds one holding per unit.
 - **A line the catalog cannot name has no layer, and the purchase still lands.** The layer names an ingredient of the catalog, so an ambiguous name waits for the owner; the purchase is written all the same, and the test pins that the confirmation of such a purchase writes no layer and loses nothing.
 - **The expiry of the stock is not the expiry of the output.** The lot (S6) is the layer of the ingredient that was bought; the rotation of the perishable output by the earliest expiry belongs to the units of the bakery (T18, T22), and the two rules stay apart. The FIFO of the valuation is the rotation of the money, not of the product.
+
+**L25** (2026-11-06): T11 was verified against an independent reviewer and the verification found a **regression**: the domain accepted a unit of the book that the table refused, so a purchase that confirmed before T11 now failed and wrote nothing — the rule of the unit was held by the table alone, which the contract forbids. The increment was corrected in the same branch, without changing its shape.
+
+The correction:
+
+- The layer carries the **canonical unit of the book** ("kg"), and the purchase keeps the **way the owner said it** ("kilos"). The layer is derived, so it speaks the unit of the book; the purchase is the fact, so it keeps the wording of the owner. A line whose unit is not one of the four units of the book has no layer, and the confirmation is refused by the domain, not by the table.
+- The **nine rules of `Layer.Checked` are proved in the domain**, one test per rule, without a database: the rules of a domain are proved by the domain.
+- The **real transaction** is proved against a container: a refused layer leaves neither the purchase nor the layer behind.
+- A layer that claims **another business** is refused by the domain, and the read of the layers joins the purchases so a broken row is never read as the stock of a business.
+- The dead surface of the package is gone (`Open`, `ByFIFO` and `NewLayer` are internal), and `read_stock` refuses a business that is not there.
+
+Four things the verification taught, carried here for the ones to come:
+
+- **A rule that the table holds alone is a rule that is lost.** The unit of the book was known by the domain and enforced by the table, and the two disagreed about a word the owner says. Every rule of the book that reaches a row needs its rule in the domain, and the table keeps it as defense in depth.
+- **The transaction of the use case is proved with a fake until a container proves it.** The fake proves that the use case calls both writes; only the container proves that they share the transaction.
+- **The money of a partly consumed layer has no rule yet** (F4 of the verification): a layer that holds a fifth of what it bought still carries the whole money. Nothing consumes a layer before T12 and T17, so the rule is not wrong today — but it belongs to T12, which states it in the domain before the first exit of a layer.
+- **The money of the layer is not tied to the line of the purchase** (F5 of the verification): a row another writer broke with another positive money passes the table and the domain. The tie belongs to the increment that consumes the layer.
+
+**Open for the owner**: the purchase line keeps the way the owner said the unit ("kilos") while the layer carries the unit of the book ("kg"). The alternative — the purchase line also carries the unit of the book, and the wording stays in the sentence of the owner — is one decision, and it belongs to the next increment that touches the line.

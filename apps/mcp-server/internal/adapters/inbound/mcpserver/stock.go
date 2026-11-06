@@ -131,10 +131,17 @@ func (s *Server) registerStockTools(reader ports.StockReader) {
 //
 // The tool reads the stock and answers with what the business holds and
 // what it cost: it writes nothing.
+//
+// The business is required: the tool refuses the business that is not
+// there, and it never asks the use case for the stock of nobody.
 func (s *Server) readStock(reader ports.StockReader) sdk.ToolHandlerFor[readStockInput, readStockOutput] {
 	return func(ctx context.Context, _ *sdk.CallToolRequest, input readStockInput) (*sdk.CallToolResult, readStockOutput, error) {
 		if reader == nil {
 			return nil, readStockOutput{}, ports.ErrNoDatabase
+		}
+
+		if input.BusinessID <= 0 {
+			return nil, readStockOutput{}, s.toolError(purchase.ErrMissingBusiness)
 		}
 
 		read, err := reader.Read(ctx, ports.ReadStock{

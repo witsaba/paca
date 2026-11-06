@@ -94,6 +94,52 @@ func (r Reference) Label() string {
 	return ReferenceKind
 }
 
+// AgeOn answers how many days old the reference is on that day.
+//
+// The age of a reference is a rule of the domain: a reference older than
+// the owner expects is shown with its age, and the age is counted in days
+// of the book - the same days the money of the book is counted in.
+//
+// The age is counted against the day of the reading, and never against the
+// day the reference was written: the owner reads the margin today, and the
+// age of what she reads is the age of today.
+//
+// A reference seen the same day is zero days old. The age is never
+// negative: a reference of the day of the reading is not old.
+func (r Reference) AgeOn(day ledger.Date) int {
+	if day.Time().IsZero() || r.SeenOn.Time().IsZero() {
+		return 0
+	}
+
+	days := int(day.Time().Sub(r.SeenOn.Time()).Hours() / hoursOfTheDay)
+
+	if days < 0 {
+		return 0
+	}
+
+	return days
+}
+
+// IsOlderThan reports whether the reference is older than the owner
+// expects.
+//
+// The expectation is the number of days a reference may be old. Zero means
+// the owner expects no age at all: every reference then answers its age,
+// and none of them is old.
+func (r Reference) IsOlderThan(day ledger.Date, days int) bool {
+	if days <= 0 {
+		return false
+	}
+
+	return r.AgeOn(day) > days
+}
+
+// hoursOfTheDay is the number of hours a day of the book carries.
+//
+// The age of a reference is counted in days, and a day of the book is
+// twenty-four hours long.
+const hoursOfTheDay = 24
+
 // ReferenceDefinition is what the agent read about a reference.
 //
 // It is the candidate the research produced, and the domain decides what may

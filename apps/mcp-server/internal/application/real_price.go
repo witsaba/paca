@@ -72,7 +72,7 @@ func (s *RealPriceService) Read(ctx context.Context, request ports.ReadRealPrice
 		return nil, ports.ErrNoDatabase
 	}
 
-	price, err := priceOfTheOwner(request)
+	price, err := ownerPriceOf(request.Price, request.PriceBasis)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *RealPriceService) Read(ctx context.Context, request ports.ReadRealPrice
 	return reports, nil
 }
 
-// priceOfTheOwner answers the price the owner charges, and the way she
+// ownerPriceOf answers the price the owner charges, and the way she
 // charges it.
 //
 // The rule of the domain: the price of the owner is hers, and it is never
@@ -104,20 +104,20 @@ func (s *RealPriceService) Read(ctx context.Context, request ports.ReadRealPrice
 //
 // The error is the error of the domain: the domain refuses a price that is
 // not a price and a way of charging the book does not know.
-func priceOfTheOwner(request ports.ReadRealPrice) (purchase.OwnerPrice, error) {
-	if request.Price < 0 {
+func ownerPriceOf(money int64, basis string) (purchase.OwnerPrice, error) {
+	if money < 0 {
 		return purchase.OwnerPrice{}, fmt.Errorf("%w: the price of the owner is %d",
-			purchase.ErrInvalidOwnerPrice, request.Price)
+			purchase.ErrInvalidOwnerPrice, money)
 	}
 
-	if request.Price == 0 {
+	if money == 0 {
 		return purchase.OwnerPrice{}, nil
 	}
 
-	basis, err := purchase.ParsePriceBasis(request.PriceBasis)
+	way, err := purchase.ParsePriceBasis(basis)
 	if err != nil {
 		return purchase.OwnerPrice{}, err
 	}
 
-	return purchase.NewOwnerPrice(ledger.Amount(request.Price), basis)
+	return purchase.NewOwnerPrice(ledger.Amount(money), way)
 }

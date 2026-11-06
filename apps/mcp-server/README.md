@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty-nine tools: the way PACA onboards a person, the four
+The server exposes thirty tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -113,8 +113,8 @@ the tool of the recipes: the guide she just confirmed, the two tools of
 the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
 the business holds and what it cost, the tool of the labour she just
-confirmed, the tool of the overhead of the house, and the tool of the report
-of the real price.
+confirmed, the tool of the overhead of the house, the tool of the report
+of the real price and the tool of the margin.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -147,6 +147,7 @@ of the real price.
 | `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. The money of the labour is never inferred, and the payroll of the employees is out of scope for now. |
 | `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and the overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
 | `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
+| `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -320,6 +321,21 @@ never inferred, and a report of a price nobody declared says that it is not
 known. The tool writes nothing, and the labour and the overhead move no
 money of the ledger yet: their accounts exist in the seed of the book, and
 the movement belongs to a later increment.
+
+**The margin compares the price of the owner with the cost and with the
+market.** The tool `read_margin` reads what a product earns: the profit
+above the DIRECT cost of the batch — per unit, per gram and per kilogram,
+and the percent it is of the direct cost — and, beside it, what the MARKET
+said about the same ingredients: what the owner paid for them, what the
+market says they cost, and the difference between the two. The reference is
+a reference: it never becomes the price of the ingredient, and it never
+moves the money of the book — the direct cost comes from the layers of the
+stock. Every reference is shown with the place it was read in, the day it
+was seen and its age, and the newest one of every ingredient is the one
+that compares, because the market of today is the last one that was seen.
+When the owner expects the references to be fresh, the agent sends
+`max_age_days`, and the ones older than that are marked as old, with their
+age. The tool writes nothing.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

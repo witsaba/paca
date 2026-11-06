@@ -1053,7 +1053,7 @@ its session starts.
 | T13 | S5, S9 | The labor, and the tool that records it | inline | this commit |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | this commit |
 | T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | this commit |
-| T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `pending` |
+| T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | this commit |
 
 ### Movement IV — From dough to bread
 
@@ -1244,3 +1244,13 @@ Three things the increment taught, carried here for the ones to come:
 - **The price of the owner is a value object, not a number**: the money, and the way she charges it (per unit, per gram or per kilogram). The price of the unit and the price of the gram are two different truths and they never mix.
 - **A sum of a batch that cannot be baked is a number nobody can use**: the total is unknown when a layer is unknown or when the stock does not cover the recipe, and the report says so instead of guessing.
 - **Nothing of the report is stored**: the price of the owner is an argument of the tool, because the price list of the products and the channel are T25. The report says "the owner has not declared the price of the product" when she declared none.
+
+**L30** (2026-11-06): T16 landed: **the margin**. The margin compares the **price of the owner** with the **direct cost** of the batch and with the **reference of the market**: the profit over the cost (per unit, per gram, per kilogram and the percent over the cost) and the profit over the market are two numbers of their own, and neither hides the other. The price is hers and the book never moves it; the reference never becomes the price of the ingredient and never moves money — what she paid comes from the layers of the stock. The tool is `read_margin`, and the transport carries thirty tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **A reference travels with its source, its day and its age**: the newest of every ingredient is the one that compares, and the older ones are the history that a later analysis reads (S17).
+- **Only the gram and the kilogram are converted** into the grams of a recipe: a package is converted only when the owner declared its weight, and a piece is never converted.
+- **The margin compares the DIRECT cost only**: the percent over the direct cost is a markup over the ingredients, and the tool says so. The margin over the whole cost arrives when the layers are read together.
+
+**Deviation**: the rule of the margin lives in `packages/domain/recipe` (the domain of `purchase` cannot import `recipe`, and the margin needs the yield of the recipe), and the age of a reference lives in `packages/domain/purchase`, as the acceptance expected.

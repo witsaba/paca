@@ -839,6 +839,68 @@ type RealPriceReader interface {
 	Read(ctx context.Context, request ReadRealPrice) ([]recipe.RealPrice, error)
 }
 
+// ReadMargin is the product whose margin is read, the business it belongs
+// to, the price the owner charges and how old a reference may be.
+//
+// It is the shape of the contract between the agent and the service: the
+// price is what the owner declared, with the way she charges, and PACA
+// never infers either of them.
+type ReadMargin struct {
+	// BusinessID is the business whose margin is read.
+	BusinessID business.ID
+
+	// RecipeID is the recipe the caller asks about. It is zero when the
+	// caller names the recipe with its name, or when the caller asks for
+	// every recipe of the business.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the recipe. It is empty
+	// when the caller names the recipe with its identity.
+	RecipeName string
+
+	// Price is the money the owner charges for the product, in whole
+	// pesos. It is zero when she declared none: the price of the owner is
+	// never inferred.
+	Price int64
+
+	// PriceBasis is the way she charges: 'unit', 'gram' or 'kilogram'. It
+	// is empty when she declared no price.
+	PriceBasis string
+
+	// MaxAgeDays is the number of days a reference of the market may be
+	// old. It is zero when the owner expects no age: every reference
+	// shows its age anyway.
+	MaxAgeDays int
+}
+
+// MarginReader is the inbound port of the tool that reads the margin of a
+// product.
+//
+// The margin compares the price of the owner with the direct cost of the
+// batch and with the reference of the market, and every reference carries
+// its source and its day.
+type MarginReader interface {
+	// Read answers the margin of the products of the business.
+	//
+	// The identity of the business is required. The recipe is optional:
+	// the identity of a recipe answers the margin of that recipe, the
+	// name of a recipe answers the margin of the recipes that carry it,
+	// and neither of them answers the margin of every recipe of the
+	// business.
+	//
+	// The price of the owner is optional: it is what she declared, with
+	// the way she charges, and a margin of a price nobody declared says
+	// that it is not known.
+	//
+	// The expectation of the age is optional: it is the number of days a
+	// reference of the market may be old.
+	//
+	// The error is the error of the domain: the domain refuses a recipe
+	// that is not there, a recipe of another business, a business that is
+	// not there and a way of charging the book does not know.
+	Read(ctx context.Context, request ReadMargin) ([]recipe.Margin, error)
+}
+
 // RecordLabor is the labor the owner declared: the hours she worked, in
 // the three kinds of the labor, the value of the hour, the day it was
 // worked and the word she used to confirm it.

@@ -250,3 +250,63 @@ func TestTheMoneyOfAReferenceCountsWholePesos(t *testing.T) {
 		t.Errorf("the price is %d, want 480", reference.Price)
 	}
 }
+
+// TestTheAgeOfAReferenceIsCountedInDaysOfTheBook proves that the age of a
+// reference is a rule of the domain: it is counted in days of the book, and
+// against the day of the reading.
+func TestTheAgeOfAReferenceIsCountedInDaysOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	reference, err := NewReference(business.ID(77), theReferenceOfTheTests())
+	if err != nil {
+		t.Fatalf("the reference was refused: %v", err)
+	}
+
+	age := reference.AgeOn(ledger.NewDate(theDay(2026, time.March, 11).Time()))
+
+	if age != 10 {
+		t.Errorf("the age of the reference is %d days, want 10", age)
+	}
+}
+
+// TestTheAgeOfAReferenceOfTheDayOfTheReadingIsZero proves that a
+// reference seen the same day is not old: the age of a reference is never
+// negative.
+func TestTheAgeOfAReferenceOfTheDayOfTheReadingIsZero(t *testing.T) {
+	t.Parallel()
+
+	reference, err := NewReference(business.ID(77), theReferenceOfTheTests())
+	if err != nil {
+		t.Fatalf("the reference was refused: %v", err)
+	}
+
+	age := reference.AgeOn(ledger.NewDate(theDay(2026, time.March, 1).Time()))
+
+	if age != 0 {
+		t.Errorf("the age of the reference is %d days, want 0", age)
+	}
+}
+
+// TestAReferenceOlderThanTheOwnerExpectsIsOld proves that a reference
+// older than the owner expects is old, and that a reference inside the
+// expectation is not.
+func TestAReferenceOlderThanTheOwnerExpectsIsOld(t *testing.T) {
+	t.Parallel()
+
+	reference, err := NewReference(business.ID(77), theReferenceOfTheTests())
+	if err != nil {
+		t.Fatalf("the reference was refused: %v", err)
+	}
+
+	day := ledger.NewDate(theDay(2026, time.March, 11).Time())
+
+	if !reference.IsOlderThan(day, 7) {
+		t.Error("the reference of ten days is not old, want it old: the owner expects seven days")
+	}
+	if reference.IsOlderThan(day, 30) {
+		t.Error("the reference of ten days is old, want it fresh: the owner expects thirty days")
+	}
+	if reference.IsOlderThan(day, 0) {
+		t.Error("the reference is old, want it fresh: the owner expects no age at all")
+	}
+}

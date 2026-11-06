@@ -672,6 +672,55 @@ known — the labour of a business that declared no value of the hour — or a
 stock that does not hold everything the recipe needs leaves the total
 unknown, and the answer says why.
 
+## The margin of a product
+
+`recipe.Margin` is the margin the owner reads when she asks what her
+product earns: what her price leaves above the direct cost of the batch,
+and what the market said about the same ingredients. It lives in the
+package of the recipe, next to the cost of the batch and the report of the
+real price it is built upon: the margin needs the yield of the recipe and
+the cost of the batch, and the direction of the dependencies forbids the
+package of the purchase from reaching for them. The age of a reference is
+the rule of the purchase (`purchase.Reference.AgeOn` and
+`purchase.Reference.IsOlderThan`), because a reference is a price fact of
+the business.
+
+**The margin compares the price of the owner with the direct cost, and
+with the reference of the market.** `recipe.MarginOf` builds the margin
+out of the cost of the batch, the price of the owner, the references of the
+market and the catalog of the names. `Margin.Profit` is what the price
+leaves above the direct cost — per unit, per gram and per kilogram — and
+`Margin.Percent` is that profit over the direct cost. `Margin.Market` is
+what the market said: the money it says the ingredients of the batch cost,
+the money the owner paid for them, the difference between the two, and one
+line for every ingredient. `Margin.MarketProfit` is what the price leaves
+above the market, and it is a number of its own: neither profit hides the
+other.
+
+**A reference is a reference, and it never moves the money of the book.**
+The direct cost comes from the layers of the stock, and the reference is
+read beside it: what the owner paid and what the market says are two
+truths that never mix.
+
+**Every reference carries its source and its day, and its age.** The
+newest reference of an ingredient is the one that compares — the market of
+today is the last one that was seen — and the older ones travel with it as
+the history they are. `recipe.ReferenceExpectation` carries what the owner
+expects: a reference older than she expects is shown with its age and
+marked as old, and every reference shows its age anyway.
+
+**Only the gram and the kilogram are converted into the grams of the
+recipe.** The package is converted only when the owner declared the weight
+of it (`ingredient.PackageGrams`), and the piece is never converted: the
+weight of a piece is not known until she says it.
+
+**An answer that does not know says so.** The profit is unknown when the
+price of the owner is unknown, and when the stock does not hold everything
+the recipe needs. The money of the market is unknown when one of the
+ingredients has no reference, when the reference is in a unit the book
+never converts and when the weight of the package is not declared: a sum
+that hides a missing part is a lie, and the answer says what is missing.
+
 ## The model of the reference price
 
 `purchase.Reference` is what the market was seen at: the ingredient it is
@@ -699,6 +748,12 @@ a price nobody can check.
 the way the purchase is confirmed, and the word she used is kept with the
 record (`ErrMissingConfirmation`). The market is optional: it is there when
 the research named one, and absent when it named none.
+
+**The age of a reference is a rule of the domain.** `Reference.AgeOn` counts
+the days between the day the price was seen and the day of the reading, and
+`Reference.IsOlderThan` says whether it is older than what the owner
+expects. A reference older than she expects is shown with its age, and the
+age is never negative: a reference of the day of the reading is not old.
 
 ## The transaction of the storage
 

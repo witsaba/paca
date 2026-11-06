@@ -315,6 +315,14 @@ func New(
 	// recipe to read and no layer to value.
 	realPriceService := application.NewRealPriceService(recipeReader, layers, ingredients, laborReader, overheadReader)
 
+	// The margin of a product: what the owner charges above the direct
+	// cost of the batch, and what the market said about the same
+	// ingredients. The reference of the market is read beside the cost,
+	// never instead of it: a reference never moves the money of the book.
+	// Without a database there is no recipe to read, no layer to value
+	// and no reference to compare.
+	marginService := application.NewMarginService(batchCostService, references, ingredients, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -344,6 +352,7 @@ func New(
 		RecordLabor:         laborService,
 		RecordOverhead:      overheadService,
 		ReadRealPrice:       realPriceService,
+		ReadMargin:          marginService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

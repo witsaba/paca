@@ -101,6 +101,21 @@ var (
 	// ErrMissingDay is the error of a reference without the day the price
 	// was seen.
 	ErrMissingDay = errors.New("the reference carries the day it was seen")
+
+	// ErrLayerWithoutIngredient is the error of a layer that names
+	// nothing of the catalog: the layer of a line is derived from the
+	// purchase, and the line names the ingredient it is of.
+	ErrLayerWithoutIngredient = errors.New("the layer names the ingredient of the catalog")
+
+	// ErrInvalidLayer is the error of a layer that is not whole: what is
+	// left of it is never more than what it bought, and the unit of what
+	// is left of it is the unit it bought.
+	ErrInvalidLayer = errors.New("the layer is not whole: what it holds is not what it bought")
+
+	// ErrInvalidPosition is the error of a layer that comes from no line
+	// of its purchase: the position of the line is positive, and it is
+	// the order the owner said the line in.
+	ErrInvalidPosition = errors.New("the position of the line of the layer is positive")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -130,5 +145,8 @@ func Errors() []error {
 		ErrMissingReferenceUnit,
 		ErrMissingSource,
 		ErrMissingDay,
+		ErrLayerWithoutIngredient,
+		ErrInvalidLayer,
+		ErrInvalidPosition,
 	}
 }

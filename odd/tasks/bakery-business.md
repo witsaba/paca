@@ -1048,7 +1048,7 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
-| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `pending` |
+| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | this commit |
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `pending` |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | `pending` |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | `pending` |
@@ -1180,3 +1180,11 @@ Three things the increment taught, carried here for the ones to come:
 - The **conversion of an ingredient is declared, never assumed**. The raw conversion is one to one because the owner decided that, for now, the grams of a recipe are the raw ones, and every other factor — the potato, the starter — reaches the book through `complete_ingredient`. Nothing in the tree invents a factor: the acceptance of the increment said "declared constants", and the values of those constants are the data of the owner, not of the repository. The mechanism is in place and proved; the numbers arrive at runtime.
 - The **unit of a purchase line** is the unit of the ingredient when the owner names none: the use case asks the catalog and fills it, and the domain still refuses a line that ends without a unit.
 - A declaration **never empties** a field the owner already gave: the completion of an ingredient fills what was missing and keeps what was there.
+
+**L24** (2026-11-06): T11 landed: the stock and the layers of the FIFO. The layer is the part of a purchase that the business still holds: the ingredient of the catalog, the quantity with its unit, the money it cost, the day it was bought and the purchase it comes from. The **purchase is the fact and the layer is derived from it** — the layer is never typed by the owner and it is never a second truth about what was bought. The stock of an ingredient is the sum of the layers that are still open, and the **valuation is FIFO**: the oldest layer leaves first. The tool is `read_stock`, which answers what the business holds and what it cost.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The layers of an ingredient bought in different units are held apart.** The quantity and its unit travel together, and the book never adds a gram to a kilogram: the holding of an ingredient is the holding of one unit, and the stock holds one holding per unit.
+- **A line the catalog cannot name has no layer, and the purchase still lands.** The layer names an ingredient of the catalog, so an ambiguous name waits for the owner; the purchase is written all the same, and the test pins that the confirmation of such a purchase writes no layer and loses nothing.
+- **The expiry of the stock is not the expiry of the output.** The lot (S6) is the layer of the ingredient that was bought; the rotation of the perishable output by the earliest expiry belongs to the units of the bakery (T18, T22), and the two rules stay apart. The FIFO of the valuation is the rotation of the money, not of the product.

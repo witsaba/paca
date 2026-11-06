@@ -707,6 +707,38 @@ type RecipeRecorder interface {
 	Record(ctx context.Context, request RecordRecipe) (recipe.Recipe, error)
 }
 
+// ReadStock is the business whose stock is read, and the ingredient the
+// caller asks about.
+//
+// It is the shape of the contract between the agent and the service: the
+// ingredient is optional, and the zero identity answers the whole
+// business.
+type ReadStock struct {
+	// BusinessID is the business whose stock is read.
+	BusinessID business.ID
+
+	// IngredientID is the ingredient the caller asks about. It is zero
+	// when the caller asks for the whole stock of the business.
+	IngredientID int64
+}
+
+// StockReader is the inbound port of the tool that reads the stock of a
+// business.
+//
+// The stock is the sum of the layers that are still open, and the
+// valuation is FIFO: the oldest layer is the first one that leaves.
+type StockReader interface {
+	// Read answers what the business holds: the layers that are still
+	// open, in the order they leave the stock, and the money they cost.
+	//
+	// The identity of the business is required, and the ingredient is
+	// optional. The stock is empty when the business bought nothing yet.
+	//
+	// The error is the error of the domain: the domain refuses an
+	// ingredient the catalog of the business does not hold.
+	Read(ctx context.Context, request ReadStock) (purchase.Stock, error)
+}
+
 // SummaryQuerier is the inbound port of the tool that closes a month.
 //
 // The closing of a month is what the person earned, what they spent, and

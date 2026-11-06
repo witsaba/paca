@@ -81,6 +81,29 @@ type Recorder interface {
 	Record(ctx context.Context, purchase Purchase) (Purchase, error)
 }
 
+// LayerRepository is the port of the storage of the layers of the stock.
+//
+// A layer is derived from a purchase: it is written with the purchase it
+// comes from, and it is read back to answer what the business holds.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type LayerRepository interface {
+	// Record writes the layers of a purchase, and answers them with the
+	// identities that the storage generated.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the purchase of the layer is not there, and
+	// ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, layers []Layer) ([]Layer, error)
+
+	// List returns the layers of a business, in the order they leave the
+	// stock: the oldest layer is the first.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Layer, error)
+}
+
 // ReferenceRepository is the port of the storage of the reference prices.
 //
 // A reference is a price fact of the business: what the market was seen at,

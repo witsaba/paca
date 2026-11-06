@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty-four tools: the way PACA onboards a person, the four
+The server exposes twenty-five tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -109,9 +109,10 @@ confirmed, and the two that drop and read back the pending drafts — the
 three tools of the catalog: the name she said matched against the names
 the business buys, the catalog read with what is known of every ingredient,
 and the completion of an ingredient with what the owner declared about it,
-the tool of the recipes: the guide she just confirmed, and the two tools of
+the tool of the recipes: the guide she just confirmed, the two tools of
 the reference prices: the price of the market that PACA researched, and
-the reading of the ones the business holds.
+the reading of the ones the business holds, and the tool of the stock: what
+the business holds and what it cost.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -139,6 +140,7 @@ the reading of the ones the business holds.
 | `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
 | `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
+| `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -282,6 +284,18 @@ empty: a price without a source is a price nobody can check, and PACA
 refuses it. The tool `read_references` reads the references of the
 business — of one ingredient, or of every one of them — with their source
 and their day, and it writes nothing.
+
+**The stock is the sum of the layers that are still open.** The purchase is
+the fact of what the business bought, and the layer is derived from it: the
+ingredient, the quantity with its unit, the money it cost, the day it was
+bought and the purchase it comes from. The tool `read_stock` reads what the
+business holds — the quantity of every ingredient, the layers that are
+still open and the money the stock cost — and it writes nothing. The
+valuation is FIFO: the oldest layer is the first one that leaves, and the
+answer carries the layers in that order. The order of the output by expiry
+is a different rule, and it does not live here. The quantity and its unit
+travel together: the layers bought in different units are held apart, and
+the book never adds a gram to a kilogram.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

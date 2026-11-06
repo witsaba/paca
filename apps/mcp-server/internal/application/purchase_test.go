@@ -681,7 +681,7 @@ func TestTheConfirmationGrowsTheCatalogWithTheNameSheSaid(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -730,7 +730,7 @@ func TestTheConfirmationKeepsTheIngredientTheCatalogKnows(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -753,6 +753,47 @@ func TestTheConfirmationKeepsTheIngredientTheCatalogKnows(t *testing.T) {
 	}
 }
 
+// The fake of the storage of the layers of the stock.
+//
+// It remembers the layers it wrote and the ones it holds.
+type fakeLayers struct {
+	layers []purchase.Layer
+	err    error
+}
+
+// Record writes the layers and remembers them.
+func (f *fakeLayers) Record(_ context.Context, layers []purchase.Layer) ([]purchase.Layer, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	written := make([]purchase.Layer, 0, len(layers))
+	for index, one := range layers {
+		one.ID = purchase.LayerID(len(f.layers) + index + 1)
+		written = append(written, one)
+	}
+
+	f.layers = append(f.layers, written...)
+
+	return written, nil
+}
+
+// List answers the layers of the business.
+func (f *fakeLayers) List(_ context.Context, own business.ID) ([]purchase.Layer, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	held := make([]purchase.Layer, 0, len(f.layers))
+	for _, one := range f.layers {
+		if one.BusinessID == own {
+			held = append(held, one)
+		}
+	}
+
+	return held, nil
+}
+
 // The fake of the transaction of the storage.
 //
 // It keeps what the work wrote, and it gives it back when the work fails: a
@@ -762,6 +803,7 @@ type fakeConfirmationTransaction struct {
 	book        *fakeBook
 	drafts      *fakeDrafts
 	ingredients *fakeIngredients
+	layers      *fakeLayers
 }
 
 // Do runs the work, and it forgets everything the work wrote when the work
@@ -770,6 +812,7 @@ func (f *fakeConfirmationTransaction) Do(ctx context.Context, work func(context.
 	purchases := len(f.purchases.purchases)
 	movements := len(f.book.recorded)
 	written := len(f.ingredients.written)
+	layers := len(f.layers.layers)
 	states := make([]purchase.State, 0, len(f.drafts.drafts))
 	for _, one := range f.drafts.drafts {
 		states = append(states, one.State)
@@ -783,6 +826,7 @@ func (f *fakeConfirmationTransaction) Do(ctx context.Context, work func(context.
 	f.purchases.purchases = f.purchases.purchases[:purchases]
 	f.book.recorded = f.book.recorded[:movements]
 	f.ingredients.written = f.ingredients.written[:written]
+	f.layers.layers = f.layers.layers[:layers]
 	for index := range f.drafts.drafts {
 		f.drafts.drafts[index].State = states[index]
 	}
@@ -845,6 +889,7 @@ func theConfirmation(
 	accounts *fakeAccounts,
 	book *fakeBook,
 	ingredients *fakeIngredients,
+	layers *fakeLayers,
 	clock ports.Clock,
 ) *application.ConfirmationService {
 	work := &fakeConfirmationTransaction{
@@ -852,9 +897,10 @@ func theConfirmation(
 		book:        book,
 		drafts:      drafts,
 		ingredients: ingredients,
+		layers:      layers,
 	}
 
-	return application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, work, clock)
+	return application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, layers, work, clock)
 }
 
 // TestTheConfirmationWritesThePurchaseAndTheMovementOfTheMoney proves that
@@ -871,7 +917,7 @@ func TestTheConfirmationWritesThePurchaseAndTheMovementOfTheMoney(t *testing.T) 
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -951,7 +997,7 @@ func TestTheMoneyComesFromTheAccountTheOwnerNames(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -984,7 +1030,7 @@ func TestTheConfirmationOfADraftOfAnotherBusinessIsRefused(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(88),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -1019,7 +1065,7 @@ func TestTheConfirmationOfAnExpiredDraftIsRefused(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, expiredClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, expiredClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -1054,7 +1100,7 @@ func TestTheConfirmationOfAnOldRevisionIsRefused(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision + 1,
@@ -1096,7 +1142,7 @@ func TestTheConfirmationOfADraftThatStillNeedsTheMoneyIsRefused(t *testing.T) {
 		t.Fatalf("the draft could not be kept: %v", err)
 	}
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -1125,10 +1171,11 @@ func TestTheFailureOfTheBookLeavesNothingBehind(t *testing.T) {
 	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
 	book := &fakeBook{err: ledger.ErrNoStorage}
 	ingredients := &fakeIngredients{}
+	layers := &fakeLayers{}
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, layers, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -1141,8 +1188,102 @@ func TestTheFailureOfTheBookLeavesNothingBehind(t *testing.T) {
 	if len(purchases.purchases) != 0 {
 		t.Errorf("the purchase was left behind: the storage holds %d purchases", len(purchases.purchases))
 	}
+	if len(layers.layers) != 0 {
+		t.Errorf("the layers were left behind: the stock holds %d layers", len(layers.layers))
+	}
 	if drafts.drafts[0].State != purchase.StateProposed {
 		t.Errorf("the state of the draft is %q, want %q", drafts.drafts[0].State, purchase.StateProposed)
+	}
+}
+
+// TestTheConfirmationOfANameTheCatalogCannotAnswerWritesNoLayer proves
+// that a name the catalog could not resolve does not stop the purchase:
+// the purchase is the fact, and the line keeps the name as the owner said
+// it. The layer waits for the name, and the stock is the stock of the
+// ingredients the business buys.
+func TestTheConfirmationOfANameTheCatalogCannotAnswerWritesNoLayer(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	purchases := &fakePurchases{}
+	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
+	book := &fakeBook{}
+	ingredients := &fakeIngredients{items: []ingredient.Ingredient{
+		anIngredientOfTheCatalog(t, 10, "Harina panadera", "harina"),
+		anIngredientOfTheCatalog(t, 11, "Harina de trigo", "harina"),
+	}}
+	layers := &fakeLayers{}
+
+	draft := theDraftOfTheBakery(t, drafts)
+
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, layers, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+		BusinessID:    business.ID(77),
+		DraftID:       draft.ID,
+		Revision:      draft.Revision,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	if len(purchases.purchases) != 1 {
+		t.Fatalf("the storage holds %d purchases, want 1", len(purchases.purchases))
+	}
+	if purchases.purchases[0].Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", purchases.purchases[0].Lines[0].Name, "Harina")
+	}
+	if len(layers.layers) != 0 {
+		t.Errorf("the stock holds %d layers, want none: the name of the line is not resolved", len(layers.layers))
+	}
+}
+
+// TestTheConfirmationWritesTheLayersOfTheStock proves that the purchase is
+// the fact and the layer is derived from it: the confirmation writes the
+// layer of the purchase it writes, in the same transaction.
+func TestTheConfirmationWritesTheLayersOfTheStock(t *testing.T) {
+	t.Parallel()
+
+	drafts := &fakeDrafts{}
+	purchases := &fakePurchases{}
+	accounts := &fakeAccounts{existing: theAccountsOfTheBakery(t)}
+	book := &fakeBook{}
+	ingredients := &fakeIngredients{}
+	layers := &fakeLayers{}
+
+	draft := theDraftOfTheBakery(t, drafts)
+
+	_, err := theConfirmation(drafts, purchases, accounts, book, ingredients, layers, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+		BusinessID:    business.ID(77),
+		DraftID:       draft.ID,
+		Revision:      draft.Revision,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the confirmation was refused: %v", err)
+	}
+
+	if len(layers.layers) != 1 {
+		t.Fatalf("the stock holds %d layers, want the one of the purchase", len(layers.layers))
+	}
+
+	layer := layers.layers[0]
+	if layer.IngredientID == 0 {
+		t.Error("the layer names nothing of the catalog")
+	}
+	if layer.Bought.Quantity != 25 || layer.Bought.Unit != "kg" {
+		t.Errorf("what the layer bought is %v %s, want 25 kg", layer.Bought.Quantity, layer.Bought.Unit)
+	}
+	if layer.Left.Quantity != 25 {
+		t.Errorf("what is left of the layer is %v, want 25", layer.Left.Quantity)
+	}
+	if layer.Cost != ledger.Amount(12000) {
+		t.Errorf("the money of the layer is %d, want 12000", layer.Cost)
+	}
+	if layer.PurchaseID != purchases.purchases[0].ID {
+		t.Errorf("the purchase of the layer is %d, want %d", layer.PurchaseID, purchases.purchases[0].ID)
+	}
+	if layer.BusinessID != business.ID(77) {
+		t.Errorf("the business of the layer is %d, want 77", layer.BusinessID)
 	}
 }
 
@@ -1151,7 +1292,7 @@ func TestTheFailureOfTheBookLeavesNothingBehind(t *testing.T) {
 func TestTheConfirmationWithoutADatabaseSaysSo(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewConfirmationService(nil, nil, nil, nil, nil, nil, theClock())
+	service := application.NewConfirmationService(nil, nil, nil, nil, nil, nil, nil, theClock())
 
 	_, err := service.Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
@@ -1447,7 +1588,7 @@ func TestTheConfirmationNamesTheNamesTheCatalogDidNotKnow(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,
@@ -1480,7 +1621,7 @@ func TestTheConfirmationNamesNoNameTheCatalogKnows(t *testing.T) {
 
 	draft := theDraftOfTheBakery(t, drafts)
 
-	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
+	confirmation, err := theConfirmation(drafts, purchases, accounts, book, ingredients, &fakeLayers{}, theClock()).Confirm(t.Context(), ports.ConfirmPurchase{
 		BusinessID:    business.ID(77),
 		DraftID:       draft.ID,
 		Revision:      draft.Revision,

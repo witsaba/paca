@@ -295,7 +295,10 @@ func (s *PurchaseService) today() ledger.Date {
 // does not know becomes an ingredient of the business, recorded as the
 // owner said it.
 //
-// The three are written in one transaction: a book that holds a purchase
+// The confirmation writes the layers of the stock too: the purchase is the
+// fact, and the layer is derived from it.
+//
+// The four are written in one transaction: a book that holds a purchase
 // and no movement of its money, or a movement and no purchase, lies about
 // what the owner bought.
 type ConfirmationService struct {
@@ -304,6 +307,7 @@ type ConfirmationService struct {
 	accounts    account.Repository
 	book        ledger.Repository
 	ingredients ingredient.Repository
+	layers      purchase.LayerRepository
 	work        store.UnitOfWork
 	clock       ports.Clock
 }
@@ -320,6 +324,7 @@ func NewConfirmationService(
 	accounts account.Repository,
 	book ledger.Repository,
 	ingredients ingredient.Repository,
+	layers purchase.LayerRepository,
 	work store.UnitOfWork,
 	clock ports.Clock,
 ) *ConfirmationService {
@@ -329,6 +334,7 @@ func NewConfirmationService(
 		accounts:    accounts,
 		book:        book,
 		ingredients: ingredients,
+		layers:      layers,
 		work:        work,
 		clock:       clock,
 	}
@@ -351,7 +357,7 @@ func NewConfirmationService(
 // no purchase is written.
 func (s *ConfirmationService) Confirm(ctx context.Context, request ports.ConfirmPurchase) (purchase.Confirmation, error) {
 	if s == nil || s.drafts == nil || s.purchases == nil || s.accounts == nil || s.book == nil ||
-		s.ingredients == nil || s.work == nil || s.clock == nil {
+		s.ingredients == nil || s.layers == nil || s.work == nil || s.clock == nil {
 		return purchase.Confirmation{}, ports.ErrNoDatabase
 	}
 
@@ -405,6 +411,18 @@ func (s *ConfirmationService) Confirm(ctx context.Context, request ports.Confirm
 
 		recorded, err := s.purchases.Record(ctx, toWrite)
 		if err != nil {
+			return err
+		}
+
+		// The purchase is the fact and the layer is derived from it: the
+		// layers of the stock are written with the purchase they come
+		// from, in the same transaction.
+		layers, err := purchase.LayersOf(recorded)
+		if err != nil {
+			return err
+		}
+
+		if _, err := s.layers.Record(ctx, layers); err != nil {
 			return err
 		}
 

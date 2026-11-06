@@ -183,6 +183,7 @@ func New(
 	var drafts purchase.Repository
 	var purchases purchase.Recorder
 	var ingredients ingredient.Repository
+	var layers purchase.LayerRepository
 	if pool != nil {
 		boundDrafts, err := postgres.NewPurchaseRepository(pool)
 		if err != nil {
@@ -204,10 +205,17 @@ func New(
 			return nil, fmt.Errorf("the repository of the ingredients could not be built: %w", err)
 		}
 		ingredients = boundIngredients
+
+		boundLayers, err := postgres.NewStockRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the layers could not be built: %w", err)
+		}
+		layers = boundLayers
 	}
 
 	purchaseService := application.NewPurchaseService(drafts, ingredients, clock.System{})
-	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, work, clock.System{})
+	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, layers, work, clock.System{})
 
 	// The catalog of the names the business buys: the name the owner reads
 	// and the names she uses for it. The tool of the catalog matches the
@@ -247,6 +255,12 @@ func New(
 
 	referenceService := application.NewReferenceService(references, ingredients, clock.System{})
 
+	// The stock of the bakery: what the business holds and what it cost.
+	// The purchase is the fact and the layer is derived from it, and the
+	// valuation is FIFO: the oldest layer is the first one that leaves.
+	// Without a database there is no stock to read.
+	stockService := application.NewStockService(layers, ingredients)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -271,6 +285,7 @@ func New(
 		RecordRecipe:        recipeService,
 		RecordReference:     referenceService,
 		ReadReferences:      referenceService,
+		ReadStock:           stockService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

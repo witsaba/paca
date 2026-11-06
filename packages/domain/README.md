@@ -36,8 +36,8 @@ packages/domain/
   purchase/         the model of the draft of a purchase and of the purchase
                     itself: the candidate the agent proposes, the lines, the
                     measure, the money, what the draft still needs, the
-                    confirmation, the reference price of the market and the
-                    port of the storage
+                    confirmation, the reference price of the market, the
+                    layers of the stock and the port of the storage
   ingredient/       the model of the catalog of the names the business buys:
                     the name the owner reads, the names she uses for it, the
                     matching of a name she said, the units of the book, the
@@ -354,6 +354,44 @@ a role without writing its name down twice.
 to `confirmed`, and the storage refuses the confirmation of a draft that is
 not the one the owner saw: the revision she saw is the revision the row
 carries.
+
+## The stock and the layers of the FIFO
+
+`purchase.Layer` is a layer of the stock: the ingredient it is of, the
+quantity that was bought with its unit, the money it cost, the day it was
+bought and the purchase it comes from.
+
+**The purchase is the fact and the layer is derived from it.**
+`purchase.LayersOf` derives the layers of a purchase from its lines, and a
+line the catalog does not know has no layer (`ErrLayerWithoutIngredient`):
+the layer would name nothing at all. Nobody types a layer, and the layer
+never becomes a second truth about what was bought.
+
+**The stock of an ingredient is the sum of the layers that are still
+open.** `purchase.StockOf` answers what the business holds: the quantity it
+holds, the money it cost and the layers that are still open. A layer that is
+closed — nothing is left of it — is not in the answer.
+
+**The valuation is FIFO.** `purchase.ByFIFO` answers the layers in the order
+they leave the stock: the oldest layer is the first one that leaves. Two
+layers bought the same day are read by the identity of their purchase, so
+the answer is the same every time it is read. The order of the output by
+expiry is a different rule, and it does not live here.
+
+**The quantity and its unit travel together.** The layers of an ingredient
+that were bought in different units are held apart: the book never adds a
+gram to a kilogram.
+
+**A layer that is not whole is refused.** `purchase.Layer.Checked` refuses
+the layer that names nothing of the catalog, that bought no quantity, that
+carries a unit the book does not know, that holds more than it bought, that
+comes from no line of its purchase and whose money is negative
+(`ErrInvalidLayer`, `ErrInvalidPosition`). The storage reads the layer
+through it, and a row that another writer broke is never read as a layer.
+
+**A layer comes from one line of its purchase.** The position of the layer
+is the position of the line it comes from: it is the order the owner said
+the line in, and it is unique inside the purchase.
 
 ## The catalog of the names
 

@@ -143,6 +143,21 @@ type RecipeStep struct {
 	Temperature float64
 }
 
+type StockLayer struct {
+	ID           int64
+	BusinessID   int64
+	IngredientID int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Day          pgtype.Date
+	Quantity     float64
+	Unit         string
+	Remaining    float64
+	Cost         int64
+	CreatedAt    pgtype.Timestamptz
+}
+
 type User struct {
 	ID                 int64
 	FullName           pgtype.Text

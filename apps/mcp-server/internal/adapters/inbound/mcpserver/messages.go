@@ -183,4 +183,9 @@ var theMessages = map[error]string{
 	purchase.ErrMissingSource: "the reference carries no source: say where the price was read, because a price " +
 		"without a source is a price nobody can check",
 	purchase.ErrMissingDay: "the reference carries no day: say the day the price was seen, and never invent one",
+	purchase.ErrLayerWithoutIngredient: "the layer names nothing of the catalog: match the name against the catalog " +
+		"of the business first, and send the identity it answered",
+	purchase.ErrInvalidLayer: "the layer is not whole: what it holds is not what it bought, and the storage " +
+		"refused the row",
+	purchase.ErrInvalidPosition: "the layer comes from no line of its purchase: the storage refused the row",
 }

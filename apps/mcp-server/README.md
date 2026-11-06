@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-one tools: the way PACA onboards a person, the four
+The server exposes thirty-three tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -114,7 +114,9 @@ the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
 the business holds and what it cost, the tool of the labour she just
 confirmed, the tool of the overhead of the house, the tool of the report
-of the real price, the tool of the margin and the tool of the production.
+of the real price, the tool of the margin, the tool of the production and
+the two tools of the expiry: the correction of the shelf life the owner
+just declared, and the read of what expires.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -149,6 +151,8 @@ of the real price, the tool of the margin and the tool of the production.
 | `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
 | `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. It writes nothing. |
 | `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
+| `correct_shelf_life`      | Writes the correction of the shelf life the owner just confirmed: the recipe she corrected, the number of days what it makes keeps, the day she corrected it and her word. The shelf life of a recipe is an APPROXIMATION until she corrects it, and the correction is KEPT: the last one she declared is the shelf life that counts. The correction moves the units that were ALREADY made: every unit of that recipe expires again, the day it was made plus the days she corrected. The days are never invented by PACA. One call, one transaction: the correction and the days it moves are written whole or not at all. |
+| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -356,6 +360,23 @@ nothing behind. The recipe is named by her name or by its identity, and a
 name that more than one recipe carries is refused: the book never guesses
 which recipe she made. The word she used to confirm it is kept with the
 record, and her sentence is kept verbatim when she said one.
+
+**The expiry is corrected, and it is read.** The shelf life of a recipe is
+an approximation until the owner corrects it, and the tool
+`correct_shelf_life` writes that correction with her word: the number of
+days is what she said, and PACA never invents it. The correction is KEPT:
+every correction she declared is written down, and the last one is the
+shelf life that counts — so the units that come out of the oven from now
+on expire the day of the production plus the days she corrected, and the
+units she already made expire again. The correction and the days it moves
+are written in one transaction, and a unit that changed under the
+correction is refused: the book is never left half-corrected. The tool
+`read_expiring` answers what expires, and when: every unit of the business
+with the day it expires, the days that are left of it and whether it is
+already expired, the unit that expires first first. A unit is expired on
+the day it expires and on every day after it, and a unit that expired is
+never sold. The two tools write nothing in the book of the money: the
+expiry moves the day a unit expires, and never a peso.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

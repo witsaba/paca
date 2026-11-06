@@ -50,8 +50,9 @@ packages/domain/
                     cues, the yield, the shelf life, the cost of a batch,
                     the labour of the owner, the overhead of the house,
                     the report of the real price, the production of the day
-                    with the units it made and the day they expire, and the
-                    port of the storage
+                    with the units it made and the day they expire, the
+                    correction of the shelf life and the read of what
+                    expires, and the port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -778,6 +779,47 @@ inside the business, and `recipe.TheRecipeNamed` refuses a name that more
 than one recipe carries (`ErrAmbiguousRecipe`): the book never guesses
 which recipe she made. A name that no recipe of the business carries is
 refused too (`ErrUnknownRecipe`).
+
+## The model of the expiry
+
+`recipe.ShelfLifeCorrection` is the correction the owner declared of the
+shelf life of a recipe: the recipe she corrected, the number of days what
+it makes keeps, the day she corrected it and the word she used to confirm
+it. `recipe.ExpiringUnit` is a unit of the book read for the day it
+expires: the unit of the production, with the production it came out of
+and the recipe it was made of.
+
+**The shelf life is approximate until the owner corrects it.** The recipe
+declares one, and the correction is the truth she gave later: the number
+of days is what she said, and the book never invents it.
+
+**The correction is KEPT.** Every correction is a row of its own, and
+`recipe.ShelfLifeOf` answers the shelf life that counts: the last
+correction the owner declared, and the declared one of the recipe when she
+corrected nothing. The corrections of another recipe are not hers: the
+shelf life of a bread does not move the expiry of the cake.
+
+**The correction moves the units that were already made.**
+`recipe.CorrectedUnits` answers the units of the recipe — and of no other
+recipe — with the day they expire on now: the day of the production plus
+the days she corrected. The storage writes that day only when the unit
+still expires on the day the correction read: a unit that changed under
+the correction is refused.
+
+**Every unit carries the day it expires, and the unit keeps the days of
+its shelf life.** The shelf life of three days is the day of the
+production plus three days, and the unit expires on the first day it is no
+longer good: `recipe.ProductionUnit.Expired` says it, and
+`recipe.ProductionUnit.DaysLeft` counts the days that are left of it.
+
+**A unit that expired is never sold.** `recipe.ProductionUnit.CheckSellable`
+refuses it (`ErrExpiredUnit`), and a sale of no day is refused too
+(`ErrMissingSaleDay`): the day is what says whether the unit expired.
+
+**The answer of the expiry is ordered by the day the units expire.**
+`recipe.ExpiringUnits` orders them, and the unit that expires first is
+the first one. The rotation — the unit that leaves a production — is
+another rule, and it does not live here.
 
 ## The model of the reference price
 

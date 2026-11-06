@@ -254,6 +254,18 @@ type Recipe struct {
 	CreatedAt time.Time
 }
 
+// WithShelfLife answers the recipe with the shelf life that counts.
+//
+// The rule of the domain: the shelf life the owner corrected is the one that
+// counts, and the last correction she declared is the one that counts. The
+// use case reads the corrections and asks the domain which shelf life
+// applies; the recipe itself never decides it.
+func (r Recipe) WithShelfLife(days int) Recipe {
+	r.ShelfLifeDays = days
+
+	return r
+}
+
 // New builds the recipe of a business.
 //
 // The rules of the domain hold here:

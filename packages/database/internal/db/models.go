@@ -190,6 +190,17 @@ type RecipeIngredient struct {
 	Grams        float64
 }
 
+type RecipeShelfLifeCorrection struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	ShelfLifeDays int32
+	Day           pgtype.Date
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type RecipeStep struct {
 	ID          int64
 	RecipeID    int64

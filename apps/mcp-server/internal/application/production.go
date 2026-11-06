@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
@@ -30,6 +29,7 @@ import (
 // production, and a refused production leaves nothing behind.
 type ProductionService struct {
 	recipes     recipe.Reader
+	corrections recipe.ShelfLifeReader
 	layers      purchase.LayerRepository
 	ingredients ingredient.Repository
 	productions recipe.ProductionRepository
@@ -40,13 +40,17 @@ type ProductionService struct {
 // NewProductionService builds the use case of the productions.
 //
 // The repositories are the ports of the storage: the use case does not know
-// whether the rows live in PostgreSQL or somewhere else. The transaction is
+// whether the rows live in PostgreSQL or somewhere else. The corrections of
+// the shelf life are one of them: the shelf life that counts is the last
+// correction the owner declared, and the units that come out of the oven
+// expire the day the production plus that shelf life. The transaction is
 // the port of the work of the storage: the production and the layers it
 // consumes are written whole or not at all. The clock is the port of the
-// time: the day a production names none is the day of today, and the service
-// does not read the clock of the machine by itself.
+// time: the day a production names none is the day of today, and the
+// service does not read the clock of the machine by itself.
 func NewProductionService(
 	recipes recipe.Reader,
+	corrections recipe.ShelfLifeReader,
 	layers purchase.LayerRepository,
 	ingredients ingredient.Repository,
 	productions recipe.ProductionRepository,
@@ -55,6 +59,7 @@ func NewProductionService(
 ) *ProductionService {
 	return &ProductionService{
 		recipes:     recipes,
+		corrections: corrections,
 		layers:      layers,
 		ingredients: ingredients,
 		productions: productions,
@@ -79,8 +84,8 @@ func NewProductionService(
 // The day is the one the agent names, and the day of today when it names
 // none: the day is one of the three things Paca may fill by herself.
 func (s *ProductionService) Record(ctx context.Context, request ports.RecordProduction) (recipe.Production, error) {
-	if s == nil || s.recipes == nil || s.layers == nil || s.ingredients == nil ||
-		s.productions == nil || s.work == nil || s.clock == nil {
+	if s == nil || s.recipes == nil || s.corrections == nil || s.layers == nil ||
+		s.ingredients == nil || s.productions == nil || s.work == nil || s.clock == nil {
 		return recipe.Production{}, ports.ErrNoDatabase
 	}
 
@@ -93,10 +98,20 @@ func (s *ProductionService) Record(ctx context.Context, request ports.RecordProd
 		day = s.today()
 	}
 
-	baked, err := s.recipeOf(ctx, request)
+	baked, err := theRecipeOf(ctx, s.recipes, request.BusinessID, request.RecipeID, request.RecipeName)
 	if err != nil {
 		return recipe.Production{}, err
 	}
+
+	corrections, err := s.corrections.List(ctx, request.BusinessID)
+	if err != nil {
+		return recipe.Production{}, err
+	}
+
+	// The shelf life that counts is the last correction the owner
+	// declared: the units that come out of the oven expire the day of the
+	// production plus that shelf life.
+	baked = baked.WithShelfLife(recipe.ShelfLifeOf(baked, corrections))
 
 	layers, err := s.layers.List(ctx, request.BusinessID)
 	if err != nil {
@@ -134,44 +149,6 @@ func (s *ProductionService) Record(ctx context.Context, request ports.RecordProd
 	}
 
 	return recorded, nil
-}
-
-// recipeOf answers the recipe the owner made.
-//
-// The identity of a recipe answers that recipe alone, and the name the
-// owner reads answers the recipe she named: the name of a recipe is not
-// unique inside the business, and a name that more than one recipe carries
-// is refused, because the book never guesses which one she made.
-//
-// The error is recipe.ErrNotFound when the business holds no recipe with
-// that name, recipe.ErrAmbiguousRecipe when it holds more than one, and
-// recipe.ErrWrongBusiness when the recipe belongs to another business.
-func (s *ProductionService) recipeOf(ctx context.Context, request ports.RecordProduction) (recipe.Recipe, error) {
-	if request.RecipeID != 0 {
-		one, err := s.recipes.Find(ctx, recipe.ID(request.RecipeID))
-		if err != nil {
-			return recipe.Recipe{}, err
-		}
-
-		if one.BusinessID != request.BusinessID {
-			return recipe.Recipe{}, fmt.Errorf("%w: the recipe %d belongs to the business %d",
-				recipe.ErrWrongBusiness, one.ID, one.BusinessID)
-		}
-
-		return one, nil
-	}
-
-	name := strings.TrimSpace(request.RecipeName)
-	if name == "" {
-		return recipe.Recipe{}, fmt.Errorf("%w: the production names no recipe", recipe.ErrMissingRecipe)
-	}
-
-	all, err := s.recipes.List(ctx, request.BusinessID)
-	if err != nil {
-		return recipe.Recipe{}, err
-	}
-
-	return recipe.TheRecipeNamed(all, name)
 }
 
 // catalog answers the catalog of the names the business buys.

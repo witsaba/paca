@@ -1060,7 +1060,7 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T17 | S22, S23, S47 | The production and the tool that records it | inline | this commit |
-| T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `pending` |
+| T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | this commit |
 | T19 | S24, S25 | The waste and the tool that records it | inline | `pending` |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `pending` |
 | T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
@@ -1264,3 +1264,13 @@ Three things the increment taught, carried here for the ones to come:
 - **The expiry of a produced unit is the day of the production plus the declared shelf life of the recipe** — approximate until the owner corrects it, and the correction is T18.
 
 **Deviation**: the model of the production lives in `packages/domain/recipe`, not in a package of its own: the production needs the yield and the shelf life of the recipe, and the direction of the dependencies forbids `purchase` from reaching for `recipe`.
+
+**L32** (2026-11-06): T18 landed: **the expiry of every unit**. The shelf life of a recipe stays the declared constant it was, but it is now **correctable**, and the correction is **kept as a row of its own**: the last correction the owner declared is the shelf life that counts. Only the owner corrects it, with the number of days she says (never inferred), the day she corrected it and her word of confirmation. Every unit of every production carries the day it expires, and a correction moves the units that were already made — in one transaction, guarded, so a unit that changed under the correction is refused. A unit that expired is never sold. Two tools landed: `correct_shelf_life` and `read_expiring`; the transport carries thirty-three tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **A correction is a row, not an edit**: the history of what she declared is kept, and the last one wins. A shelf life that is only the current value cannot be explained later.
+- **A correction moves what was already made**: the expiry of the units already in the book follows the corrected shelf life, guarded and written whole — nothing is half-corrected.
+- **The rotation by expiry stays apart from the FIFO of the valuation**: `read_expiring` only orders by expiry; which unit leaves a production is T22.
+
+**Two things the owner may want to say**: the unit expired ON the day it expires (a shelf life of N days are N good days), and the correction of a shelf life needs the tool that records it — a rule without a way to reach it is a rule nobody can use, so the increment landed two tools and not one.

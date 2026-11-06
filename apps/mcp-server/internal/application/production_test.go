@@ -128,17 +128,39 @@ func theLayersOfTheProduction() []purchase.Layer {
 	}
 }
 
+// The fake of the storage of the corrections of the shelf life.
+//
+// It holds the corrections the owner declared.
+type fakeCorrections struct {
+	held []recipe.ShelfLifeCorrection
+	err  error
+}
+
+// List answers the corrections of the business.
+func (f *fakeCorrections) List(_ context.Context, _ business.ID) ([]recipe.ShelfLifeCorrection, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.held, nil
+}
+
 // theProductionService builds the use case of the productions with the
 // fakes of the test.
+//
+// The corrections of the shelf life are optional: the recipe declares one,
+// and the owner corrects it when she knows it better.
 func theProductionService(
 	t *testing.T,
 	productions *fakeProductions,
 	layers *fakeLayers,
+	corrections ...recipe.ShelfLifeCorrection,
 ) *application.ProductionService {
 	t.Helper()
 
 	return application.NewProductionService(
 		&fakeRecipes{held: []recipe.Recipe{theRecipeOfTheProduction(t)}},
+		&fakeCorrections{held: corrections},
 		layers,
 		theCatalogOfTheTest(t),
 		productions,
@@ -329,6 +351,7 @@ func TestTheProductionIsRefusedWhenTheNameCarriesMoreThanOneRecipe(t *testing.T)
 	layers := &fakeLayers{layers: theLayersOfTheProduction()}
 	service := application.NewProductionService(
 		&fakeRecipes{held: []recipe.Recipe{theRecipeOfTheProduction(t), other}},
+		&fakeCorrections{},
 		layers,
 		theCatalogOfTheTest(t),
 		productions,
@@ -389,6 +412,7 @@ func TestTheProductionIsRefusedWhenTheRecipeIsOfAnotherBusiness(t *testing.T) {
 	layers := &fakeLayers{layers: theLayersOfTheProduction()}
 	service := application.NewProductionService(
 		&fakeRecipes{held: []recipe.Recipe{other}},
+		&fakeCorrections{},
 		layers,
 		theCatalogOfTheTest(t),
 		productions,
@@ -408,5 +432,47 @@ func TestTheProductionIsRefusedWhenTheRecipeIsOfAnotherBusiness(t *testing.T) {
 
 	if len(productions.written) != 0 {
 		t.Errorf("the use case wrote %d productions, want none", len(productions.written))
+	}
+}
+
+// TestTheUnitsOfTheProductionExpireWithTheShelfLifeTheOwnerCorrected
+// proves that the shelf life that counts is the last correction the owner
+// declared: the units that come out of the oven expire the day of the
+// production plus that shelf life.
+func TestTheUnitsOfTheProductionExpireWithTheShelfLifeTheOwnerCorrected(t *testing.T) {
+	t.Parallel()
+
+	correction := recipe.ShelfLifeCorrection{
+		ID:            recipe.CorrectionID(1),
+		BusinessID:    business.ID(77),
+		RecipeID:      recipe.ID(9),
+		RecipeName:    "Pan de molde",
+		ShelfLifeDays: 5,
+		Day:           ledger.NewDate(time.Date(2026, time.March, 12, 8, 0, 0, 0, time.UTC)),
+		ConfirmedWith: "sí",
+	}
+
+	productions := &fakeProductions{}
+	layers := &fakeLayers{layers: theLayersOfTheProduction()}
+	service := theProductionService(t, productions, layers, correction)
+
+	written, err := service.Record(t.Context(), ports.RecordProduction{
+		BusinessID:    business.ID(77),
+		RecipeID:      9,
+		Day:           "2026-03-14",
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the production was refused: %v", err)
+	}
+
+	if len(written.Units) == 0 {
+		t.Fatal("the production made no unit")
+	}
+
+	want := ledger.NewDate(time.Date(2026, time.March, 19, 0, 0, 0, 0, time.UTC))
+	if written.Units[0].ExpiresOn != want {
+		t.Errorf("the unit expires on %q, want %q: the shelf life the owner corrected is the one that counts",
+			written.Units[0].ExpiresOn.String(), want.String())
 	}
 }

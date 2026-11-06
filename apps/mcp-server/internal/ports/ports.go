@@ -1167,3 +1167,98 @@ type ProductionRecorder interface {
 	// Record writes the production of the business and answers it with it.
 	Record(ctx context.Context, request RecordProduction) (recipe.Production, error)
 }
+
+// CorrectShelfLife is the correction the owner declared of the shelf life of
+// a recipe: the recipe she corrected, the number of days what it makes keeps
+// and the word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// number of days is what she said, and PACA never infers it. The day of the
+// expiry of the units is derived by the domain from that number.
+type CorrectShelfLife struct {
+	// BusinessID is the business the recipe belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the recipe she corrected. It is zero
+	// when the agent names the recipe with its name.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the recipe she corrected.
+	// It is empty when the agent names the recipe with its identity.
+	RecipeName string
+
+	// ShelfLifeDays is the number of days what the recipe makes keeps,
+	// the way she corrected it.
+	ShelfLifeDays int
+
+	// Day is the day the correction was declared. It is the day of today
+	// when the agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word the owner used to confirm the correction.
+	ConfirmedWith string
+}
+
+// CorrectedShelfLife is the outcome of the correction of the shelf life:
+// the correction that was written and the units whose day of expiry moved.
+//
+// It is the answer of the tool, and it is the shape of the contract between
+// the agent and the service.
+type CorrectedShelfLife struct {
+	// Correction is the correction that was written.
+	Correction recipe.ShelfLifeCorrection
+
+	// Units are the units whose day of expiry moved: the day each one
+	// expired on before the correction and the day it expires on now.
+	Units []recipe.CorrectedUnit
+}
+
+// ShelfLifeCorrector is the inbound port of the tool that corrects the
+// shelf life of a recipe.
+//
+// The tool writes the correction the owner confirmed and answers it with it:
+// the recipe, the number of days, the day it was declared and the units
+// whose day of expiry moved.
+//
+// The identity of the business, the recipe, the number of days and the word
+// of the owner are required. The day and the sentence of the owner are
+// optional, and the day is the day of today when the agent names none.
+//
+// The error is the error of the domain: the domain refuses a correction
+// without days, without the day it was declared and without the word of the
+// owner.
+type ShelfLifeCorrector interface {
+	// Correct writes the correction of the shelf life and answers it with
+	// it, and with the units whose day of expiry moved.
+	Correct(ctx context.Context, request CorrectShelfLife) (CorrectedShelfLife, error)
+}
+
+// ReadExpiring is the business whose expiry is read.
+//
+// It is the shape of the contract between the agent and the service: the
+// business is the only thing the agent names, and the days and the expiry
+// of every unit are read by the book.
+type ReadExpiring struct {
+	// BusinessID is the business whose expiry is read.
+	BusinessID business.ID
+}
+
+// ExpiringReader is the inbound port of the tool that reads what expires.
+//
+// The units are read with the day they expire and the days that are left:
+// the owner asks what expires and when, and the book answers with the day
+// of every unit of the business.
+type ExpiringReader interface {
+	// Read answers the units of the business in the order they expire,
+	// with the day the answer was read on.
+	//
+	// The identity of the business is required, and the list is empty
+	// when the business made no production yet.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// business that is not there.
+	Read(ctx context.Context, request ReadExpiring) (recipe.Expiry, error)
+}

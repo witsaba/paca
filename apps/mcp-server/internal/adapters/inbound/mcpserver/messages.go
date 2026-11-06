@@ -210,6 +210,11 @@ var theMessages = map[error]string{
 		"ingredient first, and record the production after it",
 	recipe.ErrUnknownStock: "the stock holds an ingredient in a unit the book cannot weigh: ask the owner how much " +
 		"the package weighs, and never assume the weight of a piece",
+	recipe.ErrExpiredUnit: "the unit expired on that day: a unit that expired is never sold, and it has to be " +
+		"written as a waste",
+	recipe.ErrMissingSaleDay: "the sale carries no day: ask the owner the day of the sale, and never invent one",
+	recipe.ErrMissingExpiry: "the unit of the production carries no day of expiry: read the productions of the " +
+		"business again, and never invent a day of expiry",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

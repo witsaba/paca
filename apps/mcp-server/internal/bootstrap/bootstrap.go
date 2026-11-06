@@ -339,11 +339,50 @@ func New(
 		productions = boundProductions
 	}
 
+	// The corrections of the shelf life: the shelf life of a recipe is
+	// approximate until the owner corrects it, and the last correction
+	// she declared is the one that counts. Without a database there is no
+	// correction to keep and no unit to move.
+	var corrections recipe.ShelfLifeRepository
+	var shelfLives recipe.ShelfLifeReader
+	var units recipe.UnitRepository
+
+	if pool != nil {
+		boundCorrections, err := postgres.NewShelfLifeRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the corrections of the shelf life could not be built: %w", err)
+		}
+		corrections = boundCorrections
+		shelfLives = boundCorrections
+
+		boundUnits, err := postgres.NewUnitRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the units could not be built: %w", err)
+		}
+		units = boundUnits
+	}
+
 	productionService := application.NewProductionService(
 		recipeReader,
+		shelfLives,
 		layers,
 		ingredients,
 		productions,
+		work,
+		clock.System{},
+	)
+
+	// The expiry of what the bakery makes: the correction the owner
+	// declared of the shelf life, and the units of the business with the
+	// day each one expires. The correction and the days it moves are
+	// written in one transaction. Without a database there is no unit to
+	// read and no correction to keep.
+	expiryService := application.NewExpiryService(
+		recipeReader,
+		corrections,
+		units,
 		work,
 		clock.System{},
 	)
@@ -379,6 +418,8 @@ func New(
 		ReadRealPrice:       realPriceService,
 		ReadMargin:          marginService,
 		RecordProduction:    productionService,
+		CorrectShelfLife:    expiryService,
+		ReadExpiring:        expiryService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

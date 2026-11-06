@@ -152,6 +152,19 @@ var (
 	// ErrUnknownStock is the error of a production whose ingredients the
 	// book cannot weigh: the grams that went in are never assumed.
 	ErrUnknownStock = errors.New("the stock holds an ingredient the book cannot weigh")
+
+	// ErrExpiredUnit is the error of a unit that expired: a unit that
+	// expired is never sold, and the sale of it is refused.
+	ErrExpiredUnit = errors.New("the unit expired and is never sold")
+
+	// ErrMissingSaleDay is the error of a sale of no day: the day is what
+	// says whether the unit expired, and a sale of no day says nothing.
+	ErrMissingSaleDay = errors.New("the sale carries the day it was made")
+
+	// ErrMissingExpiry is the error of a unit of the production that
+	// carries no day of expiry: the expiry is what the owner asks about,
+	// and a unit without it is not a unit of the book.
+	ErrMissingExpiry = errors.New("the unit of the production carries the day it expires")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -190,5 +203,8 @@ func Errors() []error {
 		ErrInvalidProductionMoney,
 		ErrMissingStock,
 		ErrUnknownStock,
+		ErrExpiredUnit,
+		ErrMissingSaleDay,
+		ErrMissingExpiry,
 	}
 }

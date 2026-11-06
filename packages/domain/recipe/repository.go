@@ -131,8 +131,7 @@ type OverheadReader interface {
 	List(ctx context.Context, own business.ID) ([]Overhead, error)
 }
 
-// ProductionRepository is the port of the storage of the productions.
-//
+// ProductionRepository is the port of the storage of the productions.//
 // The port is what a use case needs: the tool of the production writes the
 // fact of what the bakery made on a day, with the units that came out of
 // it, and the storage keeps them in the book of the business.
@@ -152,4 +151,77 @@ type ProductionRepository interface {
 	// table, ErrNotFound when the business or the recipe is not there,
 	// and ErrNoStorage when the storage is not open.
 	Record(ctx context.Context, production Production) (Production, error)
+}
+
+// ShelfLifeRepository is the port of the storage of the corrections of the
+// shelf life.
+//
+// The port is what a use case needs: the tool of the expiry writes the
+// correction the owner declared, and the storage keeps it in the book of the
+// business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type ShelfLifeRepository interface {
+	// Record writes the correction of the shelf life and answers it with
+	// the identity that the storage generated.
+	//
+	// The correction is kept: every one of them is a row of its own, and
+	// the last one the owner declared is the shelf life that counts.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business or the recipe is not there,
+	// and ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, correction ShelfLifeCorrection) (ShelfLifeCorrection, error)
+}
+
+// ShelfLifeReader is the port of the storage that reads the corrections of
+// the shelf life back.
+//
+// The port is what a use case needs: the shelf life that counts is the last
+// correction the owner declared, and the production reads it before it
+// writes the day the units expire.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type ShelfLifeReader interface {
+	// List returns the corrections of the business, in the order of the day
+	// they were declared and of their identity.
+	//
+	// The list holds the corrections of the business and of no other one,
+	// and it is empty when the owner corrected nothing.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]ShelfLifeCorrection, error)
+}
+
+// UnitRepository is the port of the storage of the units of the productions.
+//
+// The unit is a row of the production that made it: the storage reads it
+// with the production and the recipe it belongs to, because the expiry is
+// read for one business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type UnitRepository interface {
+	// List returns the units of the productions of the business, with the
+	// production they came out of and the recipe they were made of.
+	//
+	// The list holds the units of the business and of no other one, and
+	// it is empty when the business made no production yet.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]ExpiringUnit, error)
+
+	// WriteExpiry writes the day the units expire.
+	//
+	// The rule of the domain: the storage writes the day the domain
+	// computed, and it writes it only when the unit still expires on the
+	// day the domain read: a unit that changed under the correction is
+	// refused.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the unit is not there, and ErrNoStorage
+	// when the storage is not open.
+	WriteExpiry(ctx context.Context, units []CorrectedUnit) error
 }

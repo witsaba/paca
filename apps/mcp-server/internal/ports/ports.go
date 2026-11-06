@@ -784,6 +784,61 @@ type BatchCostReader interface {
 	Read(ctx context.Context, request ReadBatchCost) ([]recipe.Cost, error)
 }
 
+// ReadRealPrice is the recipe whose real price is read, the business it
+// belongs to and the price the owner charges.
+//
+// It is the shape of the contract between the agent and the service: the
+// price is what the owner declared, with the way she charges, and PACA
+// never infers either of them.
+type ReadRealPrice struct {
+	// BusinessID is the business whose report is read.
+	BusinessID business.ID
+
+	// RecipeID is the recipe the caller asks about. It is zero when the
+	// caller names the recipe with its name, or when the caller asks for
+	// every recipe of the business.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the recipe. It is empty
+	// when the caller names the recipe with its identity.
+	RecipeName string
+
+	// Price is the money the owner charges for the product, in whole
+	// pesos. It is zero when she declared none: the price of the owner is
+	// never inferred.
+	Price int64
+
+	// PriceBasis is the way she charges: 'unit', 'gram' or 'kilogram'. It
+	// is empty when she declared no price.
+	PriceBasis string
+}
+
+// RealPriceReader is the inbound port of the tool that reads the report of
+// the real price.
+//
+// The report shows the three layers of the cost apart - the direct cost,
+// the labor and the overhead - per unit, per gram and per kilogram, and
+// the price of the owner beside them.
+type RealPriceReader interface {
+	// Read answers the report of the real price of the products of the
+	// business.
+	//
+	// The identity of the business is required. The recipe is optional:
+	// the identity of a recipe answers the report of that recipe, the
+	// name of a recipe answers the report of the recipes that carry it,
+	// and neither of them answers the report of every recipe of the
+	// business.
+	//
+	// The price of the owner is optional: it is what she declared, with
+	// the way she charges, and a report of a price nobody declared says
+	// that it is not known.
+	//
+	// The error is the error of the domain: the domain refuses a recipe
+	// that is not there, a recipe of another business, a business that is
+	// not there and a way of charging the book does not know.
+	Read(ctx context.Context, request ReadRealPrice) ([]recipe.RealPrice, error)
+}
+
 // RecordLabor is the labor the owner declared: the hours she worked, in
 // the three kinds of the labor, the value of the hour, the day it was
 // worked and the word she used to confirm it.

@@ -308,6 +308,13 @@ func New(
 	// to value.
 	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader, overheadReader)
 
+	// The report of the real price: the three layers of the cost of a
+	// batch apart - the direct cost, the labor and the overhead - and the
+	// price of the owner beside them. The price of the owner is what she
+	// declared: it is never inferred. Without a database there is no
+	// recipe to read and no layer to value.
+	realPriceService := application.NewRealPriceService(recipeReader, layers, ingredients, laborReader, overheadReader)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -336,6 +343,7 @@ func New(
 		ReadBatchCost:       batchCostService,
 		RecordLabor:         laborService,
 		RecordOverhead:      overheadService,
+		ReadRealPrice:       realPriceService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

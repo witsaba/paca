@@ -137,6 +137,16 @@ var (
 	// the purchase, and a row another writer broke is never read as a
 	// layer.
 	ErrLayerNotTied = errors.New("the money of the layer is the money of the line of its purchase")
+
+	// ErrInvalidOwnerPrice is the error of a price of the owner that is
+	// not a price: the money of what the business sells is never a number
+	// PACA invents.
+	ErrInvalidOwnerPrice = errors.New("the price of the owner is positive")
+
+	// ErrUnknownPriceBasis is the error of a way of charging the book
+	// does not know: the way the owner sells is her decision, and it is
+	// never guessed.
+	ErrUnknownPriceBasis = errors.New("the way the owner charges is one of the three the book knows")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -173,5 +183,7 @@ func Errors() []error {
 		ErrLayerOfAnotherBusiness,
 		ErrMissingBusiness,
 		ErrLayerNotTied,
+		ErrInvalidOwnerPrice,
+		ErrUnknownPriceBasis,
 	}
 }

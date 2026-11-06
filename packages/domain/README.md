@@ -37,6 +37,7 @@ packages/domain/
                     itself: the candidate the agent proposes, the lines, the
                     measure, the money, what the draft still needs, the
                     confirmation, the reference price of the market, the
+                    price of the owner with the way she charges, the
                     layers of the stock and the port of the storage
   ingredient/       the model of the catalog of the names the business buys:
                     the name the owner reads, the names she uses for it, the
@@ -46,9 +47,9 @@ packages/domain/
   recipe/           the model of the recipe of the bakery: the guide to
                     learn and to teach, the ingredients with their grams, the
                     steps with their times, their temperatures and their
-                    cues, the yield, the shelf life, the cost of a batch
-                    and the labour of the owner, and the port of the
-                    storage
+                    cues, the yield, the shelf life, the cost of a batch,
+                    the labour of the owner, the overhead of the house, the
+                    report of the real price, and the port of the storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -629,8 +630,47 @@ that it does not know it: the money of the house is never inferred.
 
 **The overhead is a fact of the business.** It moves no money of the ledger
 yet: the account of the overhead exists in the seed of the business, and
-the decision of whether the overhead writes a movement belongs to the
-report of the real price.
+the report of the real price writes none — a report reads and writes
+nothing. The decision of whether the overhead writes a movement stays open,
+and it belongs to the increment that writes the movement.
+
+## The report of the real price
+
+`recipe.RealPrice` is the report the owner reads when she asks what her
+product really costs: the three layers of the cost of a batch — the direct
+cost, the labour and the overhead — per unit, per gram and per kilogram,
+and the price she charges beside them. It lives in the package of the
+recipe, next to the cost of the batch it is a report of.
+
+**The three layers travel apart, and so does their sum.** `recipe.RealPriceOf`
+builds the report out of the cost of the batch: every layer keeps its own
+money and its own rates in `recipe.Rate`, and `RealPrice.Total` carries the
+sum of the three beside them. No layer of the cost is ever hidden inside
+another one, and the sum is a number of its own, not a layer.
+
+**Every layer answers per unit, per gram and per kilogram.** The bakery
+sells by the unit and by the weight, and a comparison between two products
+that knows only one of them is a lie.
+
+**The price of the owner is hers, and the book never moves it.**
+`purchase.OwnerPrice` is the money she charges with the way she charges it:
+`purchase.PricePerUnit`, `purchase.PricePerGram` or
+`purchase.PricePerKilogram`. The money is positive
+(`ErrInvalidOwnerPrice`) and the way she charges is one of the three the
+book knows (`ErrUnknownPriceBasis`); `purchase.ParsePriceBasis` reads the
+way a person says it (`unidad`, `gramos`, `kilos`), and
+`purchase.PriceBases` names the three for the description of the tool. The
+report carries the money she declared and the rates it weighs against, and
+the price of the unit and the price of the gram are two different truths.
+
+**The money of what she sells is never inferred.** A report of a price
+nobody declared says that it is not known, and the three layers of the cost
+still answer.
+
+**The sum is the sum of a batch that can be baked.** A layer that is not
+known — the labour of a business that declared no value of the hour — or a
+stock that does not hold everything the recipe needs leaves the total
+unknown, and the answer says why.
 
 ## The model of the reference price
 

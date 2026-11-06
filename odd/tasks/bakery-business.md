@@ -1052,7 +1052,7 @@ its session starts.
 | T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | this commit |
 | T13 | S5, S9 | The labor, and the tool that records it | inline | this commit |
 | T14 | S5, S9 | The overhead, and the tool that records it | inline | this commit |
-| T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `pending` |
+| T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | this commit |
 | T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `pending` |
 
 ### Movement IV — From dough to bread
@@ -1236,3 +1236,11 @@ Three things the increment taught, carried here for the ones to come:
 - **The overhead moves no money of the ledger**: the account exists in the seed of T2, and the decision of writing the movement belongs to T15.
 
 **Open for the owner**: the share of the electricity that belongs to the oven was read as a share (0 < share ≤ 1). Another shape — a money per hour of the oven, for example — is possible, and the change lives in the domain, in the argument of the tool and in the migration.
+
+**L29** (2026-11-06): T15 landed: **the report of the real price**. The report shows the three layers of the cost of a batch — the direct cost of the ingredients, the labor of the hours of the recipe and the overhead of the hours of the oven — each with its money and its rates per unit, per gram and per kilogram, their sum shown APART, and the price of the owner beside them, with the way she charges it, exactly as she declared it. The tool is `read_real_price`, and the transport carries twenty-nine tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The price of the owner is a value object, not a number**: the money, and the way she charges it (per unit, per gram or per kilogram). The price of the unit and the price of the gram are two different truths and they never mix.
+- **A sum of a batch that cannot be baked is a number nobody can use**: the total is unknown when a layer is unknown or when the stock does not cover the recipe, and the report says so instead of guessing.
+- **Nothing of the report is stored**: the price of the owner is an argument of the tool, because the price list of the products and the channel are T25. The report says "the owner has not declared the price of the product" when she declared none.

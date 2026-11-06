@@ -237,8 +237,8 @@ func TestTheServiceSpeaksTheMCPProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 28 {
-		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding, the two of the businesses, the three of the book, the four of the debts, the four of the utterance, the three of the catalog, the one of the recipes, the two of the reference prices, the one of the stock, the one of the cost of a batch, the one of the labor and the one of the overhead", len(tools.Tools))
+	if len(tools.Tools) != 29 {
+		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding, the two of the businesses, the three of the book, the four of the debts, the four of the utterance, the three of the catalog, the one of the recipes, the two of the reference prices, the one of the stock, the one of the cost of a batch, the one of the labor, the one of the overhead and the one of the real price", len(tools.Tools))
 	}
 
 	names := make(map[string]bool, len(tools.Tools))

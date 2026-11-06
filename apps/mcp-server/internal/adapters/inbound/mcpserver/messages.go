@@ -216,4 +216,9 @@ var theMessages = map[error]string{
 	purchase.ErrLayerNotTied: "the row of the layer was broken: the money of the layer is the money of the " +
 		"line of the purchase it comes from, and a layer that carries another money is never read as a layer " +
 		"of the stock",
+	purchase.ErrInvalidOwnerPrice: "the price of the owner is not a price: ask the owner what she charges for " +
+		"the product, and never fill a price by yourself",
+	purchase.ErrUnknownPriceBasis: "the way the owner charges is not one of the three the book knows: use " +
+		"'unit' (the price of one piece), 'gram' (the price of one gram) or 'kilogram' (the price of one " +
+		"kilogram)",
 }

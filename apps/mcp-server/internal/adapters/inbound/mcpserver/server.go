@@ -173,6 +173,14 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	RecordOverhead ports.OverheadRecorder
+
+	// ReadRealPrice is the use case that reads the report of the real
+	// price of a product: the three layers of the cost of a batch apart
+	// and the price of the owner beside them.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadRealPrice ports.RealPriceReader
 }
 
 // Server is the MCP transport of the service.
@@ -231,6 +239,7 @@ func New(opts Options) *Server {
 	transport.registerBatchCostTools(opts.ReadBatchCost)
 	transport.registerLaborTools(opts.RecordLabor)
 	transport.registerOverheadTools(opts.RecordOverhead)
+	transport.registerRealPriceTools(opts.ReadRealPrice)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

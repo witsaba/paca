@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twenty-eight tools: the way PACA onboards a person, the four
+The server exposes twenty-nine tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -113,7 +113,8 @@ the tool of the recipes: the guide she just confirmed, the two tools of
 the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
 the business holds and what it cost, the tool of the labour she just
-confirmed, and the tool of the overhead of the house.
+confirmed, the tool of the overhead of the house, and the tool of the report
+of the real price.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -145,6 +146,7 @@ confirmed, and the tool of the overhead of the house.
 | `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one. It writes nothing. |
 | `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. The money of the labour is never inferred, and the payroll of the employees is out of scope for now. |
 | `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and the overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
+| `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -305,6 +307,19 @@ the book never adds a gram to a kilogram. The layer carries the unit the
 book knows (`g`, `kg`, `paquete`, `unidad`), and so does the purchase it
 comes from: the way the owner said it is read by the domain and never
 stored.
+
+**The report of the real price shows the three layers apart.** The tool
+`read_real_price` reads the report of what a product really costs: the
+direct cost of the ingredients, the labour of the hours of the recipe and
+the overhead of the hours of the oven — each one with its money and its
+rates per unit, per gram and per kilogram — and their sum, shown apart, so
+that no layer of the cost hides inside another one. The price the owner
+charges travels beside them, with the way she charges it (`unit`, `gram` or
+`kilogram`), and the book never moves it: the money of what she sells is
+never inferred, and a report of a price nobody declared says that it is not
+known. The tool writes nothing, and the labour and the overhead move no
+money of the ledger yet: their accounts exist in the seed of the book, and
+the movement belongs to a later increment.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

@@ -657,8 +657,11 @@ session, and the worker that writes it reads this document and nothing else.
 
 - The units: the gram, the kilogram, the package and the piece. The
   conversion of a unit into the gram is declared, never assumed.
-- The conversion of the potato and the rate of the starter are declared
-  constants.
+- The conversion of a unit into the gram is DECLARED and never assumed: the
+  raw conversion is one to one, and every other factor - the potato, the
+  starter - reaches the book through the declaration of the owner. The
+  values of those factors are the data of the owner and not of this
+  document (S19, L23), so the mechanism is what this bullet holds.
 - The two fats are two ingredients with their own certification, and
   "organic" is a claim that carries its evidence. The allergens of an
   ingredient are declared.
@@ -771,7 +774,8 @@ session, and the worker that writes it reads this document and nothing else.
 
 ### T17 — the production and the tool that records it
 
-**The rules:** S22, S23, S47.
+**The rules:** S22, S23. (S47 named the five tools of the utterance, and the
+transport grew past them: see L31.)
 
 **The acceptance:**
 
@@ -800,7 +804,10 @@ session, and the worker that writes it reads this document and nothing else.
 
 **In scope:** `packages/domain/production`, `packages/domain/recipe`,
 `apps/mcp-server/internal/application`,
-`apps/mcp-server/internal/adapters/inbound/mcpserver`.
+`apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `packages/database` (the correction is
+kept as a row of its own, so the increment needed the table, the queries
+and the adapter).
 
 ### T19 — the waste, and the tool that records it
 
@@ -1047,22 +1054,22 @@ its session starts.
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | this commit |
-| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b` and the correction of this commit |
-| T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | this commit |
-| T13 | S5, S9 | The labor, and the tool that records it | inline | this commit |
-| T14 | S5, S9 | The overhead, and the tool that records it | inline | this commit |
-| T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | this commit |
-| T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | this commit |
+| T10 | S10, S13, S14, S43, S46 | The ingredient and the unit, and the tools that complete them | inline | `7189288`, corrected in `b1e5d30` |
+| T11 | S6, S16, S26 | The stock and the layers of the FIFO, and the tool that reads them | inline | `4b84d1b`, the correction `4403c69` and the correction `b1e5d30` |
+| T12 | S5, S6, S16 | The cost of a batch, and the tool that reads it | inline | `7f0847b`, corrected in `b1e5d30` |
+| T13 | S5, S9 | The labor, and the tool that records it | inline | `380a1b3`, corrected in `b1e5d30` |
+| T14 | S5, S9 | The overhead, and the tool that records it | inline | `e9e392f`, corrected in `b1e5d30` |
+| T15 | S5, S10 | The report of the real price, and the tool that reads it | inline | `34d88aa`, corrected in `b1e5d30` |
+| T16 | S10, S17, S18 | The margin, and the tool that reads it | inline | `93bbce5`, corrected in `b1e5d30` |
 
 ### Movement IV — From dough to bread
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T17 | S22, S23, S47 | The production and the tool that records it | inline | this commit |
-| T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | this commit |
-| T19 | S24, S25 | The waste and the tool that records it | inline | this commit |
-| T20 | S24, S26 | The sale and the tool that records it | inline | `this commit` |
+| T17 | S22, S23 | The production and the tool that records it | inline | `d22742a`, corrected in `45687a0` and `b1e5d30` |
+| T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `66e7298`, corrected in `45687a0` and `b1e5d30` |
+| T19 | S24, S25 | The waste and the tool that records it | inline | `2661d6f`, corrected in `45687a0` and `b1e5d30` |
+| T20 | S24, S26 | The sale and the tool that records it | inline | `a75f2e4`, corrected in `45687a0` and `b1e5d30` |
 | T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
 | T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
 
@@ -1296,3 +1303,29 @@ Three things the increment taught, carried here for the ones to come:
 - **The cost of the sale and the cost of the waste are the same derivation.** The money of the production divided by the units it made is the cost of a unit, and the sale and the waste sum it over the units they took. The derivation lives in one place, and the next exit reuses it instead of writing its own.
 
 **A gap this increment exposed, for the checkpoint**: the production (T17) still never moved the ledger, so the account of the inventory does not follow the valuation of the stock — the sale and the waste move money out of an inventory that never received it. The rule of the movements of the production belongs to the increment that reads them together, and it is an open item of the checkpoint.
+
+**L35** (2026-11-08): the eleven increments from **T10 to T20** were reviewed against the acceptance of this document and against the specs, by five independent verifiers — one per slice of the movement — and every finding was corrected with a test that was observed failing before the fix and passing after it.
+
+The review found one shape of defect, repeated: **the tree held the rule in the table, in a comment or in the description of a tool, and not in the domain**. The conversion that is not positive, the layer without a name, the minutes of a step, the layer of another business, the money that the agent inferred: each of them was refused by the table or promised by a description, and the domain let it pass. The corrections moved them back to the domain, and the tables keep them as the defense in depth they are meant to be.
+
+The second shape was **the proofs that were missing**. The behavior was right and the test was absent: swapping the direct cost and the labor in the answer of the real price left the whole suite green, and the same for the age of a reference of the market. The FIFO of the cost of a batch and the rounding of the money of a unit were never pinned. The transaction of the sale and the atomicity of the waste and its money were only proved with a fake. Every one of them is now a test that bites: the ones that were already right were proved by breaking the code on purpose and watching the test fail.
+
+The third shape was **the tools that did not say the truth**. `read_stock` answered the money a layer bought while its description promised the money that is left. The description of the cost of a batch promised rates that the answer did not carry. The schema of `record_labor` refused the call before the domain could answer it. The sale answered with the error of the waste, and told the owner about a loss when she had sold nothing. The descriptions of the tools of the expiry and of the price now say what they answer.
+
+Two corrections touched the money of the book and are worth naming: **the money of a layer is the money of what is left of it** — the pro-rata money that the domain already computed and that the answer did not carry, so the layers of a holding did not sum to the cost of the holding — and **the money of the labor and of the overhead is never inferred**: the description promised the refusal and the code could not perform it, and the flag of the purchase was the precedent, so the labor and the overhead carry it now.
+
+Three things the review left, and why:
+
+- **The gap of T17 is still open**: the production never moves the ledger, so the account of the inventory does not follow the valuation of the stock. It was already an open item of the checkpoint (L33, L34) and it is not a defect of the eleven increments.
+- **The readers of the book do not check that the business is there**: `read_stock` and `read_ingredients` answer an empty holding for a business that does not exist. It is the shape of every reader of the tree, so it is a decision of the tree and not of an increment.
+- **The vocabulary of the units is written twice**: the domain holds the map of the ways of saying a unit and the migration of the canonical units holds it again. The two agree today and nothing pins the agreement.
+
+The acceptance of T10 said "the conversion of the potato and the rate of the starter are declared constants" while L23 had already decided that those values are the data of the owner and not of this document: the bullet now says what the increment really holds — the mechanism is declared and never assumed, and the numbers arrive at runtime. The citation of S47 in T17 (the five tools of the utterance) and the scope of T18 (which needed the table of the corrections) were corrected the same way.
+
+Three things the review taught, carried here for the ones to come:
+
+- **A rule that only the table holds is a rule the owner learns from a database error.** The domain refuses it first, in its own words, and the table guards the writer that does not know the domain.
+- **A test that asserts a number appears in a text proves nothing about the number.** The answer has to be bound to its key, and the proof has to bite: break the code on purpose and watch the test fail, or the test is a decoration.
+- **A description of a tool is a promise.** What it says and what it does have to be the same thing, and when they differ, the description is the defect.
+
+**The delivery note**: the correction was cut in two commits — `45687a0` (the storage: the units that left the book, and the proofs of the movements) and `b1e5d30` (the domain and the transport) — because the catalogue of the errors of the domain binds them: a commit that declares an error of the domain and does not give it a message for the agent leaves the gate red. The slice of the second is past the four hundred lines of the delivery strategy, and the review that produced it is the reason: eleven increments carry the findings.

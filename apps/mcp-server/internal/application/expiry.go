@@ -22,8 +22,12 @@ import (
 // Every unit of a production carries the day it expires, and the day is the
 // day of the production plus the shelf life of the recipe. The correction
 // moves the day of the units that were already made, and the use case writes
-// the correction and the days in one transaction: a correction that moved
-// no unit is a correction the book cannot tell the truth about.
+// the correction and the days in one transaction: a correction that failed
+// leaves nothing behind.
+//
+// The correction the owner declared is kept even when it moved no unit: it
+// is the fact she declared, and the last correction she declared is the
+// shelf life that counts.
 //
 // The use case never decides what expires: the domain builds the correction
 // and the days of the units, and the use case carries the names and the
@@ -71,8 +75,12 @@ func NewExpiryService(
 // refused, and so is a correction of the recipe of another business.
 //
 // The correction and the days of the units are written in one transaction: a
-// refused correction leaves nothing behind, and a correction that moved no
-// unit is not written either.
+// refused correction leaves nothing behind, and a correction whose write
+// failed leaves nothing behind either.
+//
+// The correction is kept even when it moved no unit: it is the fact the
+// owner declared, and the last correction she declared is the shelf life
+// that counts.
 //
 // The day is the one the agent names, and the day of today when it names
 // none: the day is one of the three things Paca may fill by herself.

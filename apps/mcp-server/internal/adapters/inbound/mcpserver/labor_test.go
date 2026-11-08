@@ -159,6 +159,80 @@ func TestTheRecordLaborToolWritesTheHoursAndTheValueOfTheHour(t *testing.T) {
 	}
 }
 
+// TestTheRecordLaborToolReachesTheUseCaseWithOneKindOfHours proves that
+// a labor of one kind of hours reaches the use case: the three kinds of
+// the labor are optional one by one, and the schema of the tool does not
+// make PACA send two zeros to say one truth.
+//
+// The refusal is the one of the domain, and not the one of the schema: the
+// schema is the shape of the call, and the domain is what decides.
+func TestTheRecordLaborToolReachesTheUseCaseWithOneKindOfHours(t *testing.T) {
+	t.Parallel()
+
+	recorder := &stubLaborRecorder{err: recipe.ErrMissingHours}
+	session := connectWithTheLabor(t, recorder)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordLabor,
+		Arguments: map[string]any{
+			"business_id":    77,
+			"hands_on_hours": 2,
+			"hour_value":     20000,
+			"confirmed_with": "sí",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool answered a labor, want the refusal of the domain")
+	}
+	if recorder.calls != 1 {
+		t.Fatalf("the use case was called %d times, want 1: the call has to reach the use case", recorder.calls)
+	}
+
+	answer := textOf(t, result)
+
+	if !strings.Contains(answer, "the labor carries no hours") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
+	}
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+}
+
+// TestTheRecordLaborToolCarriesTheInferredValueOfTheHour proves that the
+// tool carries the fact that PACA filled the value of the hour by itself:
+// the money of the work of a person is never inferred, and the domain
+// refuses the labor that carries it.
+func TestTheRecordLaborToolCarriesTheInferredValueOfTheHour(t *testing.T) {
+	t.Parallel()
+
+	recorder := &stubLaborRecorder{recorded: theLaborOfTheTool(t)}
+	session := connectWithTheLabor(t, recorder)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordLabor,
+		Arguments: map[string]any{
+			"business_id":         77,
+			"hands_on_hours":      2,
+			"hour_value":          20000,
+			"hour_value_inferred": true,
+			"confirmed_with":      "sí",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if !recorder.got.HourValueInferred {
+		t.Error("the tool did not carry that the value of the hour was inferred")
+	}
+}
+
 // TestTheRecordLaborToolRefusesTheBusinessThatIsNotThere proves that the
 // business is required: the tool refuses the business that is not there,
 // and it never asks the use case for the labor of nobody.

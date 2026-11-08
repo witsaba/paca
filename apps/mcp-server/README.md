@@ -145,16 +145,16 @@ bakery lost, and the tool of the sale the bakery made.
 | `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
 | `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
-| `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. It writes nothing. |
-| `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one. It writes nothing. |
-| `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. The money of the labour is never inferred, and the payroll of the employees is out of scope for now. |
-| `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and the overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
-| `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
-| `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. It writes nothing. |
+| `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. The money of a layer that is partly consumed is the money of what is left of it. It writes nothing. |
+| `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one, and the rates are the rates of the DIRECT cost, without the labour and without the overhead. It writes nothing. |
+| `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. At least one of the three kinds of the hours carries hours, and the other two are optional. The money of the labour is never inferred, and a labour whose value of the hour PACA filled by itself is refused, and the payroll of the employees is out of scope for now. |
+| `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and an overhead whose electricity PACA filled by itself is refused. The overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
+| `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
+| `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. It writes nothing. |
 | `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
 | `correct_shelf_life`      | Writes the correction of the shelf life the owner just confirmed: the recipe she corrected, the number of days what it makes keeps, the day she corrected it and her word. The shelf life of a recipe is an APPROXIMATION until she corrects it, and the correction is KEPT: the last one she declared is the shelf life that counts. The correction moves the units that were ALREADY made: every unit of that recipe expires again, the day it was made plus the days she corrected. The days are never invented by PACA. One call, one transaction: the correction and the days it moves are written whole or not at all. |
 | `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
-| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
+| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold and the ones that were wasted are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 | `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
 
 **There is one tool for the registration and the onboarding.** The tool of
@@ -315,7 +315,9 @@ travel together: the layers bought in different units are held apart, and
 the book never adds a gram to a kilogram. The layer carries the unit the
 book knows (`g`, `kg`, `paquete`, `unidad`), and so does the purchase it
 comes from: the way the owner said it is read by the domain and never
-stored.
+stored. The money of a layer that is partly consumed is the money of what is
+left of it: the money the layer bought, pro rata the quantity that is left,
+and the layers of a holding sum to the money of the holding.
 
 **The report of the real price shows the three layers apart.** The tool
 `read_real_price` reads the report of what a product really costs: the
@@ -326,9 +328,12 @@ that no layer of the cost hides inside another one. The price the owner
 charges travels beside them, with the way she charges it (`unit`, `gram` or
 `kilogram`), and the book never moves it: the money of what she sells is
 never inferred, and a report of a price nobody declared says that it is not
-known. The tool writes nothing, and the labour and the overhead move no
-money of the ledger yet: their accounts exist in the seed of the book, and
-the movement belongs to a later increment.
+known. The two monies travel apart: the money of the layers is the money of
+the whole batch, and the money of the price of the owner is the money in her
+basis — the price of one unit, of one gram or of one kilogram. The tool
+writes nothing, and the labour and the overhead move no money of the ledger
+yet: their accounts exist in the seed of the book, and the movement belongs
+to a later increment.
 
 **The margin compares the price of the owner with the cost and with the
 market.** The tool `read_margin` reads what a product earns: the profit
@@ -343,7 +348,10 @@ was seen and its age, and the newest one of every ingredient is the one
 that compares, because the market of today is the last one that was seen.
 When the owner expects the references to be fresh, the agent sends
 `max_age_days`, and the ones older than that are marked as old, with their
-age. The tool writes nothing.
+age. The expectation of the age is a number of days: a negative one is
+refused, and a refused read reads nothing. The money of the price of the
+owner is the money in her basis, and the money of the layers is the money of
+the whole batch. The tool writes nothing.
 
 **The production is derived, never typed.** The tool `record_production`
 writes what the bakery made on a day: the recipe she made, the day she
@@ -376,9 +384,11 @@ are written in one transaction, and a unit that changed under the
 correction is refused: the book is never left half-corrected. The tool
 `read_expiring` answers what expires, and when: every unit of the business
 with the day it expires, the days that are left of it and whether it is
-already expired, the unit that expires first first. A unit is expired on
-the day it expires and on every day after it, and a unit that expired is
-never sold. The two tools write nothing in the book of the money: the
+already expired, the unit that expires first first. The units that already
+left the book are not offered any more: the ones that were sold and the ones
+that were wasted are gone, and the answer carries the units the bakery still
+holds. A unit is expired on the day it expires and on every day after it,
+and a unit that expired is never sold. The two tools write nothing in the book of the money: the
 expiry moves the day a unit expires, and never a peso.
 
 **The waste is a movement, and it is written with the word of the owner.**

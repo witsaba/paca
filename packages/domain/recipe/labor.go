@@ -217,6 +217,15 @@ type Labor struct {
 	// owner declared the hour of her work is worth.
 	HourValue ledger.Amount
 
+	// HourValueInferred says that the value of the hour was filled by
+	// the agent and not said by the owner: the money of the work of a
+	// person is never inferred.
+	//
+	// It is never true in a labor that the book built: the inferred
+	// money is refused, the way the purchase refuses the money of a line
+	// that was inferred.
+	HourValueInferred bool
+
 	// Money is the money of the labor, in whole pesos: the hours of it
 	// times the value of the hour.
 	Money ledger.Amount
@@ -244,6 +253,11 @@ type LaborDefinition struct {
 	// by the owner, and never inferred.
 	HourValue ledger.Amount
 
+	// HourValueInferred says that the value of the hour was filled by
+	// the agent and not said by the owner: the money of the work of a
+	// person is never inferred.
+	HourValueInferred bool
+
 	// Day is the day the labor was worked.
 	Day ledger.Date
 
@@ -264,7 +278,8 @@ type LaborDefinition struct {
 //     labor without hours is nothing;
 //   - the value of the hour is declared by the owner: it is positive, and
 //     it is never inferred, because the money of the work of a person is
-//     not a number PACA may invent;
+//     not a number PACA may invent. A value the agent filled is refused,
+//     the way the purchase refuses the money of a line that was inferred;
 //   - the labor carries the day it was worked;
 //   - the labor carries the word of the owner: it is written with her
 //     confirmation, the way the purchase is written.
@@ -272,6 +287,10 @@ type LaborDefinition struct {
 // The money of the labor is the hours of it times the value of the hour,
 // and the money of the book counts whole pesos: the answer is rounded to
 // the nearest peso.
+//
+// The error is the error of the domain: the labor carries its own error
+// when it carries no word of the owner, and the error of the recipe is
+// never the answer of a labor.
 func NewLabor(own business.ID, definition LaborDefinition) (Labor, error) {
 	if own <= 0 {
 		return Labor{}, fmt.Errorf("%w: the labor is of the business %d", ErrMissingBusiness, own)
@@ -279,6 +298,11 @@ func NewLabor(own business.ID, definition LaborDefinition) (Labor, error) {
 
 	if definition.Hours.Total() <= 0 {
 		return Labor{}, fmt.Errorf("%w: the labor carries no hours", ErrMissingHours)
+	}
+
+	if definition.HourValueInferred {
+		return Labor{}, fmt.Errorf("%w: the value of the hour is %d",
+			ErrInferredHourValue, definition.HourValue)
 	}
 
 	if definition.HourValue <= 0 {
@@ -292,17 +316,18 @@ func NewLabor(own business.ID, definition LaborDefinition) (Labor, error) {
 
 	word := strings.TrimSpace(definition.ConfirmedWith)
 	if word == "" {
-		return Labor{}, fmt.Errorf("%w: the labor carries no word of the owner", ErrMissingConfirmation)
+		return Labor{}, fmt.Errorf("%w: the labor carries no word of the owner", ErrMissingLaborConfirmation)
 	}
 
 	return Labor{
-		BusinessID:    own,
-		Day:           definition.Day,
-		Hours:         definition.Hours,
-		HourValue:     definition.HourValue,
-		Money:         moneyOfTheHours(definition.Hours, definition.HourValue),
-		Utterance:     strings.TrimSpace(definition.Utterance),
-		ConfirmedWith: word,
+		BusinessID:        own,
+		Day:               definition.Day,
+		Hours:             definition.Hours,
+		HourValue:         definition.HourValue,
+		HourValueInferred: definition.HourValueInferred,
+		Money:             moneyOfTheHours(definition.Hours, definition.HourValue),
+		Utterance:         strings.TrimSpace(definition.Utterance),
+		ConfirmedWith:     word,
 	}, nil
 }
 
@@ -383,12 +408,19 @@ type LaborCost struct {
 // instead of guessing it.
 //
 // The error is the error of the domain: a step whose kind of labor the book
-// does not know is not a step of the recipe.
+// does not know is not a step of the recipe, and a step of negative minutes
+// is not a time.
 func LaborOf(baked Recipe, value ledger.Amount) (LaborCost, error) {
 	hours := Hours{}
 
 	for _, one := range baked.Steps {
-		if one.Minutes <= 0 {
+		if one.Minutes < 0 {
+			return LaborCost{}, fmt.Errorf("%w: the step carries %d minutes", ErrInvalidMinutes, one.Minutes)
+		}
+
+		// The step the owner gave no time to is not a step of the labor:
+		// the zero of the time is the absence of it.
+		if one.Minutes == 0 {
 			continue
 		}
 

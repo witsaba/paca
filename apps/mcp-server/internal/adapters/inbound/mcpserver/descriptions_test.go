@@ -187,6 +187,86 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 	}
 }
 
+// TestTheDescriptionOfTheCostOfABatchTellsTheTruthAboutTheRates proves
+// that the description of the tool says what the answer carries: the rates
+// of the answer are the rates of the DIRECT cost, without the labor and
+// without the overhead.
+func TestTheDescriptionOfTheCostOfABatchTellsTheTruthAboutTheRates(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, &stubUsers{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolReadBatchCost)
+
+	for _, want := range []string{
+		"the rates are the rates of the DIRECT cost",
+		"without the labor and without the overhead",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfTheExpirySaysThatTheUnitsThatLeftAreNotOffered
+// proves that the description of the tool says what it answers: the units
+// that already left the book - the ones that were sold and the ones that
+// were wasted - are not offered any more.
+func TestTheDescriptionOfTheExpirySaysThatTheUnitsThatLeftAreNotOffered(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, &stubUsers{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolReadExpiring)
+
+	for _, want := range []string{
+		"the units that already left the book are not offered any more",
+		"the units the bakery still holds",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfThePriceSaysThatThePriceIsInHerBasis proves that the
+// descriptions of the tools of the price say what they answer: the money of
+// the price of the owner is the money in her basis, and the money of the
+// layers is the money of the whole batch.
+func TestTheDescriptionOfThePriceSaysThatThePriceIsInHerBasis(t *testing.T) {
+	t.Parallel()
+
+	session := connect(t, &stubUsers{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	for _, name := range []string{mcpserver.ToolReadRealPrice, mcpserver.ToolReadMargin} {
+		description := descriptionOf(t, tools.Tools, name)
+
+		for _, want := range []string{
+			"the money of the price of the owner is the money in her basis",
+			"the money of the layers is the money of the whole batch",
+		} {
+			if !strings.Contains(description, want) {
+				t.Errorf("the description of %q does not say %q:\n%s", name, want, description)
+			}
+		}
+	}
+}
+
 func TestTheDescriptionOfTheStatusTellsTheAgentAboutTheObservation(t *testing.T) {
 	t.Parallel()
 

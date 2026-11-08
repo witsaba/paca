@@ -107,6 +107,11 @@ var (
 	// purchase, and the line names the ingredient it is of.
 	ErrLayerWithoutIngredient = errors.New("the layer names the ingredient of the catalog")
 
+	// ErrLayerWithoutName is the error of a layer without a name: the
+	// layer names the ingredient it is of, and a row with no name is
+	// never read as a layer of the stock.
+	ErrLayerWithoutName = errors.New("the name of the layer is not empty")
+
 	// ErrInvalidLayer is the error of a layer that is not whole: what is
 	// left of it is never more than what it bought, and the unit of what
 	// is left of it is the unit it bought.
@@ -177,6 +182,7 @@ func Errors() []error {
 		ErrMissingSource,
 		ErrMissingDay,
 		ErrLayerWithoutIngredient,
+		ErrLayerWithoutName,
 		ErrInvalidLayer,
 		ErrInvalidPosition,
 		ErrInvalidUnit,

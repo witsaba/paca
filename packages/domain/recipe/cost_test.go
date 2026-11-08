@@ -143,6 +143,85 @@ func TestTheCostOfABatchIsDerivedFromTheLayers(t *testing.T) {
 	}
 }
 
+// TestTheCostOfABatchTakesTheLayersInTheOrderOfTheFIFO proves the rule
+// of the domain: the recipe consumes the layers of the stock in the order
+// of the FIFO - the oldest layer is the first one that leaves - and the
+// money of what it takes is the money of the layer it took from.
+//
+// The batch needs fifteen hundred grams of the flour: it takes the thousand
+// grams of the older layer, and the five hundred that are left from the
+// newer one.
+func TestTheCostOfABatchTakesTheLayersInTheOrderOfTheFIFO(t *testing.T) {
+	t.Parallel()
+
+	flour, err := recipe.NewIngredient(ingredient.ID(10), 1500)
+	if err != nil {
+		t.Fatalf("the ingredient of the recipe was refused: %v", err)
+	}
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name:          "Pan de molde",
+		Ingredients:   []recipe.Ingredient{flour},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	older := ledger.NewDate(time.Date(2026, time.March, 1, 10, 0, 0, 0, time.UTC))
+	newer := ledger.NewDate(time.Date(2026, time.March, 5, 10, 0, 0, 0, time.UTC))
+
+	layers := []purchase.Layer{
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 1, "kg", 1000,
+			older, purchase.ID(9)),
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 1, "kg", 2000,
+			newer, purchase.ID(10)),
+	}
+
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if len(cost.Lines) != 1 {
+		t.Fatalf("the cost carries %d lines, want 1", len(cost.Lines))
+	}
+
+	takes := cost.Lines[0].Layers
+	if len(takes) != 2 {
+		t.Fatalf("the line of the flour took from %d layers, want 2", len(takes))
+	}
+
+	if takes[0].LayerID != purchase.LayerID(9) {
+		t.Errorf("the first layer the batch took from is %d, want 9: the oldest leaves first",
+			takes[0].LayerID)
+	}
+	if takes[0].Grams != 1000 {
+		t.Errorf("the grams taken from the oldest layer are %v, want 1000", takes[0].Grams)
+	}
+	if takes[1].LayerID != purchase.LayerID(10) {
+		t.Errorf("the second layer the batch took from is %d, want 10", takes[1].LayerID)
+	}
+	if takes[1].Grams != 500 {
+		t.Errorf("the grams taken from the newer layer are %v, want 500", takes[1].Grams)
+	}
+
+	// The money follows the layer it took from: the older layer was a
+	// thousand pesos the kilo, and the newer one two thousand.
+	if takes[0].Money != ledger.Amount(1000) {
+		t.Errorf("the money taken from the oldest layer is %d, want 1000", takes[0].Money)
+	}
+	if takes[1].Money != ledger.Amount(1000) {
+		t.Errorf("the money taken from the newer layer is %d, want 1000", takes[1].Money)
+	}
+	if cost.Direct != ledger.Amount(2000) {
+		t.Errorf("the money of the batch is %d, want 2000", cost.Direct)
+	}
+}
+
 // TestTheCostAnswersPerUnitPerGramAndPerKilogram proves that the cost
 // answers the three ways the owner sells: per unit, per gram and per
 // kilogram.

@@ -41,6 +41,7 @@ type fakeUnits struct {
 	held      []recipe.ExpiringUnit
 	corrected []recipe.CorrectedUnit
 	err       error
+	writeErr  error
 }
 
 // List answers the units of the business.
@@ -53,7 +54,14 @@ func (f *fakeUnits) List(_ context.Context, _ business.ID) ([]recipe.ExpiringUni
 }
 
 // WriteExpiry remembers the days the correction moved.
+//
+// The failure of the write is its own: the list of the units may answer
+// while the write of the days fails.
 func (f *fakeUnits) WriteExpiry(_ context.Context, units []recipe.CorrectedUnit) error {
+	if f.writeErr != nil {
+		return f.writeErr
+	}
+
 	if f.err != nil {
 		return f.err
 	}
@@ -268,6 +276,74 @@ func TestTheCorrectionIsRefusedWhenTheNameCarriesMoreThanOneRecipe(t *testing.T)
 
 	if len(corrections.written) != 0 {
 		t.Errorf("the use case wrote %d corrections, want none", len(corrections.written))
+	}
+}
+
+// TestTheCorrectionIsNotWrittenWhenTheExpiryFails proves that a failure
+// inside the unit of work leaves no correction behind: the correction and
+// the days of the units are written whole or not at all, and the error of
+// the failure is the error of the use case.
+func TestTheCorrectionIsNotWrittenWhenTheExpiryFails(t *testing.T) {
+	t.Parallel()
+
+	failure := errors.New("the storage refused the days of the units")
+
+	corrections := &fakeShelfLifeCorrections{}
+	units := &fakeUnits{
+		held:     []recipe.ExpiringUnit{theUnitOfTheExpiry()},
+		writeErr: failure,
+	}
+	service := theExpiryService(t, corrections, units)
+
+	_, err := service.Correct(t.Context(), ports.CorrectShelfLife{
+		BusinessID:    business.ID(77),
+		RecipeID:      9,
+		ShelfLifeDays: 5,
+		Day:           "2026-03-16",
+		ConfirmedWith: "sí",
+	})
+	if !errors.Is(err, failure) {
+		t.Fatalf("the error is %v, want %v", err, failure)
+	}
+
+	if len(corrections.written) != 0 {
+		t.Errorf("the use case wrote %d corrections, want none: the correction and the days of the "+
+			"units are written whole or not at all", len(corrections.written))
+	}
+
+	if len(units.corrected) != 0 {
+		t.Errorf("the use case moved %d units, want none", len(units.corrected))
+	}
+}
+
+// TestTheCorrectionThatMovedNoUnitIsWritten proves that the correction the
+// owner declared is kept even when it moved no unit: the correction is the
+// fact she declared, and the last one she declared is the shelf life that
+// counts.
+func TestTheCorrectionThatMovedNoUnitIsWritten(t *testing.T) {
+	t.Parallel()
+
+	corrections := &fakeShelfLifeCorrections{}
+	units := &fakeUnits{}
+	service := theExpiryService(t, corrections, units)
+
+	answer, err := service.Correct(t.Context(), ports.CorrectShelfLife{
+		BusinessID:    business.ID(77),
+		RecipeID:      9,
+		ShelfLifeDays: 5,
+		Day:           "2026-03-16",
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the correction of the shelf life was refused: %v", err)
+	}
+
+	if len(corrections.written) != 1 {
+		t.Fatalf("the use case wrote %d corrections, want 1: the correction is kept", len(corrections.written))
+	}
+
+	if len(answer.Units) != 0 {
+		t.Errorf("the answer carries %d units, want none", len(answer.Units))
 	}
 }
 

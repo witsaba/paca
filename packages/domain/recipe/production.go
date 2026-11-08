@@ -186,8 +186,15 @@ type ProductionFact struct {
 //   - the units that came out are the yield of the recipe, and every one of
 //     them carries the day it expires: the day of the production plus the
 //     shelf life of the recipe;
-//   - a production the stock cannot cover is refused, and so is a
-//     production whose ingredients the book cannot weigh.
+//   - the production consumes the layers of its own business, and never the
+//     layers of another one;
+//   - a production the stock cannot cover is refused: the stock that does
+//     not hold what the recipe needs is the error of the missing stock, and
+//     the stock that holds an ingredient in a unit the book cannot weigh
+//     and does not cover the recipe either is the error of the unknown
+//     stock. A layer the book cannot weigh is skipped and stays in the
+//     book, and the production is written when the other layers cover the
+//     grams the recipe needs.
 func ProductionOf(
 	baked Recipe,
 	layers []purchase.Layer,
@@ -197,6 +204,16 @@ func ProductionOf(
 	if baked.BusinessID <= 0 {
 		return Production{}, fmt.Errorf("%w: the production is of the business %d",
 			ErrMissingBusiness, baked.BusinessID)
+	}
+
+	// The rule of the domain: a production consumes the layers of its own
+	// business, and never the layers of another one. The filter of the
+	// storage is a defense in depth: the domain holds the rule itself.
+	for _, one := range layers {
+		if one.BusinessID != baked.BusinessID {
+			return Production{}, fmt.Errorf("%w: the layer %d belongs to the business %d, and the production is of the business %d",
+				ErrWrongBusiness, one.ID, one.BusinessID, baked.BusinessID)
+		}
 	}
 
 	if definition.Day.Time().IsZero() {
@@ -232,11 +249,15 @@ func ProductionOf(
 			return Production{}, err
 		}
 
-		if consumption.Unknown {
-			return Production{}, fmt.Errorf("%w: %s", ErrUnknownStock, consumption.Reason)
-		}
-
+		// The rule of the domain: the production is refused when the
+		// stock does not cover the recipe. A layer the book cannot weigh
+		// is skipped and stays in the book, and the production is written
+		// when the other layers cover the grams the recipe needs.
 		if consumption.Missing > 0 {
+			if consumption.Unknown {
+				return Production{}, fmt.Errorf("%w: %s", ErrUnknownStock, consumption.Reason)
+			}
+
 			return Production{}, fmt.Errorf("%w: the stock does not hold %v grams of %s",
 				ErrMissingStock, consumption.Missing, item.Name)
 		}

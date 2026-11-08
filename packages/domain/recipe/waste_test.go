@@ -368,6 +368,67 @@ func TestTheWasteIsRefusedWhenTheBookHoldsFewerUnitsThanSheLost(t *testing.T) {
 	}
 }
 
+// TestTheRoundedMoneyOfTheUnitsLeavesTheRemainderInTheInventory proves
+// the rule of the domain: the money of a unit is the money of the
+// production divided by the units it made, rounded to the nearest peso,
+// and the remainder of the division stays in the inventory.
+func TestTheRoundedMoneyOfTheUnitsLeavesTheRemainderInTheInventory(t *testing.T) {
+	t.Parallel()
+
+	// Nine thousand nine hundred and ninety-nine pesos over ten units
+	// are nine hundred and ninety-nine pesos and nine tenths of a peso:
+	// the money of the book counts whole pesos, and the answer is
+	// rounded to the nearest peso. The ten units release ten thousand
+	// pesos, and the peso that the rounding added stays in the
+	// inventory.
+	production := theProductionOfTheWaste()
+	production.Money = 9999
+
+	definition := theDefinitionOfTheWaste()
+	definition.Quantity = 10
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{production},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	if waste.Money != 10000 {
+		t.Errorf("the money of the waste is %d, want 10000", waste.Money)
+	}
+	if waste.Money-production.Money != 1 {
+		t.Errorf("the money released and the money of the production differ by %d pesos, want 1: the remainder stays in the inventory",
+			waste.Money-production.Money)
+	}
+
+	// Ten thousand and one pesos over ten units are a thousand pesos and
+	// a tenth of a peso: the ten units release ten thousand pesos, and
+	// the peso that is left of the production stays in the inventory.
+	production.Money = 10001
+
+	waste, err = recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{production},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	if waste.Money != 10000 {
+		t.Errorf("the money of the waste is %d, want 10000", waste.Money)
+	}
+	if production.Money-waste.Money != 1 {
+		t.Errorf("the inventory kept %d pesos, want 1: the remainder stays in the inventory",
+			production.Money-waste.Money)
+	}
+}
+
 // TestTheWasteMovesTheMoneyToTheAccountOfTheWaste proves the rule of the
 // domain: the money of the waste is never lost from the book, it lands in
 // the account of the waste and it leaves the inventory.

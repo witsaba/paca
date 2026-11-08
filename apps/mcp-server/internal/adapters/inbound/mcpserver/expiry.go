@@ -80,6 +80,8 @@ func buildDescriptionReadExpiring() string {
 		"  - the DAY it expires ('2026-03-17');\n" +
 		"  - the DAYS that are left of it, and whether it is ALREADY expired.\n\n" +
 		"The units are ordered by the day they expire: the one that expires first is the first one.\n\n" +
+		"The answer carries the units the bakery still holds: the units that already left the book are not " +
+		"offered any more, and the ones that were sold and the ones that were wasted are gone.\n\n" +
 		"A unit is expired on the day it expires and on every day after it: the shelf life is the number of " +
 		"days the unit keeps, and a unit that expired is NEVER sold.\n\n" +
 		"The business is REQUIRED: it is the business whose units are read, and PACA never invents one.\n\n" +
@@ -327,8 +329,9 @@ func (s *Server) readExpiring(reader ports.ExpiringReader) sdk.ToolHandlerFor[re
 // outputOfExpiring maps the unit of the domain onto the answer of the tool.
 //
 // The days that are left are counted from the day the answer was read, and
-// the domain is the one who says whether the unit expired: a unit that
-// expired is never sold.
+// the domain is the one who says whether the unit expired: the rule of the
+// expiry is the rule of the expiry, and not the rule of the sale. A read
+// with no day expires nothing.
 func outputOfExpiring(unit recipe.ExpiringUnit, day ledger.Date) expiringUnitOutput {
 	return expiringUnitOutput{
 		UnitID:       int64(unit.ID),
@@ -339,6 +342,6 @@ func outputOfExpiring(unit recipe.ExpiringUnit, day ledger.Date) expiringUnitOut
 		Grams:        unit.Grams,
 		ExpiresOn:    unit.ExpiresOn.String(),
 		DaysLeft:     unit.DaysLeft(day),
-		Expired:      unit.CheckSellable(day) != nil,
+		Expired:      unit.Expired(day),
 	}
 }

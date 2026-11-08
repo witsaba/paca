@@ -45,7 +45,8 @@ func buildDescriptionRecordLabor() string {
 		"The business is REQUIRED: it is the business the labor belongs to, and PACA never invents one.\n\n" +
 		"The hour_value is REQUIRED: what the owner declared the hour of her work is worth, in whole pesos ('" +
 		business.DefaultCurrency + "'). The money is never inferred: PACA refuses a labor whose value of the hour " +
-		"it filled by itself, and it asks the owner for it instead.\n\n" +
+		"it filled by itself, and it asks the owner for it instead. When PACA filled it by itself, say so with " +
+		"hour_value_inferred, and the book refuses the labor.\n\n" +
 		"The day is OPTIONAL: the day the labor was worked, written the way a person writes it ('2026-03-01'). It " +
 		"is the day of today when it is left out.\n\n" +
 		"The utterance is OPTIONAL: the sentence of the owner, verbatim. Send it as she said it when she said " +
@@ -65,16 +66,20 @@ type recordLaborInput struct {
 
 	// HandsOnHours is the number of hours the hands of the owner were on
 	// the dough.
-	HandsOnHours float64 `json:"hands_on_hours" jsonschema:"The number of hours the hands of the owner were on the dough. It is required, and at least one of the three kinds of the labor carries hours."`
+	HandsOnHours float64 `json:"hands_on_hours,omitempty" jsonschema:"The number of hours the hands of the owner were on the dough. It is optional: leave it out when the labor carries another kind of hours, and at least one of the three kinds of the labor carries hours."`
 
 	// OvenHours is the number of hours the batch was in the oven.
-	OvenHours float64 `json:"oven_hours" jsonschema:"The number of hours the batch was in the oven. It is required, and at least one of the three kinds of the labor carries hours."`
+	OvenHours float64 `json:"oven_hours,omitempty" jsonschema:"The number of hours the batch was in the oven. It is optional: leave it out when the labor carries another kind of hours, and at least one of the three kinds of the labor carries hours."`
 
 	// WaitingHours is the number of hours the dough waited.
-	WaitingHours float64 `json:"waiting_hours" jsonschema:"The number of hours the dough waited. It is required, and at least one of the three kinds of the labor carries hours."`
+	WaitingHours float64 `json:"waiting_hours,omitempty" jsonschema:"The number of hours the dough waited. It is optional: leave it out when the labor carries another kind of hours, and at least one of the three kinds of the labor carries hours."`
 
 	// HourValue is the value of the hour, in whole pesos.
 	HourValue int64 `json:"hour_value" jsonschema:"The value of the hour the owner declared, in whole pesos. It is required, it is positive, and PACA never infers it."`
+
+	// HourValueInferred says that PACA filled the value of the hour by
+	// itself.
+	HourValueInferred bool `json:"hour_value_inferred,omitempty" jsonschema:"True when PACA filled the value of the hour by itself and the owner did not say it. The money of the work of a person is never inferred, and PACA refuses a labor that carries it."`
 
 	// Day is the day the labor was worked.
 	Day string `json:"day,omitempty" jsonschema:"The day the labor was worked, written as '2026-03-01'. It is optional: it means the day of today when it is empty."`
@@ -163,14 +168,15 @@ func (s *Server) recordLabor(recorder ports.LaborRecorder) sdk.ToolHandlerFor[re
 		}
 
 		recorded, err := recorder.Record(ctx, ports.RecordLabor{
-			BusinessID:    business.ID(input.BusinessID),
-			HandsOnHours:  input.HandsOnHours,
-			OvenHours:     input.OvenHours,
-			WaitingHours:  input.WaitingHours,
-			HourValue:     input.HourValue,
-			Day:           input.Day,
-			Utterance:     input.Utterance,
-			ConfirmedWith: input.ConfirmedWith,
+			BusinessID:        business.ID(input.BusinessID),
+			HandsOnHours:      input.HandsOnHours,
+			OvenHours:         input.OvenHours,
+			WaitingHours:      input.WaitingHours,
+			HourValue:         input.HourValue,
+			HourValueInferred: input.HourValueInferred,
+			Day:               input.Day,
+			Utterance:         input.Utterance,
+			ConfirmedWith:     input.ConfirmedWith,
 		})
 		if err != nil {
 			return nil, recordLaborOutput{}, s.toolError(err)

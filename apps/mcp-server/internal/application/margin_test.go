@@ -163,6 +163,43 @@ func TestTheMarginOfAProductNobodyChargedIsNotKnown(t *testing.T) {
 	}
 }
 
+// TestTheMarginRefusesANegativeExpectationOfTheAge proves that the use
+// case refuses an expectation of the age that is not a number of days: a
+// negative number of days is not an age anybody expects, and a refused
+// request reads nothing.
+func TestTheMarginRefusesANegativeExpectationOfTheAge(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{held: []recipe.Recipe{theRecipeOfTheCost(t)}}
+	references := &fakeReferences{held: []purchase.Reference{theReferenceOfTheMarketOfTheMargin()}}
+
+	costs := application.NewBatchCostService(
+		recipes,
+		&fakeLayers{layers: theLayersOfTheCost()},
+		theCatalogOfTheCost(t),
+		theLaborOfTheBusiness(t),
+		theOverheadOfTheBusiness(t),
+	)
+
+	service := application.NewMarginService(costs, references, theCatalogOfTheCost(t), theClock())
+
+	_, err := service.Read(t.Context(), ports.ReadMargin{
+		BusinessID: business.ID(77),
+		MaxAgeDays: -5,
+	})
+	if !errors.Is(err, ports.ErrInvalidMaxAgeDays) {
+		t.Fatalf("the error is %v, want %v", err, ports.ErrInvalidMaxAgeDays)
+	}
+
+	if references.listedTimes != 0 {
+		t.Errorf("the use case read the references %d times, want none", references.listedTimes)
+	}
+
+	if recipes.listed != 0 {
+		t.Errorf("the use case read the recipes %d times, want none", recipes.listed)
+	}
+}
+
 // TestTheMarginRefusesAWayOfChargingTheBookDoesNotKnow proves that the
 // way the owner sells is her decision and never a guess: a way of charging
 // the book does not know is refused.

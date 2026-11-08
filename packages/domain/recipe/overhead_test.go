@@ -2,6 +2,7 @@ package recipe_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -148,6 +149,9 @@ func TestTheOverheadWithoutTheDayIsRefused(t *testing.T) {
 // TestTheOverheadWithoutTheWordOfTheOwnerIsRefused proves the rule of the
 // domain: the overhead is written with the word the owner used to confirm
 // it, the way the purchase is written.
+//
+// The overhead carries its own error: the error of the recipe is the error
+// of another record, and the owner is told about the record that failed.
 func TestTheOverheadWithoutTheWordOfTheOwnerIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -157,8 +161,36 @@ func TestTheOverheadWithoutTheWordOfTheOwnerIsRefused(t *testing.T) {
 		Allocation:  0.5,
 		Day:         theDayOfTheOverhead(),
 	})
-	if !errors.Is(err, recipe.ErrMissingConfirmation) {
-		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingConfirmation)
+	if !errors.Is(err, recipe.ErrMissingOverheadConfirmation) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingOverheadConfirmation)
+	}
+	if errors.Is(err, recipe.ErrMissingConfirmation) {
+		t.Fatalf("the error is %v, want the error of the overhead and not the error of the recipe", err)
+	}
+}
+
+// TestTheElectricityThatWasInferredIsRefused proves the rule of the
+// domain: the money of the house is never inferred, and an overhead whose
+// electricity was filled by the agent is not built.
+//
+// The rule is the one of the purchase: the money of a line that was
+// inferred is refused, and the book asks the owner for it.
+func TestTheElectricityThatWasInferredIsRefused(t *testing.T) {
+	t.Parallel()
+
+	overhead, err := recipe.NewOverhead(business.ID(77), recipe.OverheadDefinition{
+		Electricity:         ledger.Amount(120000),
+		ElectricityInferred: true,
+		OvenHours:           40,
+		Allocation:          0.5,
+		Day:                 theDayOfTheOverhead(),
+		ConfirmedWith:       "sí",
+	})
+	if !errors.Is(err, recipe.ErrInferredElectricity) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInferredElectricity)
+	}
+	if !reflect.DeepEqual(overhead, recipe.Overhead{}) {
+		t.Errorf("the overhead was built: %v", overhead)
 	}
 }
 

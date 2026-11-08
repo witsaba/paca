@@ -139,11 +139,11 @@ func TestTheLayerIsWholeProvesThatAWholeLayerIsAccepted(t *testing.T) {
 
 // TestTheLayerCheckedRefusesEveryBrokenRow proves every rule of the
 // domain of the layer, one at a time: the layer names the ingredient of
-// the catalog, it belongs to the business of its purchase, the quantity it
-// bought is positive, the position of its line is positive, the unit is
-// one of the units of the book, what is left of it is never more than
-// what it bought, what is left of it is in the unit it bought, and the
-// money is not negative.
+// the catalog and it carries the name of that ingredient, it belongs to
+// the business of its purchase, the quantity it bought is positive, the
+// position of its line is positive, the unit is one of the units of the
+// book, what is left of it is never more than what it bought, what is
+// left of it is in the unit it bought, and the money is not negative.
 //
 // The rules of a domain are proved without a database.
 func TestTheLayerCheckedRefusesEveryBrokenRow(t *testing.T) {
@@ -158,6 +158,11 @@ func TestTheLayerCheckedRefusesEveryBrokenRow(t *testing.T) {
 			name:   "the layer names nothing of the catalog",
 			breaks: func(l *Layer) { l.IngredientID = 0 },
 			wants:  ErrLayerWithoutIngredient,
+		},
+		{
+			name:   "the layer carries no name",
+			breaks: func(l *Layer) { l.Name = "" },
+			wants:  ErrLayerWithoutName,
 		},
 		{
 			name:   "the layer claims another business than its purchase",

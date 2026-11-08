@@ -18,6 +18,16 @@ var (
 	// owner used to confirm it: the word is kept with the record.
 	ErrMissingConfirmation = errors.New("the recipe carries the word of the owner")
 
+	// ErrMissingLaborConfirmation is the error of a labor without the word
+	// the owner used to confirm it: the word is kept with the record, and
+	// the record that failed is a labor.
+	ErrMissingLaborConfirmation = errors.New("the labor carries the word of the owner")
+
+	// ErrMissingOverheadConfirmation is the error of an overhead without
+	// the word the owner used to confirm it: the word is kept with the
+	// record, and the record that failed is an overhead.
+	ErrMissingOverheadConfirmation = errors.New("the overhead carries the word of the owner")
+
 	// ErrNoIngredients is the error of a recipe that names nothing of the
 	// catalog.
 	ErrNoIngredients = errors.New("the recipe carries at least one ingredient")
@@ -41,6 +51,10 @@ var (
 	// ErrInvalidTemperature is the error of a step of a recipe whose
 	// temperature no oven and no fridge can hold.
 	ErrInvalidTemperature = errors.New("the temperature of the step is below the absolute zero")
+
+	// ErrInvalidMinutes is the error of a step whose minutes are not a
+	// time: a negative number of minutes is a time nobody spends.
+	ErrInvalidMinutes = errors.New("the minutes of the step are not negative")
 
 	// ErrInvalidYield is the error of a recipe whose yield is not positive.
 	ErrInvalidYield = errors.New("the yield of the recipe is positive")
@@ -76,6 +90,11 @@ var (
 	// inferred.
 	ErrMissingHourValue = errors.New("the labor carries the value of the hour the owner declared")
 
+	// ErrInferredHourValue is the error of a labor whose value of the
+	// hour was filled by the agent: the money of the work of a person is
+	// never inferred.
+	ErrInferredHourValue = errors.New("the value of the hour of the labor is never inferred")
+
 	// ErrMissingDay is the error of a labor without the day it was
 	// worked: a labor of no day is a labor of no time.
 	ErrMissingDay = errors.New("the labor carries the day it was worked")
@@ -94,6 +113,10 @@ var (
 	// electricity of the house: the money of the electricity is declared
 	// by the owner, and it is never inferred.
 	ErrMissingElectricity = errors.New("the overhead carries the electricity of the house the owner declared")
+
+	// ErrInferredElectricity is the error of an overhead whose electricity
+	// was filled by the agent: the money of the house is never inferred.
+	ErrInferredElectricity = errors.New("the electricity of the overhead is never inferred")
 
 	// ErrMissingOvenHours is the error of an overhead without the hours of
 	// the oven: without them the money of the oven has no rate, and a
@@ -199,6 +222,12 @@ var (
 	// writes a waste of nothing.
 	ErrNotEnoughUnits = errors.New("the book holds no unit to lose")
 
+	// ErrNotEnoughUnitsToSell is the error of a sale of units the book
+	// does not hold: the sale is of what the bakery still has, and the
+	// book never writes a sale of nothing. It is not the error of the
+	// waste: the owner is not told about a loss when she sold nothing.
+	ErrNotEnoughUnitsToSell = errors.New("the book holds no unit to sell")
+
 	// ErrUnknownProduction is the error of a production the storage does
 	// not hold: the money of a unit is the money of the production it
 	// came out of, and the book never guesses it.
@@ -235,12 +264,15 @@ func Errors() []error {
 		ErrNotFound,
 		ErrMissingName,
 		ErrMissingConfirmation,
+		ErrMissingLaborConfirmation,
+		ErrMissingOverheadConfirmation,
 		ErrNoIngredients,
 		ErrMissingGrams,
 		ErrUnknownIngredient,
 		ErrNoSteps,
 		ErrMissingInstruction,
 		ErrInvalidTemperature,
+		ErrInvalidMinutes,
 		ErrInvalidYield,
 		ErrMissingShelfLife,
 		ErrInvalidValue,
@@ -249,10 +281,12 @@ func Errors() []error {
 		ErrInvalidHours,
 		ErrMissingHours,
 		ErrMissingHourValue,
+		ErrInferredHourValue,
 		ErrMissingDay,
 		ErrUnknownLaborKind,
 		ErrMissingBusiness,
 		ErrMissingElectricity,
+		ErrInferredElectricity,
 		ErrMissingOvenHours,
 		ErrInvalidAllocation,
 		ErrMissingRecipe,
@@ -275,6 +309,7 @@ func Errors() []error {
 		ErrMissingWasteConfirmation,
 		ErrInvalidWasteMoney,
 		ErrNotEnoughUnits,
+		ErrNotEnoughUnitsToSell,
 		ErrUnknownProduction,
 		ErrInvalidSaleQuantity,
 		ErrInvalidSaleUnit,

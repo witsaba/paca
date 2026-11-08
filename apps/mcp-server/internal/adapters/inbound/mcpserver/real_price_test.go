@@ -146,6 +146,80 @@ func TestTheReadRealPriceToolAnswersTheReport(t *testing.T) {
 	}
 }
 
+// theReportAnswer is the answer of the tool of the real price, decoded.
+//
+// Every money of the report travels under its own key: the answer is a
+// document, and the test binds every money to the layer it belongs to.
+type theReportAnswer struct {
+	Reports []struct {
+		RecipeID   int64                 `json:"recipe_id"`
+		Name       string                `json:"name"`
+		Direct     struct{ Money int64 } `json:"direct"`
+		Labor      struct{ Money int64 } `json:"labor"`
+		Overhead   struct{ Money int64 } `json:"overhead"`
+		Total      struct{ Money int64 } `json:"total"`
+		Price      struct{ Money int64 } `json:"price"`
+		PriceBasis string                `json:"price_basis"`
+	} `json:"reports"`
+}
+
+// TestTheReadRealPriceToolBindsEveryMoneyToItsLayer proves that every
+// money of the answer travels under the key of its own layer: the direct
+// cost, the labor, the overhead, the total and the price of the owner are
+// five money facts of their own, and the price carries the way she charges
+// it by.
+//
+// The answer is decoded and not read as text: a money that travels under
+// the key of another one cannot hide in a document.
+func TestTheReadRealPriceToolBindsEveryMoneyToItsLayer(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubRealPriceReader{reports: theReportOfTheTest(t)}
+	session := connectWithTheRealPrice(t, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadRealPrice,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	var answer theReportAnswer
+
+	jsonOf(t, result, &answer)
+
+	if len(answer.Reports) != 1 {
+		t.Fatalf("the answer carries %d reports, want 1", len(answer.Reports))
+	}
+
+	report := answer.Reports[0]
+
+	if report.Direct.Money != 240 {
+		t.Errorf("the direct cost is %d, want 240", report.Direct.Money)
+	}
+	if report.Labor.Money != 25000 {
+		t.Errorf("the labor is %d, want 25000", report.Labor.Money)
+	}
+	if report.Overhead.Money != 1125 {
+		t.Errorf("the overhead is %d, want 1125", report.Overhead.Money)
+	}
+	if report.Total.Money != 26365 {
+		t.Errorf("the total is %d, want 26365", report.Total.Money)
+	}
+	if report.Price.Money != 8000 {
+		t.Errorf("the price of the owner is %d, want 8000", report.Price.Money)
+	}
+	if report.PriceBasis != "unit" {
+		t.Errorf("the way the owner charges is %q, want %q", report.PriceBasis, "unit")
+	}
+}
+
 // TestTheReadRealPriceToolCarriesThePriceOfTheOwner proves that the tool
 // carries the price the owner declared and the way she charges it: the
 // price of the owner is hers, and PACA never infers it.

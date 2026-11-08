@@ -685,6 +685,11 @@ func theUnitsOfTheProduct(held []ExpiringUnit, of ID) []ExpiringUnit {
 // money of the book counts whole pesos, and the answer is rounded to the
 // nearest peso.
 //
+// The remainder stays in the inventory: the rounding of the money of a unit
+// may release one peso more or one peso less than the money of the
+// production it came out of, and the difference is never lost from the
+// book - it stays in the inventory of the business.
+//
 // The error is ErrUnknownProduction when the production of the unit is not
 // there: the money of a unit is the money of the production it came out of,
 // and the book never guesses it.

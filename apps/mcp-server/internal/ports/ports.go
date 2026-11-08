@@ -40,6 +40,13 @@ var ErrCounterpartyRequired = errors.New("the debt needs the name of the other s
 // cash does not, and neither does the salary.
 var ErrNotADebt = errors.New("that account does not carry a debt")
 
+// ErrInvalidMaxAgeDays is the error of an expectation of the age that is
+// not a number of days.
+//
+// The owner says how old a reference of the market may be, and a negative
+// number of days is not an age anybody expects.
+var ErrInvalidMaxAgeDays = errors.New("the expectation of the age of a reference is not negative")
+
 // HealthQuerier is the inbound port of the health of the service.
 //
 // The health has one owner: the shared health library. The service publishes
@@ -926,6 +933,14 @@ type RecordLabor struct {
 	// by the owner, and it is never inferred.
 	HourValue int64
 
+	// HourValueInferred says that the value of the hour was filled by the
+	// agent and not said by the owner.
+	//
+	// The money of the work of a person is never inferred, and the domain
+	// refuses a labor that carries it: the way the line of a purchase
+	// carries the money PACA filled by itself.
+	HourValueInferred bool
+
 	// Day is the day the labor was worked. It is the day of today when
 	// the agent names none.
 	Day string
@@ -951,7 +966,8 @@ type LaborRecorder interface {
 	//
 	// The error is the error of the domain: the domain refuses a labor
 	// without hours, without the value of the hour, without the day it
-	// was worked and without the word of the owner.
+	// was worked and without the word of the owner, and it refuses a
+	// labor whose value of the hour was filled by the agent.
 	Record(ctx context.Context, request RecordLabor) (recipe.Labor, error)
 }
 
@@ -970,6 +986,14 @@ type RecordOverhead struct {
 	// Electricity is the money of the electricity of the house, in whole
 	// pesos. It is declared by the owner, and it is never inferred.
 	Electricity int64
+
+	// ElectricityInferred says that the electricity was filled by the
+	// agent and not said by the owner.
+	//
+	// The money of the house is never inferred, and the domain refuses an
+	// overhead that carries it: the way the line of a purchase carries
+	// the money PACA filled by itself.
+	ElectricityInferred bool
 
 	// OvenHours is the number of hours the oven ran.
 	OvenHours float64
@@ -1006,7 +1030,8 @@ type OverheadRecorder interface {
 	// The error is the error of the domain: the domain refuses an
 	// overhead without the electricity of the house, without the hours of
 	// the oven, without an allocation that is a share, without the day it
-	// was declared and without the word of the owner.
+	// was declared and without the word of the owner, and it refuses an
+	// overhead whose electricity was filled by the agent.
 	Record(ctx context.Context, request RecordOverhead) (recipe.Overhead, error)
 }
 

@@ -86,6 +86,8 @@ var theMessages = map[error]string{
 		"owe it to, or who owes it to them",
 	ports.ErrNotADebt: "that account does not carry a debt: the debts are the accounts of the book that name the " +
 		"other side of the money",
+	ports.ErrInvalidMaxAgeDays: "the expectation of the age of the references is not a number of days: send the " +
+		"number of days a reference of the market may be old, and never a negative one",
 
 	purchase.ErrNotFound: "there is no draft with that identity: read the pending drafts of the business before " +
 		"correcting one of them",
@@ -154,6 +156,10 @@ var theMessages = map[error]string{
 		"and never invent one",
 	recipe.ErrMissingConfirmation: "the recipe carries no word of the owner: send the word she used to confirm it " +
 		"('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrMissingLaborConfirmation: "the labor carries no word of the owner: send the word she used to " +
+		"confirm the labor ('sí', 'confirmado'), and it is kept with the record",
+	recipe.ErrMissingOverheadConfirmation: "the overhead carries no word of the owner: send the word she used to " +
+		"confirm the overhead ('sí', 'confirmado'), and it is kept with the record",
 	recipe.ErrNoIngredients: "the recipe carries no ingredient: read the sentence of the owner again and send the " +
 		"ingredients she said, with their grams",
 	recipe.ErrMissingGrams: "an ingredient of the recipe carries no grams: ask the owner how many grams of it the " +
@@ -166,6 +172,8 @@ var theMessages = map[error]string{
 		"that step",
 	recipe.ErrInvalidTemperature: "the temperature of a step is below the absolute zero: ask the owner for the " +
 		"temperature of the oven, in degrees Celsius",
+	recipe.ErrInvalidMinutes: "the minutes of a step are not a time: ask the owner how many minutes the step " +
+		"takes, and never invent them",
 	recipe.ErrInvalidYield: "the yield of the recipe is not positive: ask the owner how many units the recipe " +
 		"makes and how much each one weighs",
 	recipe.ErrMissingShelfLife: "the recipe carries no shelf life: ask the owner how many days what the recipe " +
@@ -181,6 +189,8 @@ var theMessages = map[error]string{
 		"of the three kinds of the labor",
 	recipe.ErrMissingHourValue: "the value of the hour is not declared: ask the owner what the hour of her work " +
 		"is worth, and never fill it by yourself",
+	recipe.ErrInferredHourValue: "the value of the hour of the labor was filled by PACA: ask the owner what " +
+		"the hour of her work is worth, and never fill it by yourself",
 	recipe.ErrMissingDay: "the labor carries no day: say the day the labor was worked, and never invent one",
 	recipe.ErrUnknownLaborKind: "the kind of the labor is not one of the three kinds PACA knows: use 'hands_on', " +
 		"'oven' or 'waiting'",
@@ -188,6 +198,8 @@ var theMessages = map[error]string{
 		"and PACA never invents one",
 	recipe.ErrMissingElectricity: "the overhead carries no electricity: ask the owner what the electricity of the " +
 		"house cost, and never fill it by yourself",
+	recipe.ErrInferredElectricity: "the electricity of the overhead was filled by PACA: ask the owner what she " +
+		"paid for the electricity of the house, and never fill it by yourself",
 	recipe.ErrMissingOvenHours: "the overhead carries no hours of the oven: ask the owner how many hours the oven " +
 		"ran, because without them the money of the oven has no rate",
 	recipe.ErrInvalidAllocation: "the allocation is not a share of the electricity: ask the owner what share of " +
@@ -228,6 +240,8 @@ var theMessages = map[error]string{
 		"whole pesos, and PACA never infers it",
 	recipe.ErrNotEnoughUnits: "the book holds no unit of that product to lose: read what expires, and ask the " +
 		"owner how many units she lost",
+	recipe.ErrNotEnoughUnitsToSell: "the book holds no unit of that product to sell: read what the bakery still " +
+		"has, and ask the owner how many units she sold",
 	recipe.ErrUnknownProduction: "the production of the unit is not there: read the productions of the business " +
 		"again, and never guess the money of a unit",
 	recipe.ErrInvalidSaleQuantity: "the quantity of the sale is not a whole number of units: ask the owner how " +
@@ -252,6 +266,8 @@ var theMessages = map[error]string{
 	purchase.ErrMissingDay: "the reference carries no day: say the day the price was seen, and never invent one",
 	purchase.ErrLayerWithoutIngredient: "the layer names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",
+	purchase.ErrLayerWithoutName: "the layer carries no name: the layer names the ingredient the owner bought, " +
+		"the way she said it, and a layer with no name is never read as a layer of the stock",
 	purchase.ErrInvalidLayer: "the layer is not whole: what it holds is not what it bought, and the storage " +
 		"refused the row",
 	purchase.ErrInvalidPosition: "the layer comes from no line of its purchase: the storage refused the row",

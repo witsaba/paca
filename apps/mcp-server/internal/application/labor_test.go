@@ -165,6 +165,31 @@ func TestTheLaborWithoutTheValueOfTheHourIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheLaborWithAnInferredValueOfTheHourIsRefused proves that the use
+// case refuses a labor whose value of the hour was filled by the agent:
+// the money of the work of a person is never inferred, and a refused labor
+// leaves nothing behind.
+func TestTheLaborWithAnInferredValueOfTheHourIsRefused(t *testing.T) {
+	t.Parallel()
+
+	labors := &fakeLabors{}
+	service := application.NewLaborService(labors, theClock())
+
+	_, err := service.Record(t.Context(), ports.RecordLabor{
+		BusinessID:        business.ID(77),
+		HandsOnHours:      2,
+		HourValue:         20000,
+		HourValueInferred: true,
+		ConfirmedWith:     "sí",
+	})
+	if !errors.Is(err, recipe.ErrInferredHourValue) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInferredHourValue)
+	}
+	if len(labors.written) != 0 {
+		t.Errorf("the use case wrote %d labors, want none", len(labors.written))
+	}
+}
+
 // TestTheLaborOfTheDayOfToday proves that the day of a labor the agent
 // names none is the day of today: the day is one of the three things Paca
 // may fill by herself.

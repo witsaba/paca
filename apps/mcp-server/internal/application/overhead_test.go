@@ -190,6 +190,32 @@ func TestTheOverheadWithAnAllocationThatIsNotAShareIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheOverheadWithAnInferredElectricityIsRefused proves that the use
+// case refuses an overhead whose electricity was filled by the agent: the
+// money of the house is never inferred, and a refused overhead leaves
+// nothing behind.
+func TestTheOverheadWithAnInferredElectricityIsRefused(t *testing.T) {
+	t.Parallel()
+
+	overheads := &fakeOverheads{}
+	service := application.NewOverheadService(overheads, theClock())
+
+	_, err := service.Record(t.Context(), ports.RecordOverhead{
+		BusinessID:          business.ID(77),
+		Electricity:         120000,
+		ElectricityInferred: true,
+		OvenHours:           40,
+		Allocation:          0.5,
+		ConfirmedWith:       "sí",
+	})
+	if !errors.Is(err, recipe.ErrInferredElectricity) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInferredElectricity)
+	}
+	if len(overheads.written) != 0 {
+		t.Errorf("the use case wrote %d overheads, want none", len(overheads.written))
+	}
+}
+
 // TestTheOverheadOfTheDayOfToday proves that the day of an overhead the
 // agent names none is the day of today: the day is one of the three things
 // Paca may fill by herself.

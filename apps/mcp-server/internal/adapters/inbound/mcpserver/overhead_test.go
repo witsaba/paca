@@ -156,6 +156,39 @@ func TestTheRecordOverheadToolWritesTheElectricityAndTheAllocation(t *testing.T)
 	}
 }
 
+// TestTheRecordOverheadToolCarriesTheInferredElectricity proves that the
+// tool carries the fact that PACA filled the electricity by itself: the
+// money of the house is never inferred, and the domain refuses the
+// overhead that carries it.
+func TestTheRecordOverheadToolCarriesTheInferredElectricity(t *testing.T) {
+	t.Parallel()
+
+	recorder := &stubOverheadRecorder{recorded: theOverheadOfTheTool(t)}
+	session := connectWithTheOverhead(t, recorder)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordOverhead,
+		Arguments: map[string]any{
+			"business_id":          77,
+			"electricity":          120000,
+			"electricity_inferred": true,
+			"oven_hours":           40,
+			"allocation":           0.5,
+			"confirmed_with":       "sí",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if !recorder.got.ElectricityInferred {
+		t.Error("the tool did not carry that the electricity was inferred")
+	}
+}
+
 // TestTheRecordOverheadToolRefusesTheBusinessThatIsNotThere proves that
 // the business is required: the tool refuses the business that is not
 // there, and it never asks the use case for the overhead of nobody.

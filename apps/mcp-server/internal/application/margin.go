@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/ingredient"
@@ -69,7 +70,7 @@ func NewMarginService(
 //
 // The expectation of the age is optional: it is the number of days a
 // reference of the market may be old. Every reference shows its age
-// anyway.
+// anyway, and a negative number of days is refused.
 //
 // The rules are the ones of the domain: the use case reads the cost of the
 // batch, the references and the catalog, and it asks the domain to build
@@ -77,6 +78,14 @@ func NewMarginService(
 func (s *MarginService) Read(ctx context.Context, request ports.ReadMargin) ([]recipe.Margin, error) {
 	if s == nil || s.costs == nil || s.references == nil || s.ingredients == nil || s.clock == nil {
 		return nil, ports.ErrNoDatabase
+	}
+
+	// The expectation of the age is a number of days: a negative number
+	// of days is not an age anybody expects, and a refused request reads
+	// nothing.
+	if request.MaxAgeDays < 0 {
+		return nil, fmt.Errorf("%w: the expectation of the age is %d days",
+			ports.ErrInvalidMaxAgeDays, request.MaxAgeDays)
 	}
 
 	price, err := ownerPriceOf(request.Price, request.PriceBasis)

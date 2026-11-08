@@ -20,8 +20,9 @@ import (
 //
 // The sale takes the units of the product that expire first - the rotation
 // of the perishable output - and it refuses the sale of a unit that
-// expired: the expired unit leaves the book as a waste, and the book says
-// so.
+// expired: the sale is refused, and the owner is told to record the waste
+// of it. The sale writes no waste of its own: the waste is a record of its
+// own, with its reason.
 //
 // The cost of the units sold is derived, never typed: it is the money of
 // the production the unit came out of, divided by the units that
@@ -205,7 +206,8 @@ type SaleFact struct {
 //     still in it, in the order they expire: the one that expires first is
 //     the first one;
 //   - a unit that expired is never sold: the sale is refused, and the
-//     expired unit leaves the book as a waste;
+//     owner is told to record the waste of it. The sale writes no waste of
+//     its own: the waste is a record of its own, with its reason;
 //   - the cost of the sale is the money of the units that left: the money
 //     of the production they came out of, divided by the units that
 //     production made. The money of the book counts whole pesos.
@@ -259,7 +261,7 @@ func SaleOf(
 	units := theUnitsOfTheProduct(held, recipeID)
 	if len(units) < int(definition.Quantity) {
 		return Sale{}, fmt.Errorf("%w: the book holds %d units of the product and the owner sold %v",
-			ErrNotEnoughUnits, len(units), definition.Quantity)
+			ErrNotEnoughUnitsToSell, len(units), definition.Quantity)
 	}
 
 	taken := units[:int(definition.Quantity)]
@@ -270,7 +272,8 @@ func SaleOf(
 	for _, one := range taken {
 		// The rule of the domain: a unit that expired is never sold. The
 		// sale does not skip the expired unit to take a fresher one: the
-		// expired unit leaves the book as a waste, and the book says so.
+		// sale is refused, and the owner is told to record the waste of
+		// it. The sale writes no waste of its own.
 		if err := one.CheckSellable(definition.Day); err != nil {
 			return Sale{}, err
 		}
@@ -314,9 +317,9 @@ func SaleOf(
 // carries no day, ErrInvalidSaleQuantity when the quantity is not a whole
 // number of units, ErrInvalidSaleUnit when the unit is not the unit of a
 // piece, ErrInvalidSaleMoney when the money is not positive,
-// ErrInvalidSaleCost when the cost is negative, ErrNotEnoughUnits when the
-// sale carries no unit, and ErrMissingSaleConfirmation when it carries no
-// word of the owner.
+// ErrInvalidSaleCost when the cost is negative, ErrNotEnoughUnitsToSell
+// when the sale carries no unit, and ErrMissingSaleConfirmation when it
+// carries no word of the owner.
 func NewSale(own business.ID, fact SaleFact) (Sale, error) {
 	sale := Sale{
 		BusinessID:    own,
@@ -383,7 +386,7 @@ func (s Sale) Checked() (Sale, error) {
 
 	if len(s.Units) == 0 {
 		return Sale{}, fmt.Errorf("%w: the sale carries no unit",
-			ErrNotEnoughUnits)
+			ErrNotEnoughUnitsToSell)
 	}
 
 	if strings.TrimSpace(s.ConfirmedWith) == "" {

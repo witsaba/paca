@@ -193,6 +193,184 @@ func TestTheReadMarginToolAnswersTheMargin(t *testing.T) {
 	}
 }
 
+// theMarginAnswer is the answer of the tool of the margin, decoded.
+//
+// The answer is a document: the test binds the age of the reference, the
+// flag that says it is old, its day and its source, and the two profits
+// to their own keys.
+type theMarginAnswer struct {
+	Margins []struct {
+		RecipeID int64  `json:"recipe_id"`
+		Name     string `json:"name"`
+		Price    struct {
+			Money int64 `json:"money"`
+		} `json:"price"`
+		PriceBasis string `json:"price_basis"`
+		Direct     struct {
+			Money int64 `json:"money"`
+		} `json:"direct"`
+		Profit struct {
+			PerUnit float64 `json:"per_unit"`
+		} `json:"profit"`
+		Percent float64 `json:"percent"`
+		Market  struct {
+			Money int64 `json:"money"`
+			Paid  int64 `json:"paid"`
+			Lines []struct {
+				IngredientID int64  `json:"ingredient_id"`
+				Name         string `json:"name"`
+				Paid         int64  `json:"paid"`
+				Money        int64  `json:"money"`
+				Reference    struct {
+					ID      int64  `json:"id"`
+					Price   int64  `json:"price"`
+					Unit    string `json:"unit"`
+					Market  string `json:"market"`
+					Source  string `json:"source"`
+					Day     string `json:"day"`
+					AgeDays int    `json:"age_days"`
+					Old     bool   `json:"old"`
+				} `json:"reference"`
+			} `json:"lines"`
+		} `json:"market"`
+		MarketProfit struct {
+			PerUnit float64 `json:"per_unit"`
+		} `json:"market_profit"`
+	} `json:"margins"`
+}
+
+// TestTheReadMarginToolBindsTheAgeAndTheSourceOfTheReference proves that
+// the answer of the tool carries the age of the reference, the flag that
+// says it is old, the day it was seen and the place it was read in, and
+// that the two profits travel apart.
+//
+// The answer is decoded and not read as text: a number that travels under
+// the key of another one cannot hide in a document.
+func TestTheReadMarginToolBindsTheAgeAndTheSourceOfTheReference(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubMarginReader{margins: theMarginOfTheTest(t)}
+	session := connectWithTheMargin(t, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadMargin,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	var answer theMarginAnswer
+
+	jsonOf(t, result, &answer)
+
+	if len(answer.Margins) != 1 {
+		t.Fatalf("the answer carries %d margins, want 1", len(answer.Margins))
+	}
+
+	margin := answer.Margins[0]
+
+	if len(margin.Market.Lines) != 1 {
+		t.Fatalf("the market carries %d lines, want 1", len(margin.Market.Lines))
+	}
+
+	line := margin.Market.Lines[0]
+
+	if line.Reference.AgeDays != 10 {
+		t.Errorf("the age of the reference is %d days, want 10", line.Reference.AgeDays)
+	}
+	if !line.Reference.Old {
+		t.Error("the reference is not marked as old, want it marked as old")
+	}
+	if line.Reference.Day != "2026-03-01" {
+		t.Errorf("the day the reference was seen is %q, want %q", line.Reference.Day, "2026-03-01")
+	}
+	if line.Reference.Source != "Boletín de precios al por mayor, DANE" {
+		t.Errorf("the source of the reference is %q, want %q", line.Reference.Source,
+			"Boletín de precios al por mayor, DANE")
+	}
+	if line.Reference.Price != 5000 {
+		t.Errorf("the price of the reference is %d, want 5000", line.Reference.Price)
+	}
+
+	if margin.Profit.PerUnit != 7976 {
+		t.Errorf("the profit over the direct cost is %v, want 7976", margin.Profit.PerUnit)
+	}
+	if margin.MarketProfit.PerUnit != 7975 {
+		t.Errorf("the profit over the market is %v, want 7975", margin.MarketProfit.PerUnit)
+	}
+}
+
+// TestTheReadMarginToolAnswersTheReferenceTheDomainChose proves that the
+// tool answers the reference the domain chose: the domain decides which
+// reference compares, and the adapter never decides it again.
+//
+// The line of the test points at the second reference of its list: the
+// adapter has to answer the one the domain marked, and not the first one
+// it finds.
+func TestTheReadMarginToolAnswersTheReferenceTheDomainChose(t *testing.T) {
+	t.Parallel()
+
+	margins := theMarginOfTheTest(t)
+
+	first := margins[0].Market.Lines[0].References[0]
+	chosen := first
+
+	chosen.ID = purchase.ReferenceID(4)
+	chosen.Price = 5200
+	chosen.SeenOn = ledger.NewDate(timeOfTheTest().AddDate(0, 0, 5))
+	chosen.AgeDays = 5
+	chosen.Old = false
+
+	margins[0].Market.Lines[0].References = []recipe.ReferenceView{first, chosen}
+	margins[0].Market.Lines[0].Reference = chosen
+
+	reader := &stubMarginReader{margins: margins}
+	session := connectWithTheMargin(t, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadMargin,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	var answer theMarginAnswer
+
+	jsonOf(t, result, &answer)
+
+	if len(answer.Margins) != 1 {
+		t.Fatalf("the answer carries %d margins, want 1", len(answer.Margins))
+	}
+
+	if len(answer.Margins[0].Market.Lines) != 1 {
+		t.Fatalf("the market carries %d lines, want 1", len(answer.Margins[0].Market.Lines))
+	}
+
+	reference := answer.Margins[0].Market.Lines[0].Reference
+
+	if reference.ID != 4 {
+		t.Errorf("the reference that compares is %d, want 4: it is the one the domain chose", reference.ID)
+	}
+	if reference.Price != 5200 {
+		t.Errorf("the price of the reference that compares is %d, want 5200", reference.Price)
+	}
+	if reference.AgeDays != 5 {
+		t.Errorf("the age of the reference that compares is %d days, want 5", reference.AgeDays)
+	}
+}
+
 // TestTheReadMarginToolCarriesThePriceAndTheExpectationOfTheAge proves
 // that the tool carries the price the owner declared, the way she charges
 // and how old a reference may be.

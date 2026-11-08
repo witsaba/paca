@@ -43,6 +43,15 @@ type Overhead struct {
 	// pesos: what the owner paid, or what she declares she pays.
 	Electricity ledger.Amount
 
+	// ElectricityInferred says that the electricity was filled by the
+	// agent and not said by the owner: the money of the house is never
+	// inferred.
+	//
+	// It is never true in an overhead that the book built: the inferred
+	// money is refused, the way the purchase refuses the money of a line
+	// that was inferred.
+	ElectricityInferred bool
+
 	// OvenHours is the number of hours the oven ran.
 	OvenHours float64
 
@@ -74,6 +83,11 @@ type OverheadDefinition struct {
 	// pesos. It is declared by the owner, and it is never inferred.
 	Electricity ledger.Amount
 
+	// ElectricityInferred says that the electricity was filled by the
+	// agent and not said by the owner: the money of the house is never
+	// inferred.
+	ElectricityInferred bool
+
 	// OvenHours is the number of hours the oven ran.
 	OvenHours float64
 
@@ -99,7 +113,9 @@ type OverheadDefinition struct {
 //     the overhead of the business that works it;
 //   - the overhead carries the electricity of the house: the money of the
 //     electricity is declared by the owner, and it is never inferred,
-//     because the money of the house is not a number PACA may invent;
+//     because the money of the house is not a number PACA may invent. An
+//     electricity the agent filled is refused, the way the purchase
+//     refuses the money of a line that was inferred;
 //   - the overhead carries the hours of the oven: without them the money
 //     of the oven has no rate, and a rate nobody declared is a rate
 //     PACA invented;
@@ -112,9 +128,18 @@ type OverheadDefinition struct {
 // The money of the overhead is the electricity of the house times the
 // allocation, and the money of the book counts whole pesos: the answer is
 // rounded to the nearest peso.
+//
+// The error is the error of the domain: the overhead carries its own error
+// when it carries no word of the owner, and the error of the recipe is
+// never the answer of an overhead.
 func NewOverhead(own business.ID, definition OverheadDefinition) (Overhead, error) {
 	if own <= 0 {
 		return Overhead{}, fmt.Errorf("%w: the overhead is of the business %d", ErrMissingBusiness, own)
+	}
+
+	if definition.ElectricityInferred {
+		return Overhead{}, fmt.Errorf("%w: the electricity of the house is %d",
+			ErrInferredElectricity, definition.Electricity)
 	}
 
 	if definition.Electricity <= 0 {
@@ -138,18 +163,19 @@ func NewOverhead(own business.ID, definition OverheadDefinition) (Overhead, erro
 
 	word := strings.TrimSpace(definition.ConfirmedWith)
 	if word == "" {
-		return Overhead{}, fmt.Errorf("%w: the overhead carries no word of the owner", ErrMissingConfirmation)
+		return Overhead{}, fmt.Errorf("%w: the overhead carries no word of the owner", ErrMissingOverheadConfirmation)
 	}
 
 	return Overhead{
-		BusinessID:    own,
-		Day:           definition.Day,
-		Electricity:   definition.Electricity,
-		OvenHours:     definition.OvenHours,
-		Allocation:    definition.Allocation,
-		Money:         moneyOfTheElectricity(definition.Electricity, definition.Allocation),
-		Utterance:     strings.TrimSpace(definition.Utterance),
-		ConfirmedWith: word,
+		BusinessID:          own,
+		Day:                 definition.Day,
+		Electricity:         definition.Electricity,
+		ElectricityInferred: definition.ElectricityInferred,
+		OvenHours:           definition.OvenHours,
+		Allocation:          definition.Allocation,
+		Money:               moneyOfTheElectricity(definition.Electricity, definition.Allocation),
+		Utterance:           strings.TrimSpace(definition.Utterance),
+		ConfirmedWith:       word,
 	}, nil
 }
 
@@ -260,7 +286,8 @@ type OverheadCost struct {
 // rounded to the nearest peso.
 //
 // The error is the error of the domain: a step whose kind of labor the book
-// does not know is not a step of the recipe.
+// does not know is not a step of the recipe, and a step of negative minutes
+// is not a time.
 func OverheadOf(baked Recipe, rate OverheadRate) (OverheadCost, error) {
 	hours, err := ovenHoursOf(baked)
 	if err != nil {
@@ -290,11 +317,20 @@ func OverheadOf(baked Recipe, rate OverheadRate) (OverheadCost, error) {
 // The rule of the domain: only the steps of the oven count, and the hours
 // of the other kinds of the labor are the labor of the batch, not the
 // overhead of it.
+//
+// The error is the error of the domain: a step of negative minutes is not a
+// time.
 func ovenHoursOf(baked Recipe) (float64, error) {
 	hours := 0.0
 
 	for _, one := range baked.Steps {
-		if one.Minutes <= 0 {
+		if one.Minutes < 0 {
+			return 0, fmt.Errorf("%w: the step carries %d minutes", ErrInvalidMinutes, one.Minutes)
+		}
+
+		// The step the owner gave no time to is not a step of the oven:
+		// the zero of the time is the absence of it.
+		if one.Minutes == 0 {
 			continue
 		}
 

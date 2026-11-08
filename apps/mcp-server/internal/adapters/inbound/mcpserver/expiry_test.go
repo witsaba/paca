@@ -172,6 +172,101 @@ func theExpiryOfTheTool(t *testing.T) recipe.Expiry {
 	}
 }
 
+// theExpiringAnswer is the answer of the tool of the expiry, decoded.
+//
+// The flag of the expiry travels under its own key: the test binds it to
+// the unit it belongs to.
+type theExpiringAnswer struct {
+	Day   string `json:"day"`
+	Units []struct {
+		UnitID    int64  `json:"unit_id"`
+		ExpiresOn string `json:"expires_on"`
+		DaysLeft  int    `json:"days_left"`
+		Expired   bool   `json:"expired"`
+	} `json:"units"`
+}
+
+// TestTheReadExpiringToolFlagsTheUnitsThatExpired proves that the tool
+// flags the unit that expired and only that one: the rule is the rule of
+// the expiry, and a unit that keeps is not expired.
+func TestTheReadExpiringToolFlagsTheUnitsThatExpired(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubExpiringReader{answer: theExpiryOfTheTool(t)}
+	session := connectWithTheExpiry(t, nil, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadExpiring,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	var answer theExpiringAnswer
+
+	jsonOf(t, result, &answer)
+
+	if len(answer.Units) != 2 {
+		t.Fatalf("the answer carries %d units, want 2", len(answer.Units))
+	}
+
+	if answer.Units[0].Expired {
+		t.Errorf("the unit that expires on %q is flagged as expired: it is not",
+			answer.Units[0].ExpiresOn)
+	}
+
+	if !answer.Units[1].Expired {
+		t.Errorf("the unit that expired on %q is not flagged as expired", answer.Units[1].ExpiresOn)
+	}
+}
+
+// TestTheReadExpiringToolWithoutADayDoesNotExpireAnything proves that a
+// read with no day expires nothing: the rule of the expiry is the rule of
+// the expiry, and not the rule of the sale.
+func TestTheReadExpiringToolWithoutADayDoesNotExpireAnything(t *testing.T) {
+	t.Parallel()
+
+	expiry := theExpiryOfTheTool(t)
+	expiry.Day = ledger.Date{}
+
+	reader := &stubExpiringReader{answer: expiry}
+	session := connectWithTheExpiry(t, nil, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadExpiring,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	var answer theExpiringAnswer
+
+	jsonOf(t, result, &answer)
+
+	if len(answer.Units) != 2 {
+		t.Fatalf("the answer carries %d units, want 2", len(answer.Units))
+	}
+
+	for _, one := range answer.Units {
+		if one.Expired {
+			t.Errorf("the unit %d is flagged as expired, want it not expired: the read carries no day",
+				one.UnitID)
+		}
+	}
+}
+
 // TestTheCorrectShelfLifeToolWritesTheDaysAndTheWord proves that the tool
 // writes the correction the owner confirmed: the recipe she corrected, the
 // number of days, the day and the word she used.

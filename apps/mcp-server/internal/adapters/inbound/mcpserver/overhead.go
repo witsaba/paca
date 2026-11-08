@@ -44,6 +44,7 @@ func buildDescriptionRecordOverhead() string {
 		"  - allocation: the SHARE of that electricity that belongs to the oven (0.6 is six of every ten pesos).\n\n" +
 		"The business is REQUIRED: it is the business the overhead belongs to, and PACA never invents one.\n\n" +
 		"The electricity is REQUIRED: the money of the house is what the owner paid, and PACA never infers it. " +
+		"When PACA filled it by itself, say so with electricity_inferred, and the book refuses the overhead. " +
 		"The oven_hours are REQUIRED: without them the money of the oven has no rate, and a rate nobody declared " +
 		"is a rate PACA invented. The allocation is REQUIRED, and it is a share: it is greater than zero and not " +
 		"greater than the electricity itself.\n\n" +
@@ -67,6 +68,10 @@ type recordOverheadInput struct {
 	// Electricity is the money of the electricity of the house, in whole
 	// pesos.
 	Electricity int64 `json:"electricity" jsonschema:"The money of the electricity of the house, in whole pesos. It is required, it is positive, and PACA never infers it."`
+
+	// ElectricityInferred says that PACA filled the electricity by
+	// itself.
+	ElectricityInferred bool `json:"electricity_inferred,omitempty" jsonschema:"True when PACA filled the electricity of the house by itself and the owner did not say it. The money of the house is never inferred, and PACA refuses an overhead that carries it."`
 
 	// OvenHours is the number of hours the oven ran.
 	OvenHours float64 `json:"oven_hours" jsonschema:"The number of hours the oven ran. It is required, and it is positive: without it the money of the oven has no rate."`
@@ -158,13 +163,14 @@ func (s *Server) recordOverhead(recorder ports.OverheadRecorder) sdk.ToolHandler
 		}
 
 		recorded, err := recorder.Record(ctx, ports.RecordOverhead{
-			BusinessID:    business.ID(input.BusinessID),
-			Electricity:   input.Electricity,
-			OvenHours:     input.OvenHours,
-			Allocation:    input.Allocation,
-			Day:           input.Day,
-			Utterance:     input.Utterance,
-			ConfirmedWith: input.ConfirmedWith,
+			BusinessID:          business.ID(input.BusinessID),
+			Electricity:         input.Electricity,
+			ElectricityInferred: input.ElectricityInferred,
+			OvenHours:           input.OvenHours,
+			Allocation:          input.Allocation,
+			Day:                 input.Day,
+			Utterance:           input.Utterance,
+			ConfirmedWith:       input.ConfirmedWith,
 		})
 		if err != nil {
 			return nil, recordOverheadOutput{}, s.toolError(err)

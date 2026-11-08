@@ -146,9 +146,36 @@ func TestTheValueOfTheHourIsDeclaredByTheOwner(t *testing.T) {
 	}
 }
 
+// TestTheValueOfTheHourThatWasInferredIsRefused proves the rule of the
+// domain: the money of the work of a person is never inferred, and a
+// labor whose value of the hour was filled by the agent is not built.
+//
+// The rule is the one of the purchase: the money of a line that was
+// inferred is refused, and the book asks the owner for it.
+func TestTheValueOfTheHourThatWasInferredIsRefused(t *testing.T) {
+	t.Parallel()
+
+	labour, err := recipe.NewLabor(business.ID(77), recipe.LaborDefinition{
+		Hours:             theHoursOfTheLabor(t),
+		HourValue:         ledger.Amount(20000),
+		HourValueInferred: true,
+		Day:               theDayOfTheLabor(),
+		ConfirmedWith:     "sí",
+	})
+	if !errors.Is(err, recipe.ErrInferredHourValue) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInferredHourValue)
+	}
+	if !reflect.DeepEqual(labour, recipe.Labor{}) {
+		t.Errorf("the labor was built: %v", labour)
+	}
+}
+
 // TestTheLaborCarriesTheDayAndTheWordOfTheOwner proves the rule of the
 // domain: the labor carries the day it was worked and the word the owner
 // used to confirm it.
+//
+// The labor carries its own error: the error of the recipe is the error of
+// another record, and the owner is told about the record that failed.
 func TestTheLaborCarriesTheDayAndTheWordOfTheOwner(t *testing.T) {
 	t.Parallel()
 
@@ -157,8 +184,11 @@ func TestTheLaborCarriesTheDayAndTheWordOfTheOwner(t *testing.T) {
 		HourValue: ledger.Amount(20000),
 		Day:       theDayOfTheLabor(),
 	})
-	if !errors.Is(err, recipe.ErrMissingConfirmation) {
-		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingConfirmation)
+	if !errors.Is(err, recipe.ErrMissingLaborConfirmation) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingLaborConfirmation)
+	}
+	if errors.Is(err, recipe.ErrMissingConfirmation) {
+		t.Fatalf("the error is %v, want the error of the labor and not the error of the recipe", err)
 	}
 
 	_, err = recipe.NewLabor(business.ID(77), recipe.LaborDefinition{
@@ -384,6 +414,23 @@ func TestTheKindsOfTheLaborAreTheThreeOfTheBook(t *testing.T) {
 
 	if _, err := recipe.ParseLaborKind("lavado"); !errors.Is(err, recipe.ErrUnknownLaborKind) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrUnknownLaborKind)
+	}
+}
+
+// TestTheLaborOfTheBatchRefusesTheStepOfNegativeMinutes proves the rule
+// of the domain: the minutes of a step are a time, and the labor of a
+// batch is never derived without a step the owner wrote.
+func TestTheLaborOfTheBatchRefusesTheStepOfNegativeMinutes(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheLabor(t)
+	baked.Steps = []recipe.Step{
+		{Instruction: "Amasar.", Minutes: -30, Kind: recipe.LaborHandsOn},
+	}
+
+	_, err := recipe.LaborOf(baked, ledger.Amount(20000))
+	if !errors.Is(err, recipe.ErrInvalidMinutes) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidMinutes)
 	}
 }
 

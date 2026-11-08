@@ -155,9 +155,13 @@ type Step struct {
 
 // NewStep builds a step of a recipe.
 //
-// The rule of the domain: the instruction is not empty, the temperature is
-// not below the absolute zero, and the kind of the labor is one of the
-// three kinds of the book.
+// The rule of the domain: the instruction is not empty, the minutes are not
+// negative, the temperature is not below the absolute zero, and the kind of
+// the labor is one of the three kinds of the book.
+//
+// The minutes are zero when the owner named no time: the zero of the time
+// is the absence of it. A negative number of minutes is not a time, and a
+// step that carries it is refused.
 //
 // The kind the owner did not name is the labor of the hands: a step she did
 // not qualify is a step she did with her hands.
@@ -165,6 +169,10 @@ func NewStep(instruction, cue string, minutes int, temperature float64, kind Lab
 	trimmed := strings.TrimSpace(instruction)
 	if trimmed == "" {
 		return Step{}, fmt.Errorf("%w: the step carries no instruction", ErrMissingInstruction)
+	}
+
+	if minutes < 0 {
+		return Step{}, fmt.Errorf("%w: the step carries %d minutes", ErrInvalidMinutes, minutes)
 	}
 
 	if temperature < AbsoluteZero {
@@ -276,7 +284,8 @@ func (r Recipe) WithShelfLife(days int) Recipe {
 //   - the recipe carries at least one ingredient, and every one of them
 //     carries its grams;
 //   - the recipe carries at least one step, and every one of them carries
-//     its instruction;
+//     its instruction and its minutes are not negative: a step of negative
+//     minutes is a time nobody spends;
 //   - the yield is positive: it is the declared constant of what the recipe
 //     makes;
 //   - the shelf life is positive: what the recipe makes keeps a number of
@@ -318,6 +327,11 @@ func New(own business.ID, definition Definition) (Recipe, error) {
 	for _, one := range definition.Steps {
 		if strings.TrimSpace(one.Instruction) == "" {
 			return Recipe{}, fmt.Errorf("%w: a step of the recipe carries no instruction", ErrMissingInstruction)
+		}
+
+		if one.Minutes < 0 {
+			return Recipe{}, fmt.Errorf("%w: a step of the recipe carries %d minutes",
+				ErrInvalidMinutes, one.Minutes)
 		}
 
 		labour, err := ParseLaborKind(string(one.Kind))

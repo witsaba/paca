@@ -42,6 +42,10 @@ func buildDescriptionReadRealPrice() string {
 		"labour is the money of the hours of the steps of the recipe, and the overhead is the money of the hours " +
 		"of the oven. Their sum travels apart too, beside them. No layer of the cost is ever hidden inside " +
 		"another one.\n\n" +
+		"Read the two monies apart: the money of the price of the owner is the money in her basis - the price " +
+		"of one unit, of one gram or of one kilogram, the way she charges it - and the money of the layers is " +
+		"the money of the whole batch: the batch is made of many units, and the rates of each layer tell what " +
+		"that money weighs per unit, per gram and per kilogram.\n\n" +
 		"Every layer answers per unit, per gram and per kilogram, because the bakery sells by the unit and by " +
 		"the weight, and a comparison between two products that knows only one of them is a lie.\n\n" +
 		"The business is REQUIRED: it is the business whose report is read, and PACA never invents one.\n\n" +

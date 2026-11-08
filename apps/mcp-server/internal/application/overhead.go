@@ -43,8 +43,9 @@ func NewOverheadService(overheads recipe.OverheadRepository, clock ports.Clock) 
 // The rules of the domain hold the recording: an overhead without the
 // electricity of the house, without the hours of the oven, without an
 // allocation that is a share, without the day it was declared and without
-// the word of the owner are refused, and a refused overhead leaves nothing
-// behind.
+// the word of the owner are refused, an overhead whose electricity was
+// filled by the agent is refused too, and a refused overhead leaves
+// nothing behind.
 //
 // The day is the one the agent names, and the day of today when it names
 // none: the day is one of the three things Paca may fill by herself.
@@ -63,12 +64,13 @@ func (s *OverheadService) Record(ctx context.Context, request ports.RecordOverhe
 	}
 
 	overhead, err := recipe.NewOverhead(request.BusinessID, recipe.OverheadDefinition{
-		Electricity:   ledger.Amount(request.Electricity),
-		OvenHours:     request.OvenHours,
-		Allocation:    request.Allocation,
-		Day:           day,
-		Utterance:     request.Utterance,
-		ConfirmedWith: request.ConfirmedWith,
+		Electricity:         ledger.Amount(request.Electricity),
+		ElectricityInferred: request.ElectricityInferred,
+		OvenHours:           request.OvenHours,
+		Allocation:          request.Allocation,
+		Day:                 day,
+		Utterance:           request.Utterance,
+		ConfirmedWith:       request.ConfirmedWith,
 	})
 	if err != nil {
 		return recipe.Overhead{}, err

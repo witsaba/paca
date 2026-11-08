@@ -294,6 +294,91 @@ func TestTheProductionIsRefusedWhenTheStockHoldsAnIngredientInAUnitTheBookNeverC
 	}
 }
 
+// TestTheProductionIsWrittenWhenTheStockCoversTheRecipe proves the rule
+// of the domain: the production is refused when the stock does not cover
+// the recipe, and a layer the book cannot weigh is skipped and stays in
+// the book.
+//
+// The business holds the flour in three pieces and in twenty-five kilos:
+// the book never weighs a piece, and the kilos cover the five hundred
+// grams the recipe needs.
+func TestTheProductionIsWrittenWhenTheStockCoversTheRecipe(t *testing.T) {
+	t.Parallel()
+
+	older := ledger.NewDate(time.Date(2026, time.March, 1, 10, 0, 0, 0, time.UTC))
+	newer := ledger.NewDate(time.Date(2026, time.March, 5, 10, 0, 0, 0, time.UTC))
+
+	layers := []purchase.Layer{
+		{
+			ID:                 purchase.LayerID(1),
+			BusinessID:         business.ID(77),
+			PurchaseBusinessID: business.ID(77),
+			IngredientID:       ingredient.ID(10),
+			Name:               "Harina panadera",
+			PurchaseID:         purchase.ID(9),
+			Position:           1,
+			Day:                older,
+			Bought:             purchase.Measure{Quantity: 3, Unit: "unidad"},
+			Left:               purchase.Measure{Quantity: 3, Unit: "unidad"},
+			Cost:               ledger.Amount(1200),
+		},
+		{
+			ID:                 purchase.LayerID(2),
+			BusinessID:         business.ID(77),
+			PurchaseBusinessID: business.ID(77),
+			IngredientID:       ingredient.ID(10),
+			Name:               "Harina panadera",
+			PurchaseID:         purchase.ID(10),
+			Position:           1,
+			Day:                newer,
+			Bought:             purchase.Measure{Quantity: 25, Unit: "kg"},
+			Left:               purchase.Measure{Quantity: 25, Unit: "kg"},
+			Cost:               ledger.Amount(10000),
+		},
+	}
+
+	production, err := recipe.ProductionOf(
+		theRecipeOfTheProduction(t),
+		layers,
+		theCatalogOfTheTest(t),
+		theDefinitionOfTheProduction(),
+	)
+	if err != nil {
+		t.Fatalf("the production was refused: %v", err)
+	}
+
+	if production.GramsIn != 500 {
+		t.Errorf("the grams that went in are %v, want 500", production.GramsIn)
+	}
+	if len(production.Takes) != 1 {
+		t.Fatalf("the production took from %d layers, want 1", len(production.Takes))
+	}
+	if production.Takes[0].LayerID != purchase.LayerID(2) {
+		t.Errorf("the production took from the layer %d, want the one of kilos: the layer of pieces cannot be weighed",
+			production.Takes[0].LayerID)
+	}
+}
+
+// TestTheProductionIsRefusedWhenALayerBelongsToAnotherBusiness proves the
+// rule of the domain: a production consumes the layers of its own
+// business, and never the layers of another one.
+func TestTheProductionIsRefusedWhenALayerBelongsToAnotherBusiness(t *testing.T) {
+	t.Parallel()
+
+	layers := theLayersOfTheProduction()
+	layers[0].BusinessID = business.ID(88)
+
+	_, err := recipe.ProductionOf(
+		theRecipeOfTheProduction(t),
+		layers,
+		theCatalogOfTheTest(t),
+		theDefinitionOfTheProduction(),
+	)
+	if !errors.Is(err, recipe.ErrWrongBusiness) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrWrongBusiness)
+	}
+}
+
 // TestTheProductionIsRefusedWithoutADay proves the rule of the domain: a
 // production of no day is a production of no time.
 func TestTheProductionIsRefusedWithoutADay(t *testing.T) {

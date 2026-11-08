@@ -3,6 +3,7 @@ package purchase
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
@@ -112,10 +113,15 @@ func (l Layer) Consumed(take Take) (Layer, error) {
 // Checked answers the layer when it is whole, and the error when it is
 // not.
 //
-// The rule of the domain: the layer names the ingredient of the catalog,
-// it belongs to the business of its purchase, the quantity it bought is
-// positive, the unit is one of the units of the book, what is left of it
-// is never more than what it bought, and the money is not negative.
+// The rule of the domain: the layer names the ingredient of the catalog
+// and it carries the name of that ingredient, it belongs to the business
+// of its purchase, the quantity it bought is positive, the unit is one of
+// the units of the book, what is left of it is never more than what it
+// bought, and the money is not negative.
+//
+// The name of the layer is the name the owner said when she bought it, and
+// the line of the purchase it comes from carries it: the name is not empty,
+// and the table holds the rule as a defense in depth.
 //
 // The unit of the layer is the unit the book knows: the layer is derived,
 // and the way the owner said the unit is kept in the purchase.
@@ -125,6 +131,11 @@ func (l Layer) Consumed(take Take) (Layer, error) {
 func (l Layer) Checked() (Layer, error) {
 	if l.IngredientID == 0 {
 		return Layer{}, fmt.Errorf("%w: the layer names nothing of the catalog", ErrLayerWithoutIngredient)
+	}
+
+	if strings.TrimSpace(l.Name) == "" {
+		return Layer{}, fmt.Errorf("%w: the layer of the ingredient %d carries no name",
+			ErrLayerWithoutName, l.IngredientID)
 	}
 
 	if l.BusinessID != l.PurchaseBusinessID {

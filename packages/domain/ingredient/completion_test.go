@@ -72,6 +72,37 @@ func TestTheConversionIsDeclaredAndNeverAssumed(t *testing.T) {
 	}
 }
 
+// TestTheConversionThatIsNotPositiveIsRefused proves that the domain
+// refuses a conversion that is not positive: the conversion is a number of
+// grams, and the table is not the only one that says so.
+//
+// The ingredient keeps the conversion it had: the declaration is refused
+// and the book is not changed.
+func TestTheConversionThatIsNotPositiveIsRefused(t *testing.T) {
+	t.Parallel()
+
+	current := anIngredient(t, 10, business.ID(77), "Harina panadera")
+
+	for _, declaration := range []Declaration{
+		{Conversion: Conversion{RawGrams: -1}},
+		{ConversionDeclared: true},
+	} {
+		_, err := Complete(current, declaration)
+		if !errors.Is(err, ErrInvalidConversion) {
+			t.Fatalf("the error is %v, want %v", err, ErrInvalidConversion)
+		}
+	}
+
+	completed, err := Complete(current, Declaration{})
+	if err != nil {
+		t.Fatalf("the ingredient was refused: %v", err)
+	}
+	if completed.Conversion.RawGrams != current.Conversion.RawGrams {
+		t.Errorf("the conversion is %v, want the one it had: %v",
+			completed.Conversion.RawGrams, current.Conversion.RawGrams)
+	}
+}
+
 // TestTheIngredientIsWholeWhenTheOwnerDeclaresNothing proves that the
 // ingredient of a purchase carries the one to one conversion the owner
 // decided for now, and that it is still missing the unit she has not

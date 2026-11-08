@@ -41,7 +41,8 @@ func NewLaborService(labors recipe.LaborRepository, clock ports.Clock) *LaborSer
 //
 // The rules of the domain hold the recording: a labor without hours, a
 // labor without the value of the hour, a labor without the day it was
-// worked and a labor without the word of the owner are refused, and a
+// worked and a labor without the word of the owner are refused, a labor
+// whose value of the hour was filled by the agent is refused too, and a
 // refused labor leaves nothing behind.
 //
 // The day is the one the agent names, and the day of today when it names
@@ -66,11 +67,12 @@ func (s *LaborService) Record(ctx context.Context, request ports.RecordLabor) (r
 	}
 
 	labour, err := recipe.NewLabor(request.BusinessID, recipe.LaborDefinition{
-		Hours:         hours,
-		HourValue:     ledger.Amount(request.HourValue),
-		Day:           day,
-		Utterance:     request.Utterance,
-		ConfirmedWith: request.ConfirmedWith,
+		Hours:             hours,
+		HourValue:         ledger.Amount(request.HourValue),
+		HourValueInferred: request.HourValueInferred,
+		Day:               day,
+		Utterance:         request.Utterance,
+		ConfirmedWith:     request.ConfirmedWith,
 	})
 	if err != nil {
 		return recipe.Labor{}, err

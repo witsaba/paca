@@ -151,6 +151,9 @@ func TestTheSaleOfAnExpiredUnitIsRefused(t *testing.T) {
 
 // TestTheSaleOfMoreUnitsThanTheBookHoldsIsRefused proves the rule of the
 // domain: the book never writes a sale of units it does not hold.
+//
+// The sale carries its own error: the error of the waste is the error of a
+// loss, and the owner is not told about a loss when she sold nothing.
 func TestTheSaleOfMoreUnitsThanTheBookHoldsIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -163,8 +166,11 @@ func TestTheSaleOfMoreUnitsThanTheBookHoldsIsRefused(t *testing.T) {
 		theUnitsOfTheSale(),
 		definition,
 	)
-	if !errors.Is(err, recipe.ErrNotEnoughUnits) {
-		t.Fatalf("the error is %v, want %v", err, recipe.ErrNotEnoughUnits)
+	if !errors.Is(err, recipe.ErrNotEnoughUnitsToSell) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrNotEnoughUnitsToSell)
+	}
+	if errors.Is(err, recipe.ErrNotEnoughUnits) {
+		t.Fatalf("the error is %v, want the error of the sale and not the error of the waste", err)
 	}
 }
 

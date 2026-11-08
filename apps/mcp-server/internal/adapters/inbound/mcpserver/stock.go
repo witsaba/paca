@@ -80,7 +80,11 @@ type layerOutput struct {
 	// Remaining is what is left of the layer.
 	Remaining float64 `json:"remaining"`
 
-	// Cost is the money the layer cost, in whole pesos.
+	// Cost is the money of what is left of the layer, in whole pesos.
+	//
+	// It is the money the layer bought, pro rata the quantity that is
+	// left: the money follows the quantity, and the layers of a holding
+	// sum to the money of the holding.
 	Cost int64 `json:"cost"`
 }
 
@@ -189,7 +193,7 @@ func outputOfHolding(holding purchase.Holding) holdingOutput {
 			Quantity:   one.Bought.Quantity,
 			Unit:       one.Bought.Unit,
 			Remaining:  one.Left.Quantity,
-			Cost:       int64(one.Cost),
+			Cost:       int64(one.MoneyLeft()),
 		})
 	}
 

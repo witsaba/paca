@@ -77,12 +77,13 @@ func NewConversion(rawGrams float64) (Conversion, error) {
 	return Conversion{RawGrams: rawGrams}, nil
 }
 
-// Declared reports whether the conversion was declared by the owner.
+// Declared reports whether the conversion carries a factor.
 //
-// A conversion that was never declared is the one to one the owner decided
-// for now, and it is not a factor somebody invented.
+// The factor of a conversion nobody declared is zero: the ingredient keeps
+// the conversion it had. A factor that is not zero is a factor the owner
+// declared, and the domain refuses it when it is not positive.
 func (c Conversion) Declared() bool {
-	return c.RawGrams > 0
+	return c.RawGrams != 0
 }
 
 // Declaration is what the owner declares about an ingredient.
@@ -114,6 +115,16 @@ type Declaration struct {
 	// Conversion is the conversion of the raw into the prepared. It is
 	// empty when the owner declared none.
 	Conversion Conversion
+
+	// ConversionDeclared says that the owner declared the conversion,
+	// whatever the factor she declared is.
+	//
+	// The factor of a conversion nobody declared is zero, and the
+	// ingredient keeps the conversion it had. The factor of a conversion
+	// the owner did declare may be zero too, and then the declaration is
+	// refused: the conversion is a number of grams, and the table is not
+	// the only one that says so.
+	ConversionDeclared bool
 }
 
 // Complete applies the declaration of the owner to the ingredient of the
@@ -128,6 +139,10 @@ type Declaration struct {
 //   - a certification carries the document that proves it
 //     (ErrMissingEvidence);
 //   - the conversion is positive (ErrInvalidConversion).
+//
+// A declaration that carries a conversion carries a factor, and a factor
+// that is not positive is refused: the ingredient keeps the conversion it
+// had, and the table is not the only one that refuses the row.
 //
 // Nothing of the ingredient is lost: the declaration fills what the owner
 // declared and keeps the rest. The name of the ingredient is never an
@@ -174,7 +189,7 @@ func Complete(current Ingredient, declaration Declaration) (Ingredient, error) {
 		completed.Aliases = aliasesOf(completed.Name, append(append([]string{}, completed.Aliases...), declaration.Aliases...))
 	}
 
-	if declaration.Conversion.Declared() {
+	if declaration.ConversionDeclared || declaration.Conversion.Declared() {
 		conversion, err := NewConversion(declaration.Conversion.RawGrams)
 		if err != nil {
 			return Ingredient{}, err

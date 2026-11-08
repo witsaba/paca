@@ -38,6 +38,10 @@ func buildDescriptionReadMargin() string {
 		"The margin compares the price of the owner with the DIRECT cost of the batch - the money of the " +
 		"ingredients it consumes - and with the REFERENCE of the market: the price PACA researched, with the " +
 		"place it was read in and the day it was seen.\n\n" +
+		"Read the two monies apart: the money of the price of the owner is the money in her basis - the price " +
+		"of one unit, of one gram or of one kilogram, the way she charges it - and the money of the layers is " +
+		"the money of the whole batch: the direct cost is the money of the whole batch of the recipe, and the " +
+		"rates tell what that money weighs per unit, per gram and per kilogram.\n\n" +
 		"A reference is never the price of the ingredient: the price the owner pays comes from her own " +
 		"purchases, and the reference is only what the market was seen at. It never moves the money of the " +
 		"book.\n\n" +
@@ -382,6 +386,10 @@ func outputOfMarket(market recipe.Market) marginMarketOutput {
 
 // outputOfMarketLine maps one line of the market onto the answer of the
 // tool.
+//
+// The reference that compares is the one the domain chose: the domain
+// decides which reference of the ingredient compares, and the adapter never
+// decides it again.
 func outputOfMarketLine(line recipe.MarketLine) marginLineOutput {
 	answer := marginLineOutput{
 		IngredientID: int64(line.IngredientID),
@@ -394,9 +402,9 @@ func outputOfMarketLine(line recipe.MarketLine) marginLineOutput {
 		References:   make([]marginReferenceOutput, 0, len(line.References)),
 	}
 
-	if len(line.References) > 0 {
-		newest := outputOfReferenceView(line.References[0])
-		answer.Reference = &newest
+	if line.Reference.ID != 0 {
+		chosen := outputOfReferenceView(line.Reference)
+		answer.Reference = &chosen
 	}
 
 	for _, one := range line.References {

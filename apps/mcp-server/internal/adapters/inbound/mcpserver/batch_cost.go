@@ -47,7 +47,7 @@ func buildDescriptionReadBatchCost() string {
 		"The answer carries, for every recipe:\n\n" +
 		"  - the name the owner reads and the yield of the recipe: the units it makes and the weight of each one;\n" +
 		"  - the DIRECT cost of the batch, in whole pesos ('" + business.DefaultCurrency + "'): the money of the " +
-		"ingredients it consumes, without the overhead;\n" +
+		"ingredients it consumes, without the labor and without the overhead;\n" +
 		"  - the LABOR of the batch, beside the direct cost and never inside it: the hours of the steps of the " +
 		"recipe in the three kinds of the labor - the hands, the oven and the waiting - and the money of them, " +
 		"valued with the value of the hour the owner declared;\n" +
@@ -55,7 +55,8 @@ func buildDescriptionReadBatchCost() string {
 		"the hours of the oven of the steps of the recipe and the money of them, valued with the rate of the " +
 		"overhead of the house the owner declared;\n" +
 		"  - the cost per unit, per gram and per kilogram: the money of the book counts whole pesos, and these " +
-		"three are rates;\n" +
+		"three are rates: the rates are the rates of the DIRECT cost, without the labor and without the overhead, " +
+		"and the labor and the overhead travel beside them and are never inside them;\n" +
 		"  - for every ingredient of the recipe: the grams the recipe needs, the grams the stock gave to the " +
 		"batch, the money of the batch, and the layers it took from, the oldest one first.\n\n" +
 		"When the stock does not hold everything the recipe needs, the answer says what is missing, and the " +

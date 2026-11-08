@@ -282,6 +282,28 @@ func TestTheStepBelowTheAbsoluteZeroIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheStepWithNegativeMinutesIsRefused proves that the rule of the
+// domain holds: the minutes of a step are a time, and a negative number
+// of minutes is a time nobody spends.
+//
+// The step is refused when it is built and when it enters the recipe: the
+// labor of a batch is derived from the steps, and a step of negative
+// minutes would leave the labor of the batch derived without it.
+func TestTheStepWithNegativeMinutesIsRefused(t *testing.T) {
+	t.Parallel()
+
+	if _, err := recipe.NewStep("Amasar.", "", -30, 24, recipe.LaborHandsOn); !errors.Is(err, recipe.ErrInvalidMinutes) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidMinutes)
+	}
+
+	definition := theDefinitionOfTheTest()
+	definition.Steps = []recipe.Step{{Instruction: "Amasar.", Minutes: -30}}
+
+	if _, err := recipe.New(business.ID(77), definition); !errors.Is(err, recipe.ErrInvalidMinutes) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidMinutes)
+	}
+}
+
 // TestTheRecipeCarriesTheIdentityOfTheIngredientAndNotACopy proves that
 // the rule of the domain holds: the ingredient of a recipe is the
 // ingredient of the catalog, and the recipe never carries a second copy of
@@ -313,8 +335,8 @@ func TestTheErrorsNameEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := recipe.Errors()
-	if len(all) != 49 {
-		t.Fatalf("the catalogue holds %d errors, want 49", len(all))
+	if len(all) != 55 {
+		t.Fatalf("the catalogue holds %d errors, want 55", len(all))
 	}
 
 	for _, err := range all {

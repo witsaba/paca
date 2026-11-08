@@ -170,3 +170,98 @@ func (q *Queries) CreateProductionUnit(ctx context.Context, arg CreateProduction
 	)
 	return i, err
 }
+
+const listProductionUnitsOfBusiness = `-- name: ListProductionUnitsOfBusiness :many
+SELECT units.id, units.production_id, units.position, units.grams, units.expires_on
+FROM production_units units
+JOIN productions ON productions.id = units.production_id
+WHERE productions.business_id = $1
+ORDER BY units.production_id, units.position
+`
+
+// The units of the productions of the business, in the order of the
+// production they came out of and of their position: the answer is the same
+// every time it is read.
+func (q *Queries) ListProductionUnitsOfBusiness(ctx context.Context, businessID int64) ([]ProductionUnit, error) {
+	rows, err := q.db.Query(ctx, listProductionUnitsOfBusiness, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProductionUnit{}
+	for rows.Next() {
+		var i ProductionUnit
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductionID,
+			&i.Position,
+			&i.Grams,
+			&i.ExpiresOn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProductionsByBusiness = `-- name: ListProductionsByBusiness :many
+SELECT productions.id, productions.business_id, productions.recipe_id, productions.day,
+       productions.grams_in, productions.money, productions.utterance, productions.confirmed_with,
+       productions.created_at,
+       recipes.name AS recipe_name
+FROM productions
+JOIN recipes ON recipes.id = productions.recipe_id
+WHERE productions.business_id = $1
+ORDER BY productions.day, productions.id
+`
+
+type ListProductionsByBusinessRow struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	GramsIn       float64
+	Money         int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+	RecipeName    string
+}
+
+// The productions of a business and of no other one, in the order of the day
+// they were made and of their identity: the answer is the same every time
+// it is read.
+func (q *Queries) ListProductionsByBusiness(ctx context.Context, businessID int64) ([]ListProductionsByBusinessRow, error) {
+	rows, err := q.db.Query(ctx, listProductionsByBusiness, businessID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProductionsByBusinessRow{}
+	for rows.Next() {
+		var i ListProductionsByBusinessRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BusinessID,
+			&i.RecipeID,
+			&i.Day,
+			&i.GramsIn,
+			&i.Money,
+			&i.Utterance,
+			&i.ConfirmedWith,
+			&i.CreatedAt,
+			&i.RecipeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

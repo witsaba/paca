@@ -165,6 +165,44 @@ var (
 	// carries no day of expiry: the expiry is what the owner asks about,
 	// and a unit without it is not a unit of the book.
 	ErrMissingExpiry = errors.New("the unit of the production carries the day it expires")
+
+	// ErrInvalidWasteQuantity is the error of a waste that carries no
+	// whole number of units: the waste of the bakery counts the units it
+	// lost, and the book never splits a unit.
+	ErrInvalidWasteQuantity = errors.New("the waste carries a whole number of units")
+
+	// ErrInvalidWasteUnit is the error of a waste that carries another
+	// unit: the waste counts the units it lost, and the book never
+	// converts a weight into a number of units.
+	ErrInvalidWasteUnit = errors.New("the waste of the bakery counts the units it lost")
+
+	// ErrUnknownWasteReason is the error of a reason of the waste that the
+	// book does not know: the reason is what a later analysis reads, and
+	// a reason nobody declared is never guessed.
+	ErrUnknownWasteReason = errors.New("the reason of the waste is one of the four reasons of the book")
+
+	// ErrMissingWasteDay is the error of a waste of no day: a waste of no
+	// time is a waste of nothing.
+	ErrMissingWasteDay = errors.New("the waste carries the day it happened")
+
+	// ErrMissingWasteConfirmation is the error of a waste without the word
+	// the owner used to confirm it: the word is kept with the record.
+	ErrMissingWasteConfirmation = errors.New("the waste carries the word of the owner")
+
+	// ErrInvalidWasteMoney is the error of a waste whose money is
+	// negative: the money of the waste is the money of what was lost, and
+	// the money of the book is never negative.
+	ErrInvalidWasteMoney = errors.New("the money of the waste is not negative")
+
+	// ErrNotEnoughUnits is the error of a waste of units the book does not
+	// hold: the waste is of what the bakery made, and the book never
+	// writes a waste of nothing.
+	ErrNotEnoughUnits = errors.New("the book holds no unit to lose")
+
+	// ErrUnknownProduction is the error of a production the storage does
+	// not hold: the money of a unit is the money of the production it
+	// came out of, and the book never guesses it.
+	ErrUnknownProduction = errors.New("there is no production with that identity")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -206,5 +244,13 @@ func Errors() []error {
 		ErrExpiredUnit,
 		ErrMissingSaleDay,
 		ErrMissingExpiry,
+		ErrInvalidWasteQuantity,
+		ErrInvalidWasteUnit,
+		ErrUnknownWasteReason,
+		ErrMissingWasteDay,
+		ErrMissingWasteConfirmation,
+		ErrInvalidWasteMoney,
+		ErrNotEnoughUnits,
+		ErrUnknownProduction,
 	}
 }

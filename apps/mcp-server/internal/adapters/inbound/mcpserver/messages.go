@@ -215,6 +215,21 @@ var theMessages = map[error]string{
 	recipe.ErrMissingSaleDay: "the sale carries no day: ask the owner the day of the sale, and never invent one",
 	recipe.ErrMissingExpiry: "the unit of the production carries no day of expiry: read the productions of the " +
 		"business again, and never invent a day of expiry",
+	recipe.ErrInvalidWasteQuantity: "the quantity of the waste is not a whole number of units: ask the owner how " +
+		"many units she lost, and never guess them",
+	recipe.ErrInvalidWasteUnit: "the unit of the waste is not the piece: the waste of the bakery counts the " +
+		"units it lost ('unidad'), and PACA never converts a weight into a number of units",
+	recipe.ErrUnknownWasteReason: "the reason of the waste is not one of the four PACA knows: use 'burnt', " +
+		"'spoiled', 'dropped' or 'returned', and ask the owner why she lost them",
+	recipe.ErrMissingWasteDay: "the waste carries no day: ask the owner the day it happened, and never invent one",
+	recipe.ErrMissingWasteConfirmation: "the waste carries no word of the owner: send the word she used to confirm " +
+		"it ('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrInvalidWasteMoney: "the money of the waste is not a number of pesos: the money of the book counts " +
+		"whole pesos, and PACA never infers it",
+	recipe.ErrNotEnoughUnits: "the book holds no unit of that product to lose: read what expires, and ask the " +
+		"owner how many units she lost",
+	recipe.ErrUnknownProduction: "the production of the unit is not there: read the productions of the business " +
+		"again, and never guess the money of a unit",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

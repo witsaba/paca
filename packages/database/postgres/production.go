@@ -223,3 +223,73 @@ func writeProductionError(err error) error {
 
 	return err
 }
+
+// List returns the productions of the business, with the units that came out
+// of them, in the order of the day they were made and of their identity.
+//
+// The query reads the name of the recipe with the production: the recipe is
+// the owner of its name, and the production never becomes a second truth
+// about it.
+//
+// The units of every production are rows of their own table, and the reader
+// joins them: the money of a unit is the money of the production it came
+// out of, and the reader needs the units to say what that money is.
+//
+// The error is recipe.ErrNoStorage when the storage is not open.
+func (r *ProductionRepository) List(ctx context.Context, own business.ID) ([]recipe.Production, error) {
+	if r == nil || r.pool == nil {
+		return nil, recipe.ErrNoStorage
+	}
+
+	queries := r.pool.queriesFor(ctx)
+
+	rows, err := queries.ListProductionsByBusiness(ctx, int64(own))
+	if err != nil {
+		return nil, writeProductionError(err)
+	}
+
+	unitRows, err := queries.ListProductionUnitsOfBusiness(ctx, int64(own))
+	if err != nil {
+		return nil, writeProductionError(err)
+	}
+
+	units := make(map[int64][]recipe.ProductionUnit)
+
+	for _, row := range unitRows {
+		units[row.ProductionID] = append(units[row.ProductionID], recipe.ProductionUnit{
+			ID:           recipe.UnitID(row.ID),
+			ProductionID: recipe.ProductionID(row.ProductionID),
+			Position:     int(row.Position),
+			Grams:        row.Grams,
+			ExpiresOn:    ledger.NewDate(row.ExpiresOn.Time),
+		})
+	}
+
+	productions := make([]recipe.Production, 0, len(rows))
+
+	for _, row := range rows {
+		// The model is built by the domain: the row may come from a table
+		// that was changed by another writer, and the model does not trust
+		// a stranger with a production it does not know.
+		production, err := recipe.NewProduction(business.ID(row.BusinessID), recipe.ProductionFact{
+			RecipeID:      recipe.ID(row.RecipeID),
+			RecipeName:    row.RecipeName,
+			Day:           ledger.NewDate(row.Day.Time),
+			GramsIn:       row.GramsIn,
+			Money:         ledger.Amount(row.Money),
+			Units:         units[row.ID],
+			Utterance:     row.Utterance,
+			ConfirmedWith: row.ConfirmedWith,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		production.ID = recipe.ProductionID(row.ID)
+		production.CreatedAt = timestamp(row.CreatedAt)
+
+		productions = append(productions, production)
+	}
+
+	return productions, nil
+}

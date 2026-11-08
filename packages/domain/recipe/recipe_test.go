@@ -313,8 +313,8 @@ func TestTheErrorsNameEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := recipe.Errors()
-	if len(all) != 36 {
-		t.Fatalf("the catalogue holds %d errors, want 36", len(all))
+	if len(all) != 44 {
+		t.Fatalf("the catalogue holds %d errors, want 44", len(all))
 	}
 
 	for _, err := range all {

@@ -330,6 +330,7 @@ func New(
 	// written in one transaction. Without a database there is no
 	// production to write.
 	var productions recipe.ProductionRepository
+	var productionsRead recipe.ProductionReader
 	if pool != nil {
 		boundProductions, err := postgres.NewProductionRepository(pool)
 		if err != nil {
@@ -337,6 +338,7 @@ func New(
 			return nil, fmt.Errorf("the repository of the productions could not be built: %w", err)
 		}
 		productions = boundProductions
+		productionsRead = boundProductions
 	}
 
 	// The corrections of the shelf life: the shelf life of a recipe is
@@ -346,6 +348,7 @@ func New(
 	var corrections recipe.ShelfLifeRepository
 	var shelfLives recipe.ShelfLifeReader
 	var units recipe.UnitRepository
+	var unitsInTheBook recipe.UnitInTheBookReader
 
 	if pool != nil {
 		boundCorrections, err := postgres.NewShelfLifeRepository(pool)
@@ -362,6 +365,7 @@ func New(
 			return nil, fmt.Errorf("the repository of the units could not be built: %w", err)
 		}
 		units = boundUnits
+		unitsInTheBook = boundUnits
 	}
 
 	productionService := application.NewProductionService(
@@ -383,6 +387,33 @@ func New(
 		recipeReader,
 		corrections,
 		units,
+		work,
+		clock.System{},
+	)
+
+	// The waste of the bakery: what she lost, the reason, and the money of
+	// what it was worth. The waste takes the units of the product that
+	// expire first, and the money of the waste leaves the inventory and
+	// lands in the account of the waste: it is never lost from the book.
+	// The waste and the movement of its money are written in one
+	// transaction. Without a database there is no waste to write.
+	var wastes recipe.WasteRepository
+
+	if pool != nil {
+		boundWastes, err := postgres.NewWasteRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the wastes could not be built: %w", err)
+		}
+		wastes = boundWastes
+	}
+
+	wasteService := application.NewWasteService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		wastes,
 		work,
 		clock.System{},
 	)
@@ -420,6 +451,7 @@ func New(
 		RecordProduction:    productionService,
 		CorrectShelfLife:    expiryService,
 		ReadExpiring:        expiryService,
+		RecordWaste:         wasteService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

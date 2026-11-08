@@ -1262,3 +1262,65 @@ type ExpiringReader interface {
 	// business that is not there.
 	Read(ctx context.Context, request ReadExpiring) (recipe.Expiry, error)
 }
+
+// RecordWaste is the waste the owner confirmed: the product she lost, the
+// quantity she lost with its unit, the reason, the day it happened and the
+// word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// quantity, the unit and the reason are what she said, and PACA never
+// infers any of them. The money of the waste is derived by the book: it is
+// the cost the waste releases, and it is never typed.
+type RecordWaste struct {
+	// BusinessID is the business the waste belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the product she lost. It is zero when
+	// the agent names the product with its name.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the product she lost. It
+	// is empty when the agent names the product with its identity.
+	RecipeName string
+
+	// Quantity is how many units of the product the bakery lost.
+	Quantity float64
+
+	// Unit is the unit of that quantity. It is empty when the owner named
+	// none, and the waste counts the units it lost then.
+	Unit string
+
+	// Reason is why the bakery lost them: 'burnt', 'spoiled', 'dropped'
+	// or 'returned'.
+	Reason string
+
+	// Day is the day the waste happened. It is the day of today when the
+	// agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word she used to confirm the waste.
+	ConfirmedWith string
+}
+
+// WasteRecorder is the inbound port of the tool that records the waste.
+//
+// The tool writes the waste of the business and answers it with it: the
+// product, the quantity, the unit, the reason, the money of what it was
+// worth and the units that left the book.
+//
+// The identity of the business, the product, the quantity, the reason and the
+// word of the owner are required. The unit, the day and the sentence of the
+// owner are optional, and the day is the day of today when the agent names
+// none.
+//
+// The error is the error of the domain: the domain refuses a waste without
+// a product, without a whole number of units, without a reason of the book,
+// without the day it happened and without the word of the owner, and it
+// refuses a waste of units the book does not hold.
+type WasteRecorder interface {
+	// Record writes the waste of the business and answers it with it.
+	Record(ctx context.Context, request RecordWaste) (recipe.Waste, error)
+}

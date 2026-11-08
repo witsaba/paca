@@ -382,3 +382,44 @@ func writeExpiryError(err error) error {
 
 	return err
 }
+
+// ListInTheBook returns the units of the productions of the business that
+// are still in the book, in the order they expire.
+//
+// The unit that left the book is not in the answer: it was wasted, and the
+// book never offers it again. The waste takes the units of the product that
+// expire first, and only the units that are still there can leave.
+//
+// The error is recipe.ErrNoStorage when the storage is not open.
+func (r *UnitRepository) ListInTheBook(ctx context.Context, own business.ID) ([]recipe.ExpiringUnit, error) {
+	if r == nil || r.pool == nil {
+		return nil, recipe.ErrNoStorage
+	}
+
+	rows, err := r.pool.queriesFor(ctx).ListProductionUnitsInTheBook(ctx, int64(own))
+	if err != nil {
+		return nil, writeExpiryError(err)
+	}
+
+	units := make([]recipe.ExpiringUnit, 0, len(rows))
+
+	for _, row := range rows {
+		unit, err := unitOf(rowOfAUnit{
+			ID:           row.ID,
+			ProductionID: row.ProductionID,
+			Position:     int(row.Position),
+			Grams:        row.Grams,
+			ExpiresOn:    row.ExpiresOn,
+			RecipeID:     row.RecipeID,
+			ProducedOn:   row.ProducedOn,
+			RecipeName:   row.RecipeName,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		units = append(units, unit)
+	}
+
+	return units, nil
+}

@@ -43,3 +43,28 @@ RETURNING id, production_id, position, layer_id, purchase_id, quantity, unit, gr
 INSERT INTO production_units (production_id, position, grams, expires_on)
 VALUES (sqlc.arg(production_id), sqlc.arg(position), sqlc.arg(grams), sqlc.arg(expires_on))
 RETURNING id, production_id, position, grams, expires_on;
+
+-- name: ListProductionsByBusiness :many
+--
+-- The productions of a business and of no other one, in the order of the day
+-- they were made and of their identity: the answer is the same every time
+-- it is read.
+SELECT productions.id, productions.business_id, productions.recipe_id, productions.day,
+       productions.grams_in, productions.money, productions.utterance, productions.confirmed_with,
+       productions.created_at,
+       recipes.name AS recipe_name
+FROM productions
+JOIN recipes ON recipes.id = productions.recipe_id
+WHERE productions.business_id = sqlc.arg(business_id)
+ORDER BY productions.day, productions.id;
+
+-- name: ListProductionUnitsOfBusiness :many
+--
+-- The units of the productions of the business, in the order of the
+-- production they came out of and of their position: the answer is the same
+-- every time it is read.
+SELECT units.id, units.production_id, units.position, units.grams, units.expires_on
+FROM production_units units
+JOIN productions ON productions.id = units.production_id
+WHERE productions.business_id = sqlc.arg(business_id)
+ORDER BY units.production_id, units.position;

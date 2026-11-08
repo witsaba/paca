@@ -237,3 +237,27 @@ type User struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 }
+
+type Waste struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Reason        string
+	Money         int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type WasteUnit struct {
+	ID           int64
+	WasteID      int64
+	UnitID       int64
+	ProductionID int64
+	Position     int32
+	Grams        float64
+	ExpiresOn    pgtype.Date
+}

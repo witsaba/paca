@@ -1061,7 +1061,7 @@ its session starts.
 |---|---|---|---|---|
 | T17 | S22, S23, S47 | The production and the tool that records it | inline | this commit |
 | T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | this commit |
-| T19 | S24, S25 | The waste and the tool that records it | inline | `pending` |
+| T19 | S24, S25 | The waste and the tool that records it | inline | this commit |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `pending` |
 | T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
 | T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
@@ -1274,3 +1274,13 @@ Three things the increment taught, carried here for the ones to come:
 - **The rotation by expiry stays apart from the FIFO of the valuation**: `read_expiring` only orders by expiry; which unit leaves a production is T22.
 
 **Two things the owner may want to say**: the unit expired ON the day it expires (a shelf life of N days are N good days), and the correction of a shelf life needs the tool that records it — a rule without a way to reach it is a rule nobody can use, so the increment landed two tools and not one.
+
+**L33** (2026-11-06): T19 landed: **the waste**. The waste is a **movement of the book**: it carries the product, the quantity, the unit and the reason (burnt, spoiled, dropped or returned). It takes the units of the product that are still in the book and **expire first** — the rotation of the perishable output, which stays apart from the FIFO of the valuation — and it releases the cost of what it was worth, derived, never typed: the money of the production the unit came out of, divided by the units that production made, times the units that left, in whole pesos. The money is not lost: it leaves the inventory and lands in the account of the waste, in the same transaction as the waste itself. The tool is `record_waste`, and the transport carries thirty-four tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **A unit that left the book never leaves again**: the unique index over the unit is the rule of the storage, and the domain refuses a waste of units that are not there.
+- **The reason is a column of its own**: burnt, spoiled, dropped or returned — the reason is what a later analysis reads, and it is not buried in a sentence.
+- **The waste counts whole units**: the book never converts a weight into a number of units and never splits a unit. When the owner names a weight, the agent asks her how many units she lost.
+
+**A gap this increment exposed, for the checkpoint**: the production (T17) never moved the ledger, so the account of the inventory does not follow the valuation of the stock — the waste moves money out of an inventory that never received it. The rule of the movements of the production belongs to the increment that reads them together (T15 and T20 read the money), and it is an open item of the checkpoint.

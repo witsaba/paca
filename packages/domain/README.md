@@ -51,8 +51,9 @@ packages/domain/
                     the labour of the owner, the overhead of the house,
                     the report of the real price, the production of the day
                     with the units it made and the day they expire, the
-                    correction of the shelf life and the read of what
-                    expires, and the port of the storage
+                    correction of the shelf life, the read of what
+                    expires, the waste of the bakery and the port of the
+                    storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
@@ -820,6 +821,47 @@ refuses it (`ErrExpiredUnit`), and a sale of no day is refused too
 `recipe.ExpiringUnits` orders them, and the unit that expires first is
 the first one. The rotation — the unit that leaves a production — is
 another rule, and it does not live here.
+
+## The model of the waste
+
+`recipe.Waste` is what the bakery lost: the product, the quantity, the unit
+and the reason, the day it happened, the word of the owner and the money of
+what it was worth. `recipe.WastedUnit` is a unit of a production that left
+the book. It lives in the package of the recipe, next to the production it
+is a waste of: the waste is of a product, and the product is a recipe.
+
+**The waste is a movement of the book.** It carries the product, the
+quantity, the unit and the reason — burnt, spoiled, dropped or returned —
+and it is written with the confirmation of the owner, the way the
+production is written (`ErrMissingWasteConfirmation`). The sentence of the
+owner is optional, and it is kept verbatim when she said one.
+
+**The reason is what a later analysis reads, and it is never guessed.** The
+reasons are the four of the book, and `recipe.ParseWasteReason` reads the
+name the owner says the way a person reads it: a reason the book does not
+know is refused (`ErrUnknownWasteReason`).
+
+**The waste counts the units it lost.** The quantity is a whole number of
+units (`ErrInvalidWasteQuantity`), and the unit is the unit of a piece
+(`ErrInvalidWasteUnit`): the book never converts a weight into a number of
+units, and it never splits a unit. When the owner names a weight, the agent
+asks her how many units she lost.
+
+**The units that leave the book are the units that expire first.** The
+rotation of the output follows the earliest expiry, and the valuation of
+the stock by the FIFO is another rule: the model keeps the two apart. A
+waste of units the book does not hold is refused (`ErrNotEnoughUnits`).
+
+**The waste releases the cost of what it was worth.** The money of the
+waste is the money of the units that left: the money of the production they
+came out of, divided by the units that production made. The money is
+derived, never typed, and it counts whole pesos.
+
+**The money of the waste is never lost from the book.**
+`recipe.Waste.Movement` moves it from the inventory to the account of the
+waste — the account the book of a business opens for the product that
+never reached a client. The description of the movement is the sentence of
+the owner, and the words of the book when she said none.
 
 ## The model of the reference price
 

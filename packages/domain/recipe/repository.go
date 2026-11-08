@@ -225,3 +225,65 @@ type UnitRepository interface {
 	// when the storage is not open.
 	WriteExpiry(ctx context.Context, units []CorrectedUnit) error
 }
+
+// ProductionReader is the port of the storage that reads the productions
+// back.
+//
+// The port is what a use case needs: the money of a unit is the money of the
+// production it came out of, and the waste releases that money.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type ProductionReader interface {
+	// List returns the productions of the business, with the units that
+	// came out of them, in the order of the day they were made and of
+	// their identity.
+	//
+	// The list holds the productions of the business and of no other one,
+	// and it is empty when the business made no production yet.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Production, error)
+}
+
+// UnitInTheBookReader is the port of the storage that reads the units that
+// are still in the book.
+//
+// The port is what a use case needs: the waste takes the units of the
+// product that expire first, and a unit that left the book is never taken
+// again.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type UnitInTheBookReader interface {
+	// ListInTheBook returns the units of the productions of the business
+	// that are still in the book, in the order they expire.
+	//
+	// The list holds the units of the business and of no other one, and
+	// it is empty when the business made no production yet.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	ListInTheBook(ctx context.Context, own business.ID) ([]ExpiringUnit, error)
+}
+
+// WasteRepository is the port of the storage of the wastes.
+//
+// The port is what a use case needs: the tool of the waste writes the fact
+// of what the bakery lost, with the units that left the book, and the
+// storage keeps it in the book of the business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type WasteRepository interface {
+	// Record writes the waste of the business with the units that left
+	// the book, and answers it with the identity that the storage
+	// generated.
+	//
+	// The units of a waste are rows of their own table, and the storage
+	// writes them with it: a waste without its units is not a waste.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business or the recipe is not there,
+	// and ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, waste Waste) (Waste, error)
+}

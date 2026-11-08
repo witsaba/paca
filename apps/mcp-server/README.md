@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-three tools: the way PACA onboards a person, the four
+The server exposes thirty-four tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -152,6 +152,7 @@ just declared, and the read of what expires.
 | `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. It writes nothing. |
 | `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
 | `correct_shelf_life`      | Writes the correction of the shelf life the owner just confirmed: the recipe she corrected, the number of days what it makes keeps, the day she corrected it and her word. The shelf life of a recipe is an APPROXIMATION until she corrects it, and the correction is KEPT: the last one she declared is the shelf life that counts. The correction moves the units that were ALREADY made: every unit of that recipe expires again, the day it was made plus the days she corrected. The days are never invented by PACA. One call, one transaction: the correction and the days it moves are written whole or not at all. |
+| `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
 | `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
@@ -377,6 +378,22 @@ already expired, the unit that expires first first. A unit is expired on
 the day it expires and on every day after it, and a unit that expired is
 never sold. The two tools write nothing in the book of the money: the
 expiry moves the day a unit expires, and never a peso.
+
+**The waste is a movement, and it is written with the word of the owner.**
+The tool `record_waste` writes what the bakery lost: the product she lost,
+the quantity of units, the unit, the reason — burnt, spoiled, dropped or
+returned — and the day it happened. The reason is what a later analysis
+reads, and it is never invented: PACA asks her why she lost them. The waste
+counts the UNITS it lost: the book never converts a weight into a number of
+units, and it never splits a unit. The units that leave the book are the
+units of the product that EXPIRE FIRST — the rotation of the output, a rule
+apart from the FIFO of the valuation — and the money of the waste is the
+money of those units: the cost it releases, the money of the production
+they came out of divided by the units that production made. The money is
+never lost from the book: it leaves the inventory and it lands in the
+account of the waste, and the waste and the movement of its money are
+written in one transaction. The word she used to confirm it is kept with
+the record, and her sentence is kept verbatim when she said one.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

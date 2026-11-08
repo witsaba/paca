@@ -1324,3 +1324,70 @@ type WasteRecorder interface {
 	// Record writes the waste of the business and answers it with it.
 	Record(ctx context.Context, request RecordWaste) (recipe.Waste, error)
 }
+
+// RecordSale is the sale the owner confirmed: the product she sold, the
+// quantity she sold with its unit, the money the client paid, the account
+// that receives the money, the day it happened and the word she used to
+// confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// quantity, the unit and the money are what she said, and PACA never
+// infers any of them. The cost of the sale is derived by the book: it is
+// the cost the sale releases, and it is never typed.
+type RecordSale struct {
+	// BusinessID is the business the sale belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the product she sold. It is zero when
+	// the agent names the product with its name.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the product she sold. It
+	// is empty when the agent names the product with its identity.
+	RecipeName string
+
+	// Quantity is how many units of the product the bakery sold.
+	Quantity float64
+
+	// Unit is the unit of that quantity. It is empty when the owner named
+	// none, and the sale counts the units it sold then.
+	Unit string
+
+	// Money is the money the client paid, in whole pesos.
+	Money int64
+
+	// ReceivingAccountID is the account the money of the sale lands in.
+	// It is zero when the owner named none, and the money then lands in
+	// the cash of the business.
+	ReceivingAccountID account.ID
+
+	// Day is the day the sale happened. It is the day of today when the
+	// agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word she used to confirm the sale.
+	ConfirmedWith string
+}
+
+// SaleRecorder is the inbound port of the tool that records the sale.
+//
+// The tool writes the sale of the business and answers it with it: the
+// product, the quantity, the unit, the money the client paid, the cost the
+// sale released and the units that left the book.
+//
+// The identity of the business, the product, the quantity, the money and
+// the word of the owner are required. The unit, the account that receives
+// the money, the day and the sentence of the owner are optional, and the
+// day is the day of today when the agent names none.
+//
+// The error is the error of the domain: the domain refuses a sale without a
+// product, without a whole number of units, without money, without the day
+// it happened and without the word of the owner, and it refuses the sale of
+// a unit that expired.
+type SaleRecorder interface {
+	// Record writes the sale of the business and answers it with it.
+	Record(ctx context.Context, request RecordSale) (recipe.Sale, error)
+}

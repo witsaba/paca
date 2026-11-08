@@ -230,6 +230,16 @@ var theMessages = map[error]string{
 		"owner how many units she lost",
 	recipe.ErrUnknownProduction: "the production of the unit is not there: read the productions of the business " +
 		"again, and never guess the money of a unit",
+	recipe.ErrInvalidSaleQuantity: "the quantity of the sale is not a whole number of units: ask the owner how " +
+		"many units she sold, and never guess them",
+	recipe.ErrInvalidSaleUnit: "the unit of the sale is not the piece: the sale of the bakery counts the units " +
+		"it sold ('unidad'), and PACA never converts a weight into a number of units",
+	recipe.ErrInvalidSaleMoney: "the money of the sale is not a positive number of pesos: ask the owner what the " +
+		"client paid, and never fill it by yourself",
+	recipe.ErrInvalidSaleCost: "the cost of the sale is not a number of pesos: the cost of the sale is the " +
+		"money of the units that left the book, and it is never negative",
+	recipe.ErrMissingSaleConfirmation: "the sale carries no word of the owner: send the word she used to confirm " +
+		"it ('sí', 'confirmado'), and keep it with the record",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

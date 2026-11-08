@@ -14,15 +14,9 @@ import (
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
-// The names the database gives to the constraints of the tables of the
-// wastes.
-//
-// They are the names PostgreSQL carries in its errors, and they are how the
-// adapter tells one refusal from another.
-const (
-	wasteUnitsOnePositionIndex = "waste_units_one_position"
-	wasteUnitsOneUnitIndex     = "waste_units_one_unit"
-)
+// The waste is a movement of the book, and the units that left it are rows
+// of the table of the exits: the table of the exits owns the rule that a
+// unit leaves the book once, and it is shared with the other exits.
 
 // WasteRepository is the adapter of the storage of the wastes.
 //
@@ -131,9 +125,10 @@ func (r *WasteRepository) write(
 				recipe.ErrInvalidValue, err)
 		}
 
-		if _, err := queries.CreateWasteUnit(ctx, db.CreateWasteUnitParams{
-			WasteID:      row.ID,
+		if _, err := queries.CreateUnitExit(ctx, db.CreateUnitExitParams{
 			UnitID:       int64(one.UnitID),
+			ExitKind:     exitKindWaste,
+			ExitID:       row.ID,
 			ProductionID: int64(one.ProductionID),
 			Position:     place,
 			Grams:        one.Grams,
@@ -193,8 +188,8 @@ func writeWasteError(err error) error {
 
 	switch pgErr.Code {
 	case uniqueViolation:
-		if pgErr.ConstraintName == wasteUnitsOnePositionIndex ||
-			pgErr.ConstraintName == wasteUnitsOneUnitIndex {
+		if pgErr.ConstraintName == unitExitsPrimaryKey ||
+			pgErr.ConstraintName == unitExitsOnePositionIndex {
 			return fmt.Errorf("%w: the constraint %q refused the row: a unit leaves the book only once",
 				recipe.ErrInvalidValue, pgErr.ConstraintName)
 		}

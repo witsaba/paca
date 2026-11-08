@@ -67,12 +67,10 @@ type CreateWasteRow struct {
 // owner. The reason is what a later analysis reads, and it is a column of
 // its own: it is not buried inside a sentence.
 //
-// The units that left the book are rows of their own table: they are the
-// trace of the rotation of the output by the expiry. The unique index over
-// the unit holds the rule of the book: a unit leaves the book only once.
-//
-// The units that are still in the book are the ones that did not leave it:
-// the waste takes them, and a unit that already left is never taken again.
+// The units that left the book are rows of the table of the exits: the
+// trace of the rotation of the output by the expiry. The table of the
+// exits owns the rule of the book: a unit leaves the book only once,
+// whichever exit takes it.
 func (q *Queries) CreateWaste(ctx context.Context, arg CreateWasteParams) (CreateWasteRow, error) {
 	row := q.db.QueryRow(ctx, createWaste,
 		arg.BusinessID,
@@ -101,97 +99,4 @@ func (q *Queries) CreateWaste(ctx context.Context, arg CreateWasteParams) (Creat
 		&i.RecipeName,
 	)
 	return i, err
-}
-
-const createWasteUnit = `-- name: CreateWasteUnit :one
-INSERT INTO waste_units (waste_id, unit_id, production_id, position, grams, expires_on)
-VALUES (
-    $1, $2, $3, $4,
-    $5, $6
-)
-RETURNING id, waste_id, unit_id, production_id, position, grams, expires_on
-`
-
-type CreateWasteUnitParams struct {
-	WasteID      int64
-	UnitID       int64
-	ProductionID int64
-	Position     int32
-	Grams        float64
-	ExpiresOn    pgtype.Date
-}
-
-func (q *Queries) CreateWasteUnit(ctx context.Context, arg CreateWasteUnitParams) (WasteUnit, error) {
-	row := q.db.QueryRow(ctx, createWasteUnit,
-		arg.WasteID,
-		arg.UnitID,
-		arg.ProductionID,
-		arg.Position,
-		arg.Grams,
-		arg.ExpiresOn,
-	)
-	var i WasteUnit
-	err := row.Scan(
-		&i.ID,
-		&i.WasteID,
-		&i.UnitID,
-		&i.ProductionID,
-		&i.Position,
-		&i.Grams,
-		&i.ExpiresOn,
-	)
-	return i, err
-}
-
-const listProductionUnitsInTheBook = `-- name: ListProductionUnitsInTheBook :many
-SELECT units.id, units.production_id, units.position, units.grams, units.expires_on,
-       productions.recipe_id, productions.day AS produced_on, recipes.name AS recipe_name
-FROM production_units units
-JOIN productions ON productions.id = units.production_id
-JOIN recipes ON recipes.id = productions.recipe_id
-WHERE productions.business_id = $1
-  AND NOT EXISTS (SELECT 1 FROM waste_units wasted WHERE wasted.unit_id = units.id)
-ORDER BY units.expires_on, units.id
-`
-
-type ListProductionUnitsInTheBookRow struct {
-	ID           int64
-	ProductionID int64
-	Position     int32
-	Grams        float64
-	ExpiresOn    pgtype.Date
-	RecipeID     int64
-	ProducedOn   pgtype.Date
-	RecipeName   string
-}
-
-// The units of the productions of the business that are still in the book,
-// in the order they expire: the one that expires first is the first one.
-func (q *Queries) ListProductionUnitsInTheBook(ctx context.Context, businessID int64) ([]ListProductionUnitsInTheBookRow, error) {
-	rows, err := q.db.Query(ctx, listProductionUnitsInTheBook, businessID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListProductionUnitsInTheBookRow{}
-	for rows.Next() {
-		var i ListProductionUnitsInTheBookRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProductionID,
-			&i.Position,
-			&i.Grams,
-			&i.ExpiresOn,
-			&i.RecipeID,
-			&i.ProducedOn,
-			&i.RecipeName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

@@ -418,6 +418,33 @@ func New(
 		clock.System{},
 	)
 
+	// The sale of the bakery: what she sold, the money the client paid,
+	// and the cost the sale released. The sale takes the units of the
+	// product that expire first, and it refuses the sale of a unit that
+	// expired. The money of the sale and the cost it releases are written
+	// with the sale, in one transaction. Without a database there is no
+	// sale to write.
+	var sales recipe.SaleRepository
+
+	if pool != nil {
+		boundSales, err := postgres.NewSaleRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the sales could not be built: %w", err)
+		}
+		sales = boundSales
+	}
+
+	saleService := application.NewSaleService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		sales,
+		work,
+		clock.System{},
+	)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -452,6 +479,7 @@ func New(
 		CorrectShelfLife:    expiryService,
 		ReadExpiring:        expiryService,
 		RecordWaste:         wasteService,
+		RecordSale:          saleService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

@@ -1062,7 +1062,7 @@ its session starts.
 | T17 | S22, S23, S47 | The production and the tool that records it | inline | this commit |
 | T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | this commit |
 | T19 | S24, S25 | The waste and the tool that records it | inline | this commit |
-| T20 | S24, S26 | The sale and the tool that records it | inline | `pending` |
+| T20 | S24, S26 | The sale and the tool that records it | inline | `this commit` |
 | T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
 | T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
 
@@ -1284,3 +1284,15 @@ Three things the increment taught, carried here for the ones to come:
 - **The waste counts whole units**: the book never converts a weight into a number of units and never splits a unit. When the owner names a weight, the agent asks her how many units she lost.
 
 **A gap this increment exposed, for the checkpoint**: the production (T17) never moved the ledger, so the account of the inventory does not follow the valuation of the stock — the waste moves money out of an inventory that never received it. The rule of the movements of the production belongs to the increment that reads them together (T15 and T20 read the money), and it is an open item of the checkpoint.
+
+**L34** (2026-11-08): T20 landed: **the sale**. The sale is a movement of the book, and it moves the money in and releases the cost of the units it sells, **in one transaction**: the money the client paid lands in the account that receives it — the cash of the business, or the account the owner names — and it comes from the account of the sales; the cost of the units that left the book leaves the inventory and lands in the account of the cost of the sales. The money of the sale is what the client paid, and it is never inferred: the price list of the products is T25, and the domain never guesses the money of a sale.
+
+The sale takes the units of the product that are still in the book and **expire first** — the rotation of the perishable output, which stays apart from the FIFO of the valuation — and the sale of a unit that expired is refused: the expired unit leaves the book as a waste, and the book says so. The cost of the sale is derived, never typed: the money of the production the unit came out of, divided by the units that production made. The FIFO of the layers was already taken when the production consumed them, so the money of the production is already FIFO-valued, and the sale reads that money instead of recomputing a valuation of its own. The tool is `record_sale`, and the transport carries thirty-five tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The exits of the book live in one table now.** The sale is the second exit, and the rule "a unit that left the book never leaves again" has to hold across both of them: the storage is the defense in depth of that rule, and one table owns it. The table `unit_exits` replaced `waste_units`, and the migration moved the rows of the waste into it. The lesson is for the exits to come — the consumption and the donation (T21): every exit writes its units in the same table, and the unit leaves the book once, whichever exit takes it.
+- **A refused sale does not skip the expired unit.** The rotation takes the units that expire first, and the sale refuses the whole one when one of them expired: taking a fresher unit instead would hide a loss that the book has to show.
+- **The cost of the sale and the cost of the waste are the same derivation.** The money of the production divided by the units it made is the cost of a unit, and the sale and the waste sum it over the units they took. The derivation lives in one place, and the next exit reuses it instead of writing its own.
+
+**A gap this increment exposed, for the checkpoint**: the production (T17) still never moved the ledger, so the account of the inventory does not follow the valuation of the stock — the sale and the waste move money out of an inventory that never received it. The rule of the movements of the production belongs to the increment that reads them together, and it is an open item of the checkpoint.

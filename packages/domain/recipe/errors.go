@@ -203,6 +203,30 @@ var (
 	// not hold: the money of a unit is the money of the production it
 	// came out of, and the book never guesses it.
 	ErrUnknownProduction = errors.New("there is no production with that identity")
+
+	// ErrInvalidSaleQuantity is the error of a sale that carries no whole
+	// number of units: the sale of the bakery counts the units it sold,
+	// and the book never splits a unit.
+	ErrInvalidSaleQuantity = errors.New("the sale carries a whole number of units")
+
+	// ErrInvalidSaleUnit is the error of a sale that carries another
+	// unit: the sale counts the units it sold, and the book never
+	// converts a weight into a number of units.
+	ErrInvalidSaleUnit = errors.New("the sale of the bakery counts the units it sold")
+
+	// ErrInvalidSaleMoney is the error of a sale that carries no money:
+	// a sale moves money in, and the money of the book is never
+	// inferred.
+	ErrInvalidSaleMoney = errors.New("the money of the sale is positive")
+
+	// ErrInvalidSaleCost is the error of a sale whose cost is negative:
+	// the cost of the sale is the money of the units that left the book,
+	// and the money of the book is never negative.
+	ErrInvalidSaleCost = errors.New("the cost of the sale is not negative")
+
+	// ErrMissingSaleConfirmation is the error of a sale without the word
+	// the owner used to confirm it: the word is kept with the record.
+	ErrMissingSaleConfirmation = errors.New("the sale carries the word of the owner")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -252,5 +276,10 @@ func Errors() []error {
 		ErrInvalidWasteMoney,
 		ErrNotEnoughUnits,
 		ErrUnknownProduction,
+		ErrInvalidSaleQuantity,
+		ErrInvalidSaleUnit,
+		ErrInvalidSaleMoney,
+		ErrInvalidSaleCost,
+		ErrMissingSaleConfirmation,
 	}
 }

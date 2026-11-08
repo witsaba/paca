@@ -527,25 +527,43 @@ func (w Waste) Description() string {
 // ErrUnknownRecipe when the business holds no product with that name, and
 // ErrAmbiguousRecipe when it holds more than one.
 func theProductOfTheWaste(productions []Production, definition WasteDefinition) (ID, error) {
-	if definition.RecipeID > 0 {
+	return theProductOfTheBook(productions, definition.RecipeID, definition.RecipeName, "waste")
+}
+
+// theProductOfTheBook answers the product an exit of the book is of.
+//
+// The rule of the domain: the identity of a product answers that product
+// alone, and the name the owner reads answers the products that carry it:
+// the name of a product is not unique inside the business, and a name that
+// more than one product carries is refused, because the book never guesses
+// which product she lost or sold.
+//
+// The subject names what the exit is, so the refusal says what the owner
+// has to tell.
+//
+// The error is ErrMissingRecipe when the exit names no product,
+// ErrUnknownRecipe when the business holds no product with that name, and
+// ErrAmbiguousRecipe when it holds more than one.
+func theProductOfTheBook(productions []Production, id ID, name, subject string) (ID, error) {
+	if id > 0 {
 		for _, one := range productions {
-			if one.RecipeID == definition.RecipeID {
+			if one.RecipeID == id {
 				return one.RecipeID, nil
 			}
 		}
 
-		return 0, fmt.Errorf("%w: the product %d", ErrUnknownRecipe, definition.RecipeID)
+		return 0, fmt.Errorf("%w: the product %d", ErrUnknownRecipe, id)
 	}
 
-	name := strings.TrimSpace(definition.RecipeName)
-	if name == "" {
-		return 0, fmt.Errorf("%w: the waste names the product it lost", ErrMissingRecipe)
+	spoken := strings.TrimSpace(name)
+	if spoken == "" {
+		return 0, fmt.Errorf("%w: the %s names no product", ErrMissingRecipe, subject)
 	}
 
 	found := make([]ID, 0)
 
 	for _, one := range productions {
-		if !strings.EqualFold(strings.TrimSpace(one.RecipeName), strings.TrimSpace(name)) {
+		if !strings.EqualFold(strings.TrimSpace(one.RecipeName), strings.TrimSpace(spoken)) {
 			continue
 		}
 
@@ -556,12 +574,12 @@ func theProductOfTheWaste(productions []Production, definition WasteDefinition) 
 
 	switch len(found) {
 	case 0:
-		return 0, fmt.Errorf("%w: the business holds no product named %q", ErrUnknownRecipe, name)
+		return 0, fmt.Errorf("%w: the business holds no product named %q", ErrUnknownRecipe, spoken)
 	case 1:
 		return found[0], nil
 	default:
 		return 0, fmt.Errorf("%w: the business holds %d products named %q",
-			ErrAmbiguousRecipe, len(found), name)
+			ErrAmbiguousRecipe, len(found), spoken)
 	}
 }
 
@@ -600,18 +618,31 @@ func theNameOfTheProduct(productions []Production, of ID) string {
 // never converts a weight into a number of units, and it never splits a
 // unit.
 func theUnitOfTheWaste(unit string) (string, error) {
+	return theUnitOfTheBook(unit, ErrInvalidWasteUnit)
+}
+
+// theUnitOfTheBook answers the unit of the quantity of an exit of the book.
+//
+// The rule of the domain: the exits of the bakery count the units they
+// took, and the unit of a piece is the one the book knows. The unit is
+// empty when the owner named none, and the exit counts the units it took
+// then.
+//
+// The error is the one the caller names when the unit is another one: the
+// book never converts a weight into a number of units, and it never splits
+// a unit.
+func theUnitOfTheBook(unit string, invalid error) (string, error) {
 	if strings.TrimSpace(unit) == "" {
 		return ingredient.UnitPiece.String(), nil
 	}
 
 	parsed, err := ingredient.ParseUnit(unit)
 	if err != nil {
-		return "", fmt.Errorf("%w: the unit of the waste is %q", ErrInvalidWasteUnit, unit)
+		return "", fmt.Errorf("%w: the unit is %q", invalid, unit)
 	}
 
 	if parsed != ingredient.UnitPiece {
-		return "", fmt.Errorf("%w: the unit of the waste is %q",
-			ErrInvalidWasteUnit, parsed.String())
+		return "", fmt.Errorf("%w: the unit is %q", invalid, parsed.String())
 	}
 
 	return parsed.String(), nil

@@ -218,6 +218,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	RecordWaste ports.WasteRecorder
+
+	// RecordSale is the use case that writes the sale of the bakery: what
+	// she sold, the money the client paid, and the cost it released.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordSale ports.SaleRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -281,6 +288,7 @@ func New(opts Options) *Server {
 	transport.registerProductionTools(opts.RecordProduction)
 	transport.registerExpiryTools(opts.CorrectShelfLife, opts.ReadExpiring)
 	transport.registerWasteTools(opts.RecordWaste)
+	transport.registerSaleTools(opts.RecordSale)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

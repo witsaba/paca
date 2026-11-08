@@ -212,6 +212,20 @@ type RecipeStep struct {
 	LaborKind   string
 }
 
+type Sale struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Money         int64
+	Cost          int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type StockLayer struct {
 	ID           int64
 	BusinessID   int64
@@ -224,6 +238,17 @@ type StockLayer struct {
 	Unit         string
 	Remaining    float64
 	Cost         int64
+	CreatedAt    pgtype.Timestamptz
+}
+
+type UnitExit struct {
+	UnitID       int64
+	ExitKind     string
+	ExitID       int64
+	ProductionID int64
+	Position     int32
+	Grams        float64
+	ExpiresOn    pgtype.Date
 	CreatedAt    pgtype.Timestamptz
 }
 
@@ -250,14 +275,4 @@ type Waste struct {
 	Utterance     string
 	ConfirmedWith string
 	CreatedAt     pgtype.Timestamptz
-}
-
-type WasteUnit struct {
-	ID           int64
-	WasteID      int64
-	UnitID       int64
-	ProductionID int64
-	Position     int32
-	Grams        float64
-	ExpiresOn    pgtype.Date
 }

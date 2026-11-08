@@ -52,7 +52,8 @@ packages/domain/
                     the report of the real price, the production of the day
                     with the units it made and the day they expire, the
                     correction of the shelf life, the read of what
-                    expires, the waste of the bakery and the port of the
+                    expires, the waste of the bakery, the sale of the
+                    bakery and the port of the
                     storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
@@ -862,6 +863,57 @@ derived, never typed, and it counts whole pesos.
 waste — the account the book of a business opens for the product that
 never reached a client. The description of the movement is the sentence of
 the owner, and the words of the book when she said none.
+
+## The model of the sale
+
+`recipe.Sale` is what the bakery sold: the product, the quantity, the
+unit, the money the client paid, the day it happened, the word of the
+owner and the cost the sale released. `recipe.SoldUnit` is a unit of a
+production that left the book. It lives in the package of the recipe, next
+to the production it is a sale of: the sale is of a product, and the
+product is a recipe.
+
+**The sale is a movement of the book.** It carries the product, the
+quantity, the unit and the money the client paid, and it is written with
+the confirmation of the owner, the way the production and the waste are
+written (`ErrMissingSaleConfirmation`). The sentence of the owner is
+optional, and it is kept verbatim when she said one.
+
+**The money of the sale is what the client paid, and it is never
+inferred.** It is positive (`ErrInvalidSaleMoney`) and it counts whole
+pesos: the price list of the products is a later work, and the book never
+guesses the money of a sale.
+
+**The sale counts the units it sold.** The quantity is a whole number of
+units (`ErrInvalidSaleQuantity`), and the unit is the unit of a piece
+(`ErrInvalidSaleUnit`): the book never converts a weight into a number of
+units, and it never splits a unit.
+
+**The units that leave the book are the units that expire first.** The
+rotation of the output follows the earliest expiry, and the valuation of
+the stock by the FIFO is another rule: the model keeps the two apart. A
+sale of units the book does not hold is refused (`ErrNotEnoughUnits`).
+
+**A unit that expired is never sold.** The sale is refused
+(`ErrExpiredUnit`), and it does not skip the expired unit to take a
+fresher one: the expired unit leaves the book as a waste, and the book
+says so.
+
+**The sale releases the cost of what it sold.** The cost of the sale is
+the money of the units that left: the money of the production they came
+out of, divided by the units that production made. The FIFO of the layers
+was already taken when the production consumed them, so the money of the
+production is already FIFO-valued, and the sale reads that money: it never
+recomputes a valuation of its own. The cost is derived, never typed, and
+it counts whole pesos (`ErrInvalidSaleCost`).
+
+**The sale moves the money in and it releases the cost.**
+`recipe.Sale.MoneyMovement` moves the money of the sale from the account
+of the sales to the account that receives it — the cash of the business, or
+the one the owner names (`recipe.TheReceivingAccount`) — and
+`recipe.Sale.CostMovement` moves the cost of the units that left the book
+from the inventory to the account of the cost of the sales. The money of
+the sale is never lost from the book, and neither is the cost of it.
 
 ## The model of the reference price
 

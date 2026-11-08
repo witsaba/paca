@@ -287,3 +287,27 @@ type WasteRepository interface {
 	// and ErrNoStorage when the storage is not open.
 	Record(ctx context.Context, waste Waste) (Waste, error)
 }
+
+// SaleRepository is the port of the storage of the sales.
+//
+// The port is what a use case needs: the tool of the sale writes the fact
+// of what the bakery sold, with the units that left the book, and the
+// storage keeps it in the book of the business.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type SaleRepository interface {
+	// Record writes the sale of the business with the units that left
+	// the book, and answers it with the identity that the storage
+	// generated.
+	//
+	// The units of a sale are rows of the table of the exits of the
+	// book, and the storage writes them with it: a sale without its
+	// units is not a sale, and a unit that left the book never leaves
+	// it again.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business or the recipe is not there,
+	// and ErrNoStorage when the storage is not open.
+	Record(ctx context.Context, sale Sale) (Sale, error)
+}

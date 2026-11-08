@@ -257,6 +257,166 @@ func TestTheUnitsAreReadWithTheProductionAndTheRecipe(t *testing.T) {
 	}
 }
 
+// theWasteOfTheExpiry derives the waste that takes three units of the
+// production: the units that leave the book are never offered again.
+func theWasteOfTheExpiry(
+	t *testing.T,
+	bakery business.Business,
+	baked recipe.Recipe,
+	production recipe.Production,
+	units []recipe.ExpiringUnit,
+) recipe.Waste {
+	t.Helper()
+
+	waste, err := recipe.WasteOf(bakery.ID, []recipe.Production{production}, units, recipe.WasteDefinition{
+		RecipeID:      baked.ID,
+		RecipeName:    baked.Name,
+		Quantity:      3,
+		Reason:        recipe.WasteBurnt,
+		Day:           ledger.NewDate(time.Date(2026, time.March, 14, 9, 0, 0, 0, time.UTC)),
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the waste of the test was refused: %v", err)
+	}
+
+	return waste
+}
+
+// TestTheUnitsThatLeftTheBookAreNotOffered proves the rule of the table
+// against a real database: a unit that left the book is never offered
+// again, whatever exit took it.
+func TestTheUnitsThatLeftTheBookAreNotOffered(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := unitRepository(t)
+	bakery := theBakeryOfTheExpiry(t, ctx)
+	flour, layers := theStockOfTheProductions(t, ctx, bakery)
+	baked := theRecipeOfTheProductions(t, ctx, bakery, flour.ID)
+
+	production, err := productionsRepository(t).Record(ctx, theProductionOfTheTest(t, bakery, baked, layers, flour))
+	if err != nil {
+		t.Fatalf("the production could not be written: %v", err)
+	}
+
+	units, err := repo.ListInTheBook(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the units could not be read: %v", err)
+	}
+
+	if len(units) != 10 {
+		t.Fatalf("the book holds %d units, want 10", len(units))
+	}
+
+	if _, err := wasteRepository(t).Record(ctx, theWasteOfTheExpiry(t, bakery, baked, production, units)); err != nil {
+		t.Fatalf("the waste could not be written: %v", err)
+	}
+
+	read, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the units could not be read: %v", err)
+	}
+
+	if len(read) != 7 {
+		t.Fatalf("the business holds %d units, want the 7 that are still in the book", len(read))
+	}
+}
+
+// TestTheCorrectionOfTheShelfLifeMovesOnlyTheUnitsInTheBook proves the
+// rule of the table against a real database: the correction moves the units
+// that are still in the book, and a unit that left the book keeps the day
+// it expired on: there is one truth about each one of them.
+func TestTheCorrectionOfTheShelfLifeMovesOnlyTheUnitsInTheBook(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	units := unitRepository(t)
+	bakery := theBakeryOfTheExpiry(t, ctx)
+	flour, layers := theStockOfTheProductions(t, ctx, bakery)
+	baked := theRecipeOfTheProductions(t, ctx, bakery, flour.ID)
+
+	production, err := productionsRepository(t).Record(ctx, theProductionOfTheTest(t, bakery, baked, layers, flour))
+	if err != nil {
+		t.Fatalf("the production could not be written: %v", err)
+	}
+
+	inTheBook, err := units.ListInTheBook(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the units could not be read: %v", err)
+	}
+
+	if _, err := wasteRepository(t).Record(ctx, theWasteOfTheExpiry(t, bakery, baked, production, inTheBook)); err != nil {
+		t.Fatalf("the waste could not be written: %v", err)
+	}
+
+	read, err := units.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the units could not be read: %v", err)
+	}
+
+	corrected, err := recipe.CorrectedUnits(read, baked.ID, 5)
+	if err != nil {
+		t.Fatalf("the correction was refused: %v", err)
+	}
+
+	if len(corrected) != 7 {
+		t.Errorf("the correction moves %d units, want the 7 that are still in the book", len(corrected))
+	}
+
+	if err := units.WriteExpiry(ctx, corrected); err != nil {
+		t.Fatalf("the day of the expiry could not be written: %v", err)
+	}
+
+	// The units that are still in the book moved to the new day.
+	var moved int
+	if err := theSuite.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		  FROM production_units u
+		  JOIN productions p ON p.id = u.production_id
+		 WHERE p.business_id = $1
+		   AND u.expires_on = DATE '2026-03-19'`, int64(bakery.ID)).Scan(&moved); err != nil {
+		t.Fatalf("the units could not be counted: %v", err)
+	}
+
+	if moved != 7 {
+		t.Errorf("the business holds %d units that expire on the new day, want 7", moved)
+	}
+
+	// The units that left the book keep the day they expired on.
+	var kept int
+	if err := theSuite.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		  FROM production_units u
+		  JOIN productions p ON p.id = u.production_id
+		 WHERE p.business_id = $1
+		   AND u.expires_on = DATE '2026-03-17'`, int64(bakery.ID)).Scan(&kept); err != nil {
+		t.Fatalf("the units could not be counted: %v", err)
+	}
+
+	if kept != 3 {
+		t.Errorf("the business holds %d units that expire on the old day, want the 3 that left the book", kept)
+	}
+
+	// The row of the unit and the row of its exit carry the same day: the
+	// book holds one truth about the unit that left.
+	var twoTruths int
+	if err := theSuite.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		  FROM unit_exits e
+		  JOIN production_units u ON u.id = e.unit_id
+		  JOIN productions p ON p.id = e.production_id
+		 WHERE p.business_id = $1
+		   AND u.expires_on <> e.expires_on`, int64(bakery.ID)).Scan(&twoTruths); err != nil {
+		t.Fatalf("the exits could not be counted: %v", err)
+	}
+
+	if twoTruths != 0 {
+		t.Errorf("%d units carry a day of expiry that is not the one of their exit: the book holds two truths",
+			twoTruths)
+	}
+}
+
 // TestTheDayOfTheExpiryOfAUnitIsMovedByTheCorrection proves the rules of the
 // table against a real database: the day of the expiry is written, and the
 // unit that changed under the correction is refused.

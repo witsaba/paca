@@ -393,6 +393,26 @@ func TestTheProductionAndTheLayersItConsumesAreWrittenWhole(t *testing.T) {
 		t.Errorf("the quantity that is left of the layer is %v, want 25: the work was rolled back",
 			held[0].Left.Quantity)
 	}
+
+	// The production and the units it made go back with the work that
+	// failed: nothing of them is left behind.
+	produced, err := productionsRepository(t).List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the productions could not be read: %v", err)
+	}
+
+	if len(produced) != 0 {
+		t.Errorf("the business holds %d productions, want none: the work was rolled back", len(produced))
+	}
+
+	made, err := unitRepository(t).List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the units could not be read: %v", err)
+	}
+
+	if len(made) != 0 {
+		t.Errorf("the business holds %d units, want none: the work was rolled back", len(made))
+	}
 }
 
 // TestTheProductionIsRefusedWhenTheRecipeIsNotThere proves the rules of

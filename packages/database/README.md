@@ -704,9 +704,6 @@ a weight into a number of units, and it never splits a unit.
 table holds the rule of the domain as a defense in depth
 (`sales_confirmed_with_not_empty_check`).
 
-**The identity of the sale belongs to the business**, and the unique index
-of the table holds it as a defense in depth (`sales_one_per_business`).
-
 ### `recipe_shelf_life_corrections`
 
 The correction of the shelf life of a recipe: the days what it makes keeps,
@@ -1079,6 +1076,12 @@ WriteExpiry(ctx, units) error
 The expiry is read for one business, and the day of the expiry of a unit is
 a day of that business: the query joins the production and the recipe, and
 the units of another business are never read as units of it.
+
+**The units that left the book are not offered.** A unit that was wasted or
+sold is not in the answer of the reader of the expiry: the query reads the
+table of the exits, and a unit that left the book is never offered again.
+The correction of the shelf life moves the units that are still in the
+book, and a unit that left keeps the day it expired on.
 
 **The day of the expiry is written only when the unit still expires on the
 day the correction read.** A unit that changed under the correction is

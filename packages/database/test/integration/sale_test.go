@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/recipe"
@@ -300,6 +301,89 @@ func TestTheUnitThatWasSoldIsNotWasted(t *testing.T) {
 	_, err = wasteRepository(t).Record(ctx, waste)
 	if !errors.Is(err, recipe.ErrInvalidValue) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidValue)
+	}
+}
+
+// TestTheSaleAndItsUnitsAndItsMovementsAreWrittenWhole proves the rule of
+// the transaction against a real database: the sale, the units that left the
+// book and the two movements of its money are written whole or not at all,
+// and the storage is as it was when the work failed.
+func TestTheSaleAndItsUnitsAndItsMovementsAreWrittenWhole(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	sales := saleRepository(t)
+	book := ledgerRepository(t)
+	bakery := theBakeryOfTheSale(t, ctx)
+	baked, production, units := theBookOfTheSale(t, ctx, bakery)
+
+	sale := theSaleOfTheTest(t, bakery, baked, production, units)
+
+	accounts := theAccountsOfTheBook(t, ctx, bakery,
+		account.RoleCash, account.RoleSales, account.RoleCostOfSales, account.RoleInventory)
+
+	money, err := sale.MoneyMovement(accounts[account.RoleCash].ID, accounts[account.RoleSales].ID)
+	if err != nil {
+		t.Fatalf("the movement of the money of the sale was refused: %v", err)
+	}
+
+	cost, err := sale.CostMovement(accounts[account.RoleCostOfSales].ID, accounts[account.RoleInventory].ID)
+	if err != nil {
+		t.Fatalf("the movement of the cost of the sale was refused: %v", err)
+	}
+
+	err = unitOfWork(t).Do(ctx, func(ctx context.Context) error {
+		if _, err := sales.Record(ctx, sale); err != nil {
+			return err
+		}
+
+		if _, err := book.Record(ctx, money); err != nil {
+			return err
+		}
+
+		if _, err := book.Record(ctx, cost); err != nil {
+			return err
+		}
+
+		// The work fails after the sale and its money were written: the
+		// work goes back with them.
+		return errors.New("the money of the sale did not move")
+	})
+	if err == nil {
+		t.Fatal("the work was committed, want the failure of the work")
+	}
+
+	var sold int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM sales WHERE business_id = $1`, int64(bakery.ID)).Scan(&sold); err != nil {
+		t.Fatalf("the sales could not be counted: %v", err)
+	}
+
+	if sold != 0 {
+		t.Errorf("the sale was left behind: %d sales of the business", sold)
+	}
+
+	var exits int
+	if err := theSuite.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		  FROM unit_exits e
+		  JOIN productions p ON p.id = e.production_id
+		 WHERE p.business_id = $1`, int64(bakery.ID)).Scan(&exits); err != nil {
+		t.Fatalf("the exits could not be counted: %v", err)
+	}
+
+	if exits != 0 {
+		t.Errorf("the units were left behind: %d exits of the business", exits)
+	}
+
+	var movements int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM ledger_entries WHERE business_id = $1`, int64(bakery.ID)).Scan(&movements); err != nil {
+		t.Fatalf("the movements could not be counted: %v", err)
+	}
+
+	if movements != 0 {
+		t.Errorf("the money was left behind: %d movements of the business", movements)
 	}
 }
 

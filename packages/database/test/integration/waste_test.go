@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/witsaba/paca/packages/database/postgres"
+	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/recipe"
@@ -298,6 +299,79 @@ func unitsOfTheSecondProduction(t *testing.T, production recipe.Production) []re
 	}
 
 	return units
+}
+
+// TestTheWasteAndItsUnitsAndItsMovementAreWrittenWhole proves the rule of
+// the transaction against a real database: the waste, the units that left
+// the book and the movement of its money are written whole or not at all,
+// and the storage is as it was when the work failed.
+func TestTheWasteAndItsUnitsAndItsMovementAreWrittenWhole(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	wastes := wasteRepository(t)
+	book := ledgerRepository(t)
+	bakery := theBakeryOfTheWaste(t, ctx)
+	baked, production, units := theBookOfTheWaste(t, ctx, bakery)
+
+	waste := theWasteOfTheTest(t, bakery, baked, production, units)
+
+	accounts := theAccountsOfTheBook(t, ctx, bakery, account.RoleWaste, account.RoleInventory)
+
+	movement, err := waste.Movement(accounts[account.RoleWaste].ID, accounts[account.RoleInventory].ID)
+	if err != nil {
+		t.Fatalf("the movement of the money of the waste was refused: %v", err)
+	}
+
+	err = unitOfWork(t).Do(ctx, func(ctx context.Context) error {
+		if _, err := wastes.Record(ctx, waste); err != nil {
+			return err
+		}
+
+		if _, err := book.Record(ctx, movement); err != nil {
+			return err
+		}
+
+		// The work fails after the waste and its money were written: the
+		// work goes back with them.
+		return errors.New("the money of the waste did not move")
+	})
+	if err == nil {
+		t.Fatal("the work was committed, want the failure of the work")
+	}
+
+	var lost int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM wastes WHERE business_id = $1`, int64(bakery.ID)).Scan(&lost); err != nil {
+		t.Fatalf("the wastes could not be counted: %v", err)
+	}
+
+	if lost != 0 {
+		t.Errorf("the waste was left behind: %d wastes of the business", lost)
+	}
+
+	var exits int
+	if err := theSuite.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		  FROM unit_exits e
+		  JOIN productions p ON p.id = e.production_id
+		 WHERE p.business_id = $1`, int64(bakery.ID)).Scan(&exits); err != nil {
+		t.Fatalf("the exits could not be counted: %v", err)
+	}
+
+	if exits != 0 {
+		t.Errorf("the units were left behind: %d exits of the business", exits)
+	}
+
+	var movements int
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM ledger_entries WHERE business_id = $1`, int64(bakery.ID)).Scan(&movements); err != nil {
+		t.Fatalf("the movements could not be counted: %v", err)
+	}
+
+	if movements != 0 {
+		t.Errorf("the money was left behind: %d movements of the business", movements)
+	}
 }
 
 // TestTheWasteOfAProductThatIsNotThereIsRefused proves the rule of the

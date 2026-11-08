@@ -12,6 +12,11 @@
 -- expiry is read for one business, and the day of the expiry is a day of
 -- that business.
 --
+-- A unit that left the book is not read: the query reads the table of the
+-- exits, and the book never offers a unit that left it again. The
+-- correction of the shelf life moves the units that are still in the book,
+-- and a unit that left keeps the day it expired on.
+--
 -- The day of the expiry of a unit is written only when the unit still
 -- expires on the day the correction read: a unit that changed under the
 -- correction is refused.
@@ -47,14 +52,18 @@ ORDER BY corrections.day, corrections.id;
 
 -- name: ListProductionUnitsByBusiness :many
 --
--- The units of the productions of the business, in the order they expire:
--- the unit that expires first is the first one.
+-- The units of the productions of the business that are still in the book,
+-- in the order they expire: the unit that expires first is the first one.
+--
+-- A unit that left the book is never offered again: the table of the exits
+-- owns that rule, and the reader of the expiry reads it.
 SELECT units.id, units.production_id, units.position, units.grams, units.expires_on,
        productions.recipe_id, productions.day AS produced_on, recipes.name AS recipe_name
 FROM production_units units
 JOIN productions ON productions.id = units.production_id
 JOIN recipes ON recipes.id = productions.recipe_id
 WHERE productions.business_id = sqlc.arg(business_id)
+  AND NOT EXISTS (SELECT 1 FROM unit_exits exits WHERE exits.unit_id = units.id)
 ORDER BY units.expires_on, units.id;
 
 -- name: UpdateProductionUnitExpiry :execrows

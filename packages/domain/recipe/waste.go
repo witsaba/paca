@@ -3,7 +3,6 @@ package recipe
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 	"time"
 
@@ -646,36 +645,6 @@ func theUnitOfTheBook(unit string, invalid error) (string, error) {
 	}
 
 	return parsed.String(), nil
-}
-
-// theUnitsOfTheProduct answers the units of the product that are still in
-// the book, in the order they expire.
-//
-// The rule of the domain: the rotation of the output follows the earliest
-// expiry, and the unit that expires first is the first one that leaves the
-// book. The valuation of the stock by the FIFO is another rule, and it does
-// not live here.
-//
-// The units of the other products are not in the answer: the waste is of
-// one product.
-func theUnitsOfTheProduct(held []ExpiringUnit, of ID) []ExpiringUnit {
-	units := make([]ExpiringUnit, 0, len(held))
-
-	for _, one := range held {
-		if one.RecipeID == of {
-			units = append(units, one)
-		}
-	}
-
-	sort.SliceStable(units, func(first, second int) bool {
-		if units[first].ExpiresOn.Time().Equal(units[second].ExpiresOn.Time()) {
-			return units[first].ID < units[second].ID
-		}
-
-		return units[first].ExpiresOn.Before(units[second].ExpiresOn)
-	})
-
-	return units
 }
 
 // theMoneyOfTheUnit answers the money of one unit of a production.

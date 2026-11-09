@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-six tools: the way PACA onboards a person, the four
+The server exposes thirty-seven tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -117,8 +117,9 @@ confirmed, the tool of the overhead of the house, the tool of the report
 of the real price, the tool of the margin, the tool of the production and
 the two tools of the expiry: the correction of the shelf life the owner
 just declared, and the read of what expires, the tool of the waste the
-bakery lost, the tool of the sale the bakery made, and the tool of the exit
-of a unit: the consumption of the owner and the donation.
+bakery lost, the tool of the sale the bakery made, the tool of the exit
+of a unit: the consumption of the owner and the donation, and the tool of
+the rotation: the order in which the units leave the book.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -158,6 +159,7 @@ of a unit: the consumption of the owner and the donation.
 | `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold and the ones that were wasted are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 | `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
 | `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
+| `read_rotation`           | Reads the rotation of the book: the ORDER in which the units the bakery still holds leave it, and when each one expires. The rotation follows the EARLIEST EXPIRY: the unit that expires first is the first one that leaves, and the units that expire on the same day keep a stable order — the production first, and the position of the unit in it. The answer carries the name of the product, the day each unit was made, the PLACE it takes in that order, the DAY it expires and the DAYS that are left of it. The product is optional: the whole book of the business, or one product of it. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. The answer carries NO money: the valuation of the stock follows the FIFO, and it is another rule. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -445,6 +447,20 @@ taxes of the owner, and the answer carries the question that waits. The
 exit and the movement of its cost are written in one transaction. The word
 she used to confirm it is kept with the record, and her sentence is kept
 verbatim when she said one.
+
+**The rotation is the order in which the units leave the book.**
+The tool `read_rotation` answers that order: the units the bakery still
+holds, the one that expires first first, with the place it takes in that
+order, the day each one expires and the days that are left of it. The rotation follows the EARLIEST EXPIRY, and
+the units that expire on the same day keep a stable order: the production
+first, and the position of the unit in it. The answer holds only the units
+that are still in the book: the ones that were sold, wasted, consumed or
+given away are gone. The rotation may be asked for the whole book of the
+business or for one product of it, and the agent names the product when the
+owner asks about one product. The answer carries NO money: the FIFO is the
+rule of the valuation of the stock, and the rotation is the rule of the
+output — the two rules are apart, and the model keeps them apart. The tool
+writes nothing.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

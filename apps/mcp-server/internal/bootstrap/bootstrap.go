@@ -474,6 +474,17 @@ func New(
 		clock.System{},
 	)
 
+	// The rotation of the book: the order in which the units that are
+	// still in it leave it. The rotation follows the earliest expiry, and
+	// the valuation of the stock follows the FIFO: the two rules are
+	// apart, and the answer of the rotation carries no money. Without a
+	// database there is no book to read.
+	rotationService := application.NewRotationService(
+		unitsInTheBook,
+		recipeReader,
+		clock.System{},
+	)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -510,6 +521,7 @@ func New(
 		RecordWaste:         wasteService,
 		RecordSale:          saleService,
 		RecordExit:          exitService,
+		ReadRotation:        rotationService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

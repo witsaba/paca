@@ -228,6 +228,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_movements",
 		"read_real_price",
 		"read_references",
+		"read_rotation",
 		"read_stock",
 		"record_debt",
 		"record_debt_payment",

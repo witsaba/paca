@@ -232,6 +232,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	RecordExit ports.ExitRecorder
+
+	// ReadRotation is the use case that reads the rotation of the book:
+	// the order in which the units that are still in it leave it.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadRotation ports.RotationReader
 }
 
 // Server is the MCP transport of the service.
@@ -297,6 +304,7 @@ func New(opts Options) *Server {
 	transport.registerWasteTools(opts.RecordWaste)
 	transport.registerSaleTools(opts.RecordSale)
 	transport.registerExitTools(opts.RecordExit)
+	transport.registerRotationTools(opts.ReadRotation)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

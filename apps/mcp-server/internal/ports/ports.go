@@ -1288,6 +1288,46 @@ type ExpiringReader interface {
 	Read(ctx context.Context, request ReadExpiring) (recipe.Expiry, error)
 }
 
+// ReadRotation is the business whose rotation is read, and the product the
+// caller asks about.
+//
+// It is the shape of the contract between the agent and the service: the
+// product is optional, and the zero identity with the empty name answer the
+// rotation of the whole book of the business.
+type ReadRotation struct {
+	// BusinessID is the business whose rotation is read.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the product the caller asks about. It is
+	// zero when the caller names the product with its name, or when the
+	// caller asks for the whole book of the business.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the product. It is empty
+	// when the caller names the product with its identity.
+	RecipeName string
+}
+
+// RotationReader is the inbound port of the tool that reads the rotation.
+//
+// The rotation is the order in which the units of the book leave it: the
+// unit that expires first is the first one that leaves. The valuation of
+// the stock follows the FIFO, and it is another rule: the answer of the
+// rotation carries no money.
+type RotationReader interface {
+	// Read answers the units of the book in the order they leave it, with
+	// the day each one expires and the days that are left of it.
+	//
+	// The identity of the business is required, and the product is
+	// optional. The rotation holds only the units that are still in the
+	// book, and it is empty when the business made no production yet.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// business that is not there, and the product the business does not
+	// hold.
+	Read(ctx context.Context, request ReadRotation) (recipe.Rotation, error)
+}
+
 // RecordWaste is the waste the owner confirmed: the product she lost, the
 // quantity she lost with its unit, the reason, the day it happened and the
 // word she used to confirm it.

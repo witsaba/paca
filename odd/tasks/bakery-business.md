@@ -875,7 +875,7 @@ and the adapter).
 - The unit that leaves a production is the one that expires first.
 - The tool `read_rotation` answers what leaves first and when it expires.
 
-**In scope:** `packages/domain/production`, `packages/domain/purchase`,
+**In scope:** `packages/domain/recipe`, `packages/domain/purchase`,
 `apps/mcp-server/internal/application`,
 `apps/mcp-server/internal/adapters/inbound/mcpserver`.
 
@@ -1073,7 +1073,7 @@ its session starts.
 | T19 | S24, S25 | The waste and the tool that records it | inline | `2661d6f`, corrected in `45687a0` and `b1e5d30` |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `a75f2e4`, corrected in `45687a0` and `b1e5d30` |
 | T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `this commit` |
-| T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
+| T22 | S26 | The freshness first and the tool that reads the rotation | inline | `this commit` |
 
 ### Movement V — The business around the bread
 
@@ -1341,3 +1341,12 @@ Three things the increment taught, carried here for the ones to come:
 - **Only the sale refuses the unit that expired.** The bread that expired is still bread for the owner and for the one she gives it to; the sale is the exit that a client pays for, and it is the one that refuses.
 
 Open for the owner (the increment did not decide it): the tax treatment of the consumption and of the donation — the question is named in the book and waits for the professional of the taxes — and whether the consumption of the owner belongs to the account of the cost of the sales or to an account of its own: the increment took the reading of the acceptance ("release the cost like a sale"), and the money of the real price and of the margin reads that account.
+
+**L37** (2026-11-09): T22 landed: **the freshness first**, and the tool that reads the rotation. The rotation is the **order in which the units leave the book**, and it is not the expiry reader and not the FIFO of the valuation: the two rules stay apart, and the answer of the rotation carries **no money** — the answer of the rotation is the order, the place each unit takes in it, the day it expires, the days it has left and the product it belongs to, and nothing else. The unit that leaves a production is the one that expires first, and the units that expire on the same day keep a stable order (the production and the position). The rotation is a reader: it writes nothing, it has no table and no migration, and it reads the units that are still in the book through the same reader the waste, the sale and the exit use, so a unit that already left is never offered again. The tool is `read_rotation`, and the transport carries thirty-seven tools.
+
+Two things the increment taught, carried here for the ones to come:
+
+- **A rule with two owners is a rule that drifts.** The rule of the order by the expiry lived in the waste and was called by the sale and by the exit; the increment moved it to the rotation, where it now has one owner, and the three exits call it unchanged. The proof of the move was differential: the base commit and the change were run side by side over the waste, the sale and the exit, and the sixty outcomes were the same.
+- **The rotation and the expiry read the same units and answer different questions.** `read_expiring` answers what expires; `read_rotation` answers what leaves first. The two descriptions say what each one answers, and the answer of the rotation never carries a money.
+
+Open for the owner: the tool `read_rotation` and the tool `read_expiring` read the same units of the book, and the separation between them is the product filter, the place in the order and the absence of the money. A harder separation is a decision of the product and not a defect of the increment.

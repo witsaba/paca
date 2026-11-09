@@ -822,8 +822,42 @@ refuses it (`ErrExpiredUnit`), and a sale of no day is refused too
 
 **The answer of the expiry is ordered by the day the units expire.**
 `recipe.ExpiringUnits` orders them, and the unit that expires first is
-the first one. The rotation — the unit that leaves a production — is
-another rule, and it does not live here.
+the first one. The rotation — the order in which the units leave the book
+— is another rule, and it lives in its own section.
+
+## The model of the rotation
+
+`recipe.Rotation` is the order in which the units of the book leave it: the
+day the answer was read on, the product it is of, and the units in the
+order they leave. `recipe.RotationUnit` is one unit of that order: the unit
+of the production, the product it was made of, the day it expires and the
+days that are left of it.
+
+**The rotation follows the earliest expiry.** `recipe.RotationOf` builds the
+answer, and the unit that expires first is the first one that leaves the
+book. The units that expire on the same day keep a stable order: the
+production first, and the position of the unit in it. Every unit carries the
+place it takes in that order: the first one that leaves is the first one.
+
+**The unit that leaves a production is the one that expires first.** The
+waste, the sale and the exit take the units of the product in that order,
+and the rule lives here: `recipe.RotationOf` is the only holder of it.
+
+**The rotation follows the earliest expiry and the valuation follows the
+FIFO: the two rules are apart.** The FIFO is the rule of the layers of the
+stock, and the rotation is the rule of the output. The answer of the
+rotation carries **no money at all**: the money of a unit is the money of
+the production it came out of, and it belongs to the movement that takes
+the unit out of the book.
+
+**The rotation may be of the whole book or of one product.** The zero
+identity is the whole book of the business, and the identity of a product
+is that product alone.
+
+**The rotation holds only the units that are still in the book.** The
+caller reads them through the reader of the book, and a unit that left it
+— the one that was sold, wasted, consumed or given away — is never offered
+again.
 
 ## The model of the waste
 

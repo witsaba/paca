@@ -1083,7 +1083,7 @@ its session starts.
 | T23 | S4 | The party and its tools | inline | `cfaf6ea`, corrected in `d97c998` |
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `b740703`, corrected in `d97c998` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
-| T26 | S2, S28 | The orders, the rounds, and their tools | inline | `this commit` |
+| T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
@@ -1421,3 +1421,13 @@ Two things the increment taught, carried here for the ones to come:
 
 - **A rule that no tool can reach is a rule that waits.** The delivery of an order is a rule of the domain with no door yet, and the gate of the dead code says so: the state is reachable in the reading, and the door comes with the route.
 - **The unit of a line of an order is the word the owner said.** The exits of the book count whole pieces and refuse a weight; an order of a product the business sells by the gram carries the gram. The book never converts a weight into a number of units, and it never splits a unit.
+
+**L43** (2026-11-09): T26 was reviewed by an independent verifier against the acceptance of this document and against the specs, and every finding was corrected with a test that was observed failing before the fix and passing after it. The correction is the commit `056b07a`.
+
+The review found one BLOCKER and it was the orchestrator's own decision: the increment said that the unit of a line of an order is the word the owner said, and in the same breath it kept the sentence that the book never splits a unit and never converts a weight into a number of units — a sentence the code did not enforce, and a rule the exits of the book enforce in the opposite way (they require the piece). The agent could therefore write five hundred pieces of something measured in grams, and the description promised the opposite. **The domain now owns the rule**: the line of an order carries **the way she charges**, the model the tree already owns (`purchase.PriceBasis` — the piece, the gram, the kilogram), the unit she said is read in the vocabulary of the book, a unit that is none of the three is refused, and the quantity travels with it — whole pieces when she charges by the piece, any amount of weight when she charges by the gram or by the kilogram, because the book never converts a weight into a number of pieces. The table holds the same rules in the new migration 00031, and the description of the tool now says what the domain does instead of what the increment wished.
+
+The second finding was the acceptance itself: the round of a day carried the orders **due** on it, and an order that fell due on an earlier day and was not delivered was owed and carried by no round — the answer of the tool said that nothing was owed while the bakery still owed the bread. **The round and the owed are two rules now, and they are apart**: the round is the day and the orders due on it, and what is still owed is every open order of the business, the ones due on the day and the overdue ones.
+
+Three smaller corrections: the answer of `read_orders` carried the day only when a day was named while the description said it always carried it — now the two agree and a test reads the answer without a day to prove it; the reading of the orders refused to answer when the parties and the products were not configured, though it uses neither; and the adapter kept an unreachable branch for a quantity the domain had already refused. And the reading of the orders of a business that does not exist answered with the message of the Personal Business and of the onboarding — the agent was told to onboard a person for a business id it had mistyped. The order has its own refusal now, with its own message that names the business of the order.
+
+Left open on purpose: the delivered state of an order still has no door — the delivery is written with the route of the round, in T27 — and the domain says so where the rule lives.

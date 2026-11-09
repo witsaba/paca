@@ -1073,16 +1073,16 @@ its session starts.
 | T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `66e7298`, corrected in `45687a0` and `b1e5d30` |
 | T19 | S24, S25 | The waste and the tool that records it | inline | `2661d6f`, corrected in `45687a0` and `b1e5d30` |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `a75f2e4`, corrected in `45687a0` and `b1e5d30` |
-| T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `this commit` |
-| T22 | S26 | The freshness first and the tool that reads the rotation | inline | `this commit` |
+| T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `c641444`, corrected in `d97c998` |
+| T22 | S26 | The freshness first and the tool that reads the rotation | inline | `01c2e2a`, corrected in `d97c998` |
 
 ### Movement V — The business around the bread
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T23 | S4 | The party and its tools | inline | `this commit` |
-| T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `this commit` |
-| T25 | S27 | The price list, the channel, and their tools | inline | `this commit` |
+| T23 | S4 | The party and its tools | inline | `cfaf6ea`, corrected in `d97c998` |
+| T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `b740703`, corrected in `d97c998` |
+| T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
@@ -1378,3 +1378,33 @@ Two things the increment taught, carried here for the ones to come:
 - **The count of the tools is a promise with teeth.** Every place that counts the tools moved from forty-one to forty-three, and the count is proved by the tests and never written in a comment.
 
 Open for the owner: a price of zero pesos is refused — a product that is given away for nothing is not a price yet; say the word if the book has to carry it. And the tax treatment of the product stays empty until the owner says it.
+
+**L41** (2026-11-09): the five increments from **T21 to T25** were reviewed against the acceptance of this document and against the specs, by five independent verifiers — one per increment — and every finding was corrected with a test that was observed failing before the fix and passing after it. The correction is one commit, `d97c998`, and the review found five shapes of defect, the same shapes the review of T10 to T20 found, and one shape that is new.
+
+The first shape is the oldest one: **the proofs that could not fail.** The test that the exit takes the units that expire first put the unit that expires first as the one with the lowest identity, so it passed under any order — and the ordering could be deleted from the whole tree and the suite stayed green. The tie-break of the rotation (the production and the position) was proved with data where the identity order and the rule agree, so the rule was proved by nothing. The waste, the sale and the exit all crafted the early-expiring unit as the first of the slice. Every one of those proofs is now a test that bites: the data disagrees with the identity order, the whole ordered set that left is asserted, and the rule was broken on purpose in a scratch copy and watched to fail.
+
+The second shape is **the rules the domain did not hold**: the invoice never checked that it names the purchase it is attached to, so the two sides of the link could disagree in the stored data; a purchase could carry two invoices, and the second one silently re-pointed it; the rate that the invoice stated was rounded away (19.555% became 19.56%) while the domain, the README and this document all said that a rate is never rounded away; a product could be backed by the recipe of **another business**; and the price of the list had no **way she charges**, so 3000 pesos could not say whether it was per loaf, per gram or per kilogram — the tree already owned that model (`purchase.PriceBasis`), and the price list now carries it instead of writing a second copy.
+
+The third shape is **the errors that reached the agent in the words of another rule**: a person that carried only a legal figure was refused with the error of a *missing* legal human, and the rule of the kind never fired; a business that is not there was refused with the message of the Personal Business and the onboarding, and the agent was told to onboard a person for a business id it had mistyped. The catalogue of the domain of the party now carries two sentinels for two failures, each with its own message.
+
+The fourth shape is **the tools that taught the wrong thing**: the schema of `record_invoice` offered `CUFE-1234` as the example of the reference — CUFE is the electronic invoice mark in Colombia, and the increment that wrote that line also said that the electronic invoice is never assumed. The example is neutral now, and a test forbids the mark to come back.
+
+The fifth shape is new to this review: **the schema is the first door.** The fields that the domain refuses were marked as required in the JSON schema, so the SDK of the MCP refused the call before the domain could answer it, and the agent read the raw text of the schema instead of the message of the domain. The fields are optional now, the adapter no longer decides, and the call reaches the use case — for the exit, for the sale and for the waste, the three of them had the same hole.
+
+And the tables held less than their comments claimed: the parties accepted a legal figure without the name of its human and a role that is not one of the two; the invoices accepted a second invoice for a purchase; the prices accepted a product of another business. Four new migrations carry the defense in depth (00025 to 00029), and the migrations that were already applied were left alone.
+
+What the review left open, and why:
+
+- **The rounding of the centavos of an invoice**: the money of an invoice enters the book in whole pesos and the book never rounds it, and an invoice that does not add up is refused. The question is for the owner and for the professional of the taxes.
+- **The tax treatment of the consumption and of the donation**: the question is named in the book and waits.
+- **Whether the consumption of the owner belongs to the account of the cost of the sales or to an account of its own**: the increment took the reading of the acceptance ("release the cost like a sale"), and the money of the real price and of the margin reads that account.
+- **The price of the owner has two homes**: `read_real_price` and `read_margin` still take the price of the owner as an argument although the price list exists. It is outside the acceptance of T25 and it is a decision for the owner.
+- **The gap of T17 is still open**: the production never moves the ledger, so the account of the inventory does not follow the valuation of the stock.
+- **The readers of the book do not check that the business is there**: it is the shape of every reader of the tree, and it is a decision of the tree and not of an increment.
+- **The advisory of the adapter that decides**: the adapter of the rotation still refuses the business that is not there by itself. It is the convention of the tree, and the review left it alone on purpose.
+
+Three things the review taught, carried here for the ones to come:
+
+- **A test that cannot fail is a decoration.** The proof of the rotation passed under the order it was supposed to forbid. The proof has to be broken on purpose and watched to fail, and the data has to disagree with the order the rule forbids.
+- **One rule, one message.** Two failures of one sentinel carry one message that fits neither of them; the catalogue of the domain is split when the failures are two, and the message of each one is written in the words of its caller.
+- **The rule that is only in the table is a rule the owner learns from a database error.** The domain refuses it first, in its own words, and the table guards the writer that does not know the domain.

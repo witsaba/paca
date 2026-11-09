@@ -66,6 +66,10 @@ packages/domain/
                     sells, the channel that buys it — the retail and the
                     wholesale — the price with the day it was set, and the
                     port of the storage
+  order/            the model of the order of the bakery: what it owes to a
+                    client, the lines with the products and the quantities
+                    of them, the state of the order, the round of a day and
+                    the port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
   health/           the model of the health of a service: the states, the
@@ -1266,6 +1270,57 @@ professional of the owner are not read here.
 states the rule: the price list belongs to a business of kind `business`,
 and the Personal Business of a person holds the money of that person and
 not the price list of the bakery (`ErrWrongBusiness`).
+
+## The model of the order and the round
+
+`order.Order` is what the bakery owes: the client that ordered, the
+products it ordered with the quantities of them, and the day it is due.
+`order.Round` is the day and the orders it carries.
+
+**The order NAMES the party and the products.** It never copies the client
+and never copies the product: the models of the party and of the product
+are imported and not rewritten (`order.New`). The name the owner reads of
+the party and of the product travel with the order, the way the name of the
+recipe travels with the sale.
+
+**The party of the order is a CLIENT.** The bakery does not owe bread to a
+provider (`order.ErrNotAClient`), and the party is a party of the business
+that owns the order (`order.ErrPartyOfAnotherBusiness`). The products of
+the lines are the products of the price list of that business
+(`order.ErrProductOfAnotherBusiness`).
+
+**The order is written OPEN, and the domain owns the state of it.** An
+order that was not delivered stays open (`order.StateOpen`), and the
+delivery of an order is written with the ROUTE of the round: the route is
+what the agent computes when it comes back from the round, and the
+increment that writes the route writes the delivery with it. The state of
+the book is the two of them (`order.AllStates`), and the row never decides
+which of them an order carries (`order.NewFromFacts`).
+
+**The quantity of a line is a WHOLE number of units.** The book never
+splits a unit and it never converts a weight into a number of units
+(`order.ErrInvalidQuantity`). The line carries the unit the owner said
+(`order.ErrMissingUnit`), and the order carries the day it is due
+(`order.ErrMissingDay`).
+
+**The ROUND of a day carries the orders that are DUE on it.** It is the
+bread the bakery owes that day (`order.TheRound`). A round with no day
+carries every order of the business: the book of the orders is read whole
+when the owner names no day.
+
+**The round answers WHAT IS STILL OWED.** The orders it carries that were
+not delivered (`order.Round.Owed`): the order that was delivered is not
+owed, and the order that was not delivered is.
+
+**The orders belong to a business of its own.** `order.OwnedBy` states the
+rule: the orders belong to the business of the bakery, the one that sells
+the bread, and the Personal Business of a person holds the money of that
+person and not the orders of the bakery (`order.ErrWrongBusiness`).
+
+**The money of an order is NOT part of the model.** The acceptance of the
+increment does not state it, and the book never adds a rule nobody wrote:
+whether the order carries the money of the price list of the day it was
+made is a question of the owner, and it waits for her.
 
 ## The transaction of the storage
 

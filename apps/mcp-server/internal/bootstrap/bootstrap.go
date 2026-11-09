@@ -26,6 +26,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
@@ -554,6 +555,24 @@ func New(
 
 	priceService := application.NewPriceService(products, prices, recipeReader, businesses, work, clock.System{})
 
+	// The orders of the bakery: what it owes to a client, and the day it
+	// is due. The round of the day answers what is still owed: the orders
+	// that were not delivered. The order is written open, and the delivery
+	// of an order is written with the route of the round. Without a
+	// database there is no order to write nor to read.
+	var orders order.Repository
+
+	if pool != nil {
+		boundOrders, err := postgres.NewOrderRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the orders could not be built: %w", err)
+		}
+		orders = boundOrders
+	}
+
+	orderService := application.NewOrderService(orders, parties, products, businesses)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -597,6 +616,8 @@ func New(
 		ReadInvoices:        invoiceService,
 		SetPrice:            priceService,
 		ReadPrices:          priceService,
+		RecordOrder:         orderService,
+		ReadOrders:          orderService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

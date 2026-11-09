@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
@@ -1825,4 +1826,109 @@ type PricesReader interface {
 	// is not a day of the book, a channel it does not know and a product
 	// the business does not hold.
 	Read(ctx context.Context, request ReadPrices) ([]product.Listed, error)
+}
+
+// RecordOrder is the order the owner wants in the book of the business:
+// the party that ordered, the day it is due, and the lines with the
+// products and the quantities of them.
+//
+// It is the shape of the contract between the agent and the service: the
+// party is named by its identity or by the name the owner reads, and the
+// product of a line is named the same way.
+type RecordOrder struct {
+	// BusinessID is the business the order belongs to.
+	BusinessID business.ID
+
+	// PartyID is the identity of the party that ordered: the client of
+	// the business. It is zero when the agent names the party with the
+	// name the owner reads.
+	PartyID int64
+
+	// PartyName is the name the owner reads of the party that ordered.
+	// It is empty when the agent names the party with its identity.
+	PartyName string
+
+	// DueOn is the day the order is due on. It is required: the order
+	// carries the day it is due.
+	DueOn string
+
+	// Lines are the lines of the order: the products with the quantities
+	// of them and the units the owner said.
+	Lines []OrderLine
+}
+
+// OrderLine is one line of the order the agent read: the product, the
+// quantity of it and the unit the owner said.
+//
+// The port speaks in the words of the agent and in numbers: the use case
+// turns them into the model of the domain, and the domain decides what may
+// enter the book.
+type OrderLine struct {
+	// ProductID is the identity of the product the line is of. It is zero
+	// when the agent names the product with the name the owner reads.
+	ProductID int64
+
+	// ProductName is the name the owner reads of the product. It is empty
+	// when the agent names the product with its identity.
+	ProductName string
+
+	// Quantity is how many units of the product the line carries. It is a
+	// whole number of units: the book never splits a unit.
+	Quantity int
+
+	// Unit is the unit of that quantity, the way the owner said it.
+	Unit string
+}
+
+// OrderRecorder is the inbound port of the tool that records an order.
+//
+// The tool writes the order of the business with the lines of it, and it
+// answers with the order it wrote.
+type OrderRecorder interface {
+	// Record writes the order of the business and answers it with it.
+	//
+	// The identity of the business, the party that ordered, the day it
+	// is due and the lines of the order are required. The party and the
+	// product of a line are named by their identity or by the name the
+	// owner reads.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// order without a day, without a line, the party that is not a
+	// client, the party of another business and the product of another
+	// business.
+	Record(ctx context.Context, request RecordOrder) (order.Order, error)
+}
+
+// ReadOrders is the business whose orders are read, and the day of the
+// round that is read.
+//
+// It is the shape of the contract between the agent and the service: the
+// day is optional, and the whole book of the orders is read when the agent
+// names none.
+type ReadOrders struct {
+	// BusinessID is the business whose orders are read.
+	BusinessID business.ID
+
+	// Day is the day of the round that is read. It is empty when the
+	// agent asks for the whole book of the orders.
+	Day string
+}
+
+// OrdersReader is the inbound port of the tool that reads the orders of a
+// business.
+//
+// The answer carries the orders the round of the day carries and the ones
+// that are still owed: the orders that were not delivered.
+type OrdersReader interface {
+	// Read answers the round of the day: the orders it carries and the
+	// ones that are still owed.
+	//
+	// The identity of the business is required. The day is optional: the
+	// round of the day answers the orders that are due on it, and the
+	// whole book of the orders is read when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// business that is not there, the business that does not hold orders
+	// and the day that is not a day of the book.
+	Read(ctx context.Context, request ReadOrders) (order.Round, error)
 }

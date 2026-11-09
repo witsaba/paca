@@ -19,6 +19,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
@@ -377,4 +378,32 @@ var theMessages = map[error]string{
 		"read the recipes of the business, and name one of them",
 	product.ErrInvalidValue: "the database refused the price: check the channel, the money and the day of it",
 	product.ErrNoStorage:    "the service has no storage of the price list: the price list cannot be reached",
+
+	order.ErrNotFound: "there is no order with that identity: read the orders of the business to know the ones it " +
+		"holds",
+	order.ErrMissingBusiness: "the order belongs to no business: send the identity of the business the order " +
+		"belongs to, and PACA never invents one",
+	order.ErrMissingParty: "the order names no party: send the identity of the client that ordered, or the name " +
+		"the owner reads for it",
+	order.ErrPartyOfAnotherBusiness: "the party of the order belongs to another business: the client that " +
+		"ordered is a party of the business the order belongs to, and PACA never attaches them apart",
+	order.ErrNotAClient: "the party of the order does not hold the role of the client: the bakery does not owe " +
+		"bread to a provider, and the client is opened with the role of the client",
+	order.ErrMissingProduct: "the line of the order names no product: send the identity of the product of the " +
+		"price list, or the name the owner reads for it",
+	order.ErrProductOfAnotherBusiness: "the product of the order belongs to another business: the order carries " +
+		"the products of the price list of the business it belongs to",
+	order.ErrNoLines: "the order carries no line: read the sentence of the owner again and send the products she " +
+		"ordered, with the quantity and the unit of each one",
+	order.ErrInvalidQuantity: "the quantity of a line is not a whole number of units: ask the owner how many " +
+		"units she ordered, and never guess them",
+	order.ErrMissingUnit: "the line of the order carries no unit: ask the owner in which unit she ordered it " +
+		"('pan', 'unidad'), and the quantity and its unit travel together",
+	order.ErrMissingDay: "the order carries no day: ask the owner the day the order is due on, and never invent one",
+	order.ErrWrongBusiness: "the orders belong to a business of its own: the Personal Business of a person holds " +
+		"the money of that person, and not the orders of the bakery",
+	order.ErrUnknownState: "the state of an order is not one of the states PACA knows: use 'open' (the order " +
+		"that waits for its round) or 'delivered' (the order the round delivered)",
+	order.ErrInvalidValue: "the database refused the order: check the party, the day and the lines of it",
+	order.ErrNoStorage:    "the service has no storage of the orders: the orders cannot be reached",
 }

@@ -1083,7 +1083,7 @@ its session starts.
 | T23 | S4 | The party and its tools | inline | `cfaf6ea`, corrected in `d97c998` |
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `b740703`, corrected in `d97c998` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
-| T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
+| T26 | S2, S28 | The orders, the rounds, and their tools | inline | `this commit` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
@@ -1408,3 +1408,16 @@ Three things the review taught, carried here for the ones to come:
 - **A test that cannot fail is a decoration.** The proof of the rotation passed under the order it was supposed to forbid. The proof has to be broken on purpose and watched to fail, and the data has to disagree with the order the rule forbids.
 - **One rule, one message.** Two failures of one sentinel carry one message that fits neither of them; the catalogue of the domain is split when the failures are two, and the message of each one is written in the words of its caller.
 - **The rule that is only in the table is a rule the owner learns from a database error.** The domain refuses it first, in its own words, and the table guards the writer that does not know the domain.
+
+**L42** (2026-11-09): T26 landed: **the orders and the rounds**. The order is the fact the bakery owes: the party (a client of the business), the products of the price list of that business, the quantities (positive whole units, with the unit the owner said) and the day it is due. The round is the day and the orders it carries, and it answers **what is still owed**: the orders that were not delivered stay open, and the round of the day owes exactly the open ones. The tools are `record_order` and `read_orders`, and the transport carries forty-five tools. The domain owns the rules — the order of another business, the party that is not a client, the product that is not of the business, the quantity that is not a whole number of units — and the table holds them as its defense in depth, with the composite foreign keys of the business.
+
+Three questions the increment leaves, and why:
+
+- **The money of an order is not modelled.** The acceptance of T26 does not state it, and the tree must not add a rule nobody wrote: the order carries no money, and the domain says so in its own words. Whether the order carries the money of the price list of the day it was made is a question for the owner.
+- **The delivery of an order is not writable yet.** The domain owns the vocabulary of the state, the rule that an order that was not delivered stays open and the rule that the round owes only the open ones; the transition lands with T27, where the agent writes the route of the round and the delivery with it. It could not be added here: the gate of the repository refuses a function that no production code calls.
+- **The round of a day carries the orders due on it.** An order that fell due on an earlier day and was not delivered stays open in the book, but it is in no round: whether the round of a day also carries the overdue orders is a question for the owner.
+
+Two things the increment taught, carried here for the ones to come:
+
+- **A rule that no tool can reach is a rule that waits.** The delivery of an order is a rule of the domain with no door yet, and the gate of the dead code says so: the state is reachable in the reading, and the door comes with the route.
+- **The unit of a line of an order is the word the owner said.** The exits of the book count whole pieces and refuse a weight; an order of a product the business sells by the gram carries the gram. The book never converts a weight into a number of units, and it never splits a unit.

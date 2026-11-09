@@ -99,6 +99,28 @@ type LedgerEntry struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type Order struct {
+	ID         int64
+	BusinessID int64
+	PartyID    int64
+	PartyName  string
+	DueOn      pgtype.Date
+	State      string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type OrderLine struct {
+	ID          int64
+	OrderID     int64
+	BusinessID  int64
+	ProductID   int64
+	Position    int32
+	ProductName string
+	Quantity    int32
+	Unit        string
+}
+
 type Overhead struct {
 	ID            int64
 	BusinessID    int64

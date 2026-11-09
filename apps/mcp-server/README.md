@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes forty-three tools: the way PACA onboards a person, the four
+The server exposes forty-five tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -125,7 +125,9 @@ bakery or that the bakery buys from, and the reading of the parties the
 business knows, and the two tools of the invoices: the invoice that came
 with the purchase, and the reading of the invoices the business holds, and
 the two tools of the price list: the price of a product in a channel, and
-the reading of the price list of the business.
+the reading of the price list of the business, and the two tools of the
+orders: the order the bakery owes to a client, and the reading of the round
+of a day: what is still owed.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -171,6 +173,8 @@ the reading of the price list of the business.
 | `record_invoice`          | Writes the invoice that came with a purchase: the provider that issued it, the number it carries, the day it was issued, the base the tax applies to, the RATE the invoice states, the tax that travels with it and the total of the invoice. The tax is NEVER assumed: there is no default of nineteen percent and no default of zero, and the tax is derived from the rate and the base the invoice states, rounded to the nearest whole peso with a half peso going up. An invoice that does not add up is refused, a rate with more than two decimals is refused, and so is a provider that does not hold the role of the provider. A purchase carries ONE invoice, and the invoice is attached only to the purchase it names. The invoice moves NO money: the purchase already moved the money of the payment. The reference of the document the owner shows is optional, and PACA never assumes an electronic invoice. One call, one transaction: the invoice and the purchase that points at it are written whole or not at all. |
 | `read_invoices`           | Reads the invoices of the business: every invoice it holds, in the order of their identity, with the provider that issued it, the purchase it came from, its number, its day, its base, the rate the invoice states, the tax that travels with it and its total. The tax of an invoice is never assumed: it is the one the invoice states. It writes nothing. |
 | `set_price`               | Sets the price of a product of the bakery for a CHANNEL: the retail or the wholesale. The product is named either by the RECIPE it comes from — the bakery sells what it bakes — or by the NAME the owner reads, and it is OPENED the first time it is named: that is the only way a product comes into being, and PACA never guesses its name. The channel is required and there is NO default channel: the channel is already in the price from the first row, so that the discount of the wholesale never has to rebuild the history of the prices. For now the two channels carry the same price. The amount is a positive number of whole pesos, and it is never inferred. The BASIS is required too: it is THE WAY THE OWNER CHARGES — the unit, the gram or the kilogram — because three thousand pesos is not a price until the book knows what it is the price of, and there is no default basis. The tax treatment is OPTIONAL: it is a fact of the product that the owner states, and PACA never derives it from the price. The price is a FACT and it is never rewritten: every price is kept with the day it was set. One call, one transaction: the product and the price are written whole or not at all. |
+| `record_order`            | Writes an order of the bakery: the client that ordered, the products with the quantities of them and the UNIT the owner said, and the day it is due. The party is named either by its IDENTITY or by the NAME the owner reads, and it is a CLIENT: the bakery does not owe bread to a provider. The quantity is a positive WHOLE number of units: the book never splits a unit and never converts a weight into a number of units. The day it is due is required and PACA never invents one. The order is written OPEN: an order that was not delivered stays open, and the delivery of an order is written with the ROUTE of the round. One call, one transaction: the order and its lines are written whole or not at all. |
+| `read_orders`             | Reads the round of a day: the orders that are DUE on it, and the ones that are STILL OWED — the orders that were not delivered. The day is optional: the round of that day answers the orders that are due on it, and the whole book of the orders is read when the agent names none. It writes nothing. |
 | `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. The answer carries the WAY THE OWNER CHARGES of every price. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of

@@ -370,6 +370,54 @@ to `confirmed`, and the storage refuses the confirmation of a draft that is
 not the one the owner saw: the revision she saw is the revision the row
 carries.
 
+## The model of the invoice
+
+`purchase.Invoice` is the fact that comes with the purchase: the provider
+that issued it, its number, its day, its base, its rate, its tax, its total
+and the purchase it came from.
+
+**The invoice moves NO money.** The purchase already moved the money of the
+payment when the owner bought, and the invoice arrives later. It is a fact
+that is written against the purchase it came from.
+
+**The tax of an invoice is NEVER ASSUMED: it comes from the invoice.** The
+invoice states the rate it was issued with and the base that rate applies
+to, and the book derives the tax from the two of them (`purchase.TheTax`).
+There is no default of nineteen percent and no default of zero, and the
+rate is never taken from the catalogue of the country: the rule of the tax
+authority and the advice of the professional of the owner are not read
+here.
+
+**The rounding rule of the book.** The tax is rounded to the nearest whole
+peso, and a half peso goes UP: a base of fifty pesos at nineteen percent is
+nine pesos and a half, and the tax of that invoice is ten pesos. The rate
+is counted in hundredths of a percent (`purchase.Rate`), because the rate of
+the tax authority of the owner may not be a whole percent, and a rate that
+is rounded away is a rate nobody charged.
+
+**An invoice that does not add up is never read as an invoice.** The total
+of an invoice is the base plus the tax, and the domain refuses the invoice
+that breaks the rule (`ErrInvoiceDoesNotAddUp`).
+
+**The provider of an invoice is a PARTY.** The party holds the role of the
+provider, and a party that holds only the role of the client is refused
+(`ErrNotAProvider`). The provider is a party of the business that bought,
+and the invoice of one business is never attached to the purchase of
+another one (`ErrInvoiceOfAnotherBusiness`).
+
+**The purchase points at the invoice it came from.** The invoice names the
+purchase (`ErrMissingPurchase`), the purchase carries the identity of the
+invoice, and the two belong to the same business.
+
+**The number of an invoice is unique inside the business that holds it**
+(`ErrDuplicateInvoiceNumber`): the number is what identifies the invoice,
+and the table holds the same rule as a defense in depth.
+
+**The electronic invoice is NEVER assumed.** There is no integration with
+the tax authority and no field that pretends to be one: the reference of the
+invoice is a plain fact of the document the owner shows, and it may be
+absent.
+
 ## The stock and the layers of the FIFO
 
 `purchase.Layer` is a layer of the stock: the ingredient it is of, the
@@ -1081,6 +1129,13 @@ the providers of the bakery (`ErrWrongBusiness`).
 **The name of a party is NOT unique inside the business.** The domain never
 refuses two parties that share a name, and the reading of the parties lists
 them all. The table holds the same rule: there is no index of the name.
+
+**The tax identity of the party is an OPTIONAL fact of it.** It is the NIT
+of a person, of a store or of a farm, and the book never asks for it and
+never assumes one (`party.WithTaxIdentity`). The book does not know the
+format of a tax identity either: it is kept the way the owner said it, and
+the rule of the tax authority and the advice of the professional of the
+owner are not read here.
 
 ## The transaction of the storage
 

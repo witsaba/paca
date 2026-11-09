@@ -12,11 +12,12 @@ import (
 )
 
 const createParty = `-- name: CreateParty :one
-INSERT INTO parties (business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure)
+INSERT INTO parties (business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, tax_id)
 VALUES ($1, $2, $3, $4,
         $5::text, $6::text, $7::text,
-        $8::text, $9::text)
-RETURNING id, business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, created_at, updated_at
+        $8::text, $9::text,
+        $10::text)
+RETURNING id, business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, created_at, updated_at, tax_id
 `
 
 type CreatePartyParams struct {
@@ -29,6 +30,7 @@ type CreatePartyParams struct {
 	Address        pgtype.Text
 	LegalHumanName pgtype.Text
 	LegalFigure    pgtype.Text
+	TaxID          pgtype.Text
 }
 
 func (q *Queries) CreateParty(ctx context.Context, arg CreatePartyParams) (Party, error) {
@@ -42,6 +44,7 @@ func (q *Queries) CreateParty(ctx context.Context, arg CreatePartyParams) (Party
 		arg.Address,
 		arg.LegalHumanName,
 		arg.LegalFigure,
+		arg.TaxID,
 	)
 	var i Party
 	err := row.Scan(
@@ -57,13 +60,14 @@ func (q *Queries) CreateParty(ctx context.Context, arg CreatePartyParams) (Party
 		&i.LegalFigure,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TaxID,
 	)
 	return i, err
 }
 
 const listPartiesByBusiness = `-- name: ListPartiesByBusiness :many
 
-SELECT id, business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, created_at, updated_at FROM parties WHERE business_id = $1 ORDER BY id
+SELECT id, business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, created_at, updated_at, tax_id FROM parties WHERE business_id = $1 ORDER BY id
 `
 
 // The queries of the parties of the business.
@@ -102,6 +106,7 @@ func (q *Queries) ListPartiesByBusiness(ctx context.Context, businessID int64) (
 			&i.LegalFigure,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TaxID,
 		); err != nil {
 			return nil, err
 		}

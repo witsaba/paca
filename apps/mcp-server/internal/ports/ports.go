@@ -1564,6 +1564,10 @@ type OpenParty struct {
 	// LegalFigure is the legal figure the human has. It is optional, and
 	// it is the figure of the farm that has one.
 	LegalFigure string
+
+	// TaxID is the tax identity of the party: the NIT of a person, of a
+	// store or of a farm. It is optional, and PACA never assumes one.
+	TaxID string
 }
 
 // PartyOpener is the inbound port of the tool that opens a party.
@@ -1592,6 +1596,98 @@ type PartyOpener interface {
 type ReadParties struct {
 	// BusinessID is the business whose parties are read.
 	BusinessID int64
+}
+
+// RecordInvoice is the invoice the owner shows: the party that issued it,
+// the purchase it came from, its number, its day, the base the tax applies
+// to, the rate the invoice states, its total and the reference of the
+// document the owner shows.
+//
+// It is the shape of the contract between the agent and the service: the
+// base and the rate are what the invoice states, and PACA never infers
+// either of them. The total is what the invoice says too, and PACA refuses
+// an invoice that does not add up.
+type RecordInvoice struct {
+	// BusinessID is the business that bought and that holds the invoice.
+	BusinessID business.ID
+
+	// ProviderID is the identity of the party that issued the invoice:
+	// the farm, the store or the person the business buys from. It holds
+	// the role of the provider.
+	ProviderID int64
+
+	// PurchaseID is the identity of the purchase the invoice came from.
+	// The purchase points at the invoice.
+	PurchaseID int64
+
+	// Number is the number the invoice carries. It is what identifies it
+	// inside the business that holds it.
+	Number string
+
+	// Day is the day the invoice was issued. It is the day of today when
+	// the agent names none.
+	Day string
+
+	// Base is the money the tax applies to, in whole pesos.
+	Base int64
+
+	// Rate is the rate the invoice was issued with, in percent: 19, 19.5,
+	// 0. It is never assumed, and PACA never fills it by itself.
+	Rate float64
+
+	// Total is the money of the whole invoice, in whole pesos. It is the
+	// base plus the tax, and an invoice that does not add up is refused.
+	Total int64
+
+	// Reference is the reference of the document the owner shows. It is
+	// optional, and it is never the mark of an electronic invoice.
+	Reference string
+}
+
+// InvoiceRecorder is the inbound port of the tool that records an invoice.
+//
+// The tool writes the invoice against the purchase it came from, and the
+// purchase points at it. The invoice moves NO money: the purchase already
+// moved the money of the payment when the owner bought.
+type InvoiceRecorder interface {
+	// Record writes the invoice of the business and answers it with it.
+	//
+	// The identity of the business, the identity of the provider, the
+	// identity of the purchase, the number, the base, the rate and the
+	// total are required. The day is optional, and it is the day of
+	// today when the agent names none. The reference is optional.
+	//
+	// The error is the error of the domain: the domain refuses a
+	// provider that does not hold the role of the provider, an invoice
+	// that does not add up, an invoice of another business and a number
+	// the business already holds.
+	Record(ctx context.Context, request RecordInvoice) (purchase.Invoice, error)
+}
+
+// ReadInvoices is the business whose invoices are read.
+//
+// It is the shape of the contract between the agent and the service: the
+// business is the only thing the agent names.
+type ReadInvoices struct {
+	// BusinessID is the business whose invoices are read.
+	BusinessID business.ID
+}
+
+// InvoicesReader is the inbound port of the tool that reads the invoices of
+// a business.
+//
+// The answer carries the number of every invoice, its day, its base, its
+// rate, its tax and its total: the tax of an invoice is never assumed, and
+// it comes from the invoice.
+type InvoicesReader interface {
+	// Read answers the invoices of the business, in the order of their
+	// identity.
+	//
+	// The identity of the business is required, and the list is empty
+	// when the business holds no invoice.
+	//
+	// The error is the error of the domain.
+	Read(ctx context.Context, request ReadInvoices) ([]purchase.Invoice, error)
 }
 
 // PartiesReader is the inbound port of the tool that reads the parties of a

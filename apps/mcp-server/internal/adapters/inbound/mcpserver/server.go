@@ -253,6 +253,21 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadParties ports.PartiesReader
+
+	// RecordInvoice is the use case that writes the invoice that came
+	// with the purchase: its number, its day, its total and the tax that
+	// travels with it.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordInvoice ports.InvoiceRecorder
+
+	// ReadInvoices is the use case that reads the invoices of the
+	// business.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadInvoices ports.InvoicesReader
 }
 
 // Server is the MCP transport of the service.
@@ -320,6 +335,7 @@ func New(opts Options) *Server {
 	transport.registerExitTools(opts.RecordExit)
 	transport.registerRotationTools(opts.ReadRotation)
 	transport.registerPartyTools(opts.OpenParty, opts.ReadParties)
+	transport.registerInvoiceTools(opts.RecordInvoice, opts.ReadInvoices)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

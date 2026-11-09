@@ -60,6 +60,21 @@ type Ingredient struct {
 	Conversion            float64
 }
 
+type Invoice struct {
+	ID         int64
+	BusinessID int64
+	ProviderID int64
+	PurchaseID int64
+	Number     string
+	Day        pgtype.Date
+	Base       int64
+	Rate       int64
+	Tax        int64
+	Total      int64
+	Reference  pgtype.Text
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Labor struct {
 	ID            int64
 	BusinessID    int64
@@ -109,6 +124,7 @@ type Party struct {
 	LegalFigure    pgtype.Text
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+	TaxID          pgtype.Text
 }
 
 type PriceReference struct {
@@ -168,6 +184,7 @@ type Purchase struct {
 	ConfirmedWith string
 	Total         int64
 	CreatedAt     pgtype.Timestamptz
+	InvoiceID     pgtype.Int8
 }
 
 type PurchaseDraft struct {

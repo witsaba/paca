@@ -183,6 +183,7 @@ func New(
 	// buys. Without a database there is no draft and no purchase.
 	var drafts purchase.Repository
 	var purchases purchase.Recorder
+	var purchaseReader purchase.Finder
 	var ingredients ingredient.Repository
 	var layers purchase.LayerRepository
 	if pool != nil {
@@ -199,6 +200,7 @@ func New(
 			return nil, fmt.Errorf("the recorder of the purchases could not be built: %w", err)
 		}
 		purchases = boundPurchases
+		purchaseReader = boundPurchases
 
 		boundIngredients, err := postgres.NewIngredientRepository(pool)
 		if err != nil {
@@ -504,6 +506,24 @@ func New(
 
 	partyService := application.NewPartyService(parties, businesses)
 
+	// The invoices of the bakery: the fact that comes with the purchase.
+	// The invoice names the provider that issued it, and it is written
+	// against the purchase it came from: the purchase points at it. The
+	// tax of an invoice is never assumed, and it comes from the invoice.
+	// Without a database there is no invoice to write nor to read.
+	var invoices purchase.InvoiceRepository
+
+	if pool != nil {
+		boundInvoices, err := postgres.NewInvoiceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the invoices could not be built: %w", err)
+		}
+		invoices = boundInvoices
+	}
+
+	invoiceService := application.NewInvoiceService(parties, purchaseReader, invoices, work, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -543,6 +563,8 @@ func New(
 		ReadRotation:        rotationService,
 		OpenParty:           partyService,
 		ReadParties:         partyService,
+		RecordInvoice:       invoiceService,
+		ReadInvoices:        invoiceService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

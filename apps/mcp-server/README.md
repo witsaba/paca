@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-nine tools: the way PACA onboards a person, the four
+The server exposes forty-one tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -122,7 +122,8 @@ of a unit: the consumption of the owner and the donation, the tool of
 the rotation: the order in which the units leave the book, and the two
 tools of the parties: the person, the store or the farm that buys from the
 bakery or that the bakery buys from, and the reading of the parties the
-business knows.
+business knows, and the two tools of the invoices: the invoice that came
+with the purchase, and the reading of the invoices the business holds.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -165,6 +166,8 @@ business knows.
 | `read_rotation`           | Reads the rotation of the book: the ORDER in which the units the bakery still holds leave it, and when each one expires. The rotation follows the EARLIEST EXPIRY: the unit that expires first is the first one that leaves, and the units that expire on the same day keep a stable order — the production first, and the position of the unit in it. The answer carries the name of the product, the day each unit was made, the PLACE it takes in that order, the DAY it expires and the DAYS that are left of it. The product is optional: the whole book of the business, or one product of it. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. The answer carries NO money: the valuation of the stock follows the FIFO, and it is another rule. It writes nothing. |
 | `open_party`              | Opens a party of the business: the PERSON, the STORE or the FARM that buys from the bakery, or that the bakery buys from. The business is the business of its own — the one with the clients and the providers of the bakery — and the Personal Business of a person is refused. The kind is required, and the name is required: the name of a party is NOT unique inside the business, and two parties may share it. The roles are required: the CLIENT, the PROVIDER, or both of them, and a party that holds neither is refused. The legal human that represents the party is a FACT OF THE PARTY and never a second person: a store REQUIRES it, a farm CARRIES it only when it has one, and a person REFUSES it. The phone, the email and the address are optional facts of the party, and PACA never invents them. |
 | `read_parties`            | Reads the parties of the business: every person, store and farm it knows, in the order of their identity, with the roles it holds, the way of reaching it, its address and the legal human that represents it. The name of a party is not unique inside the business, and the answer carries the ones that share it. It writes nothing. |
+| `record_invoice`          | Writes the invoice that came with a purchase: the provider that issued it, the number it carries, the day it was issued, the base the tax applies to, the RATE the invoice states, the tax that travels with it and the total of the invoice. The tax is NEVER assumed: there is no default of nineteen percent and no default of zero, and the tax is derived from the rate and the base the invoice states, rounded to the nearest whole peso with a half peso going up. An invoice that does not add up is refused, and so is a provider that does not hold the role of the provider. The invoice moves NO money: the purchase already moved the money of the payment. The reference of the document the owner shows is optional, and PACA never assumes an electronic invoice. One call, one transaction: the invoice and the purchase that points at it are written whole or not at all. |
+| `read_invoices`           | Reads the invoices of the business: every invoice it holds, in the order of their identity, with the provider that issued it, the purchase it came from, its number, its day, its base, the rate the invoice states, the tax that travels with it and its total. The tax of an invoice is never assumed: it is the one the invoice states. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -487,6 +490,21 @@ the people of PACA: it travels inside the party it belongs to, and nowhere
 else. The name of a party is NOT unique inside the business: the book never
 refuses two parties that share a name, and the reading of the parties holds
 all of them.
+
+**The invoice is a fact that comes with the purchase, and it moves no
+money.** The tool `record_invoice` writes the invoice against the purchase
+it came from, and the purchase points at it. The purchase already moved
+the money of the payment when the owner bought, and the invoice arrives
+later: the book never moves money twice for the same purchase. The tax of
+an invoice is NEVER ASSUMED: it comes from the invoice, which states the
+rate it was issued with and the base that rate applies to. The tax is
+derived from the two of them and rounded to the nearest whole peso, with a
+half peso going up, and an invoice that does not add up is refused. The
+provider of an invoice is a PARTY that holds the role of the provider, and
+the number of the invoice is unique inside the business. The electronic
+invoice is never assumed either: there is no integration with the tax
+authority, and the reference of the document the owner shows is a plain
+fact of the invoice.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

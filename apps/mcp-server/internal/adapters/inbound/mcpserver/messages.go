@@ -302,6 +302,28 @@ var theMessages = map[error]string{
 		"'unit' (the price of one piece), 'gram' (the price of one gram) or 'kilogram' (the price of one " +
 		"kilogram)",
 
+	purchase.ErrMissingProvider: "the invoice names no provider: send the identity of the party that issued " +
+		"it, the farm, the store or the person the bakery buys from",
+	purchase.ErrNotAProvider: "the party does not hold the role of the provider: open the provider with the " +
+		"tool of the parties, with the role of the provider, and send the identity it answered",
+	purchase.ErrMissingPurchase: "the invoice names no purchase: send the identity of the purchase the " +
+		"invoice came from, and the purchase the owner confirmed",
+	purchase.ErrMissingInvoiceNumber: "the invoice carries no number: read the number the invoice carries, " +
+		"the way it was printed on it",
+	purchase.ErrMissingInvoiceDay: "the invoice carries no day: ask the owner the day the invoice was issued, " +
+		"and never invent one",
+	purchase.ErrInvalidInvoiceMoney: "the money of the invoice is not a number of pesos: the money of the " +
+		"book counts whole pesos, and it is never negative",
+	purchase.ErrInvalidRate: "the rate of the tax is not a rate: send the rate the invoice states, in " +
+		"percent, and never fill it by yourself: there is no default of nineteen percent and no default of zero",
+	purchase.ErrInvoiceDoesNotAddUp: "the total of the invoice is not the base plus the tax: read the " +
+		"base, the rate and the total the invoice carries, and ask the owner which of the three is wrong",
+	purchase.ErrInvoiceOfAnotherBusiness: "the invoice belongs to the business of its purchase: the invoice " +
+		"and the purchase it came from belong to the same business, and PACA never attaches them apart",
+	purchase.ErrDuplicateInvoiceNumber: "the business already holds an invoice with that number: the number " +
+		"of an invoice is unique inside the business, and the agent should read the invoices of the business " +
+		"before it writes one",
+
 	party.ErrNotFound: "there is no party with that identity: read the parties of the business before naming " +
 		"one of them",
 	party.ErrUnknownKind: "the kind of a party is not one of the kinds PACA knows: use 'person', 'store' or " +

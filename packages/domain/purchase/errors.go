@@ -152,6 +152,56 @@ var (
 	// does not know: the way the owner sells is her decision, and it is
 	// never guessed.
 	ErrUnknownPriceBasis = errors.New("the way the owner charges is one of the three the book knows")
+
+	// ErrMissingProvider is the error of an invoice that names no
+	// provider: the provider of an invoice is a party, and an invoice
+	// without one is a fact of nobody.
+	ErrMissingProvider = errors.New("the invoice names the party that issued it")
+
+	// ErrNotAProvider is the error of an invoice whose provider does not
+	// hold the role of the provider: the roles are facts of the party,
+	// and a party that holds only the role of the client never issues
+	// an invoice.
+	ErrNotAProvider = errors.New("the party does not hold the role of the provider")
+
+	// ErrMissingPurchase is the error of an invoice that names no
+	// purchase: the purchase points at the invoice it came from.
+	ErrMissingPurchase = errors.New("the invoice names the purchase it came from")
+
+	// ErrMissingInvoiceNumber is the error of an invoice without its
+	// number: the number is what identifies it inside the business that
+	// holds it.
+	ErrMissingInvoiceNumber = errors.New("the invoice carries its number")
+
+	// ErrMissingInvoiceDay is the error of an invoice without the day it
+	// was issued.
+	ErrMissingInvoiceDay = errors.New("the invoice carries the day it was issued")
+
+	// ErrInvalidInvoiceMoney is the error of an invoice whose money is
+	// negative: the money of the book counts whole pesos, and it is
+	// never negative.
+	ErrInvalidInvoiceMoney = errors.New("the money of the invoice is not negative")
+
+	// ErrInvalidRate is the error of a rate of a tax that is not a rate:
+	// the rate is the one the invoice states, and a rate outside of the
+	// hundred percent is a number nobody can charge.
+	ErrInvalidRate = errors.New("the rate of the tax is a rate between zero and a hundred percent")
+
+	// ErrInvoiceDoesNotAddUp is the error of an invoice whose total is
+	// not the base plus the tax: an invoice that does not add up is
+	// never read as an invoice.
+	ErrInvoiceDoesNotAddUp = errors.New("the total of the invoice is the base plus the tax")
+
+	// ErrInvoiceOfAnotherBusiness is the error of an invoice of a
+	// business attached to the purchase of another one: the purchase
+	// points at the invoice it came from, and never at the invoice of
+	// another business.
+	ErrInvoiceOfAnotherBusiness = errors.New("the invoice belongs to the business of its purchase")
+
+	// ErrDuplicateInvoiceNumber is the error of an invoice whose number is
+	// already in the business: the number of an invoice is what
+	// identifies it, and it is unique inside the business that holds it.
+	ErrDuplicateInvoiceNumber = errors.New("the number of the invoice is already in the business")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -191,5 +241,15 @@ func Errors() []error {
 		ErrLayerNotTied,
 		ErrInvalidOwnerPrice,
 		ErrUnknownPriceBasis,
+		ErrMissingProvider,
+		ErrNotAProvider,
+		ErrMissingPurchase,
+		ErrMissingInvoiceNumber,
+		ErrMissingInvoiceDay,
+		ErrInvalidInvoiceMoney,
+		ErrInvalidRate,
+		ErrInvoiceDoesNotAddUp,
+		ErrInvoiceOfAnotherBusiness,
+		ErrDuplicateInvoiceNumber,
 	}
 }

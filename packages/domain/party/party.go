@@ -13,6 +13,13 @@
 // never becomes a row of the people of PACA. The party carries it, and the
 // book of the business reads it with the party.
 //
+// The tax identity of the party — the NIT of a person, of a store or of a
+// farm — is a fact of the party too, and it is OPTIONAL: the book never
+// asks for it, and it never assumes one. The book does not know the format
+// of a tax identity either: it is kept the way the owner said it, and the
+// rule of the tax authority and the advice of the professional of the owner
+// are not read here.
+//
 // The way of reaching the party and its address are facts of the party too.
 // The rules of the phone and of the email are the ones of the person, and
 // the package reuses them: the party never writes a second cleaning rule.
@@ -276,6 +283,16 @@ type Party struct {
 	// not declare one.
 	Address string
 
+	// TaxID is the tax identity of the party: the NIT of a person, of a
+	// store or of a farm.
+	//
+	// It is OPTIONAL, and nothing in the book assumes one: a party may
+	// carry it and a party may carry none. The book does not know the
+	// format of a tax identity and it never reads one: the rule of the
+	// tax authority and the advice of the professional of the owner are
+	// not read here.
+	TaxID string
+
 	// LegalHuman is the human that represents the party. It is empty when
 	// the party has none: a person never has one, and a farm may have
 	// none.
@@ -358,6 +375,18 @@ func New(
 		Address:    strings.TrimSpace(address),
 		LegalHuman: legal,
 	}, nil
+}
+
+// WithTaxIdentity answers the party carrying that tax identity.
+//
+// The tax identity is an OPTIONAL fact of the party: the identity loses the
+// spaces around it, and an empty one leaves the party as it was. The book
+// does not know the format of a tax identity and it never reads one: the
+// tax identity is kept the way the owner said it.
+func (p Party) WithTaxIdentity(taxID string) Party {
+	p.TaxID = strings.TrimSpace(taxID)
+
+	return p
 }
 
 // Is reports whether the party holds that role.

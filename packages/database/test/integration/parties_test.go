@@ -124,6 +124,7 @@ func TestTheTableOfThePartiesHasTheColumnsOfTheSpecification(t *testing.T) {
 		{name: "legal_figure", dataType: "text", nullable: "YES", defaultSQL: ""},
 		{name: "created_at", dataType: "timestamp with time zone", nullable: "NO", defaultSQL: "now()"},
 		{name: "updated_at", dataType: "timestamp with time zone", nullable: "NO", defaultSQL: "now()"},
+		{name: "tax_id", dataType: "text", nullable: "YES", defaultSQL: ""},
 	}
 
 	rows, err := theSuite.db.QueryContext(ctx, `
@@ -402,6 +403,42 @@ func TestTheTableRefusesAPartyWithoutItsRole(t *testing.T) {
 	pgErr := postgresError(t, err)
 	if pgErr.Code != checkViolation {
 		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+}
+
+// TestTheTaxIdentityOfThePartyIsOptional proves the rule of the table: the
+// tax identity of a party is an OPTIONAL fact of it, and the column is
+// NULL when the party carries none.
+func TestTheTaxIdentityOfThePartyIsOptional(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := partiesRepository(t)
+	bakery := theBakeryOfTheParties(t, ctx)
+
+	withoutTaxIdentity := thePersonOfTheTest(t, bakery)
+	if _, err := repo.Create(ctx, withoutTaxIdentity); err != nil {
+		t.Fatalf("the party could not be written: %v", err)
+	}
+
+	var taxID sql.NullString
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT tax_id FROM parties WHERE business_id = $1 AND name = $2`,
+		int64(bakery.ID), withoutTaxIdentity.Name,
+	).Scan(&taxID); err != nil {
+		t.Fatalf("the row of the party could not be read: %v", err)
+	}
+	if taxID.Valid {
+		t.Errorf("the tax identity of the row is %q, want NULL", taxID.String)
+	}
+
+	withTaxIdentity := thePersonOfTheTest(t, bakery).WithTaxIdentity("900123456-7")
+	written, err := repo.Create(ctx, withTaxIdentity)
+	if err != nil {
+		t.Fatalf("the party could not be written: %v", err)
+	}
+	if written.TaxID != "900123456-7" {
+		t.Errorf("the tax identity of the party is %q, want %q", written.TaxID, "900123456-7")
 	}
 }
 

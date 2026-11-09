@@ -61,8 +61,11 @@ func buildDescriptionOpenParty() string {
 		"invents them. The phone carries its country code ('+57 321 253 9984'), and the email is a valid address.\n\n" +
 		"The legal figure ('legal_figure') is OPTIONAL: it is the legal figure of the legal human ('S.A.S.', " +
 		"'Ltda.'), and it is the figure of a farm that has one.\n\n" +
+		"The tax identity ('tax_id') is OPTIONAL: it is the NIT of a person, of a store or of a farm. PACA never " +
+		"asks for it, and it never assumes one: the book does not know the format of a tax identity, and it keeps " +
+		"it the way the owner said it.\n\n" +
 		"The answer carries the party as it is now: its identity, its kind, its name, its roles, the way of " +
-		"reaching it, its address and the legal human that represents it."
+		"reaching it, its address, the legal human that represents it and its tax identity."
 }
 
 // buildDescriptionReadParties renders the description of the tool that
@@ -112,6 +115,9 @@ type openPartyInput struct {
 
 	// LegalFigure is the legal figure the legal human has.
 	LegalFigure string `json:"legal_figure,omitempty" jsonschema:"The legal figure of the legal human ('S.A.S.', 'Ltda.'). It is optional: some farms have one and some do not."`
+
+	// TaxID is the tax identity of the party.
+	TaxID string `json:"tax_id,omitempty" jsonschema:"The tax identity of the party: the NIT of a person, of a store or of a farm ('900123456-7'). It is optional, and PACA never assumes one."`
 }
 
 // readPartiesInput is the input of the tool that reads the parties of a
@@ -152,6 +158,9 @@ type partyOutput struct {
 
 	// LegalFigure is the legal figure the legal human has.
 	LegalFigure string `json:"legal_figure,omitempty"`
+
+	// TaxID is the tax identity of the party.
+	TaxID string `json:"tax_id,omitempty"`
 }
 
 // openPartyOutput is the answer of the tool that opens a party.
@@ -203,6 +212,7 @@ func (s *Server) openParty(opener ports.PartyOpener) sdk.ToolHandlerFor[openPart
 			Address:        input.Address,
 			LegalHumanName: input.LegalHumanName,
 			LegalFigure:    input.LegalFigure,
+			TaxID:          input.TaxID,
 		})
 		if err != nil {
 			return nil, openPartyOutput{}, s.toolError(err)
@@ -256,6 +266,7 @@ func outputOfParty(model party.Party) partyOutput {
 		Address:        model.Address,
 		LegalHumanName: model.LegalHuman.Name,
 		LegalFigure:    model.LegalHuman.Figure,
+		TaxID:          model.TaxID,
 	}
 }
 

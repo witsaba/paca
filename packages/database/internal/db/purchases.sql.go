@@ -108,7 +108,7 @@ VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8
 )
-RETURNING id, business_id, draft_id, day, market, invoice, utterance, confirmed_with, total, created_at
+RETURNING id, business_id, draft_id, day, market, invoice, utterance, confirmed_with, total, created_at, invoice_id
 `
 
 type CreatePurchaseParams struct {
@@ -145,6 +145,7 @@ func (q *Queries) CreatePurchase(ctx context.Context, arg CreatePurchaseParams) 
 		&i.ConfirmedWith,
 		&i.Total,
 		&i.CreatedAt,
+		&i.InvoiceID,
 	)
 	return i, err
 }
@@ -270,6 +271,32 @@ func (q *Queries) CreatePurchaseLine(ctx context.Context, arg CreatePurchaseLine
 		&i.Total,
 		&i.UnitPrice,
 		&i.IngredientID,
+	)
+	return i, err
+}
+
+const getPurchaseByID = `-- name: GetPurchaseByID :one
+SELECT id, business_id, draft_id, day, market, invoice, utterance, confirmed_with, total, created_at, invoice_id FROM purchases WHERE id = $1
+`
+
+// The purchase is a fact, and it is read back: the invoice is written
+// against the purchase it came from, and the use case reads the purchase
+// before it writes the invoice.
+func (q *Queries) GetPurchaseByID(ctx context.Context, id int64) (Purchase, error) {
+	row := q.db.QueryRow(ctx, getPurchaseByID, id)
+	var i Purchase
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.DraftID,
+		&i.Day,
+		&i.Market,
+		&i.Invoice,
+		&i.Utterance,
+		&i.ConfirmedWith,
+		&i.Total,
+		&i.CreatedAt,
+		&i.InvoiceID,
 	)
 	return i, err
 }

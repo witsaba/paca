@@ -74,6 +74,7 @@ func (r *PartyRepository) Create(ctx context.Context, p party.Party) (party.Part
 		Address:        optionalText(p.Address),
 		LegalHumanName: optionalText(p.LegalHuman.Name),
 		LegalFigure:    optionalText(p.LegalHuman.Figure),
+		TaxID:          optionalText(p.TaxID),
 	})
 	if err != nil {
 		return party.Party{}, writePartyError(err)
@@ -152,6 +153,11 @@ func partyFromRow(row db.Party) (party.Party, error) {
 	built.ID = party.ID(row.ID)
 	built.CreatedAt = timestamp(row.CreatedAt)
 	built.UpdatedAt = timestamp(row.UpdatedAt)
+
+	// The tax identity of the party is an OPTIONAL fact of it: the column
+	// is NULL when the party carries none, and the book never assumes
+	// one.
+	built = built.WithTaxIdentity(text(row.TaxID))
 
 	return built, nil
 }

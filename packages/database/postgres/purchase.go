@@ -307,19 +307,8 @@ func (r *PurchaseRecorder) Record(ctx context.Context, written purchase.Purchase
 		return purchase.Purchase{}, writePurchaseError(err)
 	}
 
-	recorded := purchase.Purchase{
-		ID:            purchase.ID(row.ID),
-		DraftID:       purchase.DraftID(row.DraftID),
-		BusinessID:    business.ID(row.BusinessID),
-		Day:           ledger.NewDate(row.Day.Time),
-		Market:        row.Market.String,
-		Invoice:       row.Invoice.String,
-		Utterance:     row.Utterance,
-		ConfirmedWith: row.ConfirmedWith,
-		Total:         ledger.Amount(row.Total),
-		Lines:         make([]purchase.Line, 0, len(written.Lines)),
-		CreatedAt:     timestamp(row.CreatedAt),
-	}
+	recorded := purchaseFromRow(row)
+	recorded.Lines = make([]purchase.Line, 0, len(written.Lines))
 
 	for position, one := range written.Lines {
 		line, err := r.pool.queriesFor(ctx).CreatePurchaseLine(ctx, db.CreatePurchaseLineParams{
@@ -340,6 +329,57 @@ func (r *PurchaseRecorder) Record(ctx context.Context, written purchase.Purchase
 	}
 
 	return recorded, nil
+}
+
+// Find returns the purchase that carries that identity.
+//
+// The purchase is a fact, and it is read back: the invoice is written
+// against the purchase it came from, and the use case reads the purchase
+// before it writes the invoice.
+//
+// The lines of the purchase are rows of their own table, and they are not
+// read here: the invoice needs the purchase itself and not its lines.
+//
+// The error is purchase.ErrNotFound when no purchase carries that identity,
+// and purchase.ErrNoStorage when the storage is not open.
+func (r *PurchaseRecorder) Find(ctx context.Context, id purchase.ID) (purchase.Purchase, error) {
+	if r == nil || r.pool == nil {
+		return purchase.Purchase{}, purchase.ErrNoStorage
+	}
+
+	row, err := r.pool.queriesFor(ctx).GetPurchaseByID(ctx, int64(id))
+	if err != nil {
+		return purchase.Purchase{}, writePurchaseError(err)
+	}
+
+	return purchaseFromRow(row), nil
+}
+
+// purchaseFromRow maps a row of the purchases onto the model of the domain.
+//
+// The invoice the purchase came from travels with it: the purchase points
+// at the invoice, and the column is empty when the invoice has not arrived
+// yet.
+func purchaseFromRow(row db.Purchase) purchase.Purchase {
+	recorded := purchase.Purchase{
+		ID:            purchase.ID(row.ID),
+		DraftID:       purchase.DraftID(row.DraftID),
+		BusinessID:    business.ID(row.BusinessID),
+		Day:           ledger.NewDate(row.Day.Time),
+		Market:        row.Market.String,
+		Invoice:       row.Invoice.String,
+		Utterance:     row.Utterance,
+		ConfirmedWith: row.ConfirmedWith,
+		Total:         ledger.Amount(row.Total),
+		Lines:         []purchase.Line{},
+		CreatedAt:     timestamp(row.CreatedAt),
+	}
+
+	if row.InvoiceID.Valid {
+		recorded.InvoiceID = purchase.InvoiceID(row.InvoiceID.Int64)
+	}
+
+	return recorded
 }
 
 // purchaseLineFromRow maps a row of the lines of a purchase onto the model

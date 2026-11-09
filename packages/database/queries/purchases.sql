@@ -51,6 +51,13 @@ VALUES (
 )
 RETURNING *;
 
+-- name: GetPurchaseByID :one
+--
+-- The purchase is a fact, and it is read back: the invoice is written
+-- against the purchase it came from, and the use case reads the purchase
+-- before it writes the invoice.
+SELECT * FROM purchases WHERE id = sqlc.arg(id);
+
 -- name: CreatePurchaseLine :one
 INSERT INTO purchase_lines (
     purchase_id, position, name, quantity, unit, total, unit_price, ingredient_id

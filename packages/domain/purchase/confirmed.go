@@ -50,6 +50,11 @@ type Purchase struct {
 	// named none.
 	Invoice string
 
+	// InvoiceID is the invoice the purchase came from. It is empty until
+	// the invoice arrives: the purchase is written when the owner buys,
+	// and the invoice comes later.
+	InvoiceID InvoiceID
+
 	// Utterance is the sentence of the owner, verbatim. It is kept with
 	// the purchase, so the entry can be audited and derived again.
 	Utterance string

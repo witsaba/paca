@@ -123,6 +123,57 @@ type LayerRepository interface {
 	WriteRemaining(ctx context.Context, remaining []Remaining) error
 }
 
+// Finder is the port of the storage of the purchases.
+//
+// The purchase is a fact, and it is read back: the invoice is written
+// against the purchase it came from, and the use case reads the purchase
+// before it writes the invoice.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type Finder interface {
+	// Find returns the purchase that carries that identity.
+	//
+	// The error is ErrNotFound when no purchase carries that identity,
+	// and ErrNoStorage when the storage is not open.
+	Find(ctx context.Context, id ID) (Purchase, error)
+}
+
+// InvoiceRepository is the port of the storage of the invoices.
+//
+// An invoice is a fact: it is written once, and it never changes. It is
+// written against the purchase it came from, and the purchase points at
+// it.
+//
+// The rules of the domain travel with the port. An implementation refuses
+// what the domain refuses, and says so with the errors of this package.
+type InvoiceRepository interface {
+	// Record writes the invoice and answers it with the identity that
+	// the storage generated.
+	//
+	// The error is ErrInvalidValue when the row breaks a rule of the
+	// table, ErrNotFound when the business, the provider or the purchase
+	// of the invoice is not there, and ErrNoStorage when the storage is
+	// not open.
+	Record(ctx context.Context, invoice Invoice) (Invoice, error)
+
+	// Attach points the purchase at the invoice it came from.
+	//
+	// The rule of the domain: the purchase and the invoice belong to the
+	// same business, and the storage writes the row of the purchase only
+	// when it is the purchase of that business.
+	//
+	// The error is ErrNotFound when the purchase is not there, and
+	// ErrNoStorage when the storage is not open.
+	Attach(ctx context.Context, invoice Invoice, bought Purchase) error
+
+	// List returns the invoices of a business, in the order of their
+	// identity.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	List(ctx context.Context, own business.ID) ([]Invoice, error)
+}
+
 // ReferenceRepository is the port of the storage of the reference prices.
 //
 // A reference is a price fact of the business: what the market was seen at,

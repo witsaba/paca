@@ -91,7 +91,9 @@ func (s *PartyService) Open(ctx context.Context, request ports.OpenParty) (party
 		return party.Party{}, err
 	}
 
-	return s.parties.Create(ctx, built)
+	// The tax identity of the party is an OPTIONAL fact of it: the book
+	// never asks for it, and it never assumes one.
+	return s.parties.Create(ctx, built.WithTaxIdentity(request.TaxID))
 }
 
 // Read answers the parties of the business: the person, the store and the

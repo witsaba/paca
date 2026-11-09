@@ -17,8 +17,9 @@
 SELECT * FROM parties WHERE business_id = sqlc.arg(business_id) ORDER BY id;
 
 -- name: CreateParty :one
-INSERT INTO parties (business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure)
+INSERT INTO parties (business_id, kind, name, roles, phone, email, address, legal_human_name, legal_figure, tax_id)
 VALUES (sqlc.arg(business_id), sqlc.arg(kind), sqlc.arg(name), sqlc.arg(roles),
         sqlc.narg(phone)::text, sqlc.narg(email)::text, sqlc.narg(address)::text,
-        sqlc.narg(legal_human_name)::text, sqlc.narg(legal_figure)::text)
+        sqlc.narg(legal_human_name)::text, sqlc.narg(legal_figure)::text,
+        sqlc.narg(tax_id)::text)
 RETURNING *;

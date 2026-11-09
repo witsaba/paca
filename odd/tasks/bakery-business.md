@@ -1080,7 +1080,7 @@ its session starts.
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
 | T23 | S4 | The party and its tools | inline | `this commit` |
-| T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `pending` |
+| T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `this commit` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `pending` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
@@ -1359,3 +1359,12 @@ Two things the increment taught, carried here for the ones to come:
 - **A rule the table cannot hold does not have to be invented twice.** The table of the parties holds the kind, the roles, the legal human and the emptiness of the names; the rule that the parties belong to a business of kind business lives in the domain, because a composite foreign key would have forced the adapter to write the kind of the business — and the adapter never decides.
 
 Open for the owner: the reading of the parties does not refuse the Personal Business — it answers with an empty list, because the rule binds the write and a business of kind personal can own no party. Say the word if the rule has to bind the read as well.
+
+**L39** (2026-11-09): T24 landed: **the providers, the invoices and the tax**. The provider is a party, and the party keeps its **tax identity** (the NIT) as an optional fact: nothing in the tree assumes a NIT, and the rule of the tax authority is not read here. The invoice carries its number, its day, its base, the **rate it was issued with**, the tax that travels with it and its total — and the tax is **never assumed**: the rate comes from the invoice (counted in hundredths of a percent, so a rate is never rounded away), the domain derives the tax from that rate and that base with the money of the book (the nearest whole peso, and a half peso goes up), and an invoice whose total is not the base plus that tax is refused. The invoice **moves no money**: the purchase already moved it when the owner bought, and the invoice is the fact that arrives later. The **purchase points at the invoice it came from**, and the purchase and the invoice belong to the same business. The number of the invoice is unique inside the business, and the storage holds that rule as its defense in depth. The electronic invoice is never assumed: there is no integration with the tax authority and no field that pretends to be one. The tools are `record_invoice` and `read_invoices`, and the transport carries forty-one tools.
+
+Two things the increment taught, carried here for the ones to come:
+
+- **A file that holds three models has three reasons to change.** The adapter of the invoices was written inside the adapter of the purchases; the orchestrator moved it to a file of its own and added its name to the list of the files that only the container tests can cover — the same treatment every other adapter of the tree has. The gate stayed at ninety-seven percent because the file is counted honestly, not because the rule was relaxed.
+- **The rate in hundredths of a percent is what "never assumed" means in practice.** A rate of 19.5% has no home in a whole percent, and a rate that is rounded away is a rate that was assumed.
+
+Open for the owner: the NIT is deliberately format-free — the book trims it and keeps it, and the rule of the tax authority is not read here (that is the point of S8); and the difference between the total of an invoice and the money the owner paid is **not a movement**: it stays visible in the invoice, and it is a question for the professional of the taxes.

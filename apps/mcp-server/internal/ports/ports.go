@@ -1872,11 +1872,13 @@ type OrderLine struct {
 	// when the agent names the product with its identity.
 	ProductName string
 
-	// Quantity is how many units of the product the line carries. It is a
-	// whole number of units: the book never splits a unit.
-	Quantity int
+	// Quantity is how much of the product the line carries. It is the
+	// number of pieces when the owner charges by the piece, and the amount
+	// of weight when she charges by the weight.
+	Quantity float64
 
-	// Unit is the unit of that quantity, the way the owner said it.
+	// Unit is the unit of that quantity, the way the owner said it: the
+	// domain reads it in the vocabulary of the book.
 	Unit string
 }
 
@@ -1918,7 +1920,8 @@ type ReadOrders struct {
 // business.
 //
 // The answer carries the orders the round of the day carries and the ones
-// that are still owed: the orders that were not delivered.
+// that are still owed: every open order of the business, the ones that are
+// due on the day and the ones that fell due on an earlier day.
 type OrdersReader interface {
 	// Read answers the round of the day: the orders it carries and the
 	// ones that are still owed.

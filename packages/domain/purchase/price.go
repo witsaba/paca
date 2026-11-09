@@ -2,6 +2,7 @@ package purchase
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/witsaba/paca/packages/domain/ledger"
@@ -70,6 +71,37 @@ func PriceBases() []PriceBasis {
 	return []PriceBasis{PricePerUnit, PricePerGram, PricePerKilogram}
 }
 
+// SpokenPriceBases returns the ways the owner and the agent say the ways
+// of charging, in the order a person reads them.
+//
+// The list is the declared vocabulary of the domain: the description of the
+// tools reads it, so the agent sends the way she charges the way she said
+// it. The list holds no way the book does not know.
+func SpokenPriceBases() []string {
+	spoken := make([]string, 0, len(theSpokenPriceBases))
+
+	for name := range theSpokenPriceBases {
+		spoken = append(spoken, name)
+	}
+
+	sort.Strings(spoken)
+
+	return spoken
+}
+
+// Valid reports whether the basis is one of the ways the owner may charge.
+//
+// The rule of the domain: the way she charges is the piece, the gram or
+// the kilogram, and it is never another one.
+func (b PriceBasis) Valid() bool {
+	switch b {
+	case PricePerUnit, PricePerGram, PricePerKilogram:
+		return true
+	}
+
+	return false
+}
+
 // String returns the name of the way of charging.
 //
 // It is the name the storage and the protocol carry, with no translation in
@@ -135,9 +167,7 @@ func NewOwnerPrice(money ledger.Amount, basis PriceBasis) (OwnerPrice, error) {
 		return OwnerPrice{}, fmt.Errorf("%w: the price of the owner is %d", ErrInvalidOwnerPrice, money)
 	}
 
-	switch basis {
-	case PricePerUnit, PricePerGram, PricePerKilogram:
-	default:
+	if !basis.Valid() {
 		return OwnerPrice{}, fmt.Errorf("%w: %q", ErrUnknownPriceBasis, basis)
 	}
 

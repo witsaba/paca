@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -115,7 +116,7 @@ func theOrderOfTheTest(
 	t.Helper()
 
 	built, err := order.New(bakery.ID, client, dueOn, []order.LineDefinition{
-		{Product: baked, Quantity: 12, Unit: "pan"},
+		{Product: baked, Quantity: 12, Unit: "unidad"},
 	})
 	if err != nil {
 		t.Fatalf("the order was refused: %v", err)
@@ -269,10 +270,10 @@ func TestTheOrderIsKeptAndReadBackWithItsLines(t *testing.T) {
 		t.Errorf("the product of the line is %d, want %d", written.Lines[0].ProductID, baked.ID)
 	}
 	if written.Lines[0].Quantity != 12 {
-		t.Errorf("the quantity of the line is %d, want 12", written.Lines[0].Quantity)
+		t.Errorf("the quantity of the line is %v, want 12", written.Lines[0].Quantity)
 	}
-	if written.Lines[0].Unit != "pan" {
-		t.Errorf("the unit of the line is %q, want %q", written.Lines[0].Unit, "pan")
+	if written.Lines[0].Unit != purchase.PricePerUnit {
+		t.Errorf("the unit of the line is %q, want %q", written.Lines[0].Unit, purchase.PricePerUnit)
 	}
 
 	held, err := repo.List(ctx, bakery.ID)
@@ -292,7 +293,7 @@ func TestTheOrderIsKeptAndReadBackWithItsLines(t *testing.T) {
 		t.Errorf("the name of the product is %q, want %q", held[0].Lines[0].ProductName, "Pan de molde")
 	}
 	if held[0].Lines[0].Quantity != 12 {
-		t.Errorf("the quantity of the line is %d, want 12", held[0].Lines[0].Quantity)
+		t.Errorf("the quantity of the line is %v, want 12", held[0].Lines[0].Quantity)
 	}
 }
 
@@ -380,10 +381,10 @@ func TestTheOrderOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	}
 }
 
-// TestTheTableRefusesAQuantityThatIsNotAWholeNumberOfUnits proves the rule
-// of the table: the quantity of a line is a whole number of units, and the
-// table refuses the row that carries another one.
-func TestTheTableRefusesAQuantityThatIsNotAWholeNumberOfUnits(t *testing.T) {
+// TestTheTableRefusesAQuantityThatIsNotPositive proves the rule of the
+// table: the quantity of a line is positive, and the table refuses the row
+// that carries another one.
+func TestTheTableRefusesAQuantityThatIsNotPositive(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -408,7 +409,7 @@ func TestTheTableRefusesAQuantityThatIsNotAWholeNumberOfUnits(t *testing.T) {
 
 	_, err = theSuite.db.ExecContext(ctx,
 		`INSERT INTO order_lines (order_id, business_id, product_id, position, product_name, quantity, unit)
-		 VALUES ($1, $2, $3, 1, 'Pan de molde', 0, 'pan')`,
+		 VALUES ($1, $2, $3, 1, 'Pan de molde', 0, 'unit')`,
 		orderID, int64(bakery.ID), int64(baked.ID),
 	)
 	if err == nil {
@@ -451,9 +452,107 @@ func TestTheTableRefusesAStateThatIsNotOneOfTheTwo(t *testing.T) {
 	}
 }
 
+// TestTheTableRefusesAUnitThatIsNotOneOfTheBook proves the rule of the
+// table: the unit of a line is the way the owner charges — the piece, the
+// gram or the kilogram — and the table refuses the row that carries
+// another one.
+func TestTheTableRefusesAUnitThatIsNotOneOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+
+	orderID := theOrderRowOfTheTest(t, ctx, bakery, client)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO order_lines (order_id, business_id, product_id, position, product_name, quantity, unit)
+		 VALUES ($1, $2, $3, 1, 'Pan de molde', 12, 'pan')`,
+		orderID, int64(bakery.ID), int64(baked.ID),
+	)
+	if err == nil {
+		t.Fatal("the table accepted a unit that is not one of the units of the book")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "order_lines_unit_check" {
+		t.Errorf("the constraint of the error is %q, want %q", pgErr.ConstraintName, "order_lines_unit_check")
+	}
+}
+
+// TestTheTableRefusesAPieceThatIsSplit proves the rule of the table: the
+// book never splits a piece, and the table refuses the row that carries
+// half of one when the owner charges by the piece.
+func TestTheTableRefusesAPieceThatIsSplit(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+
+	orderID := theOrderRowOfTheTest(t, ctx, bakery, client)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO order_lines (order_id, business_id, product_id, position, product_name, quantity, unit)
+		 VALUES ($1, $2, $3, 1, 'Pan de molde', 2.5, 'unit')`,
+		orderID, int64(bakery.ID), int64(baked.ID),
+	)
+	if err == nil {
+		t.Fatal("the table accepted a piece that is split")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "order_lines_piece_quantity_check" {
+		t.Errorf("the constraint of the error is %q, want %q", pgErr.ConstraintName, "order_lines_piece_quantity_check")
+	}
+}
+
+// TestTheTableKeepsAWeightThatIsNotAWholeNumberOfPieces proves the other
+// side of the rule of the table: the book never converts a weight into a
+// number of pieces, and the table keeps a line by the weight whose
+// quantity is not a whole number.
+func TestTheTableKeepsAWeightThatIsNotAWholeNumberOfPieces(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := ordersRepository(t)
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+
+	built, err := order.New(bakery.ID, client, theDayOfTheOrders(t, "2026-03-14"), []order.LineDefinition{
+		{Product: baked, Quantity: 500.5, Unit: "gramo"},
+	})
+	if err != nil {
+		t.Fatalf("the order of five hundred grams and a half was refused: %v", err)
+	}
+
+	written, err := repo.Create(ctx, built)
+	if err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+	if written.Lines[0].Quantity != 500.5 {
+		t.Errorf("the quantity of the line is %v, want 500.5", written.Lines[0].Quantity)
+	}
+	if written.Lines[0].Unit != purchase.PricePerGram {
+		t.Errorf("the unit of the line is %q, want %q", written.Lines[0].Unit, purchase.PricePerGram)
+	}
+}
+
 // TestTheRoundOfADayAnswersTheOrdersThatAreStillOwed proves the rule of
 // the domain against a real database: the order that was not delivered
 // stays open, and the round of the day answers what is still owed.
+//
+// The owed is every open order of the business: the one that is due on the
+// day and the one that fell due on an earlier day.
 func TestTheRoundOfADayAnswersTheOrdersThatAreStillOwed(t *testing.T) {
 	t.Parallel()
 
@@ -465,6 +564,11 @@ func TestTheRoundOfADayAnswersTheOrdersThatAreStillOwed(t *testing.T) {
 	dueOn := theDayOfTheOrders(t, "2026-03-14")
 
 	open, err := repo.Create(ctx, theOrderOfTheTest(t, bakery, client, baked, dueOn))
+	if err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+
+	overdue, err := repo.Create(ctx, theOrderOfTheTest(t, bakery, client, baked, theDayOfTheOrders(t, "2026-03-13")))
 	if err != nil {
 		t.Fatalf("the order could not be written: %v", err)
 	}
@@ -488,21 +592,49 @@ func TestTheRoundOfADayAnswersTheOrdersThatAreStillOwed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the orders could not be read: %v", err)
 	}
-	if len(held) != 2 {
-		t.Fatalf("the business holds %d orders, want 2", len(held))
+	if len(held) != 3 {
+		t.Fatalf("the business holds %d orders, want 3", len(held))
 	}
 
 	round := order.TheRound(dueOn, held)
 
 	if len(round.Orders) != 2 {
-		t.Fatalf("the round carries %d orders, want 2", len(round.Orders))
+		t.Fatalf("the round carries %d orders, want 2: the order that fell due is not due on that day", len(round.Orders))
 	}
 
-	owed := round.Owed()
-	if len(owed) != 1 {
-		t.Fatalf("the round owes %d orders, want 1", len(owed))
+	owed := round.Owed
+	if len(owed) != 2 {
+		t.Fatalf("the round owes %d orders, want 2: every open order of the business is owed", len(owed))
 	}
 	if owed[0].ID != open.ID {
 		t.Errorf("the order that is owed is %d, want %d", owed[0].ID, open.ID)
 	}
+	if owed[1].ID != overdue.ID {
+		t.Errorf("the order that is owed is %d, want %d: the order that fell due is still owed", owed[1].ID, overdue.ID)
+	}
+}
+
+// theOrderRowOfTheTest writes the row of an order and answers its
+// identity.
+//
+// The row is written the way the table holds it: the tests of the table
+// write their lines by themselves, the way another writer would write them.
+func theOrderRowOfTheTest(t *testing.T, ctx context.Context, bakery business.Business, client party.Party) int64 {
+	t.Helper()
+
+	if _, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO orders (business_id, party_id, party_name, due_on) VALUES ($1, $2, 'Doña Rosalba', '2026-03-14')`,
+		int64(bakery.ID), int64(client.ID),
+	); err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+
+	var orderID int64
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT id FROM orders WHERE business_id = $1`, int64(bakery.ID),
+	).Scan(&orderID); err != nil {
+		t.Fatalf("the order could not be read: %v", err)
+	}
+
+	return orderID
 }

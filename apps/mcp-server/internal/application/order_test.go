@@ -3,6 +3,7 @@ package application_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/application"
@@ -12,6 +13,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // fakeOrders is the fake of the storage of the orders.
@@ -152,7 +154,7 @@ func TestTheOrderIsRecordedInTheBusinessThatOwnsIt(t *testing.T) {
 		PartyID:    10,
 		DueOn:      "2026-03-14",
 		Lines: []ports.OrderLine{
-			{ProductID: 5, Quantity: 12, Unit: "pan"},
+			{ProductID: 5, Quantity: 12, Unit: "unidad"},
 		},
 	})
 	if err != nil {
@@ -187,10 +189,10 @@ func TestTheOrderIsRecordedInTheBusinessThatOwnsIt(t *testing.T) {
 		t.Errorf("the name of the product is %q, want %q", written.Lines[0].ProductName, "Pan de molde")
 	}
 	if written.Lines[0].Quantity != 12 {
-		t.Errorf("the quantity is %d, want 12", written.Lines[0].Quantity)
+		t.Errorf("the quantity is %v, want 12", written.Lines[0].Quantity)
 	}
-	if written.Lines[0].Unit != "pan" {
-		t.Errorf("the unit is %q, want %q", written.Lines[0].Unit, "pan")
+	if written.Lines[0].Unit != purchase.PricePerUnit {
+		t.Errorf("the unit is %q, want %q", written.Lines[0].Unit, purchase.PricePerUnit)
 	}
 }
 
@@ -212,7 +214,7 @@ func TestTheOrderOfThePartyTheOwnerNamesIsRecorded(t *testing.T) {
 		PartyName:  "doña rosalba",
 		DueOn:      "2026-03-14",
 		Lines: []ports.OrderLine{
-			{ProductName: "Pan de molde", Quantity: 3, Unit: "pan"},
+			{ProductName: "Pan de molde", Quantity: 3, Unit: "unidad"},
 		},
 	})
 	if err != nil {
@@ -244,7 +246,7 @@ func TestTheOrderOfThePartyThatIsNotAClientIsRefused(t *testing.T) {
 		PartyID:    11,
 		DueOn:      "2026-03-14",
 		Lines: []ports.OrderLine{
-			{ProductID: 5, Quantity: 3, Unit: "pan"},
+			{ProductID: 5, Quantity: 3, Unit: "unidad"},
 		},
 	})
 	if err == nil {
@@ -278,7 +280,7 @@ func TestTheOrderOfThePartyOfAnotherBusinessIsRefused(t *testing.T) {
 		PartyID:    10,
 		DueOn:      "2026-03-14",
 		Lines: []ports.OrderLine{
-			{ProductID: 5, Quantity: 3, Unit: "pan"},
+			{ProductID: 5, Quantity: 3, Unit: "unidad"},
 		},
 	})
 	if err == nil {
@@ -313,7 +315,7 @@ func TestTheOrderOfTheProductOfAnotherBusinessIsRefused(t *testing.T) {
 		PartyID:    10,
 		DueOn:      "2026-03-14",
 		Lines: []ports.OrderLine{
-			{ProductID: 5, Quantity: 3, Unit: "pan"},
+			{ProductID: 5, Quantity: 3, Unit: "unidad"},
 		},
 	})
 	if err == nil {
@@ -343,7 +345,7 @@ func TestTheOrderWithoutItsDayIsRefused(t *testing.T) {
 		BusinessID: 77,
 		PartyID:    10,
 		Lines: []ports.OrderLine{
-			{ProductID: 5, Quantity: 3, Unit: "pan"},
+			{ProductID: 5, Quantity: 3, Unit: "unidad"},
 		},
 	})
 	if err == nil {
@@ -403,7 +405,7 @@ func TestTheRoundOfTheDayIsRead(t *testing.T) {
 		PartyName:  "Doña Rosalba",
 		DueOn:      today,
 		Lines: []order.Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: order.StateOpen,
 	}
@@ -438,12 +440,15 @@ func TestTheRoundOfTheDayIsRead(t *testing.T) {
 		t.Fatalf("the round carries %d orders, want 2", len(round.Orders))
 	}
 
-	owed := round.Owed()
-	if len(owed) != 1 {
-		t.Fatalf("the round owes %d orders, want 1", len(owed))
+	owed := round.Owed
+	if len(owed) != 2 {
+		t.Fatalf("the round owes %d orders, want 2: every open order of the business is owed", len(owed))
 	}
 	if owed[0].ID != due.ID {
 		t.Errorf("the order that is owed is %d, want %d", owed[0].ID, due.ID)
+	}
+	if owed[1].ID != later.ID {
+		t.Errorf("the order that is owed is %d, want %d: the order that is not due yet is still owed", owed[1].ID, later.ID)
 	}
 }
 
@@ -461,7 +466,7 @@ func TestTheWholeBookOfTheOrdersIsReadWhenTheAgentNamesNoDay(t *testing.T) {
 		PartyName:  "Doña Rosalba",
 		DueOn:      today,
 		Lines: []order.Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: order.StateOpen,
 	}
@@ -483,6 +488,93 @@ func TestTheWholeBookOfTheOrdersIsReadWhenTheAgentNamesNoDay(t *testing.T) {
 	}
 	if !round.Day.Time().IsZero() {
 		t.Errorf("the day of the round is %q, want the empty one", round.Day.String())
+	}
+}
+
+// TestTheReadingOfTheOrdersDoesNotNeedThePartiesNorTheProducts proves
+// that the reading of the orders guards what it uses: it reads the
+// business and the orders of the business, and it never asks the parties
+// nor the products.
+func TestTheReadingOfTheOrdersDoesNotNeedThePartiesNorTheProducts(t *testing.T) {
+	t.Parallel()
+
+	orders := &fakeOrders{}
+	bakery := theBakeryOfTheOrders()
+	businesses := &fakeBusinesses{existing: &bakery}
+	service := application.NewOrderService(orders, nil, nil, businesses)
+
+	round, err := service.Read(t.Context(), ports.ReadOrders{BusinessID: 77})
+	if err != nil {
+		t.Fatalf("the round could not be read: %v", err)
+	}
+	if len(round.Orders) != 0 {
+		t.Errorf("the round carries %d orders, want none", len(round.Orders))
+	}
+}
+
+// TestTheOrdersOfABusinessThatIsNotThereSpeakOfTheBusinessOfTheOrder
+// proves that the reading of the orders of a business that does not exist
+// answers with the refusal of the orders, and never with the message of
+// the personal business of a person.
+func TestTheOrdersOfABusinessThatIsNotThereSpeakOfTheBusinessOfTheOrder(t *testing.T) {
+	t.Parallel()
+
+	service := application.NewOrderService(&fakeOrders{}, &fakeParties{}, &fakeProducts{}, &fakeBusinesses{})
+
+	_, err := service.Read(t.Context(), ports.ReadOrders{BusinessID: 77})
+	if err == nil {
+		t.Fatal("the orders of a business that is not there were read")
+	}
+	if errors.Is(err, business.ErrNotFound) {
+		t.Errorf("the error is the one of the business of a person: %v", err)
+	}
+	if !strings.Contains(err.Error(), "business") {
+		t.Errorf("the error does not name the business of the order: %v", err)
+	}
+}
+
+// TestTheRoundOfTheDayAnswersTheOverdueOrderThatIsStillOwed proves that
+// the answer of the tool carries what is still owed: the order that fell
+// due on an earlier day and was not delivered is owed too.
+func TestTheRoundOfTheDayAnswersTheOverdueOrderThatIsStillOwed(t *testing.T) {
+	t.Parallel()
+
+	overdue := order.Order{
+		ID:         1,
+		BusinessID: business.ID(77),
+		PartyID:    party.ID(10),
+		PartyName:  "Doña Rosalba",
+		DueOn:      theDayOfTheOrders(t, "2026-03-13"),
+		Lines: []order.Line{
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
+		},
+		State: order.StateOpen,
+	}
+
+	due := overdue
+	due.ID = 2
+	due.DueOn = theDayOfTheOrders(t, "2026-03-14")
+
+	orders := &fakeOrders{held: []order.Order{overdue, due}}
+	bakery := theBakeryOfTheOrders()
+	businesses := &fakeBusinesses{existing: &bakery}
+	service := application.NewOrderService(orders, &fakeParties{}, &fakeProducts{}, businesses)
+
+	round, err := service.Read(t.Context(), ports.ReadOrders{
+		BusinessID: 77,
+		Day:        "2026-03-14",
+	})
+	if err != nil {
+		t.Fatalf("the round could not be read: %v", err)
+	}
+
+	if len(round.Orders) != 1 {
+		t.Fatalf("the round carries %d orders, want 1: the order that fell due is not due today", len(round.Orders))
+	}
+
+	owed := round.Owed
+	if len(owed) != 2 {
+		t.Fatalf("the round owes %d orders, want 2: the order that fell due is still owed", len(owed))
 	}
 }
 

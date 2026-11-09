@@ -3,6 +3,7 @@ package mcpserver_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -18,6 +19,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // stubOrderRecorder is the use case that records an order, in memory.
@@ -122,7 +124,7 @@ func theOrderOfTheTest(t *testing.T) order.Order {
 		PartyName:  "Doña Rosalba",
 		DueOn:      theDayOfTheOrders(t),
 		Lines: []order.Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: order.StateOpen,
 	}
@@ -159,7 +161,7 @@ func TestTheOrderToolCarriesWhatTheAgentSends(t *testing.T) {
 					"product_id":   5,
 					"product_name": "Pan de molde",
 					"quantity":     12,
-					"unit":         "pan",
+					"unit":         "unidad",
 				},
 			},
 		},
@@ -193,14 +195,14 @@ func TestTheOrderToolCarriesWhatTheAgentSends(t *testing.T) {
 		t.Errorf("the name of the product is %q, want %q", recorder.got.Lines[0].ProductName, "Pan de molde")
 	}
 	if recorder.got.Lines[0].Quantity != 12 {
-		t.Errorf("the quantity is %d, want 12", recorder.got.Lines[0].Quantity)
+		t.Errorf("the quantity is %v, want 12", recorder.got.Lines[0].Quantity)
 	}
-	if recorder.got.Lines[0].Unit != "pan" {
-		t.Errorf("the unit is %q, want %q", recorder.got.Lines[0].Unit, "pan")
+	if recorder.got.Lines[0].Unit != "unidad" {
+		t.Errorf("the unit is %q, want %q", recorder.got.Lines[0].Unit, "unidad")
 	}
 
 	answer := textOf(t, result)
-	for _, want := range []string{"Doña Rosalba", "Pan de molde", "12", "pan", "2026-03-14", "open"} {
+	for _, want := range []string{"Doña Rosalba", "Pan de molde", "12", "unit", "2026-03-14", "open"} {
 		if !strings.Contains(answer, want) {
 			t.Errorf("the answer does not carry %q: %s", want, answer)
 		}
@@ -216,6 +218,7 @@ func TestTheOrdersToolAnswersWhatIsStillOwed(t *testing.T) {
 	reader := &stubOrdersReader{held: order.Round{
 		Day:    theDayOfTheOrders(t),
 		Orders: []order.Order{theOrderOfTheTest(t), theDeliveredOrderOfTheTest(t)},
+		Owed:   []order.Order{theOrderOfTheTest(t)},
 	}}
 	session := connectWithTheOrders(t, &stubOrderRecorder{}, reader)
 
@@ -280,7 +283,7 @@ func TestTheDescriptionOfTheOrderEnumeratesWhatTheAnswerCarries(t *testing.T) {
 				map[string]any{
 					"product_id": 5,
 					"quantity":   12,
-					"unit":       "pan",
+					"unit":       "unidad",
 				},
 			},
 		},
@@ -321,6 +324,7 @@ func TestTheDescriptionOfTheOrdersEnumeratesWhatTheAnswerCarries(t *testing.T) {
 	reader := &stubOrdersReader{held: order.Round{
 		Day:    theDayOfTheOrders(t),
 		Orders: []order.Order{theOrderOfTheTest(t)},
+		Owed:   []order.Order{theOrderOfTheTest(t)},
 	}}
 	session := connectWithTheOrders(t, &stubOrderRecorder{}, reader)
 
@@ -380,8 +384,10 @@ func TestTheDescriptionOfTheOrderTellsTheTruth(t *testing.T) {
 		"written OPEN",
 		"an order that was not delivered stays open",
 		"delivery of an order is written with the route of the round",
-		"whole number of units",
-		"never splits a unit",
+		"the way the owner charges",
+		"WHOLE number of pieces",
+		"never splits a piece",
+		"never converts a weight into a number of pieces",
 	} {
 		if !strings.Contains(description, want) {
 			t.Errorf("the description does not say %q:\n%s", want, description)
@@ -437,6 +443,231 @@ func TestTheSchemaOfTheOrderToolsRefusesNothingBeforeTheDomain(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestTheOrdersToolSaysWhenTheDayIsInTheAnswer proves that the answer and
+// the description of the tool agree about the day of the round.
+//
+// The answer is read twice: once with a day named by the agent, and once
+// without one. The day of the round is in the answer when the agent names
+// a day, and it is not there when the agent names none: the whole book of
+// the orders is read, and there is no day of a round to name. The
+// description says so, and the code proves it.
+func TestTheOrdersToolSaysWhenTheDayIsInTheAnswer(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubOrdersReader{held: order.Round{
+		Day:    theDayOfTheOrders(t),
+		Orders: []order.Order{theOrderOfTheTest(t)},
+		Owed:   []order.Order{theOrderOfTheTest(t)},
+	}}
+	session := connectWithTheOrders(t, &stubOrderRecorder{}, reader)
+
+	withDay, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadOrders,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"day":         "2026-03-14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if withDay.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, withDay))
+	}
+
+	if !carriesTheField(t, withDay, "day") {
+		t.Error("the answer of a round of a day carries no day")
+	}
+
+	// The use case answers the whole book of the orders when the agent
+	// names no day, and the round of that answer carries no day.
+	reader.held = order.Round{
+		Orders: []order.Order{theOrderOfTheTest(t)},
+		Owed:   []order.Order{theOrderOfTheTest(t)},
+	}
+
+	withoutDay, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadOrders,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if withoutDay.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, withoutDay))
+	}
+
+	if carriesTheField(t, withoutDay, "day") {
+		t.Error("the answer of the whole book of the orders carries a day: there is no round of a day to name")
+	}
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolReadOrders)
+	if !strings.Contains(description, "only when the agent names a day") {
+		t.Errorf("the description does not say when the answer carries the day:\n%s", description)
+	}
+}
+
+// TestTheOrdersToolExplainsTheBusinessThatIsNotThere proves that the tool
+// answers the business that is not there with the refusal of the orders:
+// the message names the business of the order, and it never speaks of the
+// personal business of a person nor of the onboarding.
+func TestTheOrdersToolExplainsTheBusinessThatIsNotThere(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubOrdersReader{err: order.ErrBusinessNotFound}
+	session := connectWithTheOrders(t, &stubOrderRecorder{}, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadOrders,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	answer := textOf(t, result)
+	if !strings.Contains(answer, "business") {
+		t.Errorf("the answer does not name the business of the order: %s", answer)
+	}
+	if strings.Contains(answer, "personal business") {
+		t.Errorf("the answer speaks of the personal business of a person: %s", answer)
+	}
+	if strings.Contains(answer, "onboarding") {
+		t.Errorf("the answer speaks of the onboarding: %s", answer)
+	}
+}
+
+// TestTheDescriptionOfTheOrderAgreesWithTheDomain proves that the
+// description of the tool and the domain of the order say the same thing.
+//
+// The description of a tool is a contract with an agent: it promises what
+// the tool does, and a sentence the code does not enforce is a defect. The
+// test does not look for a sentence: it asks the DOMAIN what it enforces,
+// and it holds the description to that answer.
+//
+//   - the description names every way of charging the book knows, and it
+//     names no way the book refuses;
+//   - the description may say that the book never splits a piece only
+//     while the domain refuses the line that splits one;
+//   - the description may say that the book never converts a weight into a
+//     number of pieces only while the domain keeps the weight.
+func TestTheDescriptionOfTheOrderAgreesWithTheDomain(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheOrders(t, &stubOrderRecorder{}, &stubOrdersReader{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolRecordOrder)
+
+	for _, basis := range purchase.PriceBases() {
+		if !strings.Contains(description, "'"+basis.String()+"'") {
+			t.Errorf("the description does not name the way of charging %q that the domain enforces:\n%s",
+				basis.String(), description)
+		}
+	}
+
+	for _, spoken := range []string{"pan", "paquete", "libra", "arroba"} {
+		if _, err := order.New(
+			business.ID(77),
+			theClientOfTheOrders(t),
+			theDayOfTheOrders(t),
+			[]order.LineDefinition{
+				{Product: theProductOfTheOrders(t), Quantity: 12, Unit: spoken},
+			},
+		); err == nil {
+			t.Errorf("the domain accepted the unit %q: the description and the domain do not agree", spoken)
+		}
+
+		if strings.Contains(description, "'"+spoken+"'") {
+			t.Errorf("the description names the unit %q that the domain refuses:\n%s", spoken, description)
+		}
+	}
+
+	if _, err := order.New(
+		business.ID(77),
+		theClientOfTheOrders(t),
+		theDayOfTheOrders(t),
+		[]order.LineDefinition{
+			{Product: theProductOfTheOrders(t), Quantity: 2.5, Unit: "unidad"},
+		},
+	); !errors.Is(err, order.ErrSplitPiece) {
+		t.Fatalf("the domain does not refuse the line that splits a piece: %v", err)
+	}
+
+	built, err := order.New(
+		business.ID(77),
+		theClientOfTheOrders(t),
+		theDayOfTheOrders(t),
+		[]order.LineDefinition{
+			{Product: theProductOfTheOrders(t), Quantity: 500.5, Unit: "gramo"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("the domain does not keep the weight of a line: %v", err)
+	}
+	if built.Lines[0].Unit != purchase.PricePerGram {
+		t.Errorf("the unit of the line is %q, want %q", built.Lines[0].Unit, purchase.PricePerGram)
+	}
+}
+
+// theClientOfTheOrders is the party that orders: the client of the bakery
+// of the test.
+func theClientOfTheOrders(t *testing.T) party.Party {
+	t.Helper()
+
+	built, err := party.New(
+		business.ID(77),
+		party.KindPerson,
+		"Doña Rosalba",
+		[]party.Role{party.RoleClient},
+		"",
+		"rosalba@example.com",
+		"Calle 5 # 12-30",
+		party.LegalHuman{},
+	)
+	if err != nil {
+		t.Fatalf("the client was refused: %v", err)
+	}
+
+	built.ID = party.ID(10)
+
+	return built
+}
+
+// theProductOfTheOrders is the product of the price list that the client
+// orders.
+func theProductOfTheOrders(t *testing.T) product.Product {
+	t.Helper()
+
+	built, err := product.NewFromFacts(product.Facts{
+		ID:         product.ID(5),
+		BusinessID: business.ID(77),
+		RecipeID:   3,
+		Name:       "Pan de molde",
+	})
+	if err != nil {
+		t.Fatalf("the product was refused: %v", err)
+	}
+
+	return built
 }
 
 // TestTheOrderToolsExplainTheFailureOfTheUseCase proves that the tools
@@ -513,4 +744,20 @@ func TestTheOrderToolsWithoutADatabaseSaySo(t *testing.T) {
 	if !strings.Contains(answer, "the service has no database configured") {
 		t.Errorf("the answer does not say that the database is not there: %s", answer)
 	}
+}
+
+// carriesTheField tells whether the answer of the tool carries that field.
+//
+// The fields are read from the answer itself: the test never guesses the
+// shape of the answer, and it reads the one the tool really answered.
+func carriesTheField(t *testing.T, result *sdk.CallToolResult, field string) bool {
+	t.Helper()
+
+	for _, name := range theFieldsOfTheAnswer(t, result) {
+		if name == field {
+			return true
+		}
+	}
+
+	return false
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // The names the database gives to the constraints of the tables of the
@@ -120,19 +120,14 @@ func (r *OrderRepository) write(ctx context.Context, queries *db.Queries, writte
 	lines := make([]order.Line, 0, len(written.Lines))
 
 	for position, one := range written.Lines {
-		quantity, err := quantityOf(one.Quantity)
-		if err != nil {
-			return order.Order{}, err
-		}
-
 		line, err := queries.CreateOrderLine(ctx, db.CreateOrderLineParams{
 			OrderID:     row.ID,
 			BusinessID:  int64(written.BusinessID),
 			ProductID:   int64(one.ProductID),
 			Position:    int32(position + 1),
 			ProductName: one.ProductName,
-			Quantity:    quantity,
-			Unit:        one.Unit,
+			Quantity:    one.Quantity,
+			Unit:        one.Unit.String(),
 		})
 		if err != nil {
 			return order.Order{}, writeOrderError(err)
@@ -141,8 +136,8 @@ func (r *OrderRepository) write(ctx context.Context, queries *db.Queries, writte
 		lines = append(lines, order.Line{
 			ProductID:   product.ID(line.ProductID),
 			ProductName: line.ProductName,
-			Quantity:    int(line.Quantity),
-			Unit:        line.Unit,
+			Quantity:    line.Quantity,
+			Unit:        purchase.PriceBasis(line.Unit),
 		})
 	}
 
@@ -214,8 +209,8 @@ func (r *OrderRepository) orderOf(ctx context.Context, row db.Order) (order.Orde
 		lines = append(lines, order.Line{
 			ProductID:   product.ID(one.ProductID),
 			ProductName: one.ProductName,
-			Quantity:    int(one.Quantity),
-			Unit:        one.Unit,
+			Quantity:    one.Quantity,
+			Unit:        purchase.PriceBasis(one.Unit),
 		})
 	}
 
@@ -238,28 +233,14 @@ func (r *OrderRepository) orderOf(ctx context.Context, row db.Order) (order.Orde
 	return built, nil
 }
 
-// quantityOf returns the quantity of a line as the column of the table
-// holds it.
-//
-// The column is an integer of thirty-two bits, and the quantity of a line
-// is the number of units it carries: a quantity that does not fit the
-// column is a quantity the table cannot hold.
-func quantityOf(value int) (int32, error) {
-	if value < 0 || value > math.MaxInt32 {
-		return 0, fmt.Errorf("%w: the quantity of a line is %d", order.ErrInvalidValue, value)
-	}
-
-	return int32(value), nil
-}
-
 // writeOrderError translates the truth of the database into the errors of
 // the port of the orders.
 //
 // The constraints of the tables hold the rules of the domain as a defense
 // in depth: the party of the order and the products of its lines are of
-// the business that owns the order, the quantity of a line is a whole
-// number of units and the state of the order is one of the two of the
-// book.
+// the business that owns the order, the unit of a line is one of the ways
+// of charging of the book, the quantity of a line by the piece is whole
+// and the state of the order is one of the two of the book.
 func writeOrderError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return order.ErrNotFound

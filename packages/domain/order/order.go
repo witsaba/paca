@@ -14,8 +14,15 @@
 // the delivery with it.
 //
 // The ROUND is the day and the orders it carries: the orders that are due
-// on that day. The round answers WHAT IS STILL OWED: the orders it carries
-// that were not delivered.
+// on that day. The round answers WHAT IS STILL OWED: every open order of
+// the business, the ones that are due on the day and the ones that fell
+// due on an earlier day.
+//
+// The unit of a line is THE WAY THE OWNER CHARGES: the piece, the gram or
+// the kilogram. The way she said it is read in the vocabulary of the book
+// (`purchase.PriceBasis`), and the quantity travels with it: the book
+// never splits a piece and it never converts a weight into a number of
+// pieces.
 //
 // The money of an order is NOT part of this model: the acceptance of the
 // increment does not state it, and the book never adds a rule nobody
@@ -24,11 +31,13 @@
 //
 // The package imports nothing but the standard library and the models it
 // needs: the business that owns the order, the party that ordered, the
-// product that was ordered and the day of the book.
+// product that was ordered, the way the owner charges and the day of the
+// book.
 package order
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -36,6 +45,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // ID is the identity of an order.
@@ -54,8 +64,8 @@ type ID int64
 //
 // The delivery of an order is written with the ROUTE of the round, and the
 // route is written by the increment that comes after this one: the
-// transition from the open order to the delivered one belongs to that
-// increment, and the domain of the order is where it lands.
+// transition from the open order to the delivered one ARRIVES WITH THE
+// ROUTE, and the domain of the order is where it lands.
 type State string
 
 const (
@@ -67,7 +77,12 @@ const (
 
 	// StateDelivered is the state of the order that the round delivered.
 	//
-	// The delivery is written with the route of the round.
+	// The delivery is written with the route of the round: the route is
+	// what the agent computes when it comes back from the round, and the
+	// transition from the open order to the delivered one ARRIVES WITH
+	// THE ROUTE. This increment does not write the transition: the
+	// increment that writes the route writes it, and the domain of the
+	// order is where it lands.
 	StateDelivered State = "delivered"
 )
 
@@ -123,11 +138,16 @@ func ParseState(name string) (State, error) {
 }
 
 // Line is one line of an order: the product, the quantity of it and the
-// unit the owner said.
+// way the owner charges it.
 //
-// The quantity is a whole number of units: the book never splits a unit and
-// it never converts a weight into a number of units. The unit is the unit
-// the owner said, and it travels with the quantity.
+// The quantity travels with the way she charges: when she charges by the
+// PIECE the quantity is a whole number of pieces — the book never splits a
+// piece — and when she charges by the gram or by the kilogram the quantity
+// is any positive amount of weight: the book never converts a weight into
+// a number of pieces.
+//
+// The way she charges is the model the tree owns (`purchase.PriceBasis`):
+// the line never writes a second copy of it.
 type Line struct {
 	// ProductID is the product the line is of.
 	ProductID product.ID
@@ -138,11 +158,14 @@ type Line struct {
 	// the order carries the name the owner read when she ordered.
 	ProductName string
 
-	// Quantity is how many units of the product the line carries.
-	Quantity int
+	// Quantity is how much of the product the line carries: the number of
+	// pieces when she charges by the piece, and the amount of weight when
+	// she charges by the weight.
+	Quantity float64
 
-	// Unit is the unit of that quantity, the way the owner said it.
-	Unit string
+	// Unit is the way the owner charges the line: the piece, the gram or
+	// the kilogram.
+	Unit purchase.PriceBasis
 }
 
 // LineDefinition is what the owner said about a line of the order.
@@ -153,10 +176,11 @@ type LineDefinition struct {
 	// Product is the product the line is of.
 	Product product.Product
 
-	// Quantity is how many units of the product the line carries.
-	Quantity int
+	// Quantity is how much of the product the line carries.
+	Quantity float64
 
-	// Unit is the unit of that quantity, the way the owner said it.
+	// Unit is the unit of that quantity, the way the owner said it: the
+	// domain reads it in the vocabulary of the book.
 	Unit string
 }
 
@@ -241,9 +265,14 @@ type Facts struct {
 //     nothing (ErrNoLines);
 //   - every line names a product of the price list of the business
 //     (ErrMissingProduct, ErrProductOfAnotherBusiness);
-//   - the quantity of a line is a positive whole number of units: the book
-//     never splits a unit (ErrInvalidQuantity);
-//   - the line carries the unit the owner said (ErrMissingUnit);
+//   - the quantity of a line is positive (ErrInvalidQuantity);
+//   - the line carries the way the owner charges: the piece, the gram or
+//     the kilogram, and a unit the book does not know is refused
+//     (ErrMissingUnit, ErrUnknownUnit);
+//   - the quantity of a line by the PIECE is a whole number of pieces: the
+//     book never splits a piece (ErrSplitPiece). The quantity of a line by
+//     the weight is any positive amount of weight: the book never converts
+//     a weight into a number of pieces;
 //   - the order carries the day it is due (ErrMissingDay).
 //
 // The order is written OPEN: an order that was not delivered stays open.
@@ -283,19 +312,28 @@ func New(own business.ID, client party.Party, dueOn ledger.Date, lines []LineDef
 		}
 
 		if one.Quantity <= 0 {
-			return Order{}, fmt.Errorf("%w: the line carries %d units", ErrInvalidQuantity, one.Quantity)
+			return Order{}, fmt.Errorf("%w: the line carries %v units", ErrInvalidQuantity, one.Quantity)
 		}
 
-		unit := strings.TrimSpace(one.Unit)
-		if unit == "" {
+		spoken := strings.TrimSpace(one.Unit)
+		if spoken == "" {
 			return Order{}, fmt.Errorf("%w: the line carries no unit", ErrMissingUnit)
+		}
+
+		basis, err := theWaySheCharges(spoken)
+		if err != nil {
+			return Order{}, err
+		}
+
+		if err := theQuantityIsWhole(basis, one.Quantity); err != nil {
+			return Order{}, err
 		}
 
 		built = append(built, Line{
 			ProductID:   one.Product.ID,
 			ProductName: one.Product.Name,
 			Quantity:    one.Quantity,
-			Unit:        unit,
+			Unit:        basis,
 		})
 	}
 
@@ -324,9 +362,11 @@ func New(own business.ID, client party.Party, dueOn ledger.Date, lines []LineDef
 // The error is ErrMissingBusiness when the order is of no business,
 // ErrMissingParty when it names no party, ErrMissingDay when it carries no
 // day, ErrNoLines when it carries no line, ErrInvalidQuantity when the
-// quantity of a line is not a whole number of units, ErrMissingUnit when a
-// line carries no unit, and ErrUnknownState when the state is not one of
-// the states of the book.
+// quantity of a line is not positive, ErrSplitPiece when the quantity of a
+// line by the piece splits a piece, ErrMissingUnit when a line carries no
+// unit, ErrUnknownUnit when the unit of a line is not one of the three of
+// the book, and ErrUnknownState when the state is not one of the states of
+// the book.
 func NewFromFacts(facts Facts) (Order, error) {
 	if facts.BusinessID <= 0 {
 		return Order{}, fmt.Errorf("%w: the order is of the business %d", ErrMissingBusiness, facts.BusinessID)
@@ -352,19 +392,26 @@ func NewFromFacts(facts Facts) (Order, error) {
 		}
 
 		if one.Quantity <= 0 {
-			return Order{}, fmt.Errorf("%w: the line carries %d units", ErrInvalidQuantity, one.Quantity)
+			return Order{}, fmt.Errorf("%w: the line carries %v units", ErrInvalidQuantity, one.Quantity)
 		}
 
-		unit := strings.TrimSpace(one.Unit)
-		if unit == "" {
+		if strings.TrimSpace(one.Unit.String()) == "" {
 			return Order{}, fmt.Errorf("%w: the line carries no unit", ErrMissingUnit)
+		}
+
+		if !one.Unit.Valid() {
+			return Order{}, fmt.Errorf("%w: %q", ErrUnknownUnit, one.Unit)
+		}
+
+		if err := theQuantityIsWhole(one.Unit, one.Quantity); err != nil {
+			return Order{}, err
 		}
 
 		lines = append(lines, Line{
 			ProductID:   one.ProductID,
 			ProductName: strings.TrimSpace(one.ProductName),
 			Quantity:    one.Quantity,
-			Unit:        unit,
+			Unit:        one.Unit,
 		})
 	}
 
@@ -382,6 +429,45 @@ func NewFromFacts(facts Facts) (Order, error) {
 		Lines:      lines,
 		State:      state,
 	}, nil
+}
+
+// theWaySheCharges reads the unit the owner said in the vocabulary of the
+// book.
+//
+// The rule of the domain: the unit of a line is the way the owner charges:
+// the piece, the gram or the kilogram. The way she said it ("unidad",
+// "gramo", "kilo") is read, and the line keeps the way the book knows it.
+//
+// The error is ErrUnknownUnit when the unit is not one of the three: a way
+// of charging the book does not know is never guessed.
+func theWaySheCharges(spoken string) (purchase.PriceBasis, error) {
+	basis, err := purchase.ParsePriceBasis(spoken)
+	if err != nil {
+		return "", fmt.Errorf("%w: %q", ErrUnknownUnit, spoken)
+	}
+
+	return basis, nil
+}
+
+// theQuantityIsWhole states whether the quantity of a line is whole for the
+// way the owner charges.
+//
+// The rule of the domain: the book never splits a piece, so the quantity
+// of a line by the piece is a whole number of pieces. The book never
+// converts a weight into a number of pieces, so the quantity of a line by
+// the weight is any positive amount of weight.
+//
+// The error is ErrSplitPiece when the quantity splits a piece.
+func theQuantityIsWhole(basis purchase.PriceBasis, quantity float64) error {
+	if basis != purchase.PricePerUnit {
+		return nil
+	}
+
+	if quantity == math.Trunc(quantity) {
+		return nil
+	}
+
+	return fmt.Errorf("%w: the line carries %v pieces", ErrSplitPiece, quantity)
 }
 
 // IsOpen reports whether the order is still owed.
@@ -409,16 +495,23 @@ func OwnedBy(kind business.Kind) error {
 	return nil
 }
 
-// Round is the round of a day: the day and the orders it carries.
+// Round is the round of a day: the day, the orders it carries and what is
+// still owed.
 //
-// The round answers what is still owed: the orders it carries that were
-// not delivered.
+// The round answers what is still owed: EVERY open order of the business —
+// the ones that are due on the day and the ones that fell due on an
+// earlier day.
 type Round struct {
 	// Day is the day the round is of.
 	Day ledger.Date
 
-	// Orders are the orders the round carries.
+	// Orders are the orders the round carries: the ones that are due on
+	// its day.
 	Orders []Order
+
+	// Owed are the orders that are still owed: every open order of the
+	// business, the ones that are due on the day and the overdue ones.
+	Owed []Order
 }
 
 // TheRound answers the round of a day: the orders it carries.
@@ -428,10 +521,20 @@ type Round struct {
 //
 // A round with NO day carries every order of the business: the book of the
 // orders is read whole when the owner names no day.
+//
+// The round answers WHAT IS STILL OWED: every open order of the business,
+// the ones that are due on the day and the ones that fell due on an
+// earlier day. The two rules are apart: the round is the day and the
+// orders due on it, and the owed is every open order.
 func TheRound(day ledger.Date, orders []Order) Round {
 	carried := make([]Order, 0, len(orders))
+	owed := make([]Order, 0, len(orders))
 
 	for _, one := range orders {
+		if one.IsOpen() {
+			owed = append(owed, one)
+		}
+
 		if !day.Time().IsZero() && !one.DueOn.Time().Equal(day.Time()) {
 			continue
 		}
@@ -439,24 +542,5 @@ func TheRound(day ledger.Date, orders []Order) Round {
 		carried = append(carried, one)
 	}
 
-	return Round{Day: day, Orders: carried}
-}
-
-// Owed answers the orders of the round that are still owed.
-//
-// The rule of the domain: an order that was not delivered stays open, and
-// the round of the day answers what is still owed: the open orders it
-// carries.
-func (r Round) Owed() []Order {
-	owed := make([]Order, 0, len(r.Orders))
-
-	for _, one := range r.Orders {
-		if !one.IsOpen() {
-			continue
-		}
-
-		owed = append(owed, one)
-	}
-
-	return owed
+	return Round{Day: day, Orders: carried, Owed: owed}
 }

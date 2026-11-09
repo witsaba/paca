@@ -117,7 +117,7 @@ type OrderLine struct {
 	ProductID   int64
 	Position    int32
 	ProductName string
-	Quantity    int32
+	Quantity    float64
 	Unit        string
 }
 

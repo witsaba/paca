@@ -395,10 +395,16 @@ var theMessages = map[error]string{
 		"the products of the price list of the business it belongs to",
 	order.ErrNoLines: "the order carries no line: read the sentence of the owner again and send the products she " +
 		"ordered, with the quantity and the unit of each one",
-	order.ErrInvalidQuantity: "the quantity of a line is not a whole number of units: ask the owner how many " +
-		"units she ordered, and never guess them",
-	order.ErrMissingUnit: "the line of the order carries no unit: ask the owner in which unit she ordered it " +
-		"('pan', 'unidad'), and the quantity and its unit travel together",
+	order.ErrInvalidQuantity: "the quantity of a line is not positive: ask the owner how much she ordered, and never " +
+		"guess it",
+	order.ErrSplitPiece: "the quantity of a line splits a piece: the book never splits a piece, so ask the owner " +
+		"how many pieces she ordered, and never guess them",
+	order.ErrMissingUnit: "the line of the order carries no unit: ask the owner how she charges it ('unidad', 'g', " +
+		"'kilo'), and the quantity and the way she charges travel together",
+	order.ErrUnknownUnit: "the unit of the line is not one of the units of the book: use 'unit' (the piece), " +
+		"'gram' (the weight) or 'kilogram' (the weight), the way the owner charges",
+	order.ErrBusinessNotFound: "there is no business with that identity: the business of the order is not there, " +
+		"and PACA never invents one",
 	order.ErrMissingDay: "the order carries no day: ask the owner the day the order is due on, and never invent one",
 	order.ErrWrongBusiness: "the orders belong to a business of its own: the Personal Business of a person holds " +
 		"the money of that person, and not the orders of the bakery",

@@ -94,6 +94,77 @@ func TestTheWayTheOwnerChargesThatTheBookDoesNotKnowIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheSpokenWaysOfChargingAreTheVocabularyOfTheBook proves that the
+// names the owner and the agent say are the vocabulary of the book: every
+// one of them is read as one of the three ways of charging, and every one
+// of the three has a name a person says.
+func TestTheSpokenWaysOfChargingAreTheVocabularyOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	spoken := purchase.SpokenPriceBases()
+
+	if len(spoken) == 0 {
+		t.Fatal("the book has no name for the ways of charging")
+	}
+
+	seen := make(map[string]bool, len(spoken))
+	answered := make(map[purchase.PriceBasis]bool, len(purchase.PriceBases()))
+
+	for _, one := range spoken {
+		if seen[one] {
+			t.Errorf("the name %q is in the vocabulary twice", one)
+		}
+		seen[one] = true
+
+		basis, err := purchase.ParsePriceBasis(one)
+		if err != nil {
+			t.Errorf("the name %q of the vocabulary is not read: %v", one, err)
+			continue
+		}
+		if !basis.Valid() {
+			t.Errorf("the name %q is read as %q, which is not one of the ways of the book", one, basis)
+		}
+		answered[basis] = true
+	}
+
+	for _, basis := range purchase.PriceBases() {
+		if !answered[basis] {
+			t.Errorf("the way of charging %q has no name a person says", basis)
+		}
+	}
+}
+
+// TestTheWayOfChargingIsValidOnlyForTheThreeOfTheBook proves the rule of
+// the domain: the way the owner charges is the piece, the gram or the
+// kilogram, and it is never another one.
+func TestTheWayOfChargingIsValidOnlyForTheThreeOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	for _, basis := range purchase.PriceBases() {
+		if !basis.Valid() {
+			t.Errorf("the way of charging %q is not valid", basis)
+		}
+	}
+
+	for _, basis := range []purchase.PriceBasis{"", "pan", "paquete", "libra", "unit "} {
+		if basis.Valid() {
+			t.Errorf("the way of charging %q is valid, want the three of the book", basis)
+		}
+	}
+}
+
+// TestTheWayTheOwnerChargesThatIsEmptyIsRefused proves that a way of
+// charging that is not there is refused: the book never guesses the way
+// the owner sells.
+func TestTheWayTheOwnerChargesThatIsEmptyIsRefused(t *testing.T) {
+	t.Parallel()
+
+	_, err := purchase.ParsePriceBasis("   ")
+	if !errors.Is(err, purchase.ErrUnknownPriceBasis) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrUnknownPriceBasis)
+	}
+}
+
 // TestTheWaysTheOwnerMayChargeAreTheThreeTheBookKnows proves that the
 // book knows three ways of charging: the unit, the gram and the kilogram,
 // and the description of the tool reads them from here.

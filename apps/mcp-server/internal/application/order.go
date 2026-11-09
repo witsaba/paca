@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -18,7 +19,8 @@ import (
 // The order is what the bakery owes: the party that ordered, the products
 // it ordered with the quantities of them, and the day it is due. The round
 // is the day and the orders it carries, and it answers what is still owed:
-// the orders that were not delivered.
+// every open order of the business, the ones that are due on the day and
+// the ones that fell due on an earlier day.
 //
 // The use case never decides what an order is: the party, the products, the
 // quantities, the day and the state of the order are the rules of the
@@ -65,12 +67,8 @@ func (s *OrderService) Record(ctx context.Context, request ports.RecordOrder) (o
 		return order.Order{}, ports.ErrNoDatabase
 	}
 
-	owner, err := s.businesses.Find(ctx, request.BusinessID)
+	owner, err := s.theBusiness(ctx, request.BusinessID)
 	if err != nil {
-		return order.Order{}, err
-	}
-
-	if err := order.OwnedBy(owner.Kind); err != nil {
 		return order.Order{}, err
 	}
 
@@ -115,17 +113,17 @@ func (s *OrderService) Record(ctx context.Context, request ports.RecordOrder) (o
 // kind holds orders, reads the day of the round and hands the orders of the
 // business to the domain, and the domain answers the round and what is
 // still owed.
+//
+// The reading guards what it uses: the business and the orders of the
+// business. It never asks the parties nor the products: the reading names
+// no party and no product of its own.
 func (s *OrderService) Read(ctx context.Context, request ports.ReadOrders) (order.Round, error) {
-	if s == nil || s.orders == nil || s.parties == nil || s.products == nil || s.businesses == nil {
+	if s == nil || s.orders == nil || s.businesses == nil {
 		return order.Round{}, ports.ErrNoDatabase
 	}
 
-	owner, err := s.businesses.Find(ctx, request.BusinessID)
+	owner, err := s.theBusiness(ctx, request.BusinessID)
 	if err != nil {
-		return order.Round{}, err
-	}
-
-	if err := order.OwnedBy(owner.Kind); err != nil {
 		return order.Round{}, err
 	}
 
@@ -145,6 +143,32 @@ func (s *OrderService) Read(ctx context.Context, request ports.ReadOrders) (orde
 	}
 
 	return order.TheRound(day, held), nil
+}
+
+// theBusiness answers the business whose orders are read.
+//
+// The rules are the ones of the domain: the orders belong to a business of
+// its own, and the business that is not there is refused with the refusal
+// of the orders: the agent is told about the business of the order, and
+// never about the personal business of a person nor about the onboarding.
+//
+// The error is order.ErrBusinessNotFound when the business is not there,
+// and order.ErrWrongBusiness when the business does not hold orders.
+func (s *OrderService) theBusiness(ctx context.Context, id business.ID) (business.Business, error) {
+	owner, err := s.businesses.Find(ctx, id)
+	if err != nil {
+		if errors.Is(err, business.ErrNotFound) {
+			return business.Business{}, fmt.Errorf("%w: the business %d", order.ErrBusinessNotFound, id)
+		}
+
+		return business.Business{}, err
+	}
+
+	if err := order.OwnedBy(owner.Kind); err != nil {
+		return business.Business{}, err
+	}
+
+	return owner, nil
 }
 
 // theClient answers the party that ordered.

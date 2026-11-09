@@ -1297,20 +1297,42 @@ increment that writes the route writes the delivery with it. The state of
 the book is the two of them (`order.AllStates`), and the row never decides
 which of them an order carries (`order.NewFromFacts`).
 
-**The quantity of a line is a WHOLE number of units.** The book never
-splits a unit and it never converts a weight into a number of units
-(`order.ErrInvalidQuantity`). The line carries the unit the owner said
-(`order.ErrMissingUnit`), and the order carries the day it is due
-(`order.ErrMissingDay`).
+**The unit of a line is THE WAY THE OWNER CHARGES.** The book knows three
+ways of charging, and it is the model of the tree: `purchase.PriceBasis` —
+the piece (`unit`), the gram (`gram`) and the kilogram (`kilogram`). The
+way the owner said it is read in the vocabulary of the book
+(`purchase.ParsePriceBasis`): the piece ("unidad", "unit", "piece"), the
+gram ("g", "gramo", "gram") and the kilogram ("kg", "kilo", "kilogramo"). A
+way of charging the book does not know is refused
+(`order.ErrUnknownUnit`), and a line with no unit at all is refused
+(`order.ErrMissingUnit`). The line keeps the way the book knows it, and
+the storage and the protocol carry that name.
+
+**The quantity of a line travels with the way she charges.** When she
+charges by the PIECE the quantity is a whole number of pieces: the book
+never splits a piece (`order.ErrSplitPiece`). When she charges by the gram
+or by the kilogram the quantity is any positive amount of weight: the book
+never converts a weight into a number of pieces. A quantity that is not
+positive is refused in the two ways (`order.ErrInvalidQuantity`), and the
+order carries the day it is due (`order.ErrMissingDay`).
 
 **The ROUND of a day carries the orders that are DUE on it.** It is the
 bread the bakery owes that day (`order.TheRound`). A round with no day
 carries every order of the business: the book of the orders is read whole
 when the owner names no day.
 
-**The round answers WHAT IS STILL OWED.** The orders it carries that were
-not delivered (`order.Round.Owed`): the order that was delivered is not
-owed, and the order that was not delivered is.
+**The round answers WHAT IS STILL OWED: every open order of the business.**
+The rule and the round are apart: the round is the day and the orders that
+are due on it, and the owed is every open order of the business — the ones
+that are due on the day and the ones that fell due on an earlier day and
+were not delivered (`order.Round.Owed`). The order that was delivered is
+not owed, and the order that was not delivered is, no matter the day it
+fell due on.
+
+**The business of the orders that is not there has its own refusal.**
+`order.ErrBusinessNotFound` names the business of the order, and the agent
+is never told to open the personal business of a person for a business it
+mistyped.
 
 **The orders belong to a business of its own.** `order.OwnedBy` states the
 rule: the orders belong to the business of the bakery, the one that sells

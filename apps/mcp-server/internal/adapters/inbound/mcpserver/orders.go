@@ -8,6 +8,7 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/order"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // The names of the tools of the orders.
@@ -38,7 +39,9 @@ var (
 // records an order.
 //
 // The states of an order belong to the domain: the description reads them
-// and never writes them a second time.
+// and never writes them a second time. The ways the owner charges belong
+// to the domain too: the description reads them and never writes them a
+// second time.
 func buildDescriptionRecordOrder() string {
 	return "Record an order of the bakery: what the bakery owes to a client, and the day it is due.\n\n" +
 		"An order carries the party that ordered, the products it ordered with the quantities of them, and the day " +
@@ -53,19 +56,24 @@ func buildDescriptionRecordOrder() string {
 		"not hold the role of the client is refused: the bakery does not owe bread to a provider.\n\n" +
 		"The day it is due ('due_on') is REQUIRED: it is the day the bread is owed, written as '2026-03-14'. PACA " +
 		"never invents one.\n\n" +
-		"Every line of the order carries the product, the quantity of it and the unit the owner said. At least one " +
-		"line is REQUIRED ('lines'):\n\n" +
+		"Every line of the order carries the product, the quantity of it and the way the owner charges it. At " +
+		"least one line is REQUIRED ('lines'):\n\n" +
 		"  - the product is named EITHER by 'product_id' OR by the name the owner reads ('product_name'). The " +
 		"products are the ones of the price list of the business, and PACA refuses a product of another business;\n" +
-		"  - the quantity ('quantity') is REQUIRED: how many units of the product the line carries (12). It is a " +
-		"positive whole number of units: the book never splits a unit, and PACA never guesses the quantity;\n" +
-		"  - the unit ('unit') is REQUIRED: the unit the owner said ('pan', 'unidad'). The quantity and its unit " +
-		"travel together, and PACA never converts a weight into a number of units.\n\n" +
+		"  - the quantity ('quantity') is REQUIRED: how much of the product the line carries (12). It is a " +
+		"positive number, and PACA never guesses it;\n" +
+		"  - the unit ('unit') is REQUIRED: the way the owner charges the line. It is one of " + theWaysOfCharging() +
+		", and never another one. The way she says it is read too (" + theSpokenWaysOfCharging() + "), and PACA " +
+		"never guesses the way she charges;\n" +
+		"  - the quantity and the way she charges travel together: when she charges by the PIECE the quantity is " +
+		"a WHOLE number of pieces (the book never splits a piece), and when she charges by the gram or by the " +
+		"kilogram the quantity is any positive amount of weight (PACA never converts a weight into a number of " +
+		"pieces).\n\n" +
 		"The answer carries the order that was written: its identity ('id'), the business that owns it " +
 		"('business_id'), the party that ordered ('party_id'), the name the owner reads of that party " +
 		"('party_name'), the day it is due ('due_on'), the state of the order ('state') and its lines ('lines') " +
 		"with the product of each one ('product_id'), the name the owner reads of it ('product_name'), the quantity " +
-		"('quantity') and the unit ('unit')."
+		"('quantity') and the way she charges it ('unit')."
 }
 
 // buildDescriptionReadOrders renders the description of the tool that reads
@@ -76,20 +84,21 @@ func buildDescriptionRecordOrder() string {
 func buildDescriptionReadOrders() string {
 	return "Read the orders of the business and the round of a day: what is still owed.\n\n" +
 		"The round of a day carries the orders that are DUE on it: the bread the bakery owes that day. The round " +
-		"answers what is still owed: the orders it carries that were not delivered. An order that was not " +
-		"delivered stays open.\n\n" +
+		"answers what is still owed: EVERY open order of the business — the ones that are due on the day and the " +
+		"ones that fell due on an earlier day and were not delivered. An order that was not delivered stays open.\n\n" +
 		"The business is REQUIRED: it is the business whose orders are read, and PACA never invents one. A " +
 		"business that is not there is refused: the answer is never an empty list for a business that does not " +
 		"exist.\n\n" +
 		"The day ('day') is OPTIONAL: it is the day of the round that is read, written as '2026-03-14'. The round " +
 		"of that day answers the orders that are due on it, and the whole book of the orders is read when the " +
 		"agent names none.\n\n" +
-		"The answer carries the day of the round ('day'), the orders the round carries ('orders') and the ones " +
-		"that are still owed ('owed'). Every order carries its identity ('id'), the business that owns it " +
-		"('business_id'), the party that ordered ('party_id'), the name the owner reads of that party " +
-		"('party_name'), the day it is due ('due_on'), the state of the order ('state') and its lines ('lines') " +
-		"with the product of each one ('product_id'), the name the owner reads of it ('product_name'), the quantity " +
-		"('quantity') and the unit ('unit').\n\n" +
+		"The answer carries the day of the round ('day') only when the agent names a day: the whole book of the " +
+		"orders is read when it names none, and there is no round of a day to name. It carries the orders the round " +
+		"carries ('orders') and the ones that are still owed ('owed'). Every order carries its identity ('id'), the " +
+		"business that owns it ('business_id'), the party that ordered ('party_id'), the name the owner reads of " +
+		"that party ('party_name'), the day it is due ('due_on'), the state of the order ('state') and its lines " +
+		"('lines') with the product of each one ('product_id'), the name the owner reads of it ('product_name'), " +
+		"the quantity ('quantity') and the way she charges it ('unit').\n\n" +
 		"The state of an order is one of " + theStatesOfTheOrders() + ".\n\n" +
 		"It writes nothing."
 }
@@ -102,11 +111,11 @@ type recordOrderLineInput struct {
 	// ProductName is the name the owner reads of the product.
 	ProductName string `json:"product_name,omitempty" jsonschema:"The name the owner reads of the product ('Pan de molde'). Send it OR the identity of the product, never neither of them."`
 
-	// Quantity is how many units of the product the line carries.
-	Quantity int `json:"quantity,omitempty" jsonschema:"How many units of the product the line carries (12). Send it always: it is a positive whole number of units, PACA never fills it, and the domain refuses the order when it is left out."`
+	// Quantity is how much of the product the line carries.
+	Quantity float64 `json:"quantity,omitempty" jsonschema:"How much of the product the line carries (12). Send it always: it is a positive number, PACA never fills it, and the domain refuses the order when it is left out."`
 
-	// Unit is the unit of that quantity, the way the owner said it.
-	Unit string `json:"unit,omitempty" jsonschema:"The unit of the quantity, the way the owner said it ('pan', 'unidad'). Send it always: the quantity and its unit travel together, and the domain refuses the order when it is left out."`
+	// Unit is the way the owner charges the line, the way the owner said it.
+	Unit string `json:"unit,omitempty" jsonschema:"The way the owner charges the line, the way she said it ('unidad', 'g', 'kilo'). Send it always: the quantity and the way she charges travel together, and the domain refuses the order when it is left out."`
 }
 
 // recordOrderInput is the input of the tool that records an order.
@@ -124,7 +133,7 @@ type recordOrderInput struct {
 	DueOn string `json:"due_on,omitempty" jsonschema:"The day the order is due on, written as '2026-03-14'. Send it always: PACA never invents one, and the domain refuses the order when it is left out."`
 
 	// Lines are the lines of the order.
-	Lines []recordOrderLineInput `json:"lines,omitempty" jsonschema:"The lines of the order: the product, the quantity of it and the unit the owner said. At least one line is required, and the domain refuses the order that carries none."`
+	Lines []recordOrderLineInput `json:"lines,omitempty" jsonschema:"The lines of the order: the product, the quantity of it and the way the owner charges it. At least one line is required, and the domain refuses the order that carries none."`
 }
 
 // readOrdersInput is the input of the tool that reads the orders of a
@@ -146,10 +155,10 @@ type orderLineOutput struct {
 	// ProductName is the name the owner reads of the product.
 	ProductName string `json:"product_name"`
 
-	// Quantity is how many units of the product the line carries.
-	Quantity int `json:"quantity"`
+	// Quantity is how much of the product the line carries.
+	Quantity float64 `json:"quantity"`
 
-	// Unit is the unit of that quantity.
+	// Unit is the way the owner charges the line.
 	Unit string `json:"unit"`
 }
 
@@ -193,8 +202,9 @@ type readOrdersOutput struct {
 	// Orders are the orders the round carries.
 	Orders []orderOutput `json:"orders"`
 
-	// Owed are the orders of the round that are still owed: the ones
-	// that were not delivered.
+	// Owed are the orders of the round that are still owed: every open
+	// order of the business, the ones that are due on the day and the
+	// overdue ones.
 	Owed []orderOutput `json:"owed"`
 }
 
@@ -274,8 +284,8 @@ func (s *Server) readOrders(reader ports.OrdersReader) sdk.ToolHandlerFor[readOr
 			orders = append(orders, outputOfOrder(one))
 		}
 
-		owed := make([]orderOutput, 0, len(round.Orders))
-		for _, one := range round.Owed() {
+		owed := make([]orderOutput, 0, len(round.Owed))
+		for _, one := range round.Owed {
 			owed = append(owed, outputOfOrder(one))
 		}
 
@@ -297,7 +307,7 @@ func outputOfOrder(model order.Order) orderOutput {
 			ProductID:   int64(one.ProductID),
 			ProductName: one.ProductName,
 			Quantity:    one.Quantity,
-			Unit:        one.Unit,
+			Unit:        one.Unit.String(),
 		})
 	}
 
@@ -323,6 +333,38 @@ func theStatesOfTheOrders() string {
 	names := make([]string, 0, len(states))
 	for _, one := range states {
 		names = append(names, one.String())
+	}
+
+	return strings.Join(names, ", ")
+}
+
+// theWaysOfCharging renders the ways the owner charges for the description
+// of the tool.
+//
+// The vocabulary belongs to the domain: the description reads it and never
+// writes it a second time.
+func theWaysOfCharging() string {
+	bases := purchase.PriceBases()
+
+	names := make([]string, 0, len(bases))
+	for _, one := range bases {
+		names = append(names, "'"+one.String()+"'")
+	}
+
+	return strings.Join(names, ", ")
+}
+
+// theSpokenWaysOfCharging renders the ways the owner and the agent say the
+// ways of charging, for the description of the tool.
+//
+// The vocabulary belongs to the domain: the description reads it and never
+// writes it a second time.
+func theSpokenWaysOfCharging() string {
+	spoken := purchase.SpokenPriceBases()
+
+	names := make([]string, 0, len(spoken))
+	for _, one := range spoken {
+		names = append(names, "'"+one+"'")
 	}
 
 	return strings.Join(names, ", ")

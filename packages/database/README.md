@@ -1532,7 +1532,7 @@ columns it points at.
 ### `order_lines`
 
 The lines of an order: the products with the quantities of them and the
-unit the owner said.
+way the owner charges them.
 
 | Column                | Type         | Rules                                                        |
 |-----------------------|--------------|--------------------------------------------------------------|
@@ -1542,13 +1542,29 @@ unit the owner said.
 | `product_id`          | `bigint`     | Not null, the product of the price list the line is of        |
 | `position`            | `integer`    | Not null, positive: the order the owner said the line in      |
 | `product_name`        | `text`       | Not null, never empty: the name the owner reads               |
-| `quantity`            | `integer`    | Not null, positive: a whole number of units                   |
-| `unit`                | `text`       | Not null, never empty: the unit the owner said                |
+| `quantity`            | `double precision` | Not null, positive: the amount of pieces or of weight   |
+| `unit`                | `text`       | Not null: `unit`, `gram` or `kilogram`                       |
 
-**The quantity of a line is a whole number of units.** The book never
-splits a unit, and it never converts a weight into a number of units: the
-check `order_lines_quantity_check` holds the rule of the domain as a
-defense in depth.
+**The unit of a line is THE WAY THE OWNER CHARGES.** The book knows three
+of them — the piece (`unit`), the gram (`gram`) and the kilogram
+(`kilogram`) — and the check `order_lines_unit_check` holds them as a
+defense in depth: the table refuses the row that carries another one. The
+way the owner said it is read by the domain, and the table holds the way
+the book knows it, the way the basis of a price is held.
+
+**The quantity of a line travels with the way she charges.** When she
+charges by the PIECE the quantity is a whole number of pieces — the book
+never splits a piece — and the check `order_lines_piece_quantity_check`
+holds that rule as a defense in depth. When she charges by the weight the
+quantity is any positive amount of weight: the book never converts a
+weight into a number of pieces, and the column of the quantity is a double
+precision for that reason. The check `order_lines_quantity_check` holds
+that the quantity is positive.
+
+**The migration of the orders is not edited.** The rules of the units of
+the book arrived with the migration `00031_orders_units_of_the_book.sql`,
+and the migration of the orders (`00030_orders.sql`) is already applied: a
+migration that is applied is a history that is not rewritten.
 
 **The order of the line and the product of the line are of the business
 that owns the order.** The composite foreign keys

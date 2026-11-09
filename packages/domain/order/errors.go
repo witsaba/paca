@@ -37,13 +37,25 @@ var (
 	// ErrNoLines is the error of an order that carries no line.
 	ErrNoLines = errors.New("the order carries no line")
 
-	// ErrInvalidQuantity is the error of a line whose quantity is not a
-	// whole number of units.
-	ErrInvalidQuantity = errors.New("the quantity of a line is not a whole number of units")
+	// ErrInvalidQuantity is the error of a line whose quantity is not
+	// positive.
+	ErrInvalidQuantity = errors.New("the quantity of a line of the order is not positive")
+
+	// ErrSplitPiece is the error of a line by the piece whose quantity
+	// splits a piece: the book never splits a piece.
+	ErrSplitPiece = errors.New("the quantity of a line of the order splits a piece")
 
 	// ErrMissingUnit is the error of a line of an order that carries no
 	// unit.
 	ErrMissingUnit = errors.New("the line of the order carries no unit")
+
+	// ErrUnknownUnit is the error of a line whose unit is not one of the
+	// three ways the owner charges.
+	ErrUnknownUnit = errors.New("the unit of the line of the order is not one of the units of the book")
+
+	// ErrBusinessNotFound is the error of the business of the orders that
+	// is not there.
+	ErrBusinessNotFound = errors.New("the business of the orders is not there")
 
 	// ErrMissingDay is the error of an order that carries no day.
 	ErrMissingDay = errors.New("the order carries no day")
@@ -77,7 +89,10 @@ func Errors() []error {
 		ErrProductOfAnotherBusiness,
 		ErrNoLines,
 		ErrInvalidQuantity,
+		ErrSplitPiece,
 		ErrMissingUnit,
+		ErrUnknownUnit,
+		ErrBusinessNotFound,
 		ErrMissingDay,
 		ErrWrongBusiness,
 		ErrUnknownState,

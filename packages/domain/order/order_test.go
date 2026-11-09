@@ -8,6 +8,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // theDayOfTheTest is a day of the book of the bakery.
@@ -91,7 +92,7 @@ func theLinesOfTheTest(t *testing.T, own business.ID) []LineDefinition {
 	t.Helper()
 
 	return []LineDefinition{
-		{Product: theProductOfTheTest(t, own), Quantity: 12, Unit: "pan"},
+		{Product: theProductOfTheTest(t, own), Quantity: 12, Unit: "unidad"},
 	}
 }
 
@@ -138,10 +139,10 @@ func TestNewBuildsTheOrderOfTheClient(t *testing.T) {
 		t.Errorf("the name of the product is %q, want %q", built.Lines[0].ProductName, "Pan de molde")
 	}
 	if built.Lines[0].Quantity != 12 {
-		t.Errorf("the quantity is %d, want 12", built.Lines[0].Quantity)
+		t.Errorf("the quantity is %v, want 12", built.Lines[0].Quantity)
 	}
-	if built.Lines[0].Unit != "pan" {
-		t.Errorf("the unit is %q, want %q", built.Lines[0].Unit, "pan")
+	if built.Lines[0].Unit != purchase.PricePerUnit {
+		t.Errorf("the unit is %q, want %q", built.Lines[0].Unit, purchase.PricePerUnit)
 	}
 }
 
@@ -245,7 +246,7 @@ func TestTheRoundAnswersWhatIsStillOwed(t *testing.T) {
 		PartyName:  "Doña Rosalba",
 		DueOn:      today,
 		Lines: []Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: StateDelivered,
 	})
@@ -255,12 +256,178 @@ func TestTheRoundAnswersWhatIsStillOwed(t *testing.T) {
 
 	round := TheRound(today, []Order{open, delivered})
 
-	owed := round.Owed()
+	owed := round.Owed
 	if len(owed) != 1 {
 		t.Fatalf("the round owes %d orders, want 1", len(owed))
 	}
 	if owed[0].ID != open.ID {
 		t.Errorf("the order that is owed is %d, want %d", owed[0].ID, open.ID)
+	}
+}
+
+// TestNewRefusesTheUnitThatIsNotOneOfTheBook proves the rule of the
+// domain: the unit of a line is the way the owner charges, and it is one
+// of the three the book knows. A unit the book does not know is refused.
+func TestNewRefusesTheUnitThatIsNotOneOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	for _, spoken := range []string{"pan", "paquete", "libra", "arroba"} {
+		lines := []LineDefinition{
+			{Product: theProductOfTheTest(t, business.ID(77)), Quantity: 12, Unit: spoken},
+		}
+
+		_, err := New(
+			business.ID(77),
+			theClientOfTheTest(t),
+			theDayOfTheTest("2026-03-14"),
+			lines,
+		)
+		if err == nil {
+			t.Fatalf("the order of the unit %q was built: the unit of a line is one of the three of the book", spoken)
+		}
+	}
+}
+
+// TestNewKeepsTheLineByTheGramWithTheUnitOfTheBook proves the rule of the
+// domain: the unit the owner said is read in the vocabulary of the book,
+// and the line keeps the way she charges.
+func TestNewKeepsTheLineByTheGramWithTheUnitOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	lines := []LineDefinition{
+		{Product: theProductOfTheTest(t, business.ID(77)), Quantity: 500, Unit: "gramo"},
+	}
+
+	built, err := New(
+		business.ID(77),
+		theClientOfTheTest(t),
+		theDayOfTheTest("2026-03-14"),
+		lines,
+	)
+	if err != nil {
+		t.Fatalf("the order of five hundred grams was refused: %v", err)
+	}
+	if built.Lines[0].Quantity != 500 {
+		t.Errorf("the quantity of the line is %v, want 500", built.Lines[0].Quantity)
+	}
+	if built.Lines[0].Unit != "gram" {
+		t.Errorf("the unit of the line is %q, want %q", built.Lines[0].Unit, "gram")
+	}
+}
+
+// TestNewKeepsTheLineByThePieceWithTheUnitOfTheBook proves the rule of the
+// domain: the piece is one of the three ways the owner charges, and the
+// line keeps it.
+func TestNewKeepsTheLineByThePieceWithTheUnitOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	lines := []LineDefinition{
+		{Product: theProductOfTheTest(t, business.ID(77)), Quantity: 3, Unit: "unidad"},
+	}
+
+	built, err := New(
+		business.ID(77),
+		theClientOfTheTest(t),
+		theDayOfTheTest("2026-03-14"),
+		lines,
+	)
+	if err != nil {
+		t.Fatalf("the order of three pieces was refused: %v", err)
+	}
+	if built.Lines[0].Quantity != 3 {
+		t.Errorf("the quantity of the line is %v, want 3", built.Lines[0].Quantity)
+	}
+	if built.Lines[0].Unit != "unit" {
+		t.Errorf("the unit of the line is %q, want %q", built.Lines[0].Unit, "unit")
+	}
+}
+
+// TestTheRoundAnswersTheOverdueOrderThatIsStillOwed proves the rule of the
+// domain: what is still owed is every open order of the business, and the
+// order that fell due on an earlier day is owed too.
+func TestTheRoundAnswersTheOverdueOrderThatIsStillOwed(t *testing.T) {
+	t.Parallel()
+
+	overdue, err := New(
+		business.ID(77),
+		theClientOfTheTest(t),
+		theDayOfTheTest("2026-03-13"),
+		theLinesOfTheTest(t, business.ID(77)),
+	)
+	if err != nil {
+		t.Fatalf("the order was refused: %v", err)
+	}
+
+	round := TheRound(theDayOfTheTest("2026-03-14"), []Order{overdue})
+
+	if len(round.Orders) != 0 {
+		t.Errorf("the round carries %d orders, want none: the order is not due on that day", len(round.Orders))
+	}
+
+	owed := round.Owed
+	if len(owed) != 1 {
+		t.Fatalf("the round owes %d orders, want 1: the order that fell due is still owed", len(owed))
+	}
+	if owed[0].DueOn.String() != "2026-03-13" {
+		t.Errorf("the order that is owed is due on %q, want %q", owed[0].DueOn.String(), "2026-03-13")
+	}
+}
+
+// TestNewRefusesTheLineThatSplitsAPiece proves the rule of the domain:
+// the book never splits a piece, so the quantity of a line by the piece is a
+// whole number of pieces.
+func TestNewRefusesTheLineThatSplitsAPiece(t *testing.T) {
+	t.Parallel()
+
+	lines := []LineDefinition{
+		{Product: theProductOfTheTest(t, business.ID(77)), Quantity: 2.5, Unit: "unidad"},
+	}
+
+	_, err := New(
+		business.ID(77),
+		theClientOfTheTest(t),
+		theDayOfTheTest("2026-03-14"),
+		lines,
+	)
+	if err == nil {
+		t.Fatal("the order of two pieces and a half was built: the book never splits a piece")
+	}
+	if !errors.Is(err, ErrSplitPiece) {
+		t.Fatalf("the error is %v, want %v", err, ErrSplitPiece)
+	}
+}
+
+// TestNewKeepsTheLineByTheWeightWithAnyAmountOfWeight proves the rule of
+// the domain: the book never converts a weight into a number of pieces, so
+// the quantity of a line by the weight is any positive amount of weight.
+func TestNewKeepsTheLineByTheWeightWithAnyAmountOfWeight(t *testing.T) {
+	t.Parallel()
+
+	for _, one := range []struct {
+		spoken   string
+		quantity float64
+	}{
+		{spoken: "gramo", quantity: 500},
+		{spoken: "g", quantity: 500.5},
+		{spoken: "kilo", quantity: 2.5},
+		{spoken: "kg", quantity: 1.25},
+	} {
+		lines := []LineDefinition{
+			{Product: theProductOfTheTest(t, business.ID(77)), Quantity: one.quantity, Unit: one.spoken},
+		}
+
+		built, err := New(
+			business.ID(77),
+			theClientOfTheTest(t),
+			theDayOfTheTest("2026-03-14"),
+			lines,
+		)
+		if err != nil {
+			t.Fatalf("the order of %v %s was refused: %v", one.quantity, one.spoken, err)
+		}
+		if built.Lines[0].Quantity != one.quantity {
+			t.Errorf("the quantity of the line is %v, want %v", built.Lines[0].Quantity, one.quantity)
+		}
 	}
 }
 
@@ -313,7 +480,7 @@ func TestNewRefusesTheProductOfAnotherBusiness(t *testing.T) {
 	t.Parallel()
 
 	lines := []LineDefinition{
-		{Product: theProductOfTheTest(t, business.ID(88)), Quantity: 3, Unit: "pan"},
+		{Product: theProductOfTheTest(t, business.ID(88)), Quantity: 3, Unit: "unidad"},
 	}
 
 	_, err := New(
@@ -330,15 +497,15 @@ func TestNewRefusesTheProductOfAnotherBusiness(t *testing.T) {
 	}
 }
 
-// TestNewRefusesAQuantityThatIsNotAWholeNumberOfUnits proves the rule of
-// the domain: the order counts whole units of a product, and it never
-// splits a unit.
-func TestNewRefusesAQuantityThatIsNotAWholeNumberOfUnits(t *testing.T) {
+// TestNewRefusesAQuantityThatIsNotPositive proves the rule of the
+// domain: the quantity of a line is positive, and the book never counts
+// what is not there.
+func TestNewRefusesAQuantityThatIsNotPositive(t *testing.T) {
 	t.Parallel()
 
-	for _, quantity := range []int{0, -3} {
+	for _, quantity := range []float64{0, -3} {
 		lines := []LineDefinition{
-			{Product: theProductOfTheTest(t, business.ID(77)), Quantity: quantity, Unit: "pan"},
+			{Product: theProductOfTheTest(t, business.ID(77)), Quantity: quantity, Unit: "unidad"},
 		}
 
 		_, err := New(
@@ -348,7 +515,7 @@ func TestNewRefusesAQuantityThatIsNotAWholeNumberOfUnits(t *testing.T) {
 			lines,
 		)
 		if err == nil {
-			t.Fatalf("the order of %d units was built", quantity)
+			t.Fatalf("the order of %v units was built", quantity)
 		}
 		if !errors.Is(err, ErrInvalidQuantity) {
 			t.Fatalf("the error is %v, want %v", err, ErrInvalidQuantity)
@@ -549,7 +716,7 @@ func TestNewFromFactsRefusesTheRowThatBreaksARule(t *testing.T) {
 		PartyName:  "Doña Rosalba",
 		DueOn:      theDayOfTheTest("2026-03-14"),
 		Lines: []Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: "cancelled",
 	})
@@ -567,7 +734,7 @@ func TestNewRefusesTheLineWithoutItsProduct(t *testing.T) {
 	t.Parallel()
 
 	lines := []LineDefinition{
-		{Product: product.Product{}, Quantity: 3, Unit: "pan"},
+		{Product: product.Product{}, Quantity: 3, Unit: "unidad"},
 	}
 
 	_, err := New(
@@ -596,7 +763,7 @@ func TestNewFromFactsRefusesTheRowThatIsNotWhole(t *testing.T) {
 		PartyName:  "Doña Rosalba",
 		DueOn:      theDayOfTheTest("2026-03-14"),
 		Lines: []Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: StateOpen,
 	}
@@ -632,7 +799,7 @@ func TestNewFromFactsRefusesTheRowThatIsNotWhole(t *testing.T) {
 				BusinessID: 77,
 				PartyID:    10,
 				DueOn:      whole.DueOn,
-				Lines:      []Line{{Quantity: 12, Unit: "pan"}},
+				Lines:      []Line{{Quantity: 12, Unit: purchase.PricePerUnit}},
 				State:      StateOpen,
 			},
 			want: ErrMissingProduct,
@@ -643,7 +810,7 @@ func TestNewFromFactsRefusesTheRowThatIsNotWhole(t *testing.T) {
 				BusinessID: 77,
 				PartyID:    10,
 				DueOn:      whole.DueOn,
-				Lines:      []Line{{ProductID: 5, Quantity: 0, Unit: "pan"}},
+				Lines:      []Line{{ProductID: 5, Quantity: 0, Unit: purchase.PricePerUnit}},
 				State:      StateOpen,
 			},
 			want: ErrInvalidQuantity,
@@ -658,6 +825,28 @@ func TestNewFromFactsRefusesTheRowThatIsNotWhole(t *testing.T) {
 				State:      StateOpen,
 			},
 			want: ErrMissingUnit,
+		},
+		{
+			name: "the line that carries a unit the book does not know",
+			facts: Facts{
+				BusinessID: 77,
+				PartyID:    10,
+				DueOn:      whole.DueOn,
+				Lines:      []Line{{ProductID: 5, Quantity: 12, Unit: "pan"}},
+				State:      StateOpen,
+			},
+			want: ErrUnknownUnit,
+		},
+		{
+			name: "the line that splits a piece",
+			facts: Facts{
+				BusinessID: 77,
+				PartyID:    10,
+				DueOn:      whole.DueOn,
+				Lines:      []Line{{ProductID: 5, Quantity: 2.5, Unit: purchase.PricePerUnit}},
+				State:      StateOpen,
+			},
+			want: ErrSplitPiece,
 		},
 	}
 
@@ -688,7 +877,7 @@ func TestNewFromFactsBuildsTheOrderOfTheRow(t *testing.T) {
 		PartyName:  "  Doña Rosalba  ",
 		DueOn:      theDayOfTheTest("2026-03-14"),
 		Lines: []Line{
-			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: "pan"},
+			{ProductID: product.ID(5), ProductName: "Pan de molde", Quantity: 12, Unit: purchase.PricePerUnit},
 		},
 		State: StateOpen,
 	})
@@ -705,7 +894,7 @@ func TestNewFromFactsBuildsTheOrderOfTheRow(t *testing.T) {
 	if built.State != StateOpen {
 		t.Errorf("the state of the order is %q, want %q", built.State, StateOpen)
 	}
-	if len(built.Lines) != 1 || built.Lines[0].Unit != "pan" {
+	if len(built.Lines) != 1 || built.Lines[0].Unit != purchase.PricePerUnit {
 		t.Errorf("the lines of the order are %v, want the line of the pan", built.Lines)
 	}
 }
@@ -716,8 +905,8 @@ func TestErrorsNamesEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := Errors()
-	if len(all) != 15 {
-		t.Fatalf("the catalogue holds %d errors, want 15", len(all))
+	if len(all) != 18 {
+		t.Fatalf("the catalogue holds %d errors, want 18", len(all))
 	}
 
 	for _, err := range all {

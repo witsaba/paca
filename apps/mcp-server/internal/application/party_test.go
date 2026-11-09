@@ -128,6 +128,10 @@ func TestThePartyIsOpenedInTheBusinessThatKnowsIt(t *testing.T) {
 // TestThePartyIsRefusedWhenTheBusinessIsNotThere proves that the use case
 // reads the business that owns the party, and that it writes nothing when
 // there is none.
+//
+// The error is the error of the domain of the party: the business of a party
+// is a business of its own, and the caller of the party is not the
+// onboarding.
 func TestThePartyIsRefusedWhenTheBusinessIsNotThere(t *testing.T) {
 	t.Parallel()
 
@@ -141,8 +145,35 @@ func TestThePartyIsRefusedWhenTheBusinessIsNotThere(t *testing.T) {
 		Name:       "Doña Rosalba",
 		Roles:      []string{"client"},
 	})
-	if !errors.Is(err, business.ErrNotFound) {
-		t.Fatalf("the error is %v, want %v", err, business.ErrNotFound)
+	if !errors.Is(err, party.ErrBusinessNotFound) {
+		t.Fatalf("the error is %v, want %v", err, party.ErrBusinessNotFound)
+	}
+	if len(parties.written) != 0 {
+		t.Errorf("the storage holds %d parties, want none", len(parties.written))
+	}
+}
+
+// TestThePartyThatCarriesOnlyALegalFigureIsRefused proves that the use case
+// asks the domain to build the legal human of the party, and that a person
+// that carries only a legal figure is refused with the rule of its kind: a
+// person is not represented by a legal human.
+func TestThePartyThatCarriesOnlyALegalFigureIsRefused(t *testing.T) {
+	t.Parallel()
+
+	parties := &fakeParties{}
+	bakery := theBakeryOfTheParties()
+	businesses := &fakeBusinesses{existing: &bakery}
+	service := application.NewPartyService(parties, businesses)
+
+	_, err := service.Open(t.Context(), ports.OpenParty{
+		BusinessID:  77,
+		Kind:        "person",
+		Name:        "Doña Rosalba",
+		Roles:       []string{"client"},
+		LegalFigure: "S.A.S.",
+	})
+	if !errors.Is(err, party.ErrUnexpectedLegalHuman) {
+		t.Fatalf("the error is %v, want %v", err, party.ErrUnexpectedLegalHuman)
 	}
 	if len(parties.written) != 0 {
 		t.Errorf("the storage holds %d parties, want none", len(parties.written))
@@ -232,6 +263,50 @@ func TestThePartiesOfTheBusinessAreRead(t *testing.T) {
 	}
 	if held[0].ID != 10 || held[1].ID != 20 {
 		t.Errorf("the parties of the answer are %d and %d, want 10 and 20", held[0].ID, held[1].ID)
+	}
+}
+
+// TestThePartiesOfABusinessThatIsNotThereAreRefused proves that the use
+// case reads the business whose parties are asked for, and that it refuses
+// the business that is not there: an empty list and a business that does
+// not exist are two different answers.
+func TestThePartiesOfABusinessThatIsNotThereAreRefused(t *testing.T) {
+	t.Parallel()
+
+	parties := &fakeParties{}
+	service := application.NewPartyService(parties, &fakeBusinesses{})
+
+	held, err := service.Read(t.Context(), ports.ReadParties{BusinessID: 77})
+	if !errors.Is(err, party.ErrBusinessNotFound) {
+		t.Fatalf("the error is %v, want %v", err, party.ErrBusinessNotFound)
+	}
+	if len(held) != 0 {
+		t.Errorf("the answer holds %d parties, want none", len(held))
+	}
+	if parties.reads != 0 {
+		t.Errorf("the storage was read %d times, want 0", parties.reads)
+	}
+}
+
+// TestTheBusinessThatHoldsNoPartyAnswersAnEmptyList proves the rule of the
+// reading: a business that exists and knows no party answers with an empty
+// list, and not with a failure.
+func TestTheBusinessThatHoldsNoPartyAnswersAnEmptyList(t *testing.T) {
+	t.Parallel()
+
+	parties := &fakeParties{}
+	bakery := theBakeryOfTheParties()
+	service := application.NewPartyService(parties, &fakeBusinesses{existing: &bakery})
+
+	held, err := service.Read(t.Context(), ports.ReadParties{BusinessID: 77})
+	if err != nil {
+		t.Fatalf("the parties were refused: %v", err)
+	}
+	if len(held) != 0 {
+		t.Errorf("the answer holds %d parties, want none", len(held))
+	}
+	if parties.reads != 1 {
+		t.Errorf("the storage was read %d times, want 1", parties.reads)
 	}
 }
 

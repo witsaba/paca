@@ -55,6 +55,8 @@ func buildDescriptionRecordWaste() string {
 		"The REASON is what a later analysis reads, and PACA never invents one: ask the owner why she lost them. " +
 		"The reason is one of the four of the book: the one that was burnt, the one that spoiled, the one that " +
 		"fell and the one that came back.\n\n" +
+		"The waste moves NO money IN: nobody paid for the bread the bakery lost, and what the waste does is " +
+		"RELEASE the cost of the units that left the book.\n\n" +
 		"The money of the waste is NOT typed by the agent: PACA derives it from the book. The units that leave " +
 		"the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of " +
 		"those units - the cost the waste releases. The money is never lost from the book: it leaves the " +
@@ -75,9 +77,13 @@ func buildDescriptionRecordWaste() string {
 }
 
 // recordWasteInput is the input of the tool that records the waste.
+//
+// The fields the domain refuses are optional in the call: the schema of
+// the tool does not refuse the call before the domain can answer it, and
+// the domain is the one that says what is missing.
 type recordWasteInput struct {
 	// BusinessID is the business the waste belongs to.
-	BusinessID int64 `json:"business_id" jsonschema:"The identity of the business the waste belongs to. It is required."`
+	BusinessID int64 `json:"business_id,omitempty" jsonschema:"The identity of the business the waste belongs to. Send it always: the domain refuses the waste when it is left out."`
 
 	// RecipeID is the identity of the product she lost.
 	RecipeID int64 `json:"recipe_id,omitempty" jsonschema:"The identity of the product she lost. It is optional: send the recipe_name instead when the name carries only one product."`
@@ -86,13 +92,13 @@ type recordWasteInput struct {
 	RecipeName string `json:"recipe_name,omitempty" jsonschema:"The name the owner reads of the product she lost ('Pan de molde'). It is optional: send the recipe_id instead when the name carries more than one product."`
 
 	// Quantity is how many units of the product the bakery lost.
-	Quantity float64 `json:"quantity" jsonschema:"How many units of the product the bakery lost (3). It is required, and PACA never fills it by herself."`
+	Quantity float64 `json:"quantity,omitempty" jsonschema:"How many units of the product the bakery lost (3). Send it always: PACA never fills it by herself, and the domain refuses the waste when it is left out."`
 
 	// Unit is the unit of that quantity.
 	Unit string `json:"unit,omitempty" jsonschema:"The unit of the quantity ('unidad'). It is optional: the waste counts the units it lost when it is left out."`
 
 	// Reason is why the bakery lost them.
-	Reason string `json:"reason" jsonschema:"Why the bakery lost them: 'burnt', 'spoiled', 'dropped' or 'returned'. It is required, and PACA never invents one."`
+	Reason string `json:"reason,omitempty" jsonschema:"Why the bakery lost them: 'burnt', 'spoiled', 'dropped' or 'returned'. Send it always: PACA never invents one, and the domain refuses the waste when it is left out."`
 
 	// Day is the day the waste happened.
 	Day string `json:"day,omitempty" jsonschema:"The day the waste happened, written as '2026-03-14'. It is optional: it means the day of today when it is empty."`
@@ -101,7 +107,7 @@ type recordWasteInput struct {
 	Utterance string `json:"utterance,omitempty" jsonschema:"The sentence of the owner, verbatim. It is optional: send it as she said it when she said one, and it is kept with the record."`
 
 	// ConfirmedWith is the word the owner used to confirm the waste.
-	ConfirmedWith string `json:"confirmed_with" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). It is required, and it is kept with the record."`
+	ConfirmedWith string `json:"confirmed_with,omitempty" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). Send it always: it is kept with the record, and the domain refuses the waste when it is left out."`
 }
 
 // recordWasteUnitOutput is what the answer carries about one unit that left
@@ -182,28 +188,14 @@ func (s *Server) registerWasteTools(recorder ports.WasteRecorder) {
 //
 // The tool writes the waste the owner confirmed and answers with it.
 //
-// The business is required: the tool refuses the business that is not
-// there, and it never asks the use case for the waste of nobody.
+// The schema of the tool does not refuse the call before the domain can
+// answer it: the business, the quantity, the reason and the word of the
+// owner are optional in the call, and the domain is the one that refuses
+// the waste that carries none of them, with its own message.
 func (s *Server) recordWaste(recorder ports.WasteRecorder) sdk.ToolHandlerFor[recordWasteInput, recordWasteOutput] {
 	return func(ctx context.Context, _ *sdk.CallToolRequest, input recordWasteInput) (*sdk.CallToolResult, recordWasteOutput, error) {
 		if recorder == nil {
 			return nil, recordWasteOutput{}, ports.ErrNoDatabase
-		}
-
-		if input.BusinessID <= 0 {
-			return nil, recordWasteOutput{}, s.toolError(recipe.ErrMissingBusiness)
-		}
-
-		if input.Quantity <= 0 {
-			return nil, recordWasteOutput{}, s.toolError(recipe.ErrInvalidWasteQuantity)
-		}
-
-		if strings.TrimSpace(input.Reason) == "" {
-			return nil, recordWasteOutput{}, s.toolError(recipe.ErrUnknownWasteReason)
-		}
-
-		if strings.TrimSpace(input.ConfirmedWith) == "" {
-			return nil, recordWasteOutput{}, s.toolError(recipe.ErrMissingWasteConfirmation)
 		}
 
 		recorded, err := recorder.Record(ctx, ports.RecordWaste{

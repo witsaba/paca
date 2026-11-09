@@ -18,10 +18,11 @@ import (
 // start: the product, the quantity, the unit and the reason are what the
 // owner said, and the reason is what a later analysis reads.
 //
-// The waste releases the cost of what it was worth: the units that leave the
-// book are the units of the product that expire first, and the money of the
-// waste is the money of those units - the money of the production they came
-// out of, divided by the units that production made.
+// The waste moves no money IN: nobody paid for the bread the bakery lost.
+// What the waste does is release the cost of what it was worth: the units
+// that leave the book are the units of the product that expire first, and
+// the money of the waste is the money of those units - the money of the
+// production they came out of, divided by the units that production made.
 //
 // The money of the waste is never lost from the book: it leaves the
 // inventory and it lands in the account of the waste, the account the book

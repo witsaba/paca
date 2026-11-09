@@ -64,6 +64,25 @@ func theUnitsOfTheSale() []recipe.ExpiringUnit {
 	return units
 }
 
+// theUnitsOfTheSaleInTheOrderOfTheExpiry answers the units of the
+// production of the test in the order the rotation takes them.
+//
+// The unit that expires first carries the HIGHEST identity of the book, so
+// the order of the identities and the order of the expiry disagree: only
+// the expiry decides the order in which the units leave the book.
+func theUnitsOfTheSaleInTheOrderOfTheExpiry() []recipe.ExpiringUnit {
+	units := theUnitsOfTheSale()
+
+	for index := range units {
+		one := units[index]
+		one.ExpiresOn = ledger.NewDate(
+			time.Date(2026, time.March, 15+(10-index), 0, 0, 0, 0, time.UTC))
+		units[index] = one
+	}
+
+	return units
+}
+
 // theDefinitionOfTheSale is the sale the owner confirmed: three units of
 // bread for five thousand pesos.
 func theDefinitionOfTheSale() recipe.SaleDefinition {
@@ -80,24 +99,16 @@ func theDefinitionOfTheSale() recipe.SaleDefinition {
 }
 
 // TestTheSaleTakesTheUnitsThatExpireFirst proves the rule of the rotation:
-// the sale takes the units of the product that expire first, and the
-// valuation by the FIFO is another rule.
+// the sale takes the units of the product that are still in it, IN THE
+// ORDER THEY EXPIRE, and the valuation by the FIFO is another rule.
+//
+// The unit that expires first carries the highest identity of the book, so
+// the order of the identities and the order of the expiry disagree, and
+// the test says the whole ordered set of the identities that left.
 func TestTheSaleTakesTheUnitsThatExpireFirst(t *testing.T) {
 	t.Parallel()
 
-	units := theUnitsOfTheSale()
-
-	// The first unit expires before the others: it is the one that leaves
-	// the book first.
-	early := units[0]
-	early.ExpiresOn = ledger.NewDate(time.Date(2026, time.March, 16, 0, 0, 0, 0, time.UTC))
-	units[0] = early
-
-	// The last unit expires after the others: it stays in the book.
-	late := units[9]
-	late.ID = recipe.UnitID(20)
-	late.ExpiresOn = ledger.NewDate(time.Date(2026, time.March, 20, 0, 0, 0, 0, time.UTC))
-	units[9] = late
+	units := theUnitsOfTheSaleInTheOrderOfTheExpiry()
 
 	sale, err := recipe.SaleOf(
 		business.ID(77),
@@ -109,17 +120,18 @@ func TestTheSaleTakesTheUnitsThatExpireFirst(t *testing.T) {
 		t.Fatalf("the sale was refused: %v", err)
 	}
 
-	if len(sale.Units) != 3 {
-		t.Fatalf("the sale took %d units, want 3", len(sale.Units))
+	// The three units that expire first are the three last identities of
+	// the book: the tenth, the ninth and the eighth.
+	want := []recipe.UnitID{10, 9, 8}
+
+	if len(sale.Units) != len(want) {
+		t.Fatalf("the sale took %d units, want %d", len(sale.Units), len(want))
 	}
 
-	if sale.Units[0].UnitID != recipe.UnitID(1) {
-		t.Errorf("the first unit that left is %d, want the one that expires first", sale.Units[0].UnitID)
-	}
-
-	for _, one := range sale.Units {
-		if one.UnitID == recipe.UnitID(20) {
-			t.Error("the unit that expires last left the book, want the ones that expire first")
+	for index, one := range sale.Units {
+		if one.UnitID != want[index] {
+			t.Errorf("the unit %d that left the book is the unit %d, want the unit %d",
+				index+1, one.UnitID, want[index])
 		}
 	}
 }

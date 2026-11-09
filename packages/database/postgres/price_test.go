@@ -12,6 +12,7 @@ import (
 	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 func TestTheRepositoryOfTheProductsNeedsAPool(t *testing.T) {
@@ -161,6 +162,7 @@ func TestTheRowOfAPriceIsMappedOntoTheModel(t *testing.T) {
 		ProductID:  10,
 		Channel:    "wholesale",
 		Amount:     2500,
+		Basis:      "unit",
 		Day:        pgtype.Date{Time: mustDate(t, "2026-03-01"), Valid: true},
 	})
 	if err != nil {
@@ -181,6 +183,9 @@ func TestTheRowOfAPriceIsMappedOntoTheModel(t *testing.T) {
 	}
 	if mapped.Amount != 2500 {
 		t.Errorf("the money is %d, want 2500", mapped.Amount)
+	}
+	if mapped.Basis != purchase.PricePerUnit {
+		t.Errorf("the basis is %q, want %q", mapped.Basis, purchase.PricePerUnit)
 	}
 	if mapped.Day.String() != "2026-03-01" {
 		t.Errorf("the day is %q, want %q", mapped.Day.String(), "2026-03-01")
@@ -205,6 +210,18 @@ func TestTheRowOfAPriceThatBreaksTheRuleOfTheDomainIsRefused(t *testing.T) {
 				ProductID:  10,
 				Channel:    "store",
 				Amount:     2500,
+				Basis:      "unit",
+			},
+			want: product.ErrInvalidValue,
+		},
+		{
+			name: "the way of charging the book does not know",
+			row: db.Price{
+				BusinessID: 77,
+				ProductID:  10,
+				Channel:    "retail",
+				Amount:     2500,
+				Basis:      "loaf",
 			},
 			want: product.ErrInvalidValue,
 		},
@@ -215,6 +232,7 @@ func TestTheRowOfAPriceThatBreaksTheRuleOfTheDomainIsRefused(t *testing.T) {
 				ProductID:  10,
 				Channel:    "retail",
 				Amount:     0,
+				Basis:      "unit",
 			},
 			want: product.ErrInvalidPrice,
 		},

@@ -54,7 +54,7 @@ func buildDescriptionRecordExit() string {
 		"The KIND is REQUIRED: the exits of the bakery are the consumption of the owner and the donation, " +
 		"and PACA never guesses one of them. Use 'consumption' when the owner ate the bread, and 'donation' " +
 		"when the bakery gave it away.\n\n" +
-		"The exit moves NO money: nobody paid for the bread the owner consumed or for the bread the bakery " +
+		"The exit moves NO money IN: nobody paid for the bread the owner consumed or for the bread the bakery " +
 		"gave away. What the exit does is RELEASE the cost of the units that left the book: the cost leaves " +
 		"the inventory and it lands in the account of the expense of the exit - the cost of the sales for the " +
 		"consumption, and the account of the donation for the donation, which is a social expense of the " +
@@ -82,9 +82,13 @@ func buildDescriptionRecordExit() string {
 }
 
 // recordExitInput is the input of the tool that records the exit.
+//
+// The fields the domain refuses are optional in the call: the schema of
+// the tool does not refuse the call before the domain can answer it, and
+// the domain is the one that says what is missing.
 type recordExitInput struct {
 	// BusinessID is the business the exit belongs to.
-	BusinessID int64 `json:"business_id" jsonschema:"The identity of the business the exit belongs to. It is required."`
+	BusinessID int64 `json:"business_id,omitempty" jsonschema:"The identity of the business the exit belongs to. Send it always: the domain refuses the exit when it is left out."`
 
 	// RecipeID is the identity of the product she consumed or gave away.
 	RecipeID int64 `json:"recipe_id,omitempty" jsonschema:"The identity of the product she consumed or gave away. It is optional: send the recipe_name instead when the name carries only one product."`
@@ -93,10 +97,10 @@ type recordExitInput struct {
 	RecipeName string `json:"recipe_name,omitempty" jsonschema:"The name the owner reads of the product she consumed or gave away ('Pan de molde'). It is optional: send the recipe_id instead when the name carries more than one product."`
 
 	// Kind is the kind of the exit.
-	Kind string `json:"kind" jsonschema:"The kind of the exit: 'consumption' (the owner ate the bread) or 'donation' (the bakery gave it away). It is required, and PACA never guesses one."`
+	Kind string `json:"kind,omitempty" jsonschema:"The kind of the exit: 'consumption' (the owner ate the bread) or 'donation' (the bakery gave it away). Send it always: PACA never guesses one, and the domain refuses the exit when it is left out."`
 
 	// Quantity is how many units of the product the exit took.
-	Quantity float64 `json:"quantity" jsonschema:"How many units of the product the exit took (3). It is required, and PACA never fills it by herself."`
+	Quantity float64 `json:"quantity,omitempty" jsonschema:"How many units of the product the exit took (3). Send it always: PACA never fills it by herself, and the domain refuses the exit when it is left out."`
 
 	// Unit is the unit of that quantity.
 	Unit string `json:"unit,omitempty" jsonschema:"The unit of the quantity ('unidad'). It is optional: the exit counts the units it took when it is left out."`
@@ -108,7 +112,7 @@ type recordExitInput struct {
 	Utterance string `json:"utterance,omitempty" jsonschema:"The sentence of the owner, verbatim. It is optional: send it as she said it when she said one, and it is kept with the record."`
 
 	// ConfirmedWith is the word the owner used to confirm the exit.
-	ConfirmedWith string `json:"confirmed_with" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). It is required, and it is kept with the record."`
+	ConfirmedWith string `json:"confirmed_with,omitempty" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). Send it always: it is kept with the record, and the domain refuses the exit when it is left out."`
 }
 
 // recordExitUnitOutput is what the answer carries about one unit that left
@@ -195,28 +199,14 @@ func (s *Server) registerExitTools(recorder ports.ExitRecorder) {
 //
 // The tool writes the exit the owner confirmed and answers with it.
 //
-// The business is required: the tool refuses the business that is not
-// there, and it never asks the use case for the exit of nobody.
+// The schema of the tool does not refuse the call before the domain can
+// answer it: the business, the kind, the quantity and the word of the
+// owner are optional in the call, and the domain is the one that refuses
+// the exit that carries none of them, with its own message.
 func (s *Server) recordExit(recorder ports.ExitRecorder) sdk.ToolHandlerFor[recordExitInput, recordExitOutput] {
 	return func(ctx context.Context, _ *sdk.CallToolRequest, input recordExitInput) (*sdk.CallToolResult, recordExitOutput, error) {
 		if recorder == nil {
 			return nil, recordExitOutput{}, ports.ErrNoDatabase
-		}
-
-		if input.BusinessID <= 0 {
-			return nil, recordExitOutput{}, s.toolError(recipe.ErrMissingBusiness)
-		}
-
-		if strings.TrimSpace(input.Kind) == "" {
-			return nil, recordExitOutput{}, s.toolError(recipe.ErrUnknownExitKind)
-		}
-
-		if input.Quantity <= 0 {
-			return nil, recordExitOutput{}, s.toolError(recipe.ErrInvalidExitQuantity)
-		}
-
-		if strings.TrimSpace(input.ConfirmedWith) == "" {
-			return nil, recordExitOutput{}, s.toolError(recipe.ErrMissingExitConfirmation)
 		}
 
 		recorded, err := recorder.Record(ctx, ports.RecordExit{

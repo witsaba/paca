@@ -8,9 +8,12 @@ import "errors"
 // them. An error that no caller maps reaches the user unmapped, and a
 // catalogue that no test pins is a wish.
 var (
-	// ErrNotFound is the error of a party that the storage does not hold,
-	// and of the business of a party that is not there.
-	ErrNotFound = errors.New("there is no party with that identity")
+	// ErrNotFound is the error of a party that the storage does not hold.
+	ErrNotFound = errors.New("the party is not there: the storage holds no party with that identity")
+
+	// ErrBusinessNotFound is the error of the business of a party that is
+	// not there.
+	ErrBusinessNotFound = errors.New("the business of the party is not there")
 
 	// ErrUnknownKind is the error of a kind that is not one of the kinds of
 	// a party.
@@ -52,6 +55,7 @@ var (
 func Errors() []error {
 	return []error{
 		ErrNotFound,
+		ErrBusinessNotFound,
 		ErrUnknownKind,
 		ErrInvalidName,
 		ErrUnknownRole,

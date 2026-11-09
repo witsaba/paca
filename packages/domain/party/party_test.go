@@ -230,20 +230,62 @@ func TestThePersonRefusesTheLegalHuman(t *testing.T) {
 func TestTheLegalFigureNeedsTheNameOfItsHuman(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewLegalHuman("  ", "S.A.S.")
+	_, err := New(
+		business.ID(77),
+		KindFarm,
+		"Finca El Mirador",
+		[]Role{RoleProvider},
+		"",
+		"",
+		"",
+		LegalHuman{Figure: "S.A.S."},
+	)
 	if !errors.Is(err, ErrMissingLegalHuman) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingLegalHuman)
 	}
 
-	built, err := NewLegalHuman(" Jaime Ortiz ", " S.A.S. ")
+	built, err := New(
+		business.ID(77),
+		KindFarm,
+		"Finca El Mirador",
+		[]Role{RoleProvider},
+		"",
+		"",
+		"",
+		LegalHuman{Name: " Jaime Ortiz ", Figure: " S.A.S. "},
+	)
 	if err != nil {
 		t.Fatalf("the legal human was refused: %v", err)
 	}
-	if built.Name != "Jaime Ortiz" {
-		t.Errorf("the name is %q, want %q", built.Name, "Jaime Ortiz")
+	if built.LegalHuman.Name != "Jaime Ortiz" {
+		t.Errorf("the name is %q, want %q", built.LegalHuman.Name, "Jaime Ortiz")
 	}
-	if built.Figure != "S.A.S." {
-		t.Errorf("the legal figure is %q, want %q", built.Figure, "S.A.S.")
+	if built.LegalHuman.Figure != "S.A.S." {
+		t.Errorf("the legal figure is %q, want %q", built.LegalHuman.Figure, "S.A.S.")
+	}
+}
+
+// TestTheBusinessOfAPartyThatIsNotThereIsRefused proves the rule of the
+// domain: a business of a party that is not there is refused with the error
+// of the party, and never with the error of the personal business of a
+// person.
+//
+// The failure of something else is answered as it is: the domain does not
+// hide it.
+func TestTheBusinessOfAPartyThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	err := BusinessNotFound(business.ErrNotFound)
+	if !errors.Is(err, ErrBusinessNotFound) {
+		t.Fatalf("the error is %v, want %v", err, ErrBusinessNotFound)
+	}
+	if errors.Is(err, business.ErrNotFound) {
+		t.Fatal("the error is the error of the personal business of a person")
+	}
+
+	other := errors.New("the connection pool is closed")
+	if got := BusinessNotFound(other); !errors.Is(got, other) {
+		t.Fatalf("the error is %v, want %v", got, other)
 	}
 }
 
@@ -439,8 +481,8 @@ func TestErrorsNamesEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := Errors()
-	if len(all) != 10 {
-		t.Fatalf("the catalogue holds %d errors, want 10", len(all))
+	if len(all) != 11 {
+		t.Fatalf("the catalogue holds %d errors, want 11", len(all))
 	}
 
 	for _, err := range all {

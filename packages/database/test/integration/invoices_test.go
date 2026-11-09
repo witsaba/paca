@@ -147,7 +147,7 @@ func theInvoiceOfTheTest(
 		Base:       ledger.Amount(10000),
 		Rate:       rate,
 		Total:      ledger.Amount(11900),
-		Reference:  "CUFE-1234",
+		Reference:  "REF-1234",
 	})
 	if err != nil {
 		t.Fatalf("the invoice was refused: %v", err)
@@ -322,8 +322,8 @@ func TestTheInvoiceIsKeptAndReadBackWithItsTax(t *testing.T) {
 	if written.Total != ledger.Amount(11900) {
 		t.Errorf("the total of the invoice is %d, want 11900", written.Total)
 	}
-	if written.Reference != "CUFE-1234" {
-		t.Errorf("the reference of the invoice is %q, want %q", written.Reference, "CUFE-1234")
+	if written.Reference != "REF-1234" {
+		t.Errorf("the reference of the invoice is %q, want %q", written.Reference, "REF-1234")
 	}
 
 	held, err := repo.List(ctx, bakery.ID)
@@ -465,4 +465,126 @@ func TestTheTableRefusesTheInvoiceOfABusinessThatIsNotThere(t *testing.T) {
 	if !errors.Is(err, purchase.ErrNotFound) {
 		t.Fatalf("the error is %v, want %v", err, purchase.ErrNotFound)
 	}
+}
+
+// TestTheTableRefusesTheSecondInvoiceOfThePurchase proves the rule of the
+// table: a purchase carries one invoice, and the table refuses the second
+// one.
+func TestTheTableRefusesTheSecondInvoiceOfThePurchase(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := invoicesRepository(t)
+	bakery := theBakeryOfTheInvoices(t, ctx)
+	provider := theProviderOfTheInvoices(t, ctx, bakery)
+	bought := thePurchaseOfTheInvoices(t, ctx, bakery)
+
+	if _, err := repo.Record(ctx, theInvoiceOfTheTest(t, bakery, provider, bought)); err != nil {
+		t.Fatalf("the invoice could not be written: %v", err)
+	}
+
+	second := theInvoiceOfTheTest(t, bakery, provider, bought)
+	second.Number = "FV-002"
+
+	_, err := repo.Record(ctx, second)
+	if !errors.Is(err, purchase.ErrPurchaseAlreadyHasInvoice) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrPurchaseAlreadyHasInvoice)
+	}
+}
+
+// TestTheInvoiceIsNotAttachedToAnotherPurchase proves the rule of the
+// table: the purchase points at the invoice it came from, and the invoice
+// is never attached to another purchase of the same business.
+func TestTheInvoiceIsNotAttachedToAnotherPurchase(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := invoicesRepository(t)
+	bakery := theBakeryOfTheInvoices(t, ctx)
+	provider := theProviderOfTheInvoices(t, ctx, bakery)
+	bought := thePurchaseOfTheInvoices(t, ctx, bakery)
+	other := thePurchaseOfTheInvoices(t, ctx, bakery)
+
+	written, err := repo.Record(ctx, theInvoiceOfTheTest(t, bakery, provider, bought))
+	if err != nil {
+		t.Fatalf("the invoice could not be written: %v", err)
+	}
+
+	if err := repo.Attach(ctx, written, other); !errors.Is(err, purchase.ErrInvoiceOfAnotherPurchase) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrInvoiceOfAnotherPurchase)
+	}
+
+	var invoiceID sql.NullInt64
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT invoice_id FROM purchases WHERE id = $1`, int64(other.ID),
+	).Scan(&invoiceID); err != nil {
+		t.Fatalf("the purchase could not be read: %v", err)
+	}
+	if invoiceID.Valid {
+		t.Errorf("the purchase points at the invoice %d, want none", invoiceID.Int64)
+	}
+}
+
+// TestTheInvoiceMovesNoMoney proves that the invoice moves no money: the
+// total of the purchase is the one it was, and the ledger of the business
+// holds no entry for the invoice.
+//
+// The purchase moved the money of the payment when the owner bought, and
+// the invoice is a fact that arrives later.
+func TestTheInvoiceMovesNoMoney(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := invoicesRepository(t)
+	bakery := theBakeryOfTheInvoices(t, ctx)
+	provider := theProviderOfTheInvoices(t, ctx, bakery)
+	bought := thePurchaseOfTheInvoices(t, ctx, bakery)
+
+	totalBefore, entriesBefore := theMoneyOfThePurchase(t, ctx, bakery, bought)
+
+	written, err := repo.Record(ctx, theInvoiceOfTheTest(t, bakery, provider, bought))
+	if err != nil {
+		t.Fatalf("the invoice could not be written: %v", err)
+	}
+
+	if err := repo.Attach(ctx, written, bought); err != nil {
+		t.Fatalf("the purchase could not point at the invoice: %v", err)
+	}
+
+	totalAfter, entriesAfter := theMoneyOfThePurchase(t, ctx, bakery, bought)
+
+	if totalAfter != totalBefore {
+		t.Errorf("the total of the purchase is %d, want %d: the invoice moves no money", totalAfter, totalBefore)
+	}
+	if entriesAfter != entriesBefore {
+		t.Errorf("the book of the business holds %d movements, want %d: the invoice moves no money",
+			entriesAfter, entriesBefore)
+	}
+}
+
+// theMoneyOfThePurchase answers the total of the purchase and the number of
+// movements the book of the business holds.
+func theMoneyOfThePurchase(
+	t *testing.T,
+	ctx context.Context,
+	bakery business.Business,
+	bought purchase.Purchase,
+) (int64, int64) {
+	t.Helper()
+
+	var total int64
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT total FROM purchases WHERE id = $1`, int64(bought.ID),
+	).Scan(&total); err != nil {
+		t.Fatalf("the total of the purchase could not be read: %v", err)
+	}
+
+	var entries int64
+	if err := theSuite.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM ledger_entries WHERE business_id = $1`, int64(bakery.ID),
+	).Scan(&entries); err != nil {
+		t.Fatalf("the movements of the book could not be read: %v", err)
+	}
+
+	return total, entries
 }

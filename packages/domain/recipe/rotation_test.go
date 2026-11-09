@@ -73,23 +73,31 @@ func TestTheRotationFollowsTheEarliestExpiry(t *testing.T) {
 // TestTheUnitsThatExpireOnTheSameDayKeepAStableOrder proves the rule of the
 // domain: the units that expire on the same day keep a stable order, the
 // production first and the position of the unit in it.
+//
+// The data of the test makes the two orders disagree: the unit of a later
+// production carries the lowest identity, and the unit of an earlier
+// production carries a higher one, so the order of the identities and the
+// order of the rule are not the same order.
 func TestTheUnitsThatExpireOnTheSameDayKeepAStableOrder(t *testing.T) {
 	t.Parallel()
 
 	expires := time.Date(2026, time.March, 17, 0, 0, 0, 0, time.UTC)
 
-	second := aUnitOfTheRotation(9, 5, 2, recipe.ID(9), expires)
-	first := aUnitOfTheRotation(8, 4, 2, recipe.ID(9), expires)
-	earlier := aUnitOfTheRotation(7, 4, 1, recipe.ID(9), expires)
+	later := aUnitOfTheRotation(1, 5, 1, recipe.ID(9), expires)
+	earlier := aUnitOfTheRotation(2, 4, 2, recipe.ID(9), expires)
+	first := aUnitOfTheRotation(3, 4, 1, recipe.ID(9), expires)
 
 	rotation := recipe.RotationOf(
-		[]recipe.ExpiringUnit{second, first, earlier},
+		[]recipe.ExpiringUnit{later, earlier, first},
 		0,
 		"",
 		theDayOfTheRotation(),
 	)
 
-	want := []recipe.UnitID{7, 8, 9}
+	// The rule of the domain: the production first, and the position of
+	// the unit in it. The production 4 comes before the production 5, and
+	// the position 1 comes before the position 2.
+	want := []recipe.UnitID{3, 2, 1}
 
 	for index, one := range rotation.Units {
 		if one.UnitID != want[index] {

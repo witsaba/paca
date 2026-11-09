@@ -20,13 +20,13 @@ import (
 // the domain decides what an exit is, and the use case writes it in the
 // book of the business.
 //
-// The exit moves no money: nobody paid for the bread the owner consumed or
-// for the bread the bakery gave away. The exit releases the cost of the
-// units that left the book - the money of the production they came out of,
-// divided by the units that production made - and that cost leaves the
-// inventory and lands in the account of the expense of the exit: the cost
-// of the sales for the consumption, the account of the donation for the
-// donation.
+// The exit moves no money IN: nobody paid for the bread the owner consumed
+// or for the bread the bakery gave away. What the exit does is release the
+// cost of the units that left the book - the money of the production they
+// came out of, divided by the units that production made - and that cost
+// leaves the inventory and lands in the account of the expense of the exit:
+// the cost of the sales for the consumption, the account of the donation for
+// the donation.
 //
 // The tax treatment of the exit waits for the professional of the taxes of
 // the owner: the movement is written and the question is named, and the

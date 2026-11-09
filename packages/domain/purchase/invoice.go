@@ -38,6 +38,17 @@ import (
 //
 // The number of an invoice is what identifies it, and it is unique inside
 // the business that holds it.
+//
+// The money of an invoice enters the book in WHOLE PESOS: the book counts
+// the pesos the person has, and the book NEVER ROUNDS THE MONEY OF AN
+// INVOICE. An invoice whose total does not add up — the base plus the tax
+// the rate gives it — is refused, and it is never read as an invoice.
+//
+// The rounding of the CENTAVOS of an invoice is NOT decided here: it is an
+// OPEN QUESTION for the owner and for the professional of the taxes. The
+// book takes the money the invoice states and it never fixes it, and the
+// question stays open until the owner and the professional of the taxes
+// answer it.
 
 const (
 	// RateScale is the number of hundredths of a percent in a whole
@@ -55,6 +66,16 @@ const (
 	// one: the rate of a tax is a share of the base, and the base is
 	// multiplied by it.
 	rateDenominator int64 = 100 * RateScale
+
+	// rateTolerance is the distance the hundredths of a rate may carry
+	// from a whole one and still be the same rate.
+	//
+	// The rate is counted in hundredths, and the arithmetic of the
+	// floating point is never exact: nineteen and a half is exactly
+	// nineteen hundred and fifty, and the number that comes out of it may
+	// carry a fraction of a hundredth. The tolerance holds that fraction
+	// and refuses the rate that carries a real decimal of its own.
+	rateTolerance = 1e-9
 )
 
 // InvoiceID is the identity of an invoice.
@@ -81,6 +102,11 @@ type Rate int64
 // The percent is the number a person reads: 19, 19.5, 0. The rate keeps
 // the hundredths of it, and it never rounds them away.
 //
+// A rate with MORE THAN TWO DECIMALS is refused: a rate that is rounded
+// away is a rate nobody charged, and the tax of nineteen and a half and a
+// half percent is not the tax of nineteen and a half percent. The rate of
+// an invoice is the rate the invoice states, or nothing.
+//
 // The error is ErrInvalidRate when the percent is not a rate: a rate is
 // between zero and a hundred percent, and a rate outside of it is a number
 // nobody can charge.
@@ -89,7 +115,17 @@ func NewRate(percent float64) (Rate, error) {
 		return 0, fmt.Errorf("%w: %v", ErrInvalidRate, percent)
 	}
 
-	return NewRateFromHundredths(int64(math.Round(percent * float64(RateScale))))
+	if percent < 0 || percent > float64(MaxRate)/float64(RateScale) {
+		return 0, fmt.Errorf("%w: %v percent", ErrInvalidRate, percent)
+	}
+
+	hundredths := percent * float64(RateScale)
+	rounded := math.Round(hundredths)
+	if math.Abs(hundredths-rounded) > rateTolerance {
+		return 0, fmt.Errorf("%w: %v percent carries more than two decimals", ErrInvalidRate, percent)
+	}
+
+	return NewRateFromHundredths(int64(rounded))
 }
 
 // NewRateFromHundredths builds the rate from the hundredths of a percent.
@@ -116,6 +152,16 @@ func (r Rate) Hundredths() int64 {
 // Percent answers the rate in percent, the way a person reads it.
 func (r Rate) Percent() float64 {
 	return float64(r) / float64(RateScale)
+}
+
+// isRate states that the rate is a rate.
+//
+// The rule of the domain: a rate is between zero and a hundred percent.
+// The rate is counted in hundredths of a percent, and the number that
+// reaches the domain whole is checked here too: the constructor is not the
+// only door of the rate.
+func (r Rate) isRate() bool {
+	return r >= 0 && r <= Rate(MaxRate)
 }
 
 // String answers the rate the way a person reads it: 19, 19.5, 0.
@@ -244,6 +290,8 @@ type InvoiceDefinition struct {
 //   - the invoice carries its number (ErrMissingInvoiceNumber) and its
 //     day (ErrMissingInvoiceDay);
 //   - the money of the invoice is not negative (ErrInvalidInvoiceMoney);
+//   - the rate of the invoice is a rate: a rate outside of the hundred
+//     percent is a number nobody can charge (ErrInvalidRate);
 //   - the total of the invoice is the base plus the tax the rate gives
 //     it: an invoice that does not add up is never read as an invoice
 //     (ErrInvoiceDoesNotAddUp).
@@ -285,6 +333,11 @@ func NewInvoice(
 	if definition.Base < 0 || definition.Total < 0 {
 		return Invoice{}, fmt.Errorf("%w: the base is %d and the total is %d",
 			ErrInvalidInvoiceMoney, definition.Base, definition.Total)
+	}
+
+	if !definition.Rate.isRate() {
+		return Invoice{}, fmt.Errorf("%w: %d hundredths of a percent",
+			ErrInvalidRate, definition.Rate.Hundredths())
 	}
 
 	tax := TheTax(definition.Base, definition.Rate)
@@ -368,6 +421,11 @@ func NewInvoiceFromFacts(facts InvoiceFacts) (Invoice, error) {
 		return Invoice{}, fmt.Errorf("%w: the invoice names no purchase", ErrMissingPurchase)
 	}
 
+	if !facts.Rate.isRate() {
+		return Invoice{}, fmt.Errorf("%w: %d hundredths of a percent",
+			ErrInvalidRate, facts.Rate.Hundredths())
+	}
+
 	invoice := Invoice{
 		ID:         facts.ID,
 		BusinessID: facts.BusinessID,
@@ -418,8 +476,13 @@ func (i Invoice) holdsTogether() error {
 //
 // The rule of the domain: the purchase points at the invoice it came from,
 // and a purchase of a business cannot point at an invoice of another
-// business. The error is ErrInvoiceOfAnotherBusiness when the purchase
-// belongs to another business.
+// business.
+//
+// The error is ErrInvoiceOfAnotherBusiness when the purchase belongs to
+// another business, and ErrInvoiceOfAnotherPurchase when the purchase is
+// not the one the invoice names: the two sides of the link must agree, and
+// an invoice of the purchase 2 attached to the purchase 3 would leave the
+// book with two truths about the same purchase.
 func (i Invoice) AttachesTo(bought Purchase) error {
 	if bought.ID == 0 {
 		return fmt.Errorf("%w: the invoice names no purchase", ErrMissingPurchase)
@@ -428,6 +491,11 @@ func (i Invoice) AttachesTo(bought Purchase) error {
 	if bought.BusinessID != i.BusinessID {
 		return fmt.Errorf("%w: the purchase %d is of the business %d and the invoice is of the business %d",
 			ErrInvoiceOfAnotherBusiness, bought.ID, bought.BusinessID, i.BusinessID)
+	}
+
+	if bought.ID != i.PurchaseID {
+		return fmt.Errorf("%w: the invoice names the purchase %d and the purchase is %d",
+			ErrInvoiceOfAnotherPurchase, i.PurchaseID, bought.ID)
 	}
 
 	return nil
@@ -452,6 +520,30 @@ func UniqueInvoiceNumber(held []Invoice, candidate Invoice) error {
 		if one.Number == candidate.Number {
 			return fmt.Errorf("%w: the invoice %q is already in the business %d",
 				ErrDuplicateInvoiceNumber, candidate.Number, candidate.BusinessID)
+		}
+	}
+
+	return nil
+}
+
+// UniqueInvoiceForPurchase states that the purchase carries no invoice yet.
+//
+// The rule of the domain: a purchase carries ONE invoice, the one that came
+// with it. A second invoice for the same purchase would point the purchase
+// away from the first one, and the book would carry two invoices naming the
+// same purchase.
+//
+// The error is ErrPurchaseAlreadyHasInvoice when the purchase already
+// carries an invoice.
+func UniqueInvoiceForPurchase(held []Invoice, candidate Invoice) error {
+	for _, one := range held {
+		if one.ID == candidate.ID {
+			continue
+		}
+
+		if one.PurchaseID == candidate.PurchaseID {
+			return fmt.Errorf("%w: the purchase %d already carries the invoice %q",
+				ErrPurchaseAlreadyHasInvoice, candidate.PurchaseID, one.Number)
 		}
 	}
 

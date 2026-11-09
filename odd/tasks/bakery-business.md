@@ -475,7 +475,8 @@ session, and the worker that writes it reads this document and nothing else.
   no opinion.
 - The book of a business of kind `business` starts with the accounts of a
   business: the cash, the bank, the inventory, the sales, the cost of the
-  sales, the labor, the overhead, the waste and the capital.
+  sales, the labor, the overhead, the waste, the donation and the capital.
+  (The donation arrived with T21, and L36 records it.)
 - A debt and an account that is not in the list are not in the seed: they are
   created when they happen.
 - The business and its accounts are written in one transaction: a book that

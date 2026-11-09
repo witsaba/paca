@@ -223,8 +223,9 @@ func TestTheDescriptionOfTheCostOfABatchTellsTheTruthAboutTheRates(t *testing.T)
 
 // TestTheDescriptionOfTheExpirySaysThatTheUnitsThatLeftAreNotOffered
 // proves that the description of the tool says what it answers: the units
-// that already left the book - the ones that were sold and the ones that
-// were wasted - are not offered any more.
+// that already left the book - the ones that were sold, the ones that were
+// wasted, the ones that were consumed and the ones that were given away -
+// are not offered any more.
 func TestTheDescriptionOfTheExpirySaysThatTheUnitsThatLeftAreNotOffered(t *testing.T) {
 	t.Parallel()
 
@@ -240,6 +241,7 @@ func TestTheDescriptionOfTheExpirySaysThatTheUnitsThatLeftAreNotOffered(t *testi
 	for _, want := range []string{
 		"the units that already left the book are not offered any more",
 		"the units the bakery still holds",
+		"the ones that were sold, wasted, consumed or given away are gone",
 	} {
 		if !strings.Contains(description, want) {
 			t.Errorf("the description does not say %q:\n%s", want, description)

@@ -1734,6 +1734,11 @@ type SetPrice struct {
 	// 'wholesale'. It is required, and there is no default channel.
 	Channel string
 
+	// Basis is the way the owner charges: 'unit', 'gram' or 'kilogram'.
+	// It is required, and there is no default: the money of a price is
+	// only a price when the book knows what it is the price of.
+	Basis string
+
 	// Amount is the money of the product in that channel, in whole pesos.
 	// It is required, and it is never inferred.
 	Amount int64

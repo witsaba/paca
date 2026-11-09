@@ -2,9 +2,12 @@ package mcpserver_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -121,7 +124,7 @@ func theInvoiceOfTheTest() purchase.Invoice {
 		Rate:       rate,
 		Tax:        ledger.Amount(1900),
 		Total:      ledger.Amount(11900),
-		Reference:  "CUFE-1234",
+		Reference:  "REF-1234",
 	}
 }
 
@@ -156,7 +159,7 @@ func TestTheInvoiceToolCarriesWhatTheAgentSends(t *testing.T) {
 			"base":        10000,
 			"rate":        19,
 			"total":       11900,
-			"reference":   "CUFE-1234",
+			"reference":   "REF-1234",
 		},
 	})
 	if err != nil {
@@ -193,8 +196,8 @@ func TestTheInvoiceToolCarriesWhatTheAgentSends(t *testing.T) {
 	if recorder.got.Total != 11900 {
 		t.Errorf("the total is %d, want 11900", recorder.got.Total)
 	}
-	if recorder.got.Reference != "CUFE-1234" {
-		t.Errorf("the reference is %q, want %q", recorder.got.Reference, "CUFE-1234")
+	if recorder.got.Reference != "REF-1234" {
+		t.Errorf("the reference is %q, want %q", recorder.got.Reference, "REF-1234")
 	}
 
 	answer := textOf(t, result)
@@ -382,4 +385,181 @@ func TestTheInvoiceToolsHaveNoStorage(t *testing.T) {
 	if !read.IsError {
 		t.Fatal("the tool did not answer an error")
 	}
+}
+
+// TestTheInvoiceToolNeverTeachesTheMarkOfTheElectronicInvoice proves that
+// the tool never teaches the agent the mark of the electronic invoice: the
+// reference is a plain fact of the document the owner shows, and the
+// repository never assumes an electronic invoice.
+//
+// The schema is read as the agent reads it, and the description is read as
+// the agent reads it: the example of the reference is the place where the
+// agent learns what a reference is.
+func TestTheInvoiceToolNeverTeachesTheMarkOfTheElectronicInvoice(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheInvoices(t, &stubInvoiceRecorder{}, &stubInvoicesReader{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolRecordInvoice)
+	if strings.Contains(description, "CUFE") {
+		t.Errorf("the description teaches the mark of the electronic invoice:\n%s", description)
+	}
+
+	schema, err := json.Marshal(schemaOf(t, tools.Tools, mcpserver.ToolRecordInvoice))
+	if err != nil {
+		t.Fatalf("the schema of the tool could not be read: %v", err)
+	}
+	if strings.Contains(string(schema), "CUFE") {
+		t.Errorf("the schema teaches the mark of the electronic invoice:\n%s", schema)
+	}
+
+	for _, want := range []string{
+		"plain fact of the document the owner shows",
+		"never the mark of an electronic invoice",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfTheInvoiceEnumeratesWhatTheAnswerCarries proves that
+// the description of the tool that records an invoice says exactly what
+// the answer carries.
+//
+// The fields are read from the answer itself: a field added to the answer
+// and not to the description breaks this test, and the description never
+// promises a field the answer does not carry.
+func TestTheDescriptionOfTheInvoiceEnumeratesWhatTheAnswerCarries(t *testing.T) {
+	t.Parallel()
+
+	recorder := &stubInvoiceRecorder{recorded: theInvoiceOfTheTest()}
+	session := connectWithTheInvoices(t, recorder, &stubInvoicesReader{})
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordInvoice,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"provider_id": 10,
+			"purchase_id": 5,
+			"number":      "FV-001",
+			"base":        10000,
+			"rate":        19,
+			"total":       11900,
+			"reference":   "REF-1234",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolRecordInvoice)
+
+	for _, field := range theFieldsOfTheAnswer(t, result, "invoice") {
+		if !strings.Contains(description, "'"+field+"'") {
+			t.Errorf("the description does not name the field %q of the answer:\n%s", field, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfTheInvoicesEnumeratesWhatTheAnswerCarries proves
+// that the description of the tool that reads the invoices says exactly
+// what the answer carries.
+//
+// The fields are read from the answer itself: a field added to the answer
+// and not to the description breaks this test, and the description never
+// promises a field the answer does not carry.
+func TestTheDescriptionOfTheInvoicesEnumeratesWhatTheAnswerCarries(t *testing.T) {
+	t.Parallel()
+
+	reader := &stubInvoicesReader{held: []purchase.Invoice{theInvoiceOfTheTest()}}
+	session := connectWithTheInvoices(t, &stubInvoiceRecorder{}, reader)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolReadInvoices,
+		Arguments: map[string]any{
+			"business_id": 77,
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolReadInvoices)
+
+	for _, field := range theFieldsOfTheAnswer(t, result, "invoices", "0") {
+		if !strings.Contains(description, "'"+field+"'") {
+			t.Errorf("the description does not name the field %q of the answer:\n%s", field, description)
+		}
+	}
+}
+
+// theFieldsOfTheAnswer answers the names of the fields of the answer of a
+// tool, in the order they are carried.
+//
+// The path is the way to the object inside the answer: the name of the
+// field that holds it, and the position of it when it is a list.
+func theFieldsOfTheAnswer(t *testing.T, result *sdk.CallToolResult, path ...string) []string {
+	t.Helper()
+
+	raw, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("the answer of the tool could not be read: %v", err)
+	}
+
+	var answer any
+	if err := json.Unmarshal(raw, &answer); err != nil {
+		t.Fatalf("the answer of the tool could not be read: %v", err)
+	}
+
+	for _, step := range path {
+		switch value := answer.(type) {
+		case map[string]any:
+			answer = value[step]
+		case []any:
+			index, err := strconv.Atoi(step)
+			if err != nil || index >= len(value) {
+				t.Fatalf("the answer of the tool holds no item at %q: %s", step, raw)
+			}
+
+			answer = value[index]
+		default:
+			t.Fatalf("the answer of the tool holds nothing at %q: %s", step, raw)
+		}
+	}
+
+	object, ok := answer.(map[string]any)
+	if !ok {
+		t.Fatalf("the answer of the tool is no object: %s", raw)
+	}
+
+	fields := make([]string, 0, len(object))
+	for name := range object {
+		fields = append(fields, name)
+	}
+
+	sort.Strings(fields)
+
+	return fields
 }

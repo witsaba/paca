@@ -48,11 +48,24 @@ type Purchase struct {
 
 	// Invoice is the invoice of the purchase. It is empty when the owner
 	// named none.
+	//
+	// It is the WORD the owner said at the time of the purchase: the
+	// number she read on the document she showed, or whatever she called
+	// it. It is an utterance of the owner and it is kept verbatim.
 	Invoice string
 
 	// InvoiceID is the invoice the purchase came from. It is empty until
 	// the invoice arrives: the purchase is written when the owner buys,
 	// and the invoice comes later.
+	//
+	// It is the FACT of the link: the identity of the row of the invoice
+	// the purchase points at.
+	//
+	// The word and the fact are TWO DIFFERENT FACTS, and the book never
+	// compares them: the owner may read "FV-001" and the invoice the
+	// purchase points at may carry another number. The word is what she
+	// said, the fact is where the invoice is, and neither of them is
+	// derived from the other.
 	InvoiceID InvoiceID
 
 	// Utterance is the sentence of the owner, verbatim. It is kept with

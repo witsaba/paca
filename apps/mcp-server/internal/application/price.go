@@ -10,6 +10,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/store"
 )
@@ -95,6 +96,13 @@ func (s *PriceService) Set(ctx context.Context, request ports.SetPrice) (product
 		return product.Listed{}, err
 	}
 
+	// The way the owner charges belongs to the domain of the purchase:
+	// the use case asks the domain to read it, and it never decides it.
+	basis, err := purchase.ParsePriceBasis(request.Basis)
+	if err != nil {
+		return product.Listed{}, err
+	}
+
 	day, err := s.dayOf(request.Day)
 	if err != nil {
 		return product.Listed{}, err
@@ -130,7 +138,7 @@ func (s *PriceService) Set(ctx context.Context, request ports.SetPrice) (product
 			stored = stated
 		}
 
-		price, err := product.NewPrice(owner.ID, stored.ID, channel, ledger.Amount(request.Amount), day)
+		price, err := product.NewPrice(owner.ID, stored.ID, channel, ledger.Amount(request.Amount), day, basis)
 		if err != nil {
 			return err
 		}
@@ -270,7 +278,7 @@ func (s *PriceService) theProduct(
 		trimmed = baked.Name
 	}
 
-	return product.TheProduct(own, held, baked.ID, trimmed)
+	return product.TheProduct(own, held, *baked, trimmed)
 }
 
 // recipeOf answers the recipe the product comes from, when the agent named

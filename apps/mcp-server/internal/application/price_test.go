@@ -11,6 +11,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -213,6 +214,7 @@ func TestThePriceIsSetForTheChannelOfTheOwner(t *testing.T) {
 	written, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "mayorista",
 		Amount:     2500,
 		Day:        "2026-03-10",
@@ -259,6 +261,7 @@ func TestTheProductIsOpenedTheFirstTimeItIsNamed(t *testing.T) {
 		BusinessID: 77,
 		RecipeID:   5,
 		Name:       "Pan de molde",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -302,6 +305,7 @@ func TestTheProductThatIsAlreadyInTheBookIsNotOpenedAgain(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -335,6 +339,7 @@ func TestTheProductIsNamedByTheNameTheOwnerReads(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		Name:       "Pan de molde",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -368,6 +373,7 @@ func TestTheNameThatIsNeitherAProductNorARecipeIsRefused(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		Name:       "Biznaga",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -397,6 +403,7 @@ func TestThePriceIsRefusedWhenTheMoneyIsNotPositive(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     0,
 	})
@@ -426,6 +433,7 @@ func TestThePriceIsRefusedWhenTheChannelIsNotOneTheBookKnows(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "store",
 		Amount:     3000,
 	})
@@ -452,6 +460,7 @@ func TestTheTaxTreatmentTheOwnerStatesIsWritten(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID:   77,
 		RecipeID:     5,
+		Basis:        "unit",
 		Channel:      "retail",
 		Amount:       3000,
 		TaxTreatment: "Grammy 19",
@@ -632,6 +641,7 @@ func TestThePriceListIsRefusedForThePersonalBusiness(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -659,6 +669,7 @@ func TestThePriceListIsRefusedWhenTheBusinessIsNotThere(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -680,6 +691,7 @@ func TestTheUseCaseOfThePriceListHasNoStorage(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -718,6 +730,7 @@ func TestThePriceIsRefusedWhenTheDayIsNotADayOfTheBook(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 		Day:        "the day of today",
@@ -746,6 +759,7 @@ func TestThePriceIsNotWrittenWhenTheStorageRefusesIt(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -774,6 +788,7 @@ func TestThePriceOfTheProductThatIsNotWrittenLeavesNothingBehind(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -805,6 +820,7 @@ func TestTheTaxTreatmentOfAProductThatIsAlreadyInTheBookIsWritten(t *testing.T) 
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID:   77,
 		RecipeID:     5,
+		Basis:        "unit",
 		Channel:      "retail",
 		Amount:       3000,
 		TaxTreatment: "Grammy 19",
@@ -844,6 +860,7 @@ func TestTheTaxTreatmentThatTheStorageRefusesLeavesNothingBehind(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID:   77,
 		RecipeID:     5,
+		Basis:        "unit",
 		Channel:      "retail",
 		Amount:       3000,
 		TaxTreatment: "Grammy 19",
@@ -989,6 +1006,7 @@ func TestTheProductIsRefusedWhenTheRecipeIsNotThere(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -1014,6 +1032,7 @@ func TestTheProductIsRefusedWhenTheRecipeIsAmbiguous(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		Name:       "Pan de molde",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -1036,6 +1055,7 @@ func TestTheProductIsNamedByTheNameOfItsRecipe(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeName: "Pan de molde",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -1068,6 +1088,7 @@ func TestTheProductThatCannotBeOpenedLeavesNothingBehind(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeID:   5,
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -1094,6 +1115,7 @@ func TestThePriceIsRefusedWhenTheRecipesCannotBeRead(t *testing.T) {
 	_, err := service.Set(t.Context(), ports.SetPrice{
 		BusinessID: 77,
 		RecipeName: "Pan de molde",
+		Basis:      "unit",
 		Channel:    "retail",
 		Amount:     3000,
 	})
@@ -1102,5 +1124,92 @@ func TestThePriceIsRefusedWhenTheRecipesCannotBeRead(t *testing.T) {
 	}
 	if len(products.written) != 0 {
 		t.Errorf("the storage holds %d products, want none", len(products.written))
+	}
+}
+
+// TestThePriceOfTheRecipeOfAnotherBusinessIsRefused proves that the use
+// case refuses the price of a product backed by the recipe of another
+// business, and that it writes nothing.
+//
+// The rule is the one of the domain: the product of the bakery is backed
+// by a recipe of its own business, and never by the recipe of another one.
+func TestThePriceOfTheRecipeOfAnotherBusinessIsRefused(t *testing.T) {
+	t.Parallel()
+
+	products := &fakeProducts{}
+	prices := &fakePrices{}
+	foreign := theRecipeOfThePrices()
+	foreign.BusinessID = business.ID(88)
+	recipes := &fakeRecipes{held: []recipe.Recipe{foreign}}
+	bakery := theBakeryOfThePrices()
+	service := thePriceService(products, prices, recipes, &bakery)
+
+	_, err := service.Set(t.Context(), ports.SetPrice{
+		BusinessID: 77,
+		RecipeID:   5,
+		Basis:      "unit",
+		Channel:    "retail",
+		Amount:     3000,
+	})
+	if !errors.Is(err, product.ErrOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, product.ErrOfAnotherBusiness)
+	}
+	if len(products.written) != 0 {
+		t.Errorf("the storage holds %d products, want none", len(products.written))
+	}
+	if len(prices.written) != 0 {
+		t.Errorf("the storage holds %d prices, want none", len(prices.written))
+	}
+}
+
+// TestTheBasisOfThePriceIsStoredAndReadBack proves that the use case
+// carries the way the owner charges into the price, and that the price
+// list answers it.
+//
+// The money of a price is only a price when the book knows whether it is
+// per loaf, per gram or per kilogram.
+func TestTheBasisOfThePriceIsStoredAndReadBack(t *testing.T) {
+	t.Parallel()
+
+	products := &fakeProducts{}
+	prices := &fakePrices{}
+	recipes := &fakeRecipes{held: []recipe.Recipe{theRecipeOfThePrices()}}
+	bakery := theBakeryOfThePrices()
+	service := thePriceService(products, prices, recipes, &bakery)
+
+	written, err := service.Set(t.Context(), ports.SetPrice{
+		BusinessID: 77,
+		RecipeID:   5,
+		Channel:    "retail",
+		Amount:     3000,
+		Basis:      "kilogram",
+	})
+	if err != nil {
+		t.Fatalf("the price was refused: %v", err)
+	}
+
+	if written.Price.Basis != purchase.PricePerKilogram {
+		t.Errorf("the basis of the price is %q, want %q", written.Price.Basis, purchase.PricePerKilogram)
+	}
+	if len(prices.written) != 1 {
+		t.Fatalf("the storage holds %d prices, want 1", len(prices.written))
+	}
+	if prices.written[0].Basis != purchase.PricePerKilogram {
+		t.Errorf("the basis the storage holds is %q, want %q", prices.written[0].Basis, purchase.PricePerKilogram)
+	}
+
+	products.held = append(products.held, written.Product)
+	prices.held = append(prices.held, written.Price)
+
+	held, err := service.Read(t.Context(), ports.ReadPrices{BusinessID: 77})
+	if err != nil {
+		t.Fatalf("the price list could not be read: %v", err)
+	}
+	if len(held) != 1 {
+		t.Fatalf("the price list holds %d lines, want 1", len(held))
+	}
+	if held[0].Price.Basis != purchase.PricePerKilogram {
+		t.Errorf("the basis of the price of the list is %q, want %q",
+			held[0].Price.Basis, purchase.PricePerKilogram)
 	}
 }

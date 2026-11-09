@@ -203,7 +203,7 @@ func TestTheInvoiceIsWrittenAgainstThePurchaseItCameFrom(t *testing.T) {
 		Base:       10000,
 		Rate:       19,
 		Total:      11900,
-		Reference:  "CUFE-1234",
+		Reference:  "REF-1234",
 	})
 	if err != nil {
 		t.Fatalf("the invoice was refused: %v", err)
@@ -235,8 +235,8 @@ func TestTheInvoiceIsWrittenAgainstThePurchaseItCameFrom(t *testing.T) {
 	if invoice.Total != ledger.Amount(11900) {
 		t.Errorf("the total of the invoice is %d, want 11900", invoice.Total)
 	}
-	if invoice.Reference != "CUFE-1234" {
-		t.Errorf("the reference of the invoice is %q, want %q", invoice.Reference, "CUFE-1234")
+	if invoice.Reference != "REF-1234" {
+		t.Errorf("the reference of the invoice is %q, want %q", invoice.Reference, "REF-1234")
 	}
 	if written.ID == 0 {
 		t.Error("the invoice has no identity, want the one the storage generated")
@@ -596,5 +596,92 @@ func TestTheInvoiceOfTheBusinessIsRead(t *testing.T) {
 	}
 	if held[0].Number != "FV-001" {
 		t.Errorf("the number of the invoice is %q, want %q", held[0].Number, "FV-001")
+	}
+}
+
+// TestTheSecondInvoiceOfThePurchaseIsRefused proves that the use case
+// refuses the second invoice of a purchase that already carries one, and
+// that it writes nothing: the purchase keeps pointing at the first
+// invoice.
+func TestTheSecondInvoiceOfThePurchaseIsRefused(t *testing.T) {
+	t.Parallel()
+
+	parties := &fakeInvoiceParties{held: []party.Party{theProviderOfTheInvoices()}}
+	purchases := &fakeInvoicePurchases{held: thePurchaseOfTheInvoices()}
+	invoices := &fakeInvoiceStorage{
+		held: []purchase.Invoice{
+			{
+				ID:         purchase.InvoiceID(1),
+				BusinessID: business.ID(77),
+				PurchaseID: purchase.ID(5),
+				Number:     "FV-001",
+			},
+		},
+	}
+	work := &fakeInvoiceWork{invoices: invoices}
+	service := application.NewInvoiceService(parties, purchases, invoices, work, theClock())
+
+	_, err := service.Record(t.Context(), ports.RecordInvoice{
+		BusinessID: business.ID(77),
+		ProviderID: 10,
+		PurchaseID: 5,
+		Number:     "FV-002",
+		Day:        "2026-03-02",
+		Base:       10000,
+		Rate:       19,
+		Total:      11900,
+	})
+	if !errors.Is(err, purchase.ErrPurchaseAlreadyHasInvoice) {
+		t.Fatalf("the error is %v, want %v", err, purchase.ErrPurchaseAlreadyHasInvoice)
+	}
+
+	if len(invoices.written) != 0 {
+		t.Errorf("the storage holds %d invoices, want none", len(invoices.written))
+	}
+	if len(invoices.attached) != 0 {
+		t.Errorf("the storage attached %d invoices, want none", len(invoices.attached))
+	}
+}
+
+// TestTheInvoiceMovesNoMoney proves that the invoice moves no money: the
+// use case reads the purchase, writes the invoice and points the purchase
+// at it, and the money of the purchase is left as it was.
+//
+// The port of the purchases is a FINDER: the use case can only read the
+// purchase, and the money of the book moved when the owner bought.
+func TestTheInvoiceMovesNoMoney(t *testing.T) {
+	t.Parallel()
+
+	parties := &fakeInvoiceParties{held: []party.Party{theProviderOfTheInvoices()}}
+	purchases := &fakeInvoicePurchases{held: thePurchaseOfTheInvoices()}
+	invoices := &fakeInvoiceStorage{}
+	work := &fakeInvoiceWork{invoices: invoices}
+	service := application.NewInvoiceService(parties, purchases, invoices, work, theClock())
+
+	written, err := service.Record(t.Context(), ports.RecordInvoice{
+		BusinessID: business.ID(77),
+		ProviderID: 10,
+		PurchaseID: 5,
+		Number:     "FV-018",
+		Day:        "2026-03-02",
+		Base:       10000,
+		Rate:       19,
+		Total:      11900,
+	})
+	if err != nil {
+		t.Fatalf("the invoice was refused: %v", err)
+	}
+
+	if written.Total != ledger.Amount(11900) {
+		t.Errorf("the total of the invoice is %d, want 11900", written.Total)
+	}
+	if purchases.held.Total != ledger.Amount(10000) {
+		t.Errorf("the money of the purchase is %d, want 10000: the invoice moves no money", purchases.held.Total)
+	}
+	if len(invoices.written) != 1 {
+		t.Errorf("the storage holds %d invoices, want 1", len(invoices.written))
+	}
+	if len(invoices.attached) != 1 {
+		t.Errorf("the storage attached %d invoices, want 1", len(invoices.attached))
 	}
 }

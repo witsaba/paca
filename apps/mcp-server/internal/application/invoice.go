@@ -128,6 +128,13 @@ func (s *InvoiceService) Record(ctx context.Context, request ports.RecordInvoice
 		return purchase.Invoice{}, err
 	}
 
+	// A purchase carries ONE invoice: the one that came with it. The
+	// rule lives in the domain, and the use case asks it with the
+	// invoices it read.
+	if err := purchase.UniqueInvoiceForPurchase(held, invoice); err != nil {
+		return purchase.Invoice{}, err
+	}
+
 	var written purchase.Invoice
 	err = s.work.Do(ctx, func(ctx context.Context) error {
 		recorded, err := s.invoices.Record(ctx, invoice)

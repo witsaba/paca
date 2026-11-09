@@ -48,7 +48,7 @@ func theBakeryOfTheParties(t *testing.T, ctx context.Context) business.Business 
 func theStoreOfTheTest(t *testing.T, bakery business.Business) party.Party {
 	t.Helper()
 
-	human, err := party.NewLegalHuman("Jaime Ortiz", "S.A.S.")
+	human, err := party.LegalHumanOf(party.KindStore, "Jaime Ortiz", "S.A.S.")
 	if err != nil {
 		t.Fatalf("the legal human was refused: %v", err)
 	}
@@ -406,6 +406,52 @@ func TestTheTableRefusesAPartyWithoutItsRole(t *testing.T) {
 	}
 }
 
+// TestTheTableRefusesALegalFigureWithoutItsHuman proves the rule of the
+// table: a legal figure without the name of the human it belongs to is a
+// figure of nobody, and the table refuses the row that carries it.
+func TestTheTableRefusesALegalFigureWithoutItsHuman(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheParties(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO parties (business_id, kind, name, roles, legal_figure) VALUES ($1, 'farm', 'Finca Sin Representante', '["provider"]'::jsonb, 'S.A.S.')`,
+		int64(bakery.ID),
+	)
+	if err == nil {
+		t.Fatal("the table accepted a legal figure without the name of its human")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+}
+
+// TestTheTableRefusesARoleThatIsNotOneOfTheTwo proves the rule of the
+// table: every role of the party is the client or the provider, and the
+// table refuses the row that carries another one.
+func TestTheTableRefusesARoleThatIsNotOneOfTheTwo(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	bakery := theBakeryOfTheParties(t, ctx)
+
+	_, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO parties (business_id, kind, name, roles) VALUES ($1, 'person', 'Doña Rosalba', '["client", "owner"]'::jsonb)`,
+		int64(bakery.ID),
+	)
+	if err == nil {
+		t.Fatal("the table accepted a role that is not one of the two")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+}
+
 // TestTheTaxIdentityOfThePartyIsOptional proves the rule of the table: the
 // tax identity of a party is an OPTIONAL fact of it, and the column is
 // NULL when the party carries none.
@@ -459,7 +505,7 @@ func TestThePartyOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("the party of a business that is not there was written")
 	}
-	if !errors.Is(err, party.ErrNotFound) {
-		t.Fatalf("the error is %v, want %v", err, party.ErrNotFound)
+	if !errors.Is(err, party.ErrBusinessNotFound) {
+		t.Fatalf("the error is %v, want %v", err, party.ErrBusinessNotFound)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // stubPriceSetter is the use case that sets the price of a product, in
@@ -118,6 +119,7 @@ func thePriceOfTheTest(t *testing.T) product.Price {
 		ProductID:  product.ID(10),
 		Channel:    product.ChannelWholesale,
 		Amount:     ledger.Amount(2500),
+		Basis:      purchase.PricePerUnit,
 		Day:        mustDay(t),
 	}
 }
@@ -154,6 +156,7 @@ func TestThePriceToolCarriesWhatTheAgentSends(t *testing.T) {
 			"name":          "Pan de molde",
 			"channel":       "mayorista",
 			"amount":        2500,
+			"basis":         "unit",
 			"day":           "2026-03-10",
 			"tax_treatment": "Grammy 19",
 		},
@@ -183,6 +186,9 @@ func TestThePriceToolCarriesWhatTheAgentSends(t *testing.T) {
 	if setter.got.Amount != 2500 {
 		t.Errorf("the money is %d, want 2500", setter.got.Amount)
 	}
+	if setter.got.Basis != "unit" {
+		t.Errorf("the basis is %q, want %q", setter.got.Basis, "unit")
+	}
 	if setter.got.Day != "2026-03-10" {
 		t.Errorf("the day is %q, want %q", setter.got.Day, "2026-03-10")
 	}
@@ -192,7 +198,7 @@ func TestThePriceToolCarriesWhatTheAgentSends(t *testing.T) {
 
 	answer := textOf(t, result)
 	for _, want := range []string{
-		"Pan de molde", "wholesale", "2500", "2026-03-10", "Grammy 19",
+		"Pan de molde", "wholesale", "2500", "2026-03-10", "Grammy 19", "unit",
 	} {
 		if !strings.Contains(answer, want) {
 			t.Errorf("the answer does not carry %q: %s", want, answer)
@@ -314,7 +320,7 @@ func TestThePriceToolsExplainTheFailureOfTheUseCase(t *testing.T) {
 	session := connectWithThePrices(t, setter, reader)
 
 	calls := map[string]map[string]any{
-		mcpserver.ToolSetPrice:   {"business_id": 77, "channel": "retail", "amount": 3000},
+		mcpserver.ToolSetPrice:   {"business_id": 77, "channel": "retail", "amount": 3000, "basis": "unit"},
 		mcpserver.ToolReadPrices: {"business_id": 77},
 	}
 
@@ -344,7 +350,7 @@ func TestThePriceToolsHaveNoStorage(t *testing.T) {
 	session := connectWithThePrices(t, nil, nil)
 
 	calls := map[string]map[string]any{
-		mcpserver.ToolSetPrice:   {"business_id": 77, "channel": "retail", "amount": 3000},
+		mcpserver.ToolSetPrice:   {"business_id": 77, "channel": "retail", "amount": 3000, "basis": "unit"},
 		mcpserver.ToolReadPrices: {"business_id": 77},
 	}
 
@@ -361,6 +367,83 @@ func TestThePriceToolsHaveNoStorage(t *testing.T) {
 		}
 		if !strings.Contains(textOf(t, result), "database") {
 			t.Errorf("the message of the tool %q does not talk about the database: %s", name, textOf(t, result))
+		}
+	}
+}
+
+// TestTheDescriptionOfThePriceNamesTheWaySheCharges proves that the
+// description of the tool that sets a price names the way the owner
+// charges: the money of a price is only a price when the book knows
+// whether it is per loaf, per gram or per kilogram.
+//
+// The ways of charging belong to the domain of the purchase: the
+// description reads them and never writes them a second time.
+func TestTheDescriptionOfThePriceNamesTheWaySheCharges(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithThePrices(t, &stubPriceSetter{}, &stubPricesReader{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolSetPrice)
+
+	for _, want := range []string{
+		"THE WAY THE OWNER CHARGES",
+		"unit",
+		"gram",
+		"kilogram",
+	} {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not say %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfThePriceEnumeratesWhatTheAnswerCarries proves that
+// the description of the tool that sets a price says exactly what the
+// answer carries.
+//
+// The fields are read from the answer itself: a field added to the answer
+// and not to the description breaks this test.
+func TestTheDescriptionOfThePriceEnumeratesWhatTheAnswerCarries(t *testing.T) {
+	t.Parallel()
+
+	setter := &stubPriceSetter{written: product.Listed{
+		Product: theProductOfTheTest(),
+		Price:   thePriceOfTheTest(t),
+	}}
+	session := connectWithThePrices(t, setter, &stubPricesReader{})
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolSetPrice,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"recipe_id":   5,
+			"channel":     "mayorista",
+			"amount":      2500,
+			"basis":       "unit",
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolSetPrice)
+
+	for _, field := range theFieldsOfTheAnswer(t, result, "price") {
+		if !strings.Contains(description, "'"+field+"'") {
+			t.Errorf("the description does not name the field %q of the answer:\n%s", field, description)
 		}
 	}
 }

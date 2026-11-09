@@ -6,6 +6,7 @@ import (
 
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -122,7 +123,7 @@ func TestThePriceCarriesTheChannelItWasSetFor(t *testing.T) {
 	t.Parallel()
 
 	built, err := NewPrice(business.ID(77), ID(10), ChannelWholesale, ledger.Amount(2500),
-		theDayOfTheTest("2026-03-01"))
+		theDayOfTheTest("2026-03-01"), purchase.PricePerUnit)
 	if err != nil {
 		t.Fatalf("the price was refused: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestThePriceIsRefusedWithoutItsChannel(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewPrice(business.ID(77), ID(10), Channel(""), ledger.Amount(2500),
-		theDayOfTheTest("2026-03-01"))
+		theDayOfTheTest("2026-03-01"), purchase.PricePerUnit)
 	if !errors.Is(err, ErrUnknownChannel) {
 		t.Fatalf("the error is %v, want %v", err, ErrUnknownChannel)
 	}
@@ -159,7 +160,7 @@ func TestThePriceIsWholePesosAndNeverNegative(t *testing.T) {
 
 	for _, money := range []ledger.Amount{0, -1, -3000} {
 		_, err := NewPrice(business.ID(77), ID(10), ChannelRetail, money,
-			theDayOfTheTest("2026-03-01"))
+			theDayOfTheTest("2026-03-01"), purchase.PricePerUnit)
 		if !errors.Is(err, ErrInvalidPrice) {
 			t.Fatalf("the price of %d pesos was accepted, want the error %v", money, ErrInvalidPrice)
 		}
@@ -172,7 +173,7 @@ func TestThePriceIsRefusedWithoutItsProduct(t *testing.T) {
 	t.Parallel()
 
 	_, err := NewPrice(business.ID(77), ID(0), ChannelRetail, ledger.Amount(2500),
-		theDayOfTheTest("2026-03-01"))
+		theDayOfTheTest("2026-03-01"), purchase.PricePerUnit)
 	if !errors.Is(err, ErrMissingProduct) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingProduct)
 	}
@@ -183,7 +184,8 @@ func TestThePriceIsRefusedWithoutItsProduct(t *testing.T) {
 func TestThePriceIsRefusedWithoutItsDay(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewPrice(business.ID(77), ID(10), ChannelRetail, ledger.Amount(2500), ledger.Date{})
+	_, err := NewPrice(business.ID(77), ID(10), ChannelRetail, ledger.Amount(2500), ledger.Date{},
+		purchase.PricePerUnit)
 	if !errors.Is(err, ErrMissingDay) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingDay)
 	}
@@ -328,7 +330,7 @@ func TestThePriceThatWasSetBeforeTheOneThatHoldsDoesNotTakeItsPlace(t *testing.T
 func TestTheProductIsOpenedTheFirstTimeItIsNamed(t *testing.T) {
 	t.Parallel()
 
-	opened, err := TheProduct(business.ID(77), nil, recipe.ID(5), "Pan de molde")
+	opened, err := TheProduct(business.ID(77), nil, theRecipeOfTheTest(recipe.ID(5)), "Pan de molde")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -354,12 +356,12 @@ func TestTheProductIsOpenedTheFirstTimeItIsNamed(t *testing.T) {
 func TestTheProductTheDomainBuildsIsRefusedWithoutItsName(t *testing.T) {
 	t.Parallel()
 
-	_, err := New(business.ID(77), recipe.ID(5), "   ", "")
+	_, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(5)), "   ", "")
 	if !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("the error is %v, want %v", err, ErrInvalidName)
 	}
 
-	built, err := New(business.ID(77), recipe.ID(5), "  Pan de molde  ", "")
+	built, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(5)), "  Pan de molde  ", "")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -373,7 +375,7 @@ func TestTheProductTheDomainBuildsIsRefusedWithoutItsName(t *testing.T) {
 func TestTheNameOfTheProductIsNeverGuessed(t *testing.T) {
 	t.Parallel()
 
-	_, err := TheProduct(business.ID(77), nil, recipe.ID(5), "   ")
+	_, err := TheProduct(business.ID(77), nil, theRecipeOfTheTest(recipe.ID(5)), "   ")
 	if !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("the error is %v, want %v", err, ErrInvalidName)
 	}
@@ -384,12 +386,12 @@ func TestTheNameOfTheProductIsNeverGuessed(t *testing.T) {
 func TestTheProductIsRefusedWithoutItsRecipe(t *testing.T) {
 	t.Parallel()
 
-	_, err := TheProduct(business.ID(77), nil, recipe.ID(0), "Pan de molde")
+	_, err := TheProduct(business.ID(77), nil, theRecipeOfTheTest(recipe.ID(0)), "Pan de molde")
 	if !errors.Is(err, ErrMissingRecipe) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingRecipe)
 	}
 
-	if _, err := New(business.ID(77), recipe.ID(0), "Pan de molde", ""); !errors.Is(err, ErrMissingRecipe) {
+	if _, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(0)), "Pan de molde", ""); !errors.Is(err, ErrMissingRecipe) {
 		t.Fatalf("the error is %v, want %v", err, ErrMissingRecipe)
 	}
 }
@@ -401,7 +403,7 @@ func TestTheProductIsRefusedWithoutItsRecipe(t *testing.T) {
 func TestTheTaxTreatmentTheOwnerStatesIsTheOneTheProductCarries(t *testing.T) {
 	t.Parallel()
 
-	built, err := New(business.ID(77), recipe.ID(5), "Pan de molde", "")
+	built, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(5)), "Pan de molde", "")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -459,7 +461,7 @@ func TestTheProductThatIsAlreadyInTheBookIsTheOneThatIsAnswered(t *testing.T) {
 		Name:       "Pan de molde",
 	}}
 
-	answered, err := TheProduct(business.ID(77), held, recipe.ID(5), "pan de molde")
+	answered, err := TheProduct(business.ID(77), held, theRecipeOfTheTest(recipe.ID(5)), "pan de molde")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -480,7 +482,7 @@ func TestTheNameOfTheProductIsTakenInsideTheBusiness(t *testing.T) {
 		Name:       "Pan de molde",
 	}}
 
-	_, err := TheProduct(business.ID(77), held, recipe.ID(6), "Pan de molde")
+	_, err := TheProduct(business.ID(77), held, theRecipeOfTheTest(recipe.ID(6)), "Pan de molde")
 	if !errors.Is(err, ErrDuplicateName) {
 		t.Fatalf("the error is %v, want %v", err, ErrDuplicateName)
 	}
@@ -498,7 +500,7 @@ func TestOneRecipeBacksOneProduct(t *testing.T) {
 		Name:       "Pan de molde",
 	}}
 
-	_, err := TheProduct(business.ID(77), held, recipe.ID(5), "Pan de molde grande")
+	_, err := TheProduct(business.ID(77), held, theRecipeOfTheTest(recipe.ID(5)), "Pan de molde grande")
 	if !errors.Is(err, ErrDuplicateRecipe) {
 		t.Fatalf("the error is %v, want %v", err, ErrDuplicateRecipe)
 	}
@@ -510,7 +512,7 @@ func TestOneRecipeBacksOneProduct(t *testing.T) {
 func TestTheTaxTreatmentOfTheProductIsOptional(t *testing.T) {
 	t.Parallel()
 
-	without, err := New(business.ID(77), recipe.ID(5), "Pan de molde", "")
+	without, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(5)), "Pan de molde", "")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -518,7 +520,7 @@ func TestTheTaxTreatmentOfTheProductIsOptional(t *testing.T) {
 		t.Errorf("the tax treatment of the product is %q, want none", without.TaxTreatment)
 	}
 
-	with, err := New(business.ID(77), recipe.ID(5), "Pan de molde", "  Grammy 19  ")
+	with, err := New(business.ID(77), theRecipeOfTheTest(recipe.ID(5)), "Pan de molde", "  Grammy 19  ")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -674,7 +676,8 @@ func thePriceOfTheTest(id PriceID, channel Channel, amount ledger.Amount, day st
 
 // thePriceOfTheProductOfTheTest is a price of the product it names.
 func thePriceOfTheProductOfTheTest(id PriceID, of ID, channel Channel, amount ledger.Amount, day string) Price {
-	built, err := NewPrice(business.ID(77), of, channel, amount, theDayOfTheTest(day))
+	built, err := NewPrice(business.ID(77), of, channel, amount, theDayOfTheTest(day),
+		purchase.PricePerUnit)
 	if err != nil {
 		panic(err)
 	}
@@ -682,4 +685,112 @@ func thePriceOfTheProductOfTheTest(id PriceID, of ID, channel Channel, amount le
 	built.ID = id
 
 	return built
+}
+
+// theRecipeOfTheTest is the recipe the products of the tests come from: a
+// recipe of the business 77.
+func theRecipeOfTheTest(id recipe.ID) recipe.Recipe {
+	return recipe.Recipe{
+		ID:         id,
+		BusinessID: business.ID(77),
+		Name:       "Pan de molde",
+	}
+}
+
+// TestTheProductIsRefusedWhenTheRecipeIsOfAnotherBusiness proves the rule
+// of the domain: the product of the bakery is backed by a recipe of its
+// own business, and never by the recipe of another one.
+func TestTheProductIsRefusedWhenTheRecipeIsOfAnotherBusiness(t *testing.T) {
+	t.Parallel()
+
+	foreign := theRecipeOfTheTest(recipe.ID(5))
+	foreign.BusinessID = business.ID(88)
+
+	_, err := New(business.ID(77), foreign, "Pan de molde", "")
+	if !errors.Is(err, ErrOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, ErrOfAnotherBusiness)
+	}
+
+	_, err = TheProduct(business.ID(77), nil, foreign, "Pan de molde")
+	if !errors.Is(err, ErrOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, ErrOfAnotherBusiness)
+	}
+}
+
+// TestTheProductOfTheStorageIsBuiltByTheDomain proves that the domain
+// builds the product the storage holds, and that it refuses the row that
+// another writer broke.
+func TestTheProductOfTheStorageIsBuiltByTheDomain(t *testing.T) {
+	t.Parallel()
+
+	built, err := NewFromFacts(Facts{
+		ID:           ID(10),
+		BusinessID:   business.ID(77),
+		RecipeID:     recipe.ID(5),
+		Name:         "  Pan de molde  ",
+		TaxTreatment: "  Grammy 19  ",
+	})
+	if err != nil {
+		t.Fatalf("the product was refused: %v", err)
+	}
+
+	if built.ID != ID(10) {
+		t.Errorf("the identity is %d, want 10", built.ID)
+	}
+	if built.BusinessID != business.ID(77) {
+		t.Errorf("the business is %d, want 77", built.BusinessID)
+	}
+	if built.RecipeID != recipe.ID(5) {
+		t.Errorf("the recipe is %d, want 5", built.RecipeID)
+	}
+	if built.Name != "Pan de molde" {
+		t.Errorf("the name is %q, want %q", built.Name, "Pan de molde")
+	}
+	if built.TaxTreatment != "Grammy 19" {
+		t.Errorf("the tax treatment is %q, want %q", built.TaxTreatment, "Grammy 19")
+	}
+
+	_, err = NewFromFacts(Facts{BusinessID: business.ID(77), Name: "Pan de molde"})
+	if !errors.Is(err, ErrMissingRecipe) {
+		t.Fatalf("the error is %v, want %v", err, ErrMissingRecipe)
+	}
+
+	_, err = NewFromFacts(Facts{BusinessID: business.ID(77), RecipeID: recipe.ID(5), Name: "  "})
+	if !errors.Is(err, ErrInvalidName) {
+		t.Fatalf("the error is %v, want %v", err, ErrInvalidName)
+	}
+}
+
+// TestThePriceCarriesTheWayTheOwnerCharges proves that the price of the
+// list carries the way she charges: the money of a price is only a price
+// when the book knows whether it is per loaf, per gram or per kilogram.
+func TestThePriceCarriesTheWayTheOwnerCharges(t *testing.T) {
+	t.Parallel()
+
+	built, err := NewPrice(business.ID(77), ID(10), ChannelRetail, ledger.Amount(3000),
+		theDayOfTheTest("2026-03-01"), purchase.PricePerKilogram)
+	if err != nil {
+		t.Fatalf("the price was refused: %v", err)
+	}
+
+	if built.Basis != purchase.PricePerKilogram {
+		t.Errorf("the basis of the price is %q, want %q", built.Basis, purchase.PricePerKilogram)
+	}
+}
+
+// TestThePriceIsRefusedWithoutItsBasis proves that a price without the way
+// she charges is refused: the money of a price is a number nobody can
+// compare with anything, and the book never guesses which of the two ways
+// of selling she uses.
+func TestThePriceIsRefusedWithoutItsBasis(t *testing.T) {
+	t.Parallel()
+
+	for _, basis := range []purchase.PriceBasis{"", "loaf", "kilo"} {
+		_, err := NewPrice(business.ID(77), ID(10), ChannelRetail, ledger.Amount(3000),
+			theDayOfTheTest("2026-03-01"), basis)
+		if !errors.Is(err, purchase.ErrUnknownPriceBasis) {
+			t.Fatalf("the price with the basis %q was accepted, want the error %v",
+				basis, purchase.ErrUnknownPriceBasis)
+		}
+	}
 }

@@ -10,8 +10,10 @@ import (
 
 	"github.com/witsaba/paca/packages/database/postgres"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
 )
@@ -73,9 +75,49 @@ func theRecipeOfThePrices(t *testing.T, ctx context.Context, bakery business.Bus
 	return written
 }
 
+// theOtherRecipeOfThePrices writes a second recipe of the bakery: the one
+// that backs a product with the name of another one.
+func theOtherRecipeOfThePrices(t *testing.T, ctx context.Context, bakery business.Business) recipe.Recipe {
+	t.Helper()
+
+	flour, err := ingredient.New(bakery.ID, "Harina de centeno", []string{"centeno"})
+	if err != nil {
+		t.Fatalf("the ingredient was refused: %v", err)
+	}
+
+	written, err := ingredientsRepository(t).Create(ctx, flour)
+	if err != nil {
+		t.Fatalf("the ingredient could not be written: %v", err)
+	}
+
+	built, err := recipe.New(bakery.ID, recipe.Definition{
+		Name: "Pan de centeno",
+		Ingredients: []recipe.Ingredient{
+			{IngredientID: written.ID, Grams: 500},
+		},
+		Steps: []recipe.Step{
+			{Instruction: "Mezclar el centeno con el agua y amasar.", Minutes: 20, Temperature: 24, Kind: recipe.LaborHandsOn},
+		},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		Utterance:     "El pan de centeno lleva 500 gramos de centeno",
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	recorded, err := recipesRepository(t).Record(ctx, built)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	return recorded
+}
+
 // theProductOfThePrices builds the product the tests of the table write.
 func theProductOfThePrices(bakery business.Business, baked recipe.Recipe) product.Product {
-	built, err := product.New(bakery.ID, baked.ID, "Pan de molde", "")
+	built, err := product.New(bakery.ID, baked, "Pan de molde", "")
 	if err != nil {
 		panic("the product of the test could not be built: " + err.Error())
 	}
@@ -96,7 +138,7 @@ func thePriceOfThePrices(
 		panic("the day of the price of the test could not be read: " + err.Error())
 	}
 
-	built, err := product.NewPrice(bakery.ID, of.ID, channel, amount, parsed)
+	built, err := product.NewPrice(bakery.ID, of.ID, channel, amount, parsed, purchase.PricePerUnit)
 	if err != nil {
 		panic("the price of the test could not be built: " + err.Error())
 	}
@@ -198,6 +240,7 @@ func TestTheTableOfThePricesHasTheColumnsOfTheSpecification(t *testing.T) {
 		{name: "amount", dataType: "bigint", nullable: "NO", defaultSQL: ""},
 		{name: "day", dataType: "date", nullable: "NO", defaultSQL: ""},
 		{name: "created_at", dataType: "timestamp with time zone", nullable: "NO", defaultSQL: "now()"},
+		{name: "basis", dataType: "text", nullable: "NO", defaultSQL: ""},
 	}
 
 	rows, err := theSuite.db.QueryContext(ctx, `
@@ -379,7 +422,16 @@ func TestTheTableRefusesTwoProductsWithTheSameName(t *testing.T) {
 		t.Fatalf("the product could not be written: %v", err)
 	}
 
-	_, err := repo.Create(ctx, theProductOfThePrices(bakery, baked))
+	// The second product comes from ANOTHER recipe, so that the name is
+	// the only thing they share.
+	other := theOtherRecipeOfThePrices(t, ctx, bakery)
+
+	second, err := product.New(bakery.ID, other, "Pan de molde", "")
+	if err != nil {
+		t.Fatalf("the product was refused: %v", err)
+	}
+
+	_, err = repo.Create(ctx, second)
 	if !errors.Is(err, product.ErrDuplicateName) {
 		t.Fatalf("the error is %v, want %v", err, product.ErrDuplicateName)
 	}
@@ -399,7 +451,7 @@ func TestTheTableRefusesTwoProductsOfTheSameRecipe(t *testing.T) {
 		t.Fatalf("the product could not be written: %v", err)
 	}
 
-	other, err := product.New(bakery.ID, baked.ID, "Pan de molde grande", "")
+	other, err := product.New(bakery.ID, baked, "Pan de molde grande", "")
 	if err != nil {
 		t.Fatalf("the product was refused: %v", err)
 	}
@@ -561,7 +613,8 @@ func TestTheTableRefusesAPriceWithAChannelTheBookDoesNotKnow(t *testing.T) {
 	}
 
 	_, err = theSuite.db.ExecContext(ctx,
-		`INSERT INTO prices (business_id, product_id, channel, amount, day) VALUES ($1, $2, 'store', 3000, '2026-03-01')`,
+		`INSERT INTO prices (business_id, product_id, channel, amount, basis, day)
+		 VALUES ($1, $2, 'store', 3000, 'unit', '2026-03-01')`,
 		int64(bakery.ID), int64(opened.ID),
 	)
 	if err == nil {
@@ -593,7 +646,8 @@ func TestTheTableRefusesAPriceThatIsNotAPositiveNumberOfPesos(t *testing.T) {
 	}
 
 	_, err = theSuite.db.ExecContext(ctx,
-		`INSERT INTO prices (business_id, product_id, channel, amount, day) VALUES ($1, $2, 'retail', 0, '2026-03-01')`,
+		`INSERT INTO prices (business_id, product_id, channel, amount, basis, day)
+		 VALUES ($1, $2, 'retail', 0, 'unit', '2026-03-01')`,
 		int64(bakery.ID), int64(opened.ID),
 	)
 	if err == nil {
@@ -641,4 +695,69 @@ func mustDay(t *testing.T, day string) (parsed ledger.Date) {
 	}
 
 	return parsed
+}
+
+// TestTheTableRefusesTheProductOfTheRecipeOfAnotherBusiness proves the
+// rule of the table: the product of the bakery is backed by a recipe of
+// its own business, and the table refuses the recipe of another one.
+func TestTheTableRefusesTheProductOfTheRecipeOfAnotherBusiness(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := productsRepository(t)
+	bakery := theBakeryOfThePrices(t, ctx)
+
+	other := theBakeryOfThePrices(t, ctx)
+	foreign := theRecipeOfThePrices(t, ctx, other)
+
+	// The row is built by hand: the domain refuses the product of a
+	// foreign recipe, and the table holds the same rule as a defense in
+	// depth for the writer that does not know the domain.
+	built := product.Product{
+		BusinessID: bakery.ID,
+		RecipeID:   foreign.ID,
+		Name:       "Pan de molde",
+	}
+
+	_, err := repo.Create(ctx, built)
+	if !errors.Is(err, product.ErrOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, product.ErrOfAnotherBusiness)
+	}
+}
+
+// TestTheTableRefusesThePriceOfTheProductOfAnotherBusiness proves the rule
+// of the table: the price of the list is of a product of its own business,
+// and the table refuses the product of another one.
+func TestTheTableRefusesThePriceOfTheProductOfAnotherBusiness(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	products := productsRepository(t)
+	prices := pricesRepository(t)
+	bakery := theBakeryOfThePrices(t, ctx)
+
+	other := theBakeryOfThePrices(t, ctx)
+	foreign := theRecipeOfThePrices(t, ctx, other)
+
+	opened, err := products.Create(ctx, theProductOfThePrices(other, foreign))
+	if err != nil {
+		t.Fatalf("the product could not be written: %v", err)
+	}
+
+	// The row is built by hand: the domain refuses the price of a
+	// foreign product, and the table holds the same rule as a defense in
+	// depth for the writer that does not know the domain.
+	built := product.Price{
+		BusinessID: bakery.ID,
+		ProductID:  opened.ID,
+		Channel:    product.ChannelRetail,
+		Amount:     ledger.Amount(3000),
+		Basis:      purchase.PricePerUnit,
+		Day:        mustDay(t, "2026-03-01"),
+	}
+
+	_, err = prices.Set(ctx, built)
+	if !errors.Is(err, product.ErrOfAnotherBusiness) {
+		t.Fatalf("the error is %v, want %v", err, product.ErrOfAnotherBusiness)
+	}
 }

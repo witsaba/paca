@@ -178,10 +178,14 @@ func TestTheRecordExitToolWritesTheKindTheProductAndTheQuantity(t *testing.T) {
 
 // TestTheRecordExitToolRefusesTheBusinessThatIsNotThere proves that the
 // business is required: the book never invents one.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordExitToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubExitRecorder{answer: theExitOfTheTool(t)}
+	recorder := &stubExitRecorder{err: recipe.ErrMissingBusiness}
 	session := connectWithTheExit(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -199,18 +203,35 @@ func TestTheRecordExitToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered an exit, want the refusal of the business that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.BusinessID != business.ID(0) {
+		t.Errorf("the business of the call is %d, want the zero of the field that was left out",
+			recorder.got.BusinessID)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the business is required") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordExitToolRefusesTheKindThatIsNotThere proves that the kind
 // of the exit is required: the exits of the bakery are the consumption of
 // the owner and the donation, and PACA never guesses one.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordExitToolRefusesTheKindThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubExitRecorder{answer: theExitOfTheTool(t)}
+	recorder := &stubExitRecorder{err: recipe.ErrUnknownExitKind}
 	session := connectWithTheExit(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -228,17 +249,34 @@ func TestTheRecordExitToolRefusesTheKindThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered an exit, want the refusal of the kind that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if strings.TrimSpace(recorder.got.Kind) != "" {
+		t.Errorf("the kind of the call is %q, want the empty field that was left out",
+			recorder.got.Kind)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the kind of the exit is not one of the two") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordExitToolRefusesTheQuantityThatIsNotThere proves that the
 // quantity is required: PACA never fills it by herself.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordExitToolRefusesTheQuantityThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubExitRecorder{answer: theExitOfTheTool(t)}
+	recorder := &stubExitRecorder{err: recipe.ErrInvalidExitQuantity}
 	session := connectWithTheExit(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -257,17 +295,34 @@ func TestTheRecordExitToolRefusesTheQuantityThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered an exit, want the refusal of the quantity that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.Quantity != 0 {
+		t.Errorf("the quantity of the call is %v, want the zero of the field that was left out",
+			recorder.got.Quantity)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the quantity of the exit is not a whole number of units") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordExitToolRefusesTheWordThatIsNotThere proves that the word of
 // the owner is required: the exit is written with her confirmation.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordExitToolRefusesTheWordThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubExitRecorder{answer: theExitOfTheTool(t)}
+	recorder := &stubExitRecorder{err: recipe.ErrMissingExitConfirmation}
 	session := connectWithTheExit(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -285,8 +340,48 @@ func TestTheRecordExitToolRefusesTheWordThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered an exit, want the refusal of the word that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if strings.TrimSpace(recorder.got.ConfirmedWith) != "" {
+		t.Errorf("the word of the call is %q, want the empty field that was left out",
+			recorder.got.ConfirmedWith)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the exit carries no word of the owner") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
+	}
+}
+
+// TestTheSchemaOfTheRecordExitToolDoesNotRefuseTheCall proves that the
+// schema of the tool does not refuse the call before the domain can answer
+// it: the business, the kind, the quantity and the word of the owner are
+// optional in the call, and the domain is the one that refuses the exit
+// that carries none of them.
+func TestTheSchemaOfTheRecordExitToolDoesNotRefuseTheCall(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheExit(t, &stubExitRecorder{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	required := theRequiredFieldsOfTheTool(t, tools.Tools, mcpserver.ToolRecordExit)
+
+	for _, field := range []string{"business_id", "kind", "quantity", "confirmed_with"} {
+		for _, one := range required {
+			if one == field {
+				t.Errorf("the schema of the tool marks %q as required: the schema must not refuse the "+
+					"call before the domain can answer it", field)
+			}
+		}
 	}
 }
 
@@ -335,7 +430,8 @@ func TestTheDescriptionOfTheExitTellsTheAgentTheRules(t *testing.T) {
 		"consumption",
 		"donation",
 		"EXPIRE FIRST",
-		"moves NO money",
+		"moves NO money IN",
+		"RELEASE the cost",
 		"professional of the taxes",
 	}
 	for _, want := range wants {

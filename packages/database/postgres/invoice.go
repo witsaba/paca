@@ -25,6 +25,10 @@ const (
 	// invoicesNumberConstraint is the name of the index that refuses a
 	// second invoice with the same number inside the same business.
 	invoicesNumberConstraint = "invoices_one_number_per_business"
+
+	// invoicesPurchaseConstraint is the name of the index that refuses a
+	// second invoice for the same purchase.
+	invoicesPurchaseConstraint = "invoices_one_per_purchase"
 )
 
 // InvoiceRepository is the adapter of the storage of the invoices.
@@ -95,8 +99,14 @@ func (r *InvoiceRepository) Record(ctx context.Context, invoice purchase.Invoice
 // business, and the storage writes the row of the purchase only when it is
 // the purchase of that business.
 //
-// The error is purchase.ErrNotFound when the purchase is not there, and
-// purchase.ErrNoStorage when the storage is not open.
+// The rule of the link holds here too: the purchase is the one the INVOICE
+// NAMES, and the invoice of the purchase 2 is never attached to the
+// purchase 3. The two sides of the link must agree, and the row that is
+// not the one the invoice names is not touched.
+//
+// The error is purchase.ErrInvoiceOfAnotherPurchase when the purchase is
+// not the one the invoice names, purchase.ErrNotFound when the purchase is
+// not there, and purchase.ErrNoStorage when the storage is not open.
 func (r *InvoiceRepository) Attach(
 	ctx context.Context,
 	invoice purchase.Invoice,
@@ -104,6 +114,16 @@ func (r *InvoiceRepository) Attach(
 ) error {
 	if r == nil || r.pool == nil {
 		return purchase.ErrNoStorage
+	}
+
+	if bought.BusinessID != invoice.BusinessID {
+		return fmt.Errorf("%w: the purchase %d is of the business %d and the invoice is of the business %d",
+			purchase.ErrNotFound, bought.ID, bought.BusinessID, invoice.BusinessID)
+	}
+
+	if bought.ID != invoice.PurchaseID {
+		return fmt.Errorf("%w: the invoice names the purchase %d and the purchase is %d",
+			purchase.ErrInvoiceOfAnotherPurchase, invoice.PurchaseID, bought.ID)
 	}
 
 	_, err := r.pool.queriesFor(ctx).AttachInvoiceToPurchase(ctx, db.AttachInvoiceToPurchaseParams{
@@ -205,6 +225,11 @@ func writeInvoiceError(err error) error {
 		if pgErr.ConstraintName == invoicesNumberConstraint {
 			return fmt.Errorf("%w: the constraint %q refused the row",
 				purchase.ErrDuplicateInvoiceNumber, pgErr.ConstraintName)
+		}
+
+		if pgErr.ConstraintName == invoicesPurchaseConstraint {
+			return fmt.Errorf("%w: the constraint %q refused the row",
+				purchase.ErrPurchaseAlreadyHasInvoice, pgErr.ConstraintName)
 		}
 
 		return fmt.Errorf("%w: the constraint %q refused the row", purchase.ErrInvalidValue, pgErr.ConstraintName)

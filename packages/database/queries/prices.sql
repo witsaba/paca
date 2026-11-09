@@ -31,6 +31,6 @@ RETURNING *;
 SELECT * FROM prices WHERE business_id = sqlc.arg(business_id) ORDER BY id;
 
 -- name: CreatePrice :one
-INSERT INTO prices (business_id, product_id, channel, amount, day)
-VALUES (sqlc.arg(business_id), sqlc.arg(product_id), sqlc.arg(channel), sqlc.arg(amount), sqlc.arg(day))
+INSERT INTO prices (business_id, product_id, channel, amount, basis, day)
+VALUES (sqlc.arg(business_id), sqlc.arg(product_id), sqlc.arg(channel), sqlc.arg(amount), sqlc.arg(basis), sqlc.arg(day))
 RETURNING *;

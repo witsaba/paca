@@ -48,7 +48,10 @@ func (s *PartyService) Open(ctx context.Context, request ports.OpenParty) (party
 
 	owner, err := s.businesses.Find(ctx, business.ID(request.BusinessID))
 	if err != nil {
-		return party.Party{}, err
+		// The business of a party is a business of its own: the error
+		// that reaches the agent is the error of the party, and never
+		// the error of the personal business of a person.
+		return party.Party{}, party.BusinessNotFound(err)
 	}
 
 	if err := party.OwnedBy(owner.Kind); err != nil {
@@ -65,16 +68,13 @@ func (s *PartyService) Open(ctx context.Context, request ports.OpenParty) (party
 		return party.Party{}, err
 	}
 
-	// The legal human is a fact of the party, and it is optional: the farm
-	// may carry none and the person refuses one. The domain decides which
-	// of them it is, and it is the party that refuses what breaks its
-	// rule.
-	human := party.LegalHuman{}
-	if request.LegalHumanName != "" || request.LegalFigure != "" {
-		human, err = party.NewLegalHuman(request.LegalHumanName, request.LegalFigure)
-		if err != nil {
-			return party.Party{}, err
-		}
+	// The legal human is a fact of the party, and the kind of the party
+	// decides what it carries: the person refuses one, the store requires
+	// one and the farm carries one only when it has one. The domain builds
+	// it from the raw facts and the use case never decides.
+	human, err := party.LegalHumanOf(kind, request.LegalHumanName, request.LegalFigure)
+	if err != nil {
+		return party.Party{}, err
 	}
 
 	built, err := party.New(
@@ -99,13 +99,20 @@ func (s *PartyService) Open(ctx context.Context, request ports.OpenParty) (party
 // Read answers the parties of the business: the person, the store and the
 // farm that it knows, with their roles and their facts.
 //
-// The rules are the ones of the domain: the use case reads the parties of
-// the business and hands them to the agent. The name of a party is not
-// unique inside the business, and the answer holds every one of them.
+// The rules are the ones of the domain: the use case reads the business
+// whose parties are asked for, and it refuses the business that is not
+// there: a business that knows no party and a business that does not exist
+// are two different answers. The name of a party is not unique inside the
+// business, and the answer holds every one of them.
 func (s *PartyService) Read(ctx context.Context, request ports.ReadParties) ([]party.Party, error) {
-	if s == nil || s.parties == nil {
+	if s == nil || s.parties == nil || s.businesses == nil {
 		return nil, ports.ErrNoDatabase
 	}
 
-	return s.parties.List(ctx, business.ID(request.BusinessID))
+	owner, err := s.businesses.Find(ctx, business.ID(request.BusinessID))
+	if err != nil {
+		return nil, party.BusinessNotFound(err)
+	}
+
+	return s.parties.List(ctx, owner.ID)
 }

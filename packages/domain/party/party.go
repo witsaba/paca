@@ -39,6 +39,7 @@
 package party
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -133,9 +134,10 @@ func ParseKind(name string) (Kind, error) {
 // Role is the role a party holds in the business.
 //
 // The roles are the two of the owner: the client that buys from the bakery
-// and the provider that the bakery buys from. A party may hold both, and it
-// may hold neither only when it holds none: a party the bakery neither
-// sells to nor buys from is not a party of the book.
+// and the provider that the bakery buys from. A party holds the role of the
+// client, the role of the provider, or both of them, and the domain refuses
+// the party that holds none of them: a party the bakery neither sells to
+// nor buys from is not a party of the book.
 type Role string
 
 const (
@@ -229,23 +231,29 @@ type LegalHuman struct {
 	Figure string
 }
 
-// NewLegalHuman builds the human that represents a party.
+// LegalHumanOf answers the legal human that represents the party of that
+// kind.
 //
-// The name loses the spaces around it and it may not be empty: a legal
-// figure without the name of the human it belongs to is a figure of nobody.
+// The rule of the domain: the kind decides what the party carries. The
+// person is never represented by a legal human, the store requires one, and
+// the farm carries one only when it has one. A legal figure without the
+// name of the human it belongs to is a figure of nobody.
 //
-// The figure loses the spaces around it too, and it is optional: some farms
-// have a legal figure and some do not.
-func NewLegalHuman(name, figure string) (LegalHuman, error) {
-	trimmedName := strings.TrimSpace(name)
-	if trimmedName == "" {
-		return LegalHuman{}, fmt.Errorf("%w: the name of the legal human is not empty", ErrMissingLegalHuman)
+// The name and the figure lose the spaces around them.
+//
+// The error is ErrUnknownKind when the kind is not one of the kinds of a
+// party, ErrMissingLegalHuman when the kind of the party requires the
+// human that represents it and it is not there, and
+// ErrUnexpectedLegalHuman when the kind of the party refuses one.
+func LegalHumanOf(kind Kind, name, figure string) (LegalHuman, error) {
+	if !kind.Valid() {
+		return LegalHuman{}, fmt.Errorf("%w: %q", ErrUnknownKind, kind)
 	}
 
-	return LegalHuman{
-		Name:   trimmedName,
+	return legalHumanOf(kind, LegalHuman{
+		Name:   strings.TrimSpace(name),
 		Figure: strings.TrimSpace(figure),
-	}, nil
+	})
 }
 
 // Party is a party of the business: the person, the store or the farm that
@@ -390,6 +398,10 @@ func (p Party) WithTaxIdentity(taxID string) Party {
 }
 
 // Is reports whether the party holds that role.
+//
+// The caller is the domain of the purchase: it asks the party whether it
+// holds the role of the provider when the party is named as the provider of
+// an invoice.
 func (p Party) Is(role Role) bool {
 	for _, held := range p.Roles {
 		if held == role {
@@ -397,6 +409,28 @@ func (p Party) Is(role Role) bool {
 		}
 	}
 	return false
+}
+
+// BusinessNotFound answers the error of the business of a party that is not
+// there.
+//
+// The rule of the domain: the parties belong to a business of its own, and
+// that business must be there. The storage refuses it with the error of the
+// business it does not hold, and the caller of the party is not the
+// onboarding: the error that reaches the agent is the error of the party.
+//
+// The two failures of the party are two sentinels and two messages: the
+// party that is not there and the business of the party that is not there
+// are two different facts, and the agent reads each one in its own words.
+//
+// The failure of something else is answered as it is: the domain does not
+// hide it.
+func BusinessNotFound(err error) error {
+	if errors.Is(err, business.ErrNotFound) {
+		return fmt.Errorf("%w: the business of the party is not there", ErrBusinessNotFound)
+	}
+
+	return err
 }
 
 // OwnedBy states whether a business of that kind may own parties.

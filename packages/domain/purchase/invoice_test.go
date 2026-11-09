@@ -50,7 +50,7 @@ func TestNewInvoiceBuildsTheInvoiceOfThePurchase(t *testing.T) {
 		Base:       ledger.Amount(10000),
 		Rate:       rate,
 		Total:      ledger.Amount(11900),
-		Reference:  "CUFE-1234",
+		Reference:  "REF-1234",
 	})
 	if err != nil {
 		t.Fatalf("the invoice was refused: %v", err)
@@ -83,8 +83,8 @@ func TestNewInvoiceBuildsTheInvoiceOfThePurchase(t *testing.T) {
 	if built.Total != ledger.Amount(11900) {
 		t.Errorf("the total is %d, want 11900", built.Total)
 	}
-	if built.Reference != "CUFE-1234" {
-		t.Errorf("the reference is %q, want %q", built.Reference, "CUFE-1234")
+	if built.Reference != "REF-1234" {
+		t.Errorf("the reference is %q, want %q", built.Reference, "REF-1234")
 	}
 	if built.ID != 0 {
 		t.Errorf("the identity is %d, want 0: the storage generates it", built.ID)
@@ -437,7 +437,7 @@ func TestTheInvoiceOfTheStorageIsBuiltByTheDomain(t *testing.T) {
 		Rate:       rate,
 		Tax:        ledger.Amount(1900),
 		Total:      ledger.Amount(11900),
-		Reference:  "CUFE-1234",
+		Reference:  "REF-1234",
 	}
 
 	built, err := NewInvoiceFromFacts(facts)
@@ -466,8 +466,8 @@ func TestTheInvoiceOfTheStorageIsBuiltByTheDomain(t *testing.T) {
 	if built.Total != ledger.Amount(11900) {
 		t.Errorf("the total is %d, want 11900", built.Total)
 	}
-	if built.Reference != "CUFE-1234" {
-		t.Errorf("the reference is %q, want %q", built.Reference, "CUFE-1234")
+	if built.Reference != "REF-1234" {
+		t.Errorf("the reference is %q, want %q", built.Reference, "REF-1234")
 	}
 }
 
@@ -637,5 +637,147 @@ func TestTheNumberOfTheInvoiceIsUniqueInsideTheBusiness(t *testing.T) {
 	itself := Invoice{ID: InvoiceID(1), BusinessID: business.ID(77), Number: "FV-001"}
 	if err := UniqueInvoiceNumber(held, itself); err != nil {
 		t.Fatalf("the invoice was refused by its own number: %v", err)
+	}
+}
+
+// TestTheInvoiceIsAttachedOnlyToThePurchaseItNames proves the rule of the
+// domain: the invoice names the purchase it came from, and it is never
+// attached to another purchase of the same business.
+func TestTheInvoiceIsAttachedOnlyToThePurchaseItNames(t *testing.T) {
+	t.Parallel()
+
+	rate, err := NewRate(19)
+	if err != nil {
+		t.Fatalf("the rate was refused: %v", err)
+	}
+
+	built, err := NewInvoice(business.ID(77), theProviderOfTheTest(), InvoiceDefinition{
+		PurchaseID: ID(5),
+		Number:     "FV-020",
+		Day:        theDayOfTheInvoice(),
+		Base:       ledger.Amount(10000),
+		Rate:       rate,
+		Total:      ledger.Amount(11900),
+	})
+	if err != nil {
+		t.Fatalf("the invoice was refused: %v", err)
+	}
+
+	itsOwn := Purchase{ID: ID(5), BusinessID: business.ID(77)}
+	if err := built.AttachesTo(itsOwn); err != nil {
+		t.Fatalf("the invoice was refused by the purchase it names: %v", err)
+	}
+
+	other := Purchase{ID: ID(3), BusinessID: business.ID(77)}
+	if err := built.AttachesTo(other); !errors.Is(err, ErrInvoiceOfAnotherPurchase) {
+		t.Fatalf("the error is %v, want %v", err, ErrInvoiceOfAnotherPurchase)
+	}
+}
+
+// TestThePurchaseCarriesAtMostOneInvoice proves the rule of the domain: a
+// purchase carries one invoice, and a second one for the same purchase is
+// refused.
+func TestThePurchaseCarriesAtMostOneInvoice(t *testing.T) {
+	t.Parallel()
+
+	held := []Invoice{
+		{ID: InvoiceID(1), BusinessID: business.ID(77), PurchaseID: ID(5), Number: "FV-001"},
+		{ID: InvoiceID(2), BusinessID: business.ID(88), PurchaseID: ID(9), Number: "FV-002"},
+	}
+
+	candidate := Invoice{BusinessID: business.ID(77), PurchaseID: ID(5), Number: "FV-003"}
+	if err := UniqueInvoiceForPurchase(held, candidate); !errors.Is(err, ErrPurchaseAlreadyHasInvoice) {
+		t.Fatalf("the error is %v, want %v", err, ErrPurchaseAlreadyHasInvoice)
+	}
+
+	free := Invoice{BusinessID: business.ID(77), PurchaseID: ID(7), Number: "FV-004"}
+	if err := UniqueInvoiceForPurchase(held, free); err != nil {
+		t.Fatalf("the invoice was refused: %v", err)
+	}
+
+	itself := Invoice{ID: InvoiceID(1), BusinessID: business.ID(77), PurchaseID: ID(5), Number: "FV-001"}
+	if err := UniqueInvoiceForPurchase(held, itself); err != nil {
+		t.Fatalf("the invoice was refused by its own purchase: %v", err)
+	}
+}
+
+// TestTheRateOfTheTaxIsRefusedWhenItHasMoreThanTwoDecimals proves the rule
+// of the domain: the rate of a tax keeps the hundredths a person reads and
+// it is never rounded away. A rate with more than two decimals is refused.
+func TestTheRateOfTheTaxIsRefusedWhenItHasMoreThanTwoDecimals(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		percent float64
+	}{
+		{name: "a rate of nineteen and a half and a half", percent: 19.555},
+		{name: "a rate of nineteen and ninety-nine hundredths", percent: 19.9999},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := NewRate(testCase.percent); !errors.Is(err, ErrInvalidRate) {
+				t.Fatalf("the error is %v, want %v", err, ErrInvalidRate)
+			}
+		})
+	}
+
+	half, err := NewRate(19.5)
+	if err != nil {
+		t.Fatalf("the rate was refused: %v", err)
+	}
+	if half.Hundredths() != 1950 {
+		t.Errorf("the rate is %d hundredths, want 1950", half.Hundredths())
+	}
+}
+
+// TestTheInvoiceIsRefusedWhenTheRateIsNotARate proves the rule of the
+// domain: the rate of an invoice is a rate, and a rate outside of the
+// hundred percent is refused even when it reaches the domain whole.
+func TestTheInvoiceIsRefusedWhenTheRateIsNotARate(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		rate Rate
+	}{
+		{name: "a rate of five hundred percent", rate: Rate(50000)},
+		{name: "a negative rate", rate: Rate(-100)},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewInvoice(business.ID(77), theProviderOfTheTest(), InvoiceDefinition{
+				PurchaseID: ID(5),
+				Number:     "FV-021",
+				Day:        theDayOfTheInvoice(),
+				Base:       ledger.Amount(10000),
+				Rate:       testCase.rate,
+				Total:      ledger.Amount(11900),
+			})
+			if !errors.Is(err, ErrInvalidRate) {
+				t.Fatalf("the error is %v, want %v", err, ErrInvalidRate)
+			}
+
+			_, err = NewInvoiceFromFacts(InvoiceFacts{
+				BusinessID: business.ID(77),
+				ProviderID: party.ID(10),
+				PurchaseID: ID(5),
+				Number:     "FV-021",
+				Day:        theDayOfTheInvoice(),
+				Base:       ledger.Amount(10000),
+				Rate:       testCase.rate,
+				Tax:        ledger.Amount(0),
+				Total:      ledger.Amount(10000),
+			})
+			if !errors.Is(err, ErrInvalidRate) {
+				t.Fatalf("the error is %v, want %v", err, ErrInvalidRate)
+			}
+		})
 	}
 }

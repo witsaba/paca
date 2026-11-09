@@ -128,12 +128,12 @@ func partyFromRow(row db.Party) (party.Party, error) {
 		return party.Party{}, err
 	}
 
-	human := party.LegalHuman{}
-	if name := text(row.LegalHumanName); name != "" {
-		human, err = party.NewLegalHuman(name, text(row.LegalFigure))
-		if err != nil {
-			return party.Party{}, err
-		}
+	// The legal human that represents the party is built by the domain: the
+	// row may come from a table that was changed by another writer, and the
+	// model does not trust a stranger with a party it does not know.
+	human, err := party.LegalHumanOf(kind, text(row.LegalHumanName), text(row.LegalFigure))
+	if err != nil {
+		return party.Party{}, err
 	}
 
 	built, err := party.New(
@@ -223,7 +223,11 @@ func writePartyError(err error) error {
 
 	switch pgErr.Code {
 	case foreignKeyViolation:
-		return fmt.Errorf("%w: the business of the party is not there", party.ErrNotFound)
+		// The refusal of the foreign key of the business says that the
+		// business of the party is not there: it is one truth, and it has
+		// one message for the agent.
+		return fmt.Errorf("%w: the constraint %q refused the row",
+			party.ErrBusinessNotFound, pgErr.ConstraintName)
 	case checkViolation:
 		return fmt.Errorf("%w: the constraint %q refused the row", party.ErrInvalidValue, pgErr.ConstraintName)
 	}

@@ -18,8 +18,9 @@ import (
 // The four exits of the book are the sale, the waste, the consumption and
 // the donation. The sale moves the money in, the waste carries the reason
 // of what the bakery lost, and the consumption and the donation are the two
-// exits that move no money at all: they release the cost of the units that
-// left the book and that is all.
+// exits that move no money IN: nobody paid for the bread the owner consumed
+// or for the bread the bakery gave away. What they do is release the cost
+// of the units that left the book, and that is all.
 //
 // The cost of the units that left is derived, never typed: it is the money
 // of the production the unit came out of, divided by the units that
@@ -602,9 +603,10 @@ func (e Exit) TheExpenseRole() account.Role {
 // in the account of the expense of the exit: the money of the stock is not
 // lost from the book, it is the cost the business carries.
 //
-// The exit moves no money: nobody paid for the bread the owner consumed or
-// for the bread the bakery gave away, and the only movement of the exit is
-// this one.
+// The exit moves no money IN: nobody paid for the bread the owner consumed
+// or for the bread the bakery gave away, and the only movement of the exit
+// is this one: the cost of the units that left the book leaves the
+// inventory.
 //
 // The description of the movement is the sentence of the owner when she
 // said one, and the words of the book when she said none.

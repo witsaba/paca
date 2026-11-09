@@ -22,6 +22,17 @@
 // and the price that holds today for a product and a channel is the last
 // one set on or before the day that is asked for.
 //
+// The price carries the WAY THE OWNER CHARGES: the money of a price is
+// only a price when the book knows whether it is per unit, per gram or per
+// kilogram. The way she charges belongs to the domain of the purchase
+// (`purchase.PriceBasis`), and the price of the list reuses it: there is no
+// second copy of the basis.
+//
+// The product of the bakery is backed by a recipe of ITS OWN business, and
+// the price of the list is of a product of its own business: the recipe
+// and the product belong to the business that owns them, and never to the
+// one of another.
+//
 // The price of a product is a fact of the BUSINESS, and it never becomes a
 // column of the inventory, of the recipe or of the stock: the price lives
 // in the table of the prices, with a row of its own.
@@ -45,6 +56,7 @@ import (
 
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -184,14 +196,22 @@ type Product struct {
 //
 //   - the product comes from a recipe: the bakery sells what it bakes
 //     (ErrMissingRecipe);
+//   - the recipe is a recipe of the business: the product of the bakery
+//     is backed by a recipe of its own business, and never by the recipe
+//     of another one (ErrOfAnotherBusiness);
 //   - the name the owner reads is not empty: the name is never guessed
 //     (ErrInvalidName).
 //
 // The tax treatment is optional and it is the fact the owner stated: the
 // book never derives it from the price and never assumes a rate.
-func New(own business.ID, from recipe.ID, name, treatment string) (Product, error) {
-	if from == 0 {
+func New(own business.ID, baked recipe.Recipe, name, treatment string) (Product, error) {
+	if baked.ID == 0 {
 		return Product{}, fmt.Errorf("%w: the product names no recipe", ErrMissingRecipe)
+	}
+
+	if baked.BusinessID != own {
+		return Product{}, fmt.Errorf("%w: the recipe %d belongs to the business %d and the product is of the business %d",
+			ErrOfAnotherBusiness, baked.ID, baked.BusinessID, own)
 	}
 
 	trimmedName := strings.TrimSpace(name)
@@ -201,9 +221,58 @@ func New(own business.ID, from recipe.ID, name, treatment string) (Product, erro
 
 	return Product{
 		BusinessID:   own,
-		RecipeID:     from,
+		RecipeID:     baked.ID,
 		Name:         trimmedName,
 		TaxTreatment: strings.TrimSpace(treatment),
+	}, nil
+}
+
+// Facts are the facts of a product that the storage holds.
+//
+// They are the row read back: the domain reads them through its own
+// constructor, and the row never decides what a product is.
+type Facts struct {
+	// ID is the identity of the product.
+	ID ID
+
+	// BusinessID is the business that owns the product.
+	BusinessID business.ID
+
+	// RecipeID is the recipe the product comes from.
+	RecipeID recipe.ID
+
+	// Name is the name the owner reads.
+	Name string
+
+	// TaxTreatment is the tax treatment the owner stated.
+	TaxTreatment string
+}
+
+// NewFromFacts builds the product the storage holds.
+//
+// The rules of the domain hold here too: the product names a recipe
+// (ErrMissingRecipe) and the name the owner reads is not empty
+// (ErrInvalidName).
+//
+// The recipe of the row is the recipe of the business: the table holds
+// that rule as a defense in depth, and the row that another writer broke
+// is refused with the same error.
+func NewFromFacts(facts Facts) (Product, error) {
+	if facts.RecipeID == 0 {
+		return Product{}, fmt.Errorf("%w: the product names no recipe", ErrMissingRecipe)
+	}
+
+	trimmedName := strings.TrimSpace(facts.Name)
+	if trimmedName == "" {
+		return Product{}, fmt.Errorf("%w: the name of a product is not empty", ErrInvalidName)
+	}
+
+	return Product{
+		ID:           facts.ID,
+		BusinessID:   facts.BusinessID,
+		RecipeID:     facts.RecipeID,
+		Name:         trimmedName,
+		TaxTreatment: strings.TrimSpace(facts.TaxTreatment),
 	}, nil
 }
 
@@ -231,6 +300,8 @@ func (p Product) WithTaxTreatment(treatment string) Product {
 //
 //   - the product comes from a recipe: the bakery sells what it bakes
 //     (ErrMissingRecipe);
+//   - the recipe is a recipe of the business: the product is never backed
+//     by the recipe of another business (ErrOfAnotherBusiness);
 //   - the name the owner reads is not empty: the name is never guessed
 //     (ErrInvalidName);
 //   - the name of a product is taken inside the business: two products of a
@@ -243,9 +314,14 @@ func (p Product) WithTaxTreatment(treatment string) Product {
 //
 // The identity of the product that comes into being is not set here: the
 // storage generates it.
-func TheProduct(own business.ID, held []Product, from recipe.ID, name string) (Product, error) {
-	if from == 0 {
+func TheProduct(own business.ID, held []Product, baked recipe.Recipe, name string) (Product, error) {
+	if baked.ID == 0 {
 		return Product{}, fmt.Errorf("%w: the product names no recipe", ErrMissingRecipe)
+	}
+
+	if baked.BusinessID != own {
+		return Product{}, fmt.Errorf("%w: the recipe %d belongs to the business %d and the product is of the business %d",
+			ErrOfAnotherBusiness, baked.ID, baked.BusinessID, own)
 	}
 
 	trimmedName := strings.TrimSpace(name)
@@ -254,13 +330,13 @@ func TheProduct(own business.ID, held []Product, from recipe.ID, name string) (P
 	}
 
 	for _, one := range held {
-		if one.RecipeID == from {
+		if one.RecipeID == baked.ID {
 			if sameName(one.Name, trimmedName) {
 				return one, nil
 			}
 
 			return Product{}, fmt.Errorf("%w: the recipe %d backs the product %q",
-				ErrDuplicateRecipe, from, one.Name)
+				ErrDuplicateRecipe, baked.ID, one.Name)
 		}
 
 		if sameName(one.Name, trimmedName) {
@@ -269,11 +345,7 @@ func TheProduct(own business.ID, held []Product, from recipe.ID, name string) (P
 		}
 	}
 
-	return Product{
-		BusinessID: own,
-		RecipeID:   from,
-		Name:       trimmedName,
-	}, nil
+	return New(own, baked, trimmedName, "")
 }
 
 // OwnedBy states whether a business of that kind may hold a price list.
@@ -299,6 +371,13 @@ func OwnedBy(kind business.Kind) error {
 // discount of the wholesale never has to rebuild the history of the
 // prices.
 //
+// The price carries the WAY SHE CHARGES too: the money of a price is only
+// a price when the book knows what it is the price of. Three thousand pesos
+// is not a price until the book knows whether it is per loaf, per gram or
+// per kilogram. The way she charges belongs to the domain of the purchase,
+// and the price of the list reuses it: there is no second copy of the
+// basis.
+//
 // The money of a price is whole pesos: the money of the book counts the
 // pesos the person has.
 type Price struct {
@@ -319,6 +398,10 @@ type Price struct {
 	// Amount is the money of the product in that channel, in whole pesos.
 	Amount ledger.Amount
 
+	// Basis is the way the owner charges: per unit, per gram or per
+	// kilogram.
+	Basis purchase.PriceBasis
+
 	// Day is the day the price was set.
 	Day ledger.Date
 
@@ -335,6 +418,10 @@ type Price struct {
 //     without a channel and no default channel (ErrUnknownChannel);
 //   - the money of the price is a positive number of whole pesos: a price
 //     of zero pesos is not a price the owner charges (ErrInvalidPrice);
+//   - the price carries the WAY SHE CHARGES: a price without its basis is
+//     a number nobody can compare with anything, and the book never
+//     guesses which of the two ways of selling she uses
+//     (purchase.ErrUnknownPriceBasis);
 //   - the price carries the day it was set (ErrMissingDay).
 func NewPrice(
 	own business.ID,
@@ -342,6 +429,7 @@ func NewPrice(
 	channel Channel,
 	amount ledger.Amount,
 	day ledger.Date,
+	basis purchase.PriceBasis,
 ) (Price, error) {
 	if of == 0 {
 		return Price{}, fmt.Errorf("%w: the price names no product", ErrMissingProduct)
@@ -355,6 +443,12 @@ func NewPrice(
 		return Price{}, fmt.Errorf("%w: %d pesos", ErrInvalidPrice, amount)
 	}
 
+	switch basis {
+	case purchase.PricePerUnit, purchase.PricePerGram, purchase.PricePerKilogram:
+	default:
+		return Price{}, fmt.Errorf("%w: %q", purchase.ErrUnknownPriceBasis, basis)
+	}
+
 	if day.Time().IsZero() {
 		return Price{}, fmt.Errorf("%w: the price carries no day", ErrMissingDay)
 	}
@@ -364,6 +458,7 @@ func NewPrice(
 		ProductID:  of,
 		Channel:    channel,
 		Amount:     amount,
+		Basis:      basis,
 		Day:        day,
 	}, nil
 }

@@ -43,7 +43,8 @@ func buildDescriptionOpenParty() string {
 		"bakery buys from.\n\n" +
 		"The business is REQUIRED: it is the business of its own — the one that knows the clients and the providers " +
 		"of the bakery. The Personal Business of a person holds the money of that person and not the clients of " +
-		"the bakery, and PACA refuses a party of it.\n\n" +
+		"the bakery, and PACA refuses a party of it. A business that is not there is refused too: PACA never " +
+		"opens a party in a business that does not exist.\n\n" +
 		"The kind is REQUIRED: it is one of " + theKindsOfTheParties() + ".\n\n" +
 		"  - a store REQUIRES the legal human that represents it ('legal_human_name'), and PACA refuses a store " +
 		"without one;\n" +
@@ -75,7 +76,9 @@ func buildDescriptionOpenParty() string {
 // description reads them and never writes them a second time.
 func buildDescriptionReadParties() string {
 	return "Read the parties of the business: the person, the store and the farm that it knows.\n\n" +
-		"The business is REQUIRED: it is the business whose parties are read, and PACA never invents one.\n\n" +
+		"The business is REQUIRED: it is the business whose parties are read, and PACA never invents one. A " +
+		"business that is not there is refused: the answer is never an empty list for a business that does not " +
+		"exist.\n\n" +
 		"The answer carries every party of the business, in the order of their identity, with:\n\n" +
 		"  - its kind (" + theKindsOfTheParties() + ");\n" +
 		"  - the name the owner reads, and the roles it holds (" + theRolesOfTheParties() + ");\n" +
@@ -215,7 +218,11 @@ func (s *Server) openParty(opener ports.PartyOpener) sdk.ToolHandlerFor[openPart
 			TaxID:          input.TaxID,
 		})
 		if err != nil {
-			return nil, openPartyOutput{}, s.toolError(err)
+			// The failure is translated with the rule of the domain: a
+			// business of a party that is not there is the error of the
+			// party, and never the error of the personal business of a
+			// person.
+			return nil, openPartyOutput{}, s.toolError(party.BusinessNotFound(err))
 		}
 
 		return nil, openPartyOutput{Party: outputOfParty(opened)}, nil
@@ -235,7 +242,7 @@ func (s *Server) readParties(reader ports.PartiesReader) sdk.ToolHandlerFor[read
 
 		held, err := reader.Read(ctx, ports.ReadParties{BusinessID: input.BusinessID})
 		if err != nil {
-			return nil, readPartiesOutput{}, s.toolError(err)
+			return nil, readPartiesOutput{}, s.toolError(party.BusinessNotFound(err))
 		}
 
 		parties := make([]partyOutput, 0, len(held))

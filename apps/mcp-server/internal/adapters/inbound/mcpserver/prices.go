@@ -8,6 +8,7 @@ import (
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 )
 
 // The names of the tools of the price list.
@@ -52,6 +53,11 @@ func buildDescriptionSetPrice() string {
 		"channel and no price without one: the channel is already in the price from the first row, so that the " +
 		"discount of the wholesale never has to rebuild the history of the prices. For now the two channels " +
 		"carry the same price.\n\n" +
+		"The basis ('basis') is REQUIRED: it is THE WAY THE OWNER CHARGES, and it is one of " +
+		theBasesOfTheBook() + ". The owner says them as 'por unidad', 'por gramo' and 'por kilo' too, and PACA " +
+		"reads the ways of saying them. There is NO default basis: the money of a price is only a price when " +
+		"the book knows what it is the price of, and PACA never guesses which of the two ways of selling she " +
+		"uses.\n\n" +
 		"The amount ('amount') is REQUIRED: it is the money of the product in that channel, in whole pesos, and " +
 		"it is a positive number: a price of zero pesos is not a price the owner charges. PACA never infers it.\n\n" +
 		"The day ('day') is OPTIONAL: it is the day the price was set, and it is the day of today when the agent " +
@@ -62,8 +68,11 @@ func buildDescriptionSetPrice() string {
 		"The price is a FACT and it is never rewritten: every price is kept with the day it was set, and the " +
 		"price that holds today for a product and a channel is the last one set on or before the day that is " +
 		"asked for.\n\n" +
-		"The answer carries the product — its identity, the recipe it comes from, the name the owner reads and " +
-		"the tax treatment it carries — and the price: its identity, the channel, the money and the day it was set."
+		"The answer carries the product — its identity ('id'), the business that owns it ('business_id'), the " +
+		"recipe it comes from ('recipe_id'), the name the owner reads ('name') and the tax treatment it carries " +
+		"('tax_treatment') — and the price: its identity ('id'), the business that owns it ('business_id'), the " +
+		"product it is of ('product_id'), the channel it was set for ('channel'), the money in whole pesos " +
+		"('amount'), the way she charges ('basis') and the day it was set ('day')."
 }
 
 // buildDescriptionReadPrices renders the description of the tool that reads
@@ -83,9 +92,11 @@ func buildDescriptionReadPrices() string {
 		"agent names none. The answer carries the price that holds on that day: the last one set on or before " +
 		"it, with the day it was set.\n\n" +
 		"The answer carries, for every product and every channel:\n\n" +
-		"  - the product: its identity, the recipe it comes from, the name the owner reads and the tax treatment " +
-		"it carries;\n" +
-		"  - the price that holds: the channel, the money in whole pesos and the day it was set.\n\n" +
+		"  - the product: its identity ('id'), the business that owns it ('business_id'), the recipe it comes " +
+		"from ('recipe_id'), the name the owner reads ('name') and the tax treatment it carries " +
+		"('tax_treatment');\n" +
+		"  - the price that holds: the channel ('channel'), the money in whole pesos ('amount'), the way she " +
+		"charges ('basis') and the day it was set ('day').\n\n" +
 		"A product the business has not priced yet is not in the answer.\n\n" +
 		"It writes nothing."
 }
@@ -109,6 +120,9 @@ type setPriceInput struct {
 
 	// Amount is the money of the product in that channel.
 	Amount int64 `json:"amount" jsonschema:"The money of the product in that channel, in whole pesos. It is required, it is a positive number, and PACA never infers it."`
+
+	// Basis is the way the owner charges.
+	Basis string `json:"basis" jsonschema:"The way the owner charges: 'unit' (the price of one piece), 'gram' (the price of one gram) or 'kilogram' (the price of one kilogram). It is required, and there is no default: the money of a price is only a price when PACA knows what it is the price of."`
 
 	// Day is the day the price was set.
 	Day string `json:"day,omitempty" jsonschema:"The day the price was set ('2026-03-01'). It is optional, and it is the day of today when the agent names none."`
@@ -174,6 +188,9 @@ type priceOutput struct {
 
 	// Amount is the money of the product in that channel, in whole pesos.
 	Amount int64 `json:"amount"`
+
+	// Basis is the way the owner charges: the unit, the gram or the kilogram.
+	Basis string `json:"basis"`
 
 	// Day is the day the price was set.
 	Day string `json:"day"`
@@ -241,6 +258,7 @@ func (s *Server) setPrice(setter ports.PriceRecorder) sdk.ToolHandlerFor[setPric
 			Name:         input.Name,
 			Channel:      input.Channel,
 			Amount:       input.Amount,
+			Basis:        input.Basis,
 			Day:          input.Day,
 			TaxTreatment: input.TaxTreatment,
 		})
@@ -311,6 +329,7 @@ func outputOfPrice(model product.Price) priceOutput {
 		ProductID:  int64(model.ProductID),
 		Channel:    model.Channel.String(),
 		Amount:     int64(model.Amount),
+		Basis:      model.Basis.String(),
 		Day:        model.Day.String(),
 	}
 }
@@ -325,6 +344,22 @@ func theChannelsOfTheBook() string {
 
 	names := make([]string, 0, len(channels))
 	for _, one := range channels {
+		names = append(names, one.String())
+	}
+
+	return strings.Join(names, ", ")
+}
+
+// theBasesOfTheBook renders the ways the owner charges for the description
+// of the tool.
+//
+// The ways of charging belong to the domain of the purchase: the
+// description reads them and never writes them a second time.
+func theBasesOfTheBook() string {
+	bases := purchase.PriceBases()
+
+	names := make([]string, 0, len(bases))
+	for _, one := range bases {
 		names = append(names, one.String())
 	}
 

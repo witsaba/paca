@@ -63,6 +63,25 @@ func theUnitsOfTheExit() []recipe.ExpiringUnit {
 	return units
 }
 
+// The units of the production of the test in the order the rotation takes
+// them.
+//
+// The unit that expires first carries the HIGHEST identity of the book, so
+// the order of the identities and the order of the expiry disagree: only
+// the expiry decides the order in which the units leave the book.
+func theUnitsOfTheExitInTheOrderOfTheExpiry() []recipe.ExpiringUnit {
+	units := theUnitsOfTheExit()
+
+	for index := range units {
+		one := units[index]
+		one.ExpiresOn = ledger.NewDate(
+			time.Date(2026, time.March, 15+(10-index), 0, 0, 0, 0, time.UTC))
+		units[index] = one
+	}
+
+	return units
+}
+
 // The definition of the consumption of the test: three units the owner ate.
 func theDefinitionOfTheExit() recipe.ExitDefinition {
 	return recipe.ExitDefinition{
@@ -154,17 +173,16 @@ func TestTheExitReleasesTheCostOfTheUnitsThatLeft(t *testing.T) {
 }
 
 // TestTheExitTakesTheUnitsThatExpireFirst proves the rule of the
-// rotation: the units that leave the book are the ones that expire first.
+// rotation: the units that leave the book are the units of the product
+// that are still in it, IN THE ORDER THEY EXPIRE.
+//
+// The unit that expires first carries the highest identity of the book, so
+// the order of the identities and the order of the expiry disagree, and
+// the test says the whole ordered set of the identities that left.
 func TestTheExitTakesTheUnitsThatExpireFirst(t *testing.T) {
 	t.Parallel()
 
-	units := theUnitsOfTheExit()
-
-	// The first unit expires before the others: it is the one that leaves
-	// the book first.
-	early := units[0]
-	early.ExpiresOn = ledger.NewDate(time.Date(2026, time.March, 15, 0, 0, 0, 0, time.UTC))
-	units[0] = early
+	units := theUnitsOfTheExitInTheOrderOfTheExpiry()
 
 	exit, err := recipe.ExitOf(
 		business.ID(77),
@@ -176,9 +194,19 @@ func TestTheExitTakesTheUnitsThatExpireFirst(t *testing.T) {
 		t.Fatalf("the exit was refused: %v", err)
 	}
 
-	if exit.Units[0].UnitID != units[0].ID {
-		t.Errorf("the exit took the unit %d, want the one that expires first (%d)",
-			exit.Units[0].UnitID, units[0].ID)
+	// The three units that expire first are the three last identities of
+	// the book: the tenth, the ninth and the eighth.
+	want := []recipe.UnitID{10, 9, 8}
+
+	if len(exit.Units) != len(want) {
+		t.Fatalf("the exit took %d units, want %d", len(exit.Units), len(want))
+	}
+
+	for index, one := range exit.Units {
+		if one.UnitID != want[index] {
+			t.Errorf("the unit %d that left the book is the unit %d, want the unit %d",
+				index+1, one.UnitID, want[index])
+		}
 	}
 }
 

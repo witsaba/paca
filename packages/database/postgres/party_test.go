@@ -209,7 +209,7 @@ func TestTheRefusalsOfTheDatabaseAreTranslatedForTheParty(t *testing.T) {
 				Code:           foreignKeyViolation,
 				ConstraintName: "parties_business_id_fkey",
 			},
-			want:    party.ErrNotFound,
+			want:    party.ErrBusinessNotFound,
 			message: "the business of the party is not there",
 		},
 		{

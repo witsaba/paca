@@ -736,10 +736,11 @@ donation.
 | `confirmed_with`      | `text`       | Not null, never empty: the word she used to confirm it       |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 
-**The exit moves no money.** There is no column of money that came in: what
-the exit releases is the cost of the units that left the book, and the cost
-is derived — the money of the production they came out of, divided by the
-units that production made. The check of the table holds the rule of the
+**The exit moves no money IN.** There is no column of money that came in:
+nobody paid for the bread the owner consumed or for the bread the bakery
+gave away. What the exit releases is the cost of the units that left the
+book, and the cost is derived — the money of the production they came out
+of, divided by the units that production made. The check of the table holds the rule of the
 domain as a defense in depth (`exits_cost_not_negative_check`).
 
 **The tax treatment is never decided here.** The column holds the treatment
@@ -817,12 +818,19 @@ second person: it is not a row of the users, it is not a party of its own,
 and it never becomes a row of the people of PACA. The check
 `parties_legal_human_check` holds the rule of the kind as a defense in
 depth: a person carries no legal human, a store carries the one that
-represents it, and a farm carries it only when it has one.
+represents it, and a farm carries it only when it has one. The check
+`parties_legal_figure_needs_human_check`, added by the migration
+`00025_parties_checks.sql`, holds the other half of the rule: a legal
+figure without the name of the human it belongs to is a figure of nobody,
+and the table refuses it.
 
 **The party holds at least one role.** The roles travel as JSONB, like the
 aliases of an ingredient, and the checks `parties_roles_array_check` and
 `parties_roles_check` hold that they are a list and that the party holds the
-client, the provider, or both of them.
+client, the provider, or both of them. The check
+`parties_roles_check`, tightened by the migration `00025_parties_checks.sql`,
+holds that EVERY role of the array is one of the two: an array that holds
+the client and another role is refused.
 
 **The name of a party is NOT unique inside the business.** There is no index
 of the name on purpose: the book never refuses two parties that share a
@@ -1179,9 +1187,10 @@ The expiry is read for one business, and the day of the expiry of a unit is
 a day of that business: the query joins the production and the recipe, and
 the units of another business are never read as units of it.
 
-**The units that left the book are not offered.** A unit that was wasted or
-sold is not in the answer of the reader of the expiry: the query reads the
-table of the exits, and a unit that left the book is never offered again.
+**The units that left the book are not offered.** A unit that was wasted,
+sold, consumed or given away is not in the answer of the reader of the
+expiry: the query reads the table of the exits, and a unit that left the
+book is never offered again.
 The correction of the shelf life moves the units that are still in the
 book, and a unit that left keeps the day it expired on.
 
@@ -1315,9 +1324,23 @@ domain as a defense in depth: the tax is the tax of the base at the rate,
 rounded to the nearest whole peso with a half peso going up, and the total
 is the base plus the tax.
 
+**The money of an invoice enters the book in whole pesos, and the table
+never rounds it.** The rate travels in hundredths of a percent, and a rate
+with more than two decimals is refused by the domain. The rounding of the
+CENTAVOS of an invoice is NOT decided here: it is an OPEN QUESTION for the
+owner and for the professional of the taxes.
+
 **The number of an invoice is unique inside the business.** The index
 `invoices_one_number_per_business` refuses a second invoice with the same
 number inside the same business: the number is what identifies the invoice.
+
+**A purchase carries ONE invoice.** The index `invoices_one_per_purchase`
+refuses a second invoice of the same purchase, whatever number it carries:
+the invoice that came with the purchase is the one the purchase points at.
+
+**The invoice is attached only to the purchase it names.** The update that
+points the purchase at the invoice carries the purchase the invoice names,
+and the row that is not the one the invoice names is not touched.
 
 **The electronic invoice is NEVER assumed.** There is no integration with
 the tax authority and no column that pretends to be one: the reference is a
@@ -1342,6 +1365,14 @@ an invoice that does not add up is refused, and the adapter says it with
 **The number the business already holds is
 `purchase.ErrDuplicateInvoiceNumber`.** The index of the table tells the
 truth about it, and the domain refuses it before the row is written.
+
+**The purchase that already carries an invoice is
+`purchase.ErrPurchaseAlreadyHasInvoice`.** The index of the table tells
+the truth about it, and the domain refuses it before the row is written.
+
+**The purchase that is not the one the invoice names is
+`purchase.ErrInvoiceOfAnotherPurchase`.** The update of the table tells
+the truth about it.
 
 **The business, the provider or the purchase of the invoice that is not
 there is `purchase.ErrNotFound`.** The foreign key of the table tells the
@@ -1373,11 +1404,18 @@ of the domain as a defense in depth
 
 **The name of a product is taken inside the business**, and the index
 `products_one_name_per_business` refuses a second product with that name.
-The name is compared the way a person reads it, so the index is over the
-lower case of it.
+The name is compared the way a person reads it — trimmed and without case —
+so the index is over the LOWER CASE OF THE TRIMMED NAME:
+`lower(btrim(name))`.
 
 **One recipe backs one product inside the business**, and the index
 `products_one_recipe_per_business` refuses a second one.
+
+**The product is backed by a recipe of ITS OWN business.** The composite
+foreign key `products_recipe_of_its_business_fkey` refuses the recipe of
+another business: the two independent foreign keys cannot hold the rule,
+and the composite one carries the business of the pair. The unique index
+`recipes_business_and_id` holds the columns it points at.
 
 ### `prices`
 
@@ -1391,6 +1429,7 @@ set.
 | `product_id`          | `bigint`     | Not null, the product the price is of                         |
 | `channel`             | `text`       | Not null: `retail` or `wholesale`                             |
 | `amount`              | `bigint`     | Not null, positive: the money in whole pesos                  |
+| `basis`               | `text`       | Not null: the way the owner charges                            |
 | `day`                 | `date`       | Not null: the day the price was set                           |
 | `created_at`          | `timestamptz`| Not null, default `now()`                                     |
 
@@ -1403,6 +1442,16 @@ holds the two channels of the book as a defense in depth
 **The money of a price is a positive number of whole pesos**, and the check
 `prices_amount_positive_check` holds the rule of the domain as a defense in
 depth.
+
+**The price carries THE WAY THE OWNER CHARGES.** The money of a price is
+only a price when the book knows whether it is per unit, per gram or per
+kilogram, and the check `prices_basis_check` holds the three ways of
+charging of the book as a defense in depth.
+
+**The price is of a product of ITS OWN business.** The composite foreign
+key `prices_product_of_its_business_fkey` refuses the product of another
+business, and the unique index `products_business_and_id` holds the columns
+it points at.
 
 **The price list is a HISTORY.** The rows are kept and nothing is rewritten
 when a price changes: the price that holds today for a product and a
@@ -1442,6 +1491,10 @@ is refused, and the adapter says it with `product.ErrInvalidValue`.
 **The name that is taken is `product.ErrDuplicateName`, and the recipe
 that backs another product is `product.ErrDuplicateRecipe`.** The indexes
 of the table tell the truth about them.
+
+**The recipe of another business and the product of another business are
+`product.ErrOfAnotherBusiness`.** The composite foreign keys of the table
+tell the truth about them.
 
 **The business or the product that is not there is `product.ErrNotFound`.**
 The foreign key of the table tells the truth about it.

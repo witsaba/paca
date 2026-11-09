@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -75,9 +74,13 @@ func buildDescriptionRecordSale() string {
 }
 
 // recordSaleInput is the input of the tool that records the sale.
+//
+// The fields the domain refuses are optional in the call: the schema of
+// the tool does not refuse the call before the domain can answer it, and
+// the domain is the one that says what is missing.
 type recordSaleInput struct {
 	// BusinessID is the business the sale belongs to.
-	BusinessID int64 `json:"business_id" jsonschema:"The identity of the business the sale belongs to. It is required."`
+	BusinessID int64 `json:"business_id,omitempty" jsonschema:"The identity of the business the sale belongs to. Send it always: the domain refuses the sale when it is left out."`
 
 	// RecipeID is the identity of the product she sold.
 	RecipeID int64 `json:"recipe_id,omitempty" jsonschema:"The identity of the product she sold. It is optional: send the recipe_name instead when the name carries only one product."`
@@ -86,13 +89,13 @@ type recordSaleInput struct {
 	RecipeName string `json:"recipe_name,omitempty" jsonschema:"The name the owner reads of the product she sold ('Pan de molde'). It is optional: send the recipe_id instead when the name carries more than one product."`
 
 	// Quantity is how many units of the product the bakery sold.
-	Quantity float64 `json:"quantity" jsonschema:"How many units of the product the bakery sold (3). It is required, and PACA never fills it by herself."`
+	Quantity float64 `json:"quantity,omitempty" jsonschema:"How many units of the product the bakery sold (3). Send it always: PACA never fills it by herself, and the domain refuses the sale when it is left out."`
 
 	// Unit is the unit of that quantity.
 	Unit string `json:"unit,omitempty" jsonschema:"The unit of the quantity ('unidad'). It is optional: the sale counts the units it sold when it is left out."`
 
 	// Money is the money the client paid, in whole pesos.
-	Money int64 `json:"money" jsonschema:"The money the client paid, in whole pesos (5000). It is required, and PACA never infers it."`
+	Money int64 `json:"money,omitempty" jsonschema:"The money the client paid, in whole pesos (5000). Send it always: PACA never infers it, and the domain refuses the sale when it is left out."`
 
 	// ToAccountID is the account the money of the sale lands in.
 	ToAccountID int64 `json:"to_account_id,omitempty" jsonschema:"The identity of the account the money of the sale lands in. It is optional: the money lands in the cash of the business when it is left out."`
@@ -104,7 +107,7 @@ type recordSaleInput struct {
 	Utterance string `json:"utterance,omitempty" jsonschema:"The sentence of the owner, verbatim. It is optional: send it as she said it when she said one, and it is kept with the record."`
 
 	// ConfirmedWith is the word the owner used to confirm the sale.
-	ConfirmedWith string `json:"confirmed_with" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). It is required, and it is kept with the record."`
+	ConfirmedWith string `json:"confirmed_with,omitempty" jsonschema:"The word the owner used to confirm it ('sí', 'confirmado'). Send it always: it is kept with the record, and the domain refuses the sale when it is left out."`
 }
 
 // recordSaleUnitOutput is what the answer carries about one unit that left
@@ -185,28 +188,14 @@ func (s *Server) registerSaleTools(recorder ports.SaleRecorder) {
 //
 // The tool writes the sale the owner confirmed and answers with it.
 //
-// The business is required: the tool refuses the business that is not
-// there, and it never asks the use case for the sale of nobody.
+// The schema of the tool does not refuse the call before the domain can
+// answer it: the business, the quantity, the money and the word of the
+// owner are optional in the call, and the domain is the one that refuses
+// the sale that carries none of them, with its own message.
 func (s *Server) recordSale(recorder ports.SaleRecorder) sdk.ToolHandlerFor[recordSaleInput, recordSaleOutput] {
 	return func(ctx context.Context, _ *sdk.CallToolRequest, input recordSaleInput) (*sdk.CallToolResult, recordSaleOutput, error) {
 		if recorder == nil {
 			return nil, recordSaleOutput{}, ports.ErrNoDatabase
-		}
-
-		if input.BusinessID <= 0 {
-			return nil, recordSaleOutput{}, s.toolError(recipe.ErrMissingBusiness)
-		}
-
-		if input.Quantity <= 0 {
-			return nil, recordSaleOutput{}, s.toolError(recipe.ErrInvalidSaleQuantity)
-		}
-
-		if input.Money <= 0 {
-			return nil, recordSaleOutput{}, s.toolError(recipe.ErrInvalidSaleMoney)
-		}
-
-		if strings.TrimSpace(input.ConfirmedWith) == "" {
-			return nil, recordSaleOutput{}, s.toolError(recipe.ErrMissingSaleConfirmation)
 		}
 
 		recorded, err := recorder.Record(ctx, ports.RecordSale{

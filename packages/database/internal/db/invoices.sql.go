@@ -12,10 +12,11 @@ import (
 )
 
 const attachInvoiceToPurchase = `-- name: AttachInvoiceToPurchase :one
-UPDATE purchases
+UPDATE purchases AS p
 SET invoice_id = $1
-WHERE id = $2 AND business_id = $3
-RETURNING id
+WHERE p.id = $2 AND p.business_id = $3
+  AND p.id = (SELECT i.purchase_id FROM invoices AS i WHERE i.id = $1)
+RETURNING p.id
 `
 
 type AttachInvoiceToPurchaseParams struct {
@@ -26,8 +27,9 @@ type AttachInvoiceToPurchaseParams struct {
 
 // The purchase points at the invoice it came from, and the row is the
 // purchase of the business of the invoice: an invoice of one business is
-// never attached to the purchase of another one. The row that does not
-// belong is not touched.
+// never attached to the purchase of another one. The row is also the
+// purchase the INVOICE NAMES: the two sides of the link must agree, and
+// the row that is not the one the invoice names is not touched.
 func (q *Queries) AttachInvoiceToPurchase(ctx context.Context, arg AttachInvoiceToPurchaseParams) (int64, error) {
 	row := q.db.QueryRow(ctx, attachInvoiceToPurchase, arg.InvoiceID, arg.PurchaseID, arg.BusinessID)
 	var id int64

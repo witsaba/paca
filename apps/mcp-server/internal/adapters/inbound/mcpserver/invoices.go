@@ -47,7 +47,8 @@ func buildDescriptionRecordInvoice() string {
 		"identity the tool of the parties answered, and never the name of the provider.\n\n" +
 		"The purchase ('purchase_id') is REQUIRED: the invoice is written against the purchase it came from, and " +
 		"the purchase points at the invoice. An invoice of one business is never attached to the purchase of " +
-		"another one.\n\n" +
+		"another one, and an invoice is never attached to a purchase that is not the one it names. A purchase " +
+		"carries ONE invoice: the one that came with it, and PACA refuses the second one.\n\n" +
 		"The number ('number') is REQUIRED: it is the number the invoice carries, and it is what identifies it " +
 		"inside the business. The number of an invoice is unique inside the business that holds it, and PACA " +
 		"refuses a number the business already holds.\n\n" +
@@ -56,19 +57,27 @@ func buildDescriptionRecordInvoice() string {
 		"tax of an invoice is NEVER assumed: there is no default of nineteen percent and no default of zero, and " +
 		"the rate is never taken from the catalogue of the country. The tax is DERIVED from the rate the invoice " +
 		"states and the base the invoice states, and it is rounded to the nearest whole peso, with a half peso " +
-		"going up.\n\n" +
+		"going up. A rate with MORE THAN TWO DECIMALS is refused: PACA never rounds a rate away, and a rate that " +
+		"is rounded away is a rate nobody charged.\n\n" +
 		"The total ('total') is REQUIRED: it is the money of the whole invoice, in whole pesos, and it is the base " +
 		"plus the tax. An invoice that does not add up is refused: PACA never fixes a total, and it never invents " +
 		"the tax of an invoice.\n\n" +
 		"The day ('day') is OPTIONAL: it is the day the invoice was issued, and it is the day of today when the " +
 		"agent names none.\n\n" +
 		"The reference ('reference') is OPTIONAL: it is the reference of the document the owner shows, and it is a " +
-		"plain fact of the invoice. PACA never assumes an electronic invoice: there is no integration with the " +
-		"tax authority, and the reference is never the mark of one.\n\n" +
+		"plain fact of the document the owner shows. PACA never assumes an electronic invoice: there is no " +
+		"integration with the tax authority, and the reference is never the mark of an electronic invoice.\n\n" +
+		"The money of an invoice enters the book in WHOLE PESOS: the book never rounds the money of an invoice, " +
+		"and an invoice whose total does not add up is refused. The rounding of the centavos of an invoice is an " +
+		"OPEN QUESTION for the owner and for the professional of the taxes: PACA does not decide it, and it asks " +
+		"for the money the invoice states.\n\n" +
 		"The invoice moves NO money: the purchase already moved the money of the payment when the owner bought, " +
 		"and the invoice is a fact that arrives later.\n\n" +
-		"The answer carries the invoice as it was written: its identity, its provider, its purchase, its number, " +
-		"its day, its base, its rate, its tax and its total."
+		"The answer carries the invoice as it was written: its identity ('id'), the business that holds it " +
+		"('business_id'), the provider that issued it ('provider_id'), the purchase it came from " +
+		"('purchase_id'), its number ('number'), the day it was issued ('day'), the base the tax applies to " +
+		"('base'), the rate it states ('rate'), the tax that travels with it ('tax'), the total of the whole " +
+		"invoice ('total') and the reference of the document the owner shows ('reference')."
 }
 
 // buildDescriptionReadInvoices renders the description of the tool that
@@ -77,12 +86,17 @@ func buildDescriptionReadInvoices() string {
 	return "Read the invoices of the business: every invoice the business holds, with the tax that travels with " +
 		"each one of them.\n\n" +
 		"The business is REQUIRED: it is the business whose invoices are read, and PACA never invents one.\n\n" +
-		"The answer carries every invoice of the business, in the order of their identity, with:\n\n" +
-		"  - the provider that issued it, and the purchase it came from;\n" +
-		"  - the number it carries, and the day it was issued;\n" +
-		"  - the base the tax applies to, the rate the invoice states, the tax that travels with it and the " +
-		"total of the whole invoice.\n\n" +
+		"The answer carries every invoice of the business, in the order of their identity, and every one of them " +
+		"carries:\n\n" +
+		"  - its identity ('id') and the business that holds it ('business_id');\n" +
+		"  - the provider that issued it ('provider_id') and the purchase it came from ('purchase_id');\n" +
+		"  - the number it carries ('number') and the day it was issued ('day');\n" +
+		"  - the base the tax applies to ('base'), the rate it states ('rate'), the tax that travels with it " +
+		"('tax') and the total of the whole invoice ('total');\n" +
+		"  - the reference of the document the owner shows ('reference').\n\n" +
 		"The tax of an invoice is never assumed: it is the one the invoice states.\n\n" +
+		"The money of an invoice is in whole pesos, and the book never rounds it: the rounding of the centavos of " +
+		"an invoice is an open question for the owner and for the professional of the taxes.\n\n" +
 		"It writes nothing."
 }
 
@@ -113,7 +127,7 @@ type recordInvoiceInput struct {
 	Total int64 `json:"total" jsonschema:"The money of the whole invoice, in whole pesos: the base plus the tax. It is required, and an invoice that does not add up is refused."`
 
 	// Reference is the reference of the document the owner shows.
-	Reference string `json:"reference,omitempty" jsonschema:"The reference of the document the owner shows ('CUFE-1234'). It is optional, and it is never the mark of an electronic invoice: PACA never assumes one."`
+	Reference string `json:"reference,omitempty" jsonschema:"The reference of the document the owner shows ('REF-1234'). It is optional, and it is a plain fact of the document the owner shows: it is never the mark of an electronic invoice, and PACA never assumes one."`
 }
 
 // readInvoicesInput is the input of the tool that reads the invoices of a

@@ -169,10 +169,14 @@ func TestTheRecordWasteToolWritesTheProductTheQuantityAndTheReason(t *testing.T)
 
 // TestTheRecordWasteToolRefusesTheBusinessThatIsNotThere proves that the
 // business is required: the book never invents one.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordWasteToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubWasteRecorder{answer: theWasteOfTheTool(t)}
+	recorder := &stubWasteRecorder{err: recipe.ErrMissingBusiness}
 	session := connectWithTheWaste(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -190,17 +194,34 @@ func TestTheRecordWasteToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered a waste, want the refusal of the business that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.BusinessID != business.ID(0) {
+		t.Errorf("the business of the call is %d, want the zero of the field that was left out",
+			recorder.got.BusinessID)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the business is required") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordWasteToolRefusesTheQuantityThatIsNotThere proves that the
 // quantity is required: the book never fills it by itself.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordWasteToolRefusesTheQuantityThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubWasteRecorder{answer: theWasteOfTheTool(t)}
+	recorder := &stubWasteRecorder{err: recipe.ErrInvalidWasteQuantity}
 	session := connectWithTheWaste(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -219,18 +240,35 @@ func TestTheRecordWasteToolRefusesTheQuantityThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered a waste, want the refusal of the quantity that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.Quantity != 0 {
+		t.Errorf("the quantity of the call is %v, want the zero of the field that was left out",
+			recorder.got.Quantity)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the quantity of the waste is not a whole number of units") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordWasteToolRefusesTheReasonThatIsNotThere proves that the
 // reason is required: the reason is what a later analysis reads, and it is
 // never invented.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordWasteToolRefusesTheReasonThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubWasteRecorder{answer: theWasteOfTheTool(t)}
+	recorder := &stubWasteRecorder{err: recipe.ErrUnknownWasteReason}
 	session := connectWithTheWaste(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -248,8 +286,48 @@ func TestTheRecordWasteToolRefusesTheReasonThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered a waste, want the refusal of the reason that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if strings.TrimSpace(recorder.got.Reason) != "" {
+		t.Errorf("the reason of the call is %q, want the empty field that was left out",
+			recorder.got.Reason)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the reason of the waste is not one of the four") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
+	}
+}
+
+// TestTheSchemaOfTheRecordWasteToolDoesNotRefuseTheCall proves that the
+// schema of the tool does not refuse the call before the domain can answer
+// it: the business, the quantity, the reason and the word of the owner are
+// optional in the call, and the domain is the one that refuses the waste
+// that carries none of them.
+func TestTheSchemaOfTheRecordWasteToolDoesNotRefuseTheCall(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheWaste(t, &stubWasteRecorder{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	required := theRequiredFieldsOfTheTool(t, tools.Tools, mcpserver.ToolRecordWaste)
+
+	for _, field := range []string{"business_id", "quantity", "reason", "confirmed_with"} {
+		for _, one := range required {
+			if one == field {
+				t.Errorf("the schema of the tool marks %q as required: the schema must not refuse the "+
+					"call before the domain can answer it", field)
+			}
+		}
 	}
 }
 
@@ -300,6 +378,34 @@ func TestTheDescriptionOfTheWasteTellsTheAgentTheFourReasons(t *testing.T) {
 		"'returned'",
 		"never converts a weight into a number of units",
 		"never lost from the book",
+	}
+	for _, want := range wants {
+		if !strings.Contains(description, want) {
+			t.Errorf("the description does not tell the agent %q:\n%s", want, description)
+		}
+	}
+}
+
+// TestTheDescriptionOfTheWasteSaysWhatItDoesWithTheMoney proves that the
+// description of the tool says what the tool does: the waste moves no money
+// in, nobody paid for the bread the bakery lost, and what the waste does is
+// release the cost of the units that left the book.
+func TestTheDescriptionOfTheWasteSaysWhatItDoesWithTheMoney(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheWaste(t, &stubWasteRecorder{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	description := descriptionOf(t, tools.Tools, mcpserver.ToolRecordWaste)
+
+	wants := []string{
+		"moves NO money IN",
+		"nobody paid for the bread",
+		"RELEASE the cost",
 	}
 	for _, want := range wants {
 		if !strings.Contains(description, want) {

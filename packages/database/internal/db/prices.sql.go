@@ -12,9 +12,9 @@ import (
 )
 
 const createPrice = `-- name: CreatePrice :one
-INSERT INTO prices (business_id, product_id, channel, amount, day)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, business_id, product_id, channel, amount, day, created_at
+INSERT INTO prices (business_id, product_id, channel, amount, basis, day)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, business_id, product_id, channel, amount, day, created_at, basis
 `
 
 type CreatePriceParams struct {
@@ -22,6 +22,7 @@ type CreatePriceParams struct {
 	ProductID  int64
 	Channel    string
 	Amount     int64
+	Basis      string
 	Day        pgtype.Date
 }
 
@@ -31,6 +32,7 @@ func (q *Queries) CreatePrice(ctx context.Context, arg CreatePriceParams) (Price
 		arg.ProductID,
 		arg.Channel,
 		arg.Amount,
+		arg.Basis,
 		arg.Day,
 	)
 	var i Price
@@ -42,6 +44,7 @@ func (q *Queries) CreatePrice(ctx context.Context, arg CreatePriceParams) (Price
 		&i.Amount,
 		&i.Day,
 		&i.CreatedAt,
+		&i.Basis,
 	)
 	return i, err
 }
@@ -80,7 +83,7 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (P
 }
 
 const listPricesByBusiness = `-- name: ListPricesByBusiness :many
-SELECT id, business_id, product_id, channel, amount, day, created_at FROM prices WHERE business_id = $1 ORDER BY id
+SELECT id, business_id, product_id, channel, amount, day, created_at, basis FROM prices WHERE business_id = $1 ORDER BY id
 `
 
 func (q *Queries) ListPricesByBusiness(ctx context.Context, businessID int64) ([]Price, error) {
@@ -100,6 +103,7 @@ func (q *Queries) ListPricesByBusiness(ctx context.Context, businessID int64) ([
 			&i.Amount,
 			&i.Day,
 			&i.CreatedAt,
+			&i.Basis,
 		); err != nil {
 			return nil, err
 		}

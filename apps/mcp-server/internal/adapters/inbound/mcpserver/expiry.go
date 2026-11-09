@@ -81,7 +81,7 @@ func buildDescriptionReadExpiring() string {
 		"  - the DAYS that are left of it, and whether it is ALREADY expired.\n\n" +
 		"The units are ordered by the day they expire: the one that expires first is the first one.\n\n" +
 		"The answer carries the units the bakery still holds: the units that already left the book are not " +
-		"offered any more, and the ones that were sold and the ones that were wasted are gone.\n\n" +
+		"offered any more, and the ones that were sold, wasted, consumed or given away are gone.\n\n" +
 		"A unit is expired on the day it expires and on every day after it: the shelf life is the number of " +
 		"days the unit keeps, and a unit that expired is NEVER sold.\n\n" +
 		"The business is REQUIRED: it is the business whose units are read, and PACA never invents one.\n\n" +

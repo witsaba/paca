@@ -202,6 +202,16 @@ var (
 	// already in the business: the number of an invoice is what
 	// identifies it, and it is unique inside the business that holds it.
 	ErrDuplicateInvoiceNumber = errors.New("the number of the invoice is already in the business")
+
+	// ErrInvoiceOfAnotherPurchase is the error of an invoice attached to a
+	// purchase that is not the one it names: the invoice names the
+	// purchase it came from, and the purchase points at the invoice.
+	ErrInvoiceOfAnotherPurchase = errors.New("the invoice names another purchase")
+
+	// ErrPurchaseAlreadyHasInvoice is the error of a second invoice for a
+	// purchase that already carries one: a purchase carries one invoice,
+	// and the second one would point the purchase away from the first.
+	ErrPurchaseAlreadyHasInvoice = errors.New("the purchase already carries an invoice")
 )
 
 // Errors returns the errors of the domain of the draft.
@@ -251,5 +261,7 @@ func Errors() []error {
 		ErrInvoiceDoesNotAddUp,
 		ErrInvoiceOfAnotherBusiness,
 		ErrDuplicateInvoiceNumber,
+		ErrInvoiceOfAnotherPurchase,
+		ErrPurchaseAlreadyHasInvoice,
 	}
 }

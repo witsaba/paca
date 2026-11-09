@@ -300,6 +300,47 @@ func TestThePartyToolsExplainTheFailureOfTheUseCase(t *testing.T) {
 	}
 }
 
+// TestThePartyToolNamesTheBusinessOfTheParty proves that the tool that
+// opens a party never tells the agent that there is no personal business:
+// the business of a party is a business of its own, and the agent is not
+// the onboarding.
+//
+// The message the agent reads names the business of the party, and it never
+// names the personal business nor the onboarding.
+func TestThePartyToolNamesTheBusinessOfTheParty(t *testing.T) {
+	t.Parallel()
+
+	opener := &stubPartyOpener{err: business.ErrNotFound}
+	session := connectWithTheParties(t, opener, &stubPartiesReader{})
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolOpenParty,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"kind":        "person",
+			"name":        "Doña Rosalba",
+			"roles":       []any{"client"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	message := textOf(t, result)
+	if !strings.Contains(message, "business of the party") {
+		t.Errorf("the message does not name the business of the party: %s", message)
+	}
+	if strings.Contains(message, "personal business") {
+		t.Errorf("the message names the personal business: %s", message)
+	}
+	if strings.Contains(message, "onboarding") {
+		t.Errorf("the message names the onboarding: %s", message)
+	}
+}
+
 // TestThePartyToolsHaveNoStorage proves that the transport exposes the
 // tools of the parties even when the service has no database, and that
 // every call answers that the database is not there.

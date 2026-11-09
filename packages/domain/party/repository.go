@@ -32,6 +32,10 @@ type Repository interface {
 	// The list holds every party of the business, the ones that share a
 	// name among them. It is empty when the business knows no party yet.
 	//
+	// The use case reads the business before it reads the parties: a
+	// business that is not there is refused with ErrNotFound, and the list
+	// is empty only when the business knows no party.
+	//
 	// The error is ErrNoStorage when the storage is not open.
 	List(ctx context.Context, businessID business.ID) ([]Party, error)
 }

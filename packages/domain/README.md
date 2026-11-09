@@ -397,7 +397,19 @@ peso, and a half peso goes UP: a base of fifty pesos at nineteen percent is
 nine pesos and a half, and the tax of that invoice is ten pesos. The rate
 is counted in hundredths of a percent (`purchase.Rate`), because the rate of
 the tax authority of the owner may not be a whole percent, and a rate that
-is rounded away is a rate nobody charged.
+is rounded away is a rate nobody charged. A rate with MORE THAN TWO
+DECIMALS is refused (`ErrInvalidRate`): the rate of an invoice is the rate
+the invoice states, or nothing, and the book never rounds one away. The
+rate of an invoice is also a rate when it reaches the domain whole: a rate
+outside of the hundred percent is refused by the invoice itself
+(`ErrInvalidRate`).
+
+**The money of an invoice enters the book in whole pesos, and the book never
+rounds it.** The money of the book counts the pesos the person has, and the
+book takes the money the invoice states. The rounding of the CENTAVOS of an
+invoice is NOT decided here: it is an OPEN QUESTION for the owner and for
+the professional of the taxes. The question stays open until the owner and
+the professional of the taxes answer it, and PACA never fixes a total.
 
 **An invoice that does not add up is never read as an invoice.** The total
 of an invoice is the base plus the tax, and the domain refuses the invoice
@@ -411,7 +423,23 @@ another one (`ErrInvoiceOfAnotherBusiness`).
 
 **The purchase points at the invoice it came from.** The invoice names the
 purchase (`ErrMissingPurchase`), the purchase carries the identity of the
-invoice, and the two belong to the same business.
+invoice, and the two belong to the same business. The invoice is also
+attached ONLY to the purchase it names (`ErrInvoiceOfAnotherPurchase`): the
+two sides of the link must agree, and an invoice of the purchase 2 attached
+to the purchase 3 would leave the book with two truths about the same
+purchase.
+
+**A purchase carries ONE invoice.** The invoice that came with the purchase
+is the one the purchase points at, and the second invoice of the same
+purchase is refused (`ErrPurchaseAlreadyHasInvoice`). The table holds the
+same rule as a defense in depth: the unique index of the purchase.
+
+**The word of the invoice and the fact of it are two different facts.** The
+purchase carries the WORD the owner said at the time of the purchase
+(`Purchase.Invoice`) and the FACT of the link to the invoice
+(`Purchase.InvoiceID`). The owner may read "FV-001" while the invoice the
+purchase points at carries another number, and the book NEVER COMPARES
+THEM: the word is what she said and the fact is where the invoice is.
 
 **The number of an invoice is unique inside the business that holds it**
 (`ErrDuplicateInvoiceNumber`): the number is what identifies the invoice,
@@ -898,7 +926,11 @@ place it takes in that order: the first one that leaves is the first one.
 
 **The unit that leaves a production is the one that expires first.** The
 waste, the sale and the exit take the units of the product in that order,
-and the rule lives here: `recipe.RotationOf` is the only holder of it.
+and the rule lives in `recipe/rotation.go`: its holders are
+`theUnitsOfTheProduct`, that answers the units of the product that are
+still in the book, and `orderedByTheRotation`, that answers them in the
+order they leave it. `recipe.RotationOf` builds the answer of the rotation
+with them, and it holds no other order.
 
 **The rotation follows the earliest expiry and the valuation follows the
 FIFO: the two rules are apart.** The FIFO is the rule of the layers of the
@@ -946,10 +978,12 @@ rotation of the output follows the earliest expiry, and the valuation of
 the stock by the FIFO is another rule: the model keeps the two apart. A
 waste of units the book does not hold is refused (`ErrNotEnoughUnits`).
 
-**The waste releases the cost of what it was worth.** The money of the
-waste is the money of the units that left: the money of the production they
-came out of, divided by the units that production made. The money is
-derived, never typed, and it counts whole pesos.
+**The waste moves no money IN and releases the cost of what it was
+worth.** Nobody paid for the bread the bakery lost, and what the waste does
+is release the cost of the units that left the book. The money of the waste
+is the money of the units that left: the money of the production they came
+out of, divided by the units that production made. The money is derived,
+never typed, and it counts whole pesos.
 
 **The money of the waste is never lost from the book.**
 `recipe.Waste.Movement` moves it from the inventory to the account of the
@@ -1016,7 +1050,10 @@ that left the book. It lives in the package of the recipe, next to the
 production it is an exit of: the exit is of a product, and the product is
 a recipe.
 
-**The exit is a movement of the book, and it moves no money.** It carries
+**The exit is a movement of the book, and it moves no money IN.** Nobody
+paid for the bread the owner consumed or for the bread the bakery gave
+away, and what the exit does is release the cost of the units that left the
+book. It carries
 the kind of the exit — the consumption of the owner or the donation — the
 product, the quantity, the unit, the day it happened and the word of the
 owner, and it is written with her confirmation, the way the production, the
@@ -1042,7 +1079,7 @@ of, divided by the units that production made. The derivation is the one of
 the waste and of the sale, and it is never written a second time. The cost
 is derived, never typed, and it counts whole pesos (`ErrInvalidExitCost`).
 
-**The exit moves no money and releases the cost.**
+**The exit moves no money IN and releases the cost.**
 `recipe.Exit.CostMovement` moves the cost of the units that left the book
 from the inventory to the account of the expense of the exit, and it is the
 only movement of the exit: nobody paid for the bread the owner consumed or
@@ -1115,10 +1152,19 @@ kind: a store **requires** the legal human that represents it
 farms have a legal figure and some do not — and a person **refuses** it
 (`ErrUnexpectedLegalHuman`).
 
-**The roles of the party are the client and the provider.** A party may
-hold both of them, and a party that holds neither is refused
-(`ErrNoRole`): the bakery neither sells to it nor buys from it, and it is
-not a party of the book. A role that is said twice is one role.
+**The domain builds the legal human from the raw facts.**
+`party.LegalHumanOf` takes the kind of the party, the name of the human and
+the legal figure, and answers the legal human that the party of that kind
+carries: the person refuses one, the store requires one, and the farm
+carries one only when it has one. A legal figure without the name of the
+human it belongs to is a figure of nobody, and the domain refuses it. The
+use case hands the raw facts to the domain and never decides.
+
+**The roles of the party are the client and the provider.** A party holds
+the role of the client, the role of the provider, or both of them, and the
+domain refuses the party that holds none of them (`ErrNoRole`): the bakery
+neither sells to it nor buys from it, and it is not a party of the book. A
+role that is said twice is one role.
 
 **The way of reaching the party and its address are facts of the party.**
 The rules of the phone and of the email are the rules of the person
@@ -1128,7 +1174,11 @@ party never writes a second cleaning rule.
 **The party belongs to a business of its own.** `party.OwnedBy` states the
 rule: the parties belong to a business of kind `business`, and the Personal
 Business of a person holds the money of that person and not the clients and
-the providers of the bakery (`ErrWrongBusiness`).
+the providers of the bakery (`ErrWrongBusiness`). `party.BusinessNotFound`
+states the other half of the rule: a business of a party that is not there
+is refused with `ErrNotFound` — the error of the party — and never with the
+error of the personal business of a person, because the caller of the party
+is not the onboarding.
 
 **The name of a party is NOT unique inside the business.** The domain never
 refuses two parties that share a name, and the reading of the parties lists
@@ -1160,6 +1210,14 @@ taken inside the business (`ErrDuplicateName`), and one recipe backs one
 product inside the business (`ErrDuplicateRecipe`). The name is compared
 the way a person reads it: trimmed and without case.
 
+**The product is backed by a recipe of ITS OWN business.** The recipe
+belongs to the business that owns it, and the product of the bakery is
+never backed by the recipe of another one (`ErrOfAnotherBusiness`). The
+recipe and the product belong to the business that owns them, and the
+price of the list is of a product of that business too. The row of the
+storage is built by the domain as well (`product.NewFromFacts`), and the
+table holds the same rule as a defense in depth.
+
 **The channels are the two of the owner.** `product.Channel` names the
 retail and the wholesale, and the domain reads the two ways the owner says
 them: `ParseChannel` reads `retail` and `minorista`, and `wholesale` and
@@ -1176,6 +1234,14 @@ the book counts the pesos the person has, and a price of zero pesos is not
 a price the owner charges (`ErrInvalidPrice`). The price carries the day it
 was set (`ErrMissingDay`) and names the product it is of
 (`ErrMissingProduct`).
+
+**The price carries THE WAY SHE CHARGES.** Three thousand pesos is not a
+price until the book knows whether it is per loaf, per gram or per
+kilogram. The way of charging belongs to the domain of the purchase
+(`purchase.PriceBasis`) and the price of the list REUSES it: there is no
+second copy of the basis. A price without its basis is refused
+(`purchase.ErrUnknownPriceBasis`), and the book never guesses which of the
+two ways of selling she uses.
 
 **The price list is a HISTORY.** The rows are kept and nothing is rewritten
 when a price changes: `product.ThePriceOn` answers the price that holds

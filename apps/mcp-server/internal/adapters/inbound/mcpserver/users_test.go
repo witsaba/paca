@@ -2,6 +2,7 @@ package mcpserver_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -232,6 +233,40 @@ func descriptionOf(t *testing.T, tools []*sdk.Tool, name string) string {
 
 	t.Fatalf("the server exposes no tool named %q", name)
 	return ""
+}
+
+// theRequiredFieldsOfTheTool answers the names of the fields the schema of
+// the tool marks as required.
+//
+// The schema of a tool is the shape of the call, and the SDK of the
+// protocol validates it before the handler runs: a field that is required
+// there refuses the call before the domain can answer it.
+func theRequiredFieldsOfTheTool(t *testing.T, tools []*sdk.Tool, name string) []string {
+	t.Helper()
+
+	for _, tool := range tools {
+		if tool.Name != name {
+			continue
+		}
+
+		raw, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatalf("the schema of the tool %q could not be read: %v", name, err)
+		}
+
+		var schema struct {
+			Required []string `json:"required"`
+		}
+
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("the schema of the tool %q could not be read: %v", name, err)
+		}
+
+		return schema.Required
+	}
+
+	t.Fatalf("the server exposes no tool named %q", name)
+	return nil
 }
 
 // textOf returns the text of the answer of a tool.

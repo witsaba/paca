@@ -450,9 +450,11 @@ func New(
 	)
 
 	// The exit of the book: what the owner consumed and what the bakery
-	// gave away. The exit moves no money: it releases the cost of the
-	// units that left the book, and the cost leaves the inventory and
-	// lands in the account of the expense of the exit. The tax treatment
+	// gave away. The exit moves no money IN: nobody paid for the bread
+	// the owner consumed or for the bread the bakery gave away. What it
+	// does is release the cost of the units that left the book, and the
+	// cost leaves the inventory and lands in the account of the expense of
+	// the exit. The tax treatment
 	// of the exit waits for the professional of the taxes of the owner,
 	// and the exit names the question. The exit and the movement of its
 	// cost are written in one transaction. Without a database there is no

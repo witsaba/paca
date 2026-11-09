@@ -135,6 +135,7 @@ type Price struct {
 	Amount     int64
 	Day        pgtype.Date
 	CreatedAt  pgtype.Timestamptz
+	Basis      string
 }
 
 type PriceReference struct {

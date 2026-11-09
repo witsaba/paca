@@ -169,10 +169,14 @@ func TestTheRecordSaleToolWritesTheProductTheQuantityAndTheMoney(t *testing.T) {
 
 // TestTheRecordSaleToolRefusesTheBusinessThatIsNotThere proves that the
 // business is required: the book never invents one.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordSaleToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubSaleRecorder{answer: theSaleOfTheTool(t)}
+	recorder := &stubSaleRecorder{err: recipe.ErrMissingBusiness}
 	session := connectWithTheSale(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -190,17 +194,34 @@ func TestTheRecordSaleToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered a sale, want the refusal of the business that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.BusinessID != business.ID(0) {
+		t.Errorf("the business of the call is %d, want the zero of the field that was left out",
+			recorder.got.BusinessID)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the business is required") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
 	}
 }
 
 // TestTheRecordSaleToolRefusesTheMoneyThatIsNotThere proves that the money
 // is required: the money of a sale is never inferred.
+//
+// The call reaches the use case and the domain is the one that refuses it:
+// the schema of the tool does not refuse the call before the domain can
+// answer it.
 func TestTheRecordSaleToolRefusesTheMoneyThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	recorder := &stubSaleRecorder{answer: theSaleOfTheTool(t)}
+	recorder := &stubSaleRecorder{err: recipe.ErrInvalidSaleMoney}
 	session := connectWithTheSale(t, recorder)
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
@@ -219,8 +240,48 @@ func TestTheRecordSaleToolRefusesTheMoneyThatIsNotThere(t *testing.T) {
 	if !result.IsError {
 		t.Fatal("the tool answered a sale, want the refusal of the money that is not there")
 	}
-	if recorder.calls != 0 {
-		t.Errorf("the use case was called %d times, want none", recorder.calls)
+	if recorder.calls != 1 {
+		t.Errorf("the use case was called %d times, want 1: the call has to reach the use case",
+			recorder.calls)
+	}
+	if recorder.got.Money != 0 {
+		t.Errorf("the money of the call is %d, want the zero of the field that was left out",
+			recorder.got.Money)
+	}
+
+	answer := textOf(t, result)
+	if strings.Contains(answer, "validating") {
+		t.Errorf("the schema of the tool refused the call before the use case:\n%s", answer)
+	}
+	if !strings.Contains(answer, "the money of the sale is not a positive number of pesos") {
+		t.Errorf("the answer does not carry the refusal of the domain:\n%s", answer)
+	}
+}
+
+// TestTheSchemaOfTheRecordSaleToolDoesNotRefuseTheCall proves that the
+// schema of the tool does not refuse the call before the domain can answer
+// it: the business, the quantity, the money and the word of the owner are
+// optional in the call, and the domain is the one that refuses the sale
+// that carries none of them.
+func TestTheSchemaOfTheRecordSaleToolDoesNotRefuseTheCall(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheSale(t, &stubSaleRecorder{})
+
+	tools, err := session.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("the client could not list the tools: %v", err)
+	}
+
+	required := theRequiredFieldsOfTheTool(t, tools.Tools, mcpserver.ToolRecordSale)
+
+	for _, field := range []string{"business_id", "quantity", "money", "confirmed_with"} {
+		for _, one := range required {
+			if one == field {
+				t.Errorf("the schema of the tool marks %q as required: the schema must not refuse the "+
+					"call before the domain can answer it", field)
+			}
+		}
 	}
 }
 

@@ -324,9 +324,15 @@ var theMessages = map[error]string{
 	purchase.ErrDuplicateInvoiceNumber: "the business already holds an invoice with that number: the number " +
 		"of an invoice is unique inside the business, and the agent should read the invoices of the business " +
 		"before it writes one",
+	purchase.ErrInvoiceOfAnotherPurchase: "the invoice names another purchase: the invoice is written against " +
+		"the purchase it came from, and the agent should send the identity of the purchase the invoice names",
+	purchase.ErrPurchaseAlreadyHasInvoice: "the purchase already carries an invoice: a purchase carries the " +
+		"invoice that came with it, and the agent should read the invoices of the business before it writes one",
 
-	party.ErrNotFound: "there is no party with that identity: read the parties of the business before naming " +
-		"one of them",
+	party.ErrNotFound: "the party is not there: read the parties of the business to know the ones it holds, and " +
+		"name one of them",
+	party.ErrBusinessNotFound: "the business of the party is not there: check the business the party belongs " +
+		"to, and read the parties of the business before naming one of them",
 	party.ErrUnknownKind: "the kind of a party is not one of the kinds PACA knows: use 'person', 'store' or " +
 		"'farm'",
 	party.ErrInvalidName: "the name of a party is not empty: give the party the name the owner reads",
@@ -366,6 +372,9 @@ var theMessages = map[error]string{
 	product.ErrMissingDay: "the price carries no day: say the day the price was set, and never invent one",
 	product.ErrWrongBusiness: "the price list belongs to a business of its own: the Personal Business of a " +
 		"person holds the money of that person, and not the price list of the bakery",
+	product.ErrOfAnotherBusiness: "the recipe and the product belong to the business that owns them: the " +
+		"product of the bakery is backed by a recipe of its own business, and the price is of a product of it: " +
+		"read the recipes of the business, and name one of them",
 	product.ErrInvalidValue: "the database refused the price: check the channel, the money and the day of it",
 	product.ErrNoStorage:    "the service has no storage of the price list: the price list cannot be reached",
 }

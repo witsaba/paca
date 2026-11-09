@@ -161,17 +161,17 @@ the reading of the price list of the business.
 | `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. It writes nothing. |
 | `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
 | `correct_shelf_life`      | Writes the correction of the shelf life the owner just confirmed: the recipe she corrected, the number of days what it makes keeps, the day she corrected it and her word. The shelf life of a recipe is an APPROXIMATION until she corrects it, and the correction is KEPT: the last one she declared is the shelf life that counts. The correction moves the units that were ALREADY made: every unit of that recipe expires again, the day it was made plus the days she corrected. The days are never invented by PACA. One call, one transaction: the correction and the days it moves are written whole or not at all. |
-| `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
-| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold and the ones that were wasted are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
+| `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The waste moves NO money IN — nobody paid for the bread the bakery lost — and what it does is RELEASE the cost of the units that left the book. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
+| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 | `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
-| `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
+| `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money IN: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
 | `read_rotation`           | Reads the rotation of the book: the ORDER in which the units the bakery still holds leave it, and when each one expires. The rotation follows the EARLIEST EXPIRY: the unit that expires first is the first one that leaves, and the units that expire on the same day keep a stable order — the production first, and the position of the unit in it. The answer carries the name of the product, the day each unit was made, the PLACE it takes in that order, the DAY it expires and the DAYS that are left of it. The product is optional: the whole book of the business, or one product of it. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. The answer carries NO money: the valuation of the stock follows the FIFO, and it is another rule. It writes nothing. |
 | `open_party`              | Opens a party of the business: the PERSON, the STORE or the FARM that buys from the bakery, or that the bakery buys from. The business is the business of its own — the one with the clients and the providers of the bakery — and the Personal Business of a person is refused. The kind is required, and the name is required: the name of a party is NOT unique inside the business, and two parties may share it. The roles are required: the CLIENT, the PROVIDER, or both of them, and a party that holds neither is refused. The legal human that represents the party is a FACT OF THE PARTY and never a second person: a store REQUIRES it, a farm CARRIES it only when it has one, and a person REFUSES it. The phone, the email and the address are optional facts of the party, and PACA never invents them. |
 | `read_parties`            | Reads the parties of the business: every person, store and farm it knows, in the order of their identity, with the roles it holds, the way of reaching it, its address and the legal human that represents it. The name of a party is not unique inside the business, and the answer carries the ones that share it. It writes nothing. |
-| `record_invoice`          | Writes the invoice that came with a purchase: the provider that issued it, the number it carries, the day it was issued, the base the tax applies to, the RATE the invoice states, the tax that travels with it and the total of the invoice. The tax is NEVER assumed: there is no default of nineteen percent and no default of zero, and the tax is derived from the rate and the base the invoice states, rounded to the nearest whole peso with a half peso going up. An invoice that does not add up is refused, and so is a provider that does not hold the role of the provider. The invoice moves NO money: the purchase already moved the money of the payment. The reference of the document the owner shows is optional, and PACA never assumes an electronic invoice. One call, one transaction: the invoice and the purchase that points at it are written whole or not at all. |
+| `record_invoice`          | Writes the invoice that came with a purchase: the provider that issued it, the number it carries, the day it was issued, the base the tax applies to, the RATE the invoice states, the tax that travels with it and the total of the invoice. The tax is NEVER assumed: there is no default of nineteen percent and no default of zero, and the tax is derived from the rate and the base the invoice states, rounded to the nearest whole peso with a half peso going up. An invoice that does not add up is refused, a rate with more than two decimals is refused, and so is a provider that does not hold the role of the provider. A purchase carries ONE invoice, and the invoice is attached only to the purchase it names. The invoice moves NO money: the purchase already moved the money of the payment. The reference of the document the owner shows is optional, and PACA never assumes an electronic invoice. One call, one transaction: the invoice and the purchase that points at it are written whole or not at all. |
 | `read_invoices`           | Reads the invoices of the business: every invoice it holds, in the order of their identity, with the provider that issued it, the purchase it came from, its number, its day, its base, the rate the invoice states, the tax that travels with it and its total. The tax of an invoice is never assumed: it is the one the invoice states. It writes nothing. |
-| `set_price`               | Sets the price of a product of the bakery for a CHANNEL: the retail or the wholesale. The product is named either by the RECIPE it comes from — the bakery sells what it bakes — or by the NAME the owner reads, and it is OPENED the first time it is named: that is the only way a product comes into being, and PACA never guesses its name. The channel is required and there is NO default channel: the channel is already in the price from the first row, so that the discount of the wholesale never has to rebuild the history of the prices. For now the two channels carry the same price. The amount is a positive number of whole pesos, and it is never inferred. The tax treatment is OPTIONAL: it is a fact of the product that the owner states, and PACA never derives it from the price. The price is a FACT and it is never rewritten: every price is kept with the day it was set. One call, one transaction: the product and the price are written whole or not at all. |
-| `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. It writes nothing. |
+| `set_price`               | Sets the price of a product of the bakery for a CHANNEL: the retail or the wholesale. The product is named either by the RECIPE it comes from — the bakery sells what it bakes — or by the NAME the owner reads, and it is OPENED the first time it is named: that is the only way a product comes into being, and PACA never guesses its name. The channel is required and there is NO default channel: the channel is already in the price from the first row, so that the discount of the wholesale never has to rebuild the history of the prices. For now the two channels carry the same price. The amount is a positive number of whole pesos, and it is never inferred. The BASIS is required too: it is THE WAY THE OWNER CHARGES — the unit, the gram or the kilogram — because three thousand pesos is not a price until the book knows what it is the price of, and there is no default basis. The tax treatment is OPTIONAL: it is a fact of the product that the owner states, and PACA never derives it from the price. The price is a FACT and it is never rewritten: every price is kept with the day it was set. One call, one transaction: the product and the price are written whole or not at all. |
+| `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. The answer carries the WAY THE OWNER CHARGES of every price. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -401,9 +401,9 @@ correction is refused: the book is never left half-corrected. The tool
 `read_expiring` answers what expires, and when: every unit of the business
 with the day it expires, the days that are left of it and whether it is
 already expired, the unit that expires first first. The units that already
-left the book are not offered any more: the ones that were sold and the ones
-that were wasted are gone, and the answer carries the units the bakery still
-holds. A unit is expired on the day it expires and on every day after it,
+left the book are not offered any more: the ones that were sold, wasted,
+consumed or given away are gone, and the answer carries the units the bakery
+still holds. A unit is expired on the day it expires and on every day after it,
 and a unit that expired is never sold. The two tools write nothing in the book of the money: the
 expiry moves the day a unit expires, and never a peso.
 
@@ -417,7 +417,9 @@ units, and it never splits a unit. The units that leave the book are the
 units of the product that EXPIRE FIRST — the rotation of the output, a rule
 apart from the FIFO of the valuation — and the money of the waste is the
 money of those units: the cost it releases, the money of the production
-they came out of divided by the units that production made. The money is
+they came out of divided by the units that production made. The waste moves
+NO money IN — nobody paid for the bread the bakery lost — and what it does
+is RELEASE the cost of the units that left the book. The money is
 never lost from the book: it leaves the inventory and it lands in the
 account of the waste, and the waste and the movement of its money are
 written in one transaction. The word she used to confirm it is kept with
@@ -442,11 +444,11 @@ sale and the two movements of its money are written in one transaction. The
 word she used to confirm it is kept with the record, and her sentence is
 kept verbatim when she said one.
 
-**The exit is a movement, and it moves no money at all.**
+**The exit is a movement, and it moves no money IN.**
 The tool `record_exit` writes the exit of a unit of the book: the KIND of it
 — `consumption` when the owner ate the bread, `donation` when the bakery
 gave it away — the product, the quantity of units, the unit and the day it
-happened. The exit moves NO money: nobody paid for the bread the owner
+happened. The exit moves NO money IN: nobody paid for the bread the owner
 consumed or for the bread the bakery gave away. What the exit does is
 RELEASE the cost of the units that left the book: the units of the product
 that EXPIRE FIRST, and the cost is derived, never typed — the money of the
@@ -478,12 +480,17 @@ writes nothing.
 the person, the store or the farm that buys from the bakery or that the
 bakery buys from, and the tool `read_parties` answers the parties the
 business knows. The kind of the party is one of the three of the owner, and
-the roles it holds are the CLIENT and the PROVIDER: it may hold both, and
-it may hold neither only when it holds none — the bakery neither sells to
-it nor buys from it, and it is not a party of the book. The party belongs
-to a business of its own: the Personal Business of a person holds the money
-of that person and not the clients and the providers of the bakery, and the
-tool refuses a party of it.
+the roles it holds are the CLIENT and the PROVIDER: it holds the role of the
+client, the role of the provider, or both of them, and the domain refuses
+the party that holds none of them — the bakery neither sells to it nor buys
+from it, and it is not a party of the book. The party belongs to a business
+of its own: the Personal Business of a person holds the money of that person
+and not the clients and the providers of the bakery, and the tool refuses a
+party of it. A business that is not there is refused too: the tool never
+opens a party in a business that does not exist, and the reading of the
+parties of a business that is not there is refused instead of answering an
+empty list — a bakery without clients and a business that does not exist are
+two different answers.
 
 **The legal human that represents a store or a farm is a fact of the party,
 and never a second person.** A store REQUIRES the human that represents
@@ -503,9 +510,16 @@ later: the book never moves money twice for the same purchase. The tax of
 an invoice is NEVER ASSUMED: it comes from the invoice, which states the
 rate it was issued with and the base that rate applies to. The tax is
 derived from the two of them and rounded to the nearest whole peso, with a
-half peso going up, and an invoice that does not add up is refused. The
-provider of an invoice is a PARTY that holds the role of the provider, and
-the number of the invoice is unique inside the business. The electronic
+half peso going up, and an invoice that does not add up is refused. A rate
+with MORE THAN TWO DECIMALS is refused too: PACA never rounds a rate away,
+and a rate that is rounded away is a rate nobody charged. The money of an
+invoice enters the book in WHOLE PESOS, the book never rounds it, and the
+rounding of the centavos of an invoice is an OPEN QUESTION for the owner
+and for the professional of the taxes. The
+provider of an invoice is a PARTY that holds the role of the provider, the
+number of the invoice is unique inside the business, a purchase carries ONE
+invoice — the one that came with it — and the invoice is attached only
+to the purchase it NAMES. The electronic
 invoice is never assumed either: there is no integration with the tax
 authority, and the reference of the document the owner shows is a plain
 fact of the invoice.

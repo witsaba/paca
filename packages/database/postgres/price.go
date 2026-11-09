@@ -12,6 +12,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -27,6 +28,14 @@ const (
 	// productsRecipeConstraint is the name of the index that refuses a
 	// second product of the same recipe inside the same business.
 	productsRecipeConstraint = "products_one_recipe_per_business"
+
+	// productsRecipeBusinessConstraint is the name of the foreign key
+	// that refuses a product backed by the recipe of another business.
+	productsRecipeBusinessConstraint = "products_recipe_of_its_business_fkey"
+
+	// pricesProductBusinessConstraint is the name of the foreign key that
+	// refuses a price of a product of another business.
+	pricesProductBusinessConstraint = "prices_product_of_its_business_fkey"
 )
 
 // ProductRepository is the adapter of the storage of the products.
@@ -191,6 +200,7 @@ func (r *PriceRepository) Set(ctx context.Context, price product.Price) (product
 		ProductID:  int64(price.ProductID),
 		Channel:    price.Channel.String(),
 		Amount:     int64(price.Amount),
+		Basis:      price.Basis.String(),
 		Day:        dateOf(price.Day),
 	})
 	if err != nil {
@@ -235,17 +245,17 @@ func (r *PriceRepository) List(ctx context.Context, own business.ID) ([]product.
 // was changed by another writer, and the model does not trust a stranger
 // with a product it does not know.
 func productFromRow(row db.Product) (product.Product, error) {
-	built, err := product.New(
-		business.ID(row.BusinessID),
-		recipe.ID(row.RecipeID),
-		row.Name,
-		text(row.TaxTreatment),
-	)
+	built, err := product.NewFromFacts(product.Facts{
+		ID:           product.ID(row.ID),
+		BusinessID:   business.ID(row.BusinessID),
+		RecipeID:     recipe.ID(row.RecipeID),
+		Name:         row.Name,
+		TaxTreatment: text(row.TaxTreatment),
+	})
 	if err != nil {
 		return product.Product{}, err
 	}
 
-	built.ID = product.ID(row.ID)
 	built.CreatedAt = timestamp(row.CreatedAt)
 	built.UpdatedAt = timestamp(row.UpdatedAt)
 
@@ -263,12 +273,18 @@ func priceFromRow(row db.Price) (product.Price, error) {
 		return product.Price{}, fmt.Errorf("%w: the channel of the price is %q", product.ErrInvalidValue, row.Channel)
 	}
 
+	basis, err := purchase.ParsePriceBasis(row.Basis)
+	if err != nil {
+		return product.Price{}, fmt.Errorf("%w: the basis of the price is %q", product.ErrInvalidValue, row.Basis)
+	}
+
 	built, err := product.NewPrice(
 		business.ID(row.BusinessID),
 		product.ID(row.ProductID),
 		channel,
 		ledger.Amount(row.Amount),
 		ledger.NewDate(row.Day.Time),
+		basis,
 	)
 	if err != nil {
 		return product.Price{}, err
@@ -310,6 +326,12 @@ func writePriceError(err error) error {
 
 		return fmt.Errorf("%w: the constraint %q refused the row", product.ErrInvalidValue, pgErr.ConstraintName)
 	case foreignKeyViolation:
+		if pgErr.ConstraintName == productsRecipeBusinessConstraint ||
+			pgErr.ConstraintName == pricesProductBusinessConstraint {
+			return fmt.Errorf("%w: the constraint %q refused the row",
+				product.ErrOfAnotherBusiness, pgErr.ConstraintName)
+		}
+
 		return fmt.Errorf("%w: the business or the recipe of the price is not there", product.ErrNotFound)
 	case checkViolation:
 		return fmt.Errorf("%w: the constraint %q refused the row", product.ErrInvalidValue, pgErr.ConstraintName)

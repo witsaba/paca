@@ -48,6 +48,12 @@ var (
 	// does not hold price lists.
 	ErrWrongBusiness = errors.New("the price list belongs to a business of its own")
 
+	// ErrOfAnotherBusiness is the error of a product backed by the recipe
+	// of another business, and of a price of a product of another
+	// business: the product and the price belong to the business that
+	// owns them, and never to the one of another.
+	ErrOfAnotherBusiness = errors.New("the recipe and the product belong to the business that owns them")
+
 	// ErrInvalidValue is the error of a row the database refused because
 	// it breaks a rule of the table.
 	ErrInvalidValue = errors.New("the database refused the row")
@@ -71,6 +77,7 @@ func Errors() []error {
 		ErrInvalidPrice,
 		ErrMissingDay,
 		ErrWrongBusiness,
+		ErrOfAnotherBusiness,
 		ErrInvalidValue,
 		ErrNoStorage,
 	}

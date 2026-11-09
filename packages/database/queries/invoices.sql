@@ -39,9 +39,11 @@ SELECT * FROM invoices WHERE business_id = sqlc.arg(business_id) ORDER BY id;
 --
 -- The purchase points at the invoice it came from, and the row is the
 -- purchase of the business of the invoice: an invoice of one business is
--- never attached to the purchase of another one. The row that does not
--- belong is not touched.
-UPDATE purchases
+-- never attached to the purchase of another one. The row is also the
+-- purchase the INVOICE NAMES: the two sides of the link must agree, and
+-- the row that is not the one the invoice names is not touched.
+UPDATE purchases AS p
 SET invoice_id = sqlc.arg(invoice_id)
-WHERE id = sqlc.arg(purchase_id) AND business_id = sqlc.arg(business_id)
-RETURNING id;
+WHERE p.id = sqlc.arg(purchase_id) AND p.business_id = sqlc.arg(business_id)
+  AND p.id = (SELECT i.purchase_id FROM invoices AS i WHERE i.id = sqlc.arg(invoice_id))
+RETURNING p.id;

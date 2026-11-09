@@ -27,6 +27,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/party"
+	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/store"
@@ -524,6 +525,33 @@ func New(
 
 	invoiceService := application.NewInvoiceService(parties, purchaseReader, invoices, work, clock.System{})
 
+	// The price list of the bakery: the price of the products in the two
+	// channels, the retail and the wholesale. The price is a fact of the
+	// business, it carries the channel it was set for, and the list is a
+	// history: nothing is rewritten when a price changes. The product is
+	// opened the first time it is named. Without a database there is no
+	// price to set nor to read.
+	var products product.Repository
+	var prices product.PriceRepository
+
+	if pool != nil {
+		boundProducts, err := postgres.NewProductRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the products could not be built: %w", err)
+		}
+		products = boundProducts
+
+		boundPrices, err := postgres.NewPriceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the price list could not be built: %w", err)
+		}
+		prices = boundPrices
+	}
+
+	priceService := application.NewPriceService(products, prices, recipeReader, businesses, work, clock.System{})
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -565,6 +593,8 @@ func New(
 		ReadParties:         partyService,
 		RecordInvoice:       invoiceService,
 		ReadInvoices:        invoiceService,
+		SetPrice:            priceService,
+		ReadPrices:          priceService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

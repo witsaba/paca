@@ -20,6 +20,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/party"
+	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -342,4 +343,29 @@ var theMessages = map[error]string{
 	party.ErrInvalidValue: "the database refused the party: check the kind, the name, the roles and the legal " +
 		"human of it",
 	party.ErrNoStorage: "the service has no storage of the parties: the parties cannot be reached",
+
+	product.ErrNotFound: "there is no product with that identity: read the price list of the business to " +
+		"know the products it holds, and name one of them",
+	product.ErrInvalidName: "the name of a product is not empty: give the product the name the owner reads, " +
+		"and never invent one",
+	product.ErrDuplicateName: "the business already holds a product with that name: use the name the owner " +
+		"reads for it, and do not write a second one",
+	product.ErrDuplicateRecipe: "the recipe already backs another product of the business: one recipe backs " +
+		"one product, and the price of that product is the one of the recipe the owner named",
+	product.ErrMissingRecipe: "the product names no recipe: the bakery sells what it bakes, so ask the owner " +
+		"which recipe the product comes from, and send the identity it answered",
+	product.ErrUnknownRecipe: "the business holds no product and no recipe with that name: ask the owner " +
+		"which recipe the product comes from, and read the recipes of the business before naming one",
+	product.ErrMissingProduct: "the price names no product: send the identity of the product, or the recipe " +
+		"it comes from, and the price is never written without it",
+	product.ErrUnknownChannel: "the channel of the price is not one of the channels PACA knows: use 'retail' " +
+		"(the client that buys at the door) or 'wholesale' (the store that buys many of them); the owner says " +
+		"them as 'minorista' and 'mayorista' too",
+	product.ErrInvalidPrice: "the price of a product is not a positive number of pesos: ask the owner what " +
+		"she charges for the product, and never fill a price by yourself",
+	product.ErrMissingDay: "the price carries no day: say the day the price was set, and never invent one",
+	product.ErrWrongBusiness: "the price list belongs to a business of its own: the Personal Business of a " +
+		"person holds the money of that person, and not the price list of the bakery",
+	product.ErrInvalidValue: "the database refused the price: check the channel, the money and the day of it",
+	product.ErrNoStorage:    "the service has no storage of the price list: the price list cannot be reached",
 }

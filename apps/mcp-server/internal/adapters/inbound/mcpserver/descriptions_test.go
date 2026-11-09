@@ -177,6 +177,8 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 		mcpserver.ToolReadParties,
 		mcpserver.ToolRecordInvoice,
 		mcpserver.ToolReadInvoices,
+		mcpserver.ToolSetPrice,
+		mcpserver.ToolReadPrices,
 	}
 	if len(tools.Tools) != len(want) {
 		t.Fatalf("the server exposes %d tools, want %d", len(tools.Tools), len(want))

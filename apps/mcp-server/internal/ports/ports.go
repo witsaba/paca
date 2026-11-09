@@ -15,6 +15,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/party"
+	"github.com/witsaba/paca/packages/domain/product"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -1704,4 +1705,119 @@ type PartiesReader interface {
 	//
 	// The error is the error of the domain.
 	Read(ctx context.Context, request ReadParties) ([]party.Party, error)
+}
+
+// SetPrice is the price the owner declares for a product of a channel.
+//
+// It is the shape of the contract between the agent and the service: the
+// product is named by the recipe it comes from or by the name the owner
+// reads, and the channel is the way it is bought.
+type SetPrice struct {
+	// BusinessID is the business the price list belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the recipe the product comes from. It
+	// is zero when the agent names the recipe with its name, or when it
+	// names the product with the name the owner reads.
+	RecipeID int64
+
+	// RecipeName is the name of the recipe the product comes from. It is
+	// empty when the agent names the recipe with its identity, or when it
+	// names the product with the name the owner reads.
+	RecipeName string
+
+	// Name is the name the owner reads of the product. It is empty when
+	// the agent names the product with its recipe.
+	Name string
+
+	// Channel is the channel the price was set for: 'retail' or
+	// 'wholesale'. It is required, and there is no default channel.
+	Channel string
+
+	// Amount is the money of the product in that channel, in whole pesos.
+	// It is required, and it is never inferred.
+	Amount int64
+
+	// TaxTreatment is the tax treatment the owner stated for the product.
+	// It is optional: an empty one leaves the treatment of the product as
+	// it was, and PACA never derives it from the price.
+	TaxTreatment string
+
+	// Day is the day the price was set. It is the day of today when the
+	// agent names none.
+	Day string
+}
+
+// PriceRecorder is the inbound port of the tool that sets the price of a
+// product.
+//
+// The tool writes the price of the product for the channel, and it opens
+// the product the first time it is named: the product of the bakery comes
+// into being the day the owner puts a price on it.
+type PriceRecorder interface {
+	// Set writes the price of the product for the channel, and answers it
+	// with the product and the price.
+	//
+	// The identity of the business, the channel and the money are
+	// required. The product is named by the recipe it comes from or by
+	// the name the owner reads. The day is optional, and it is the day of
+	// today when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses a price
+	// that is not a positive number of pesos, a channel it does not know
+	// and a product whose name or recipe is taken.
+	Set(ctx context.Context, request SetPrice) (product.Listed, error)
+}
+
+// ReadPrices is the business whose price list is read, and the day the
+// list is read at.
+//
+// It is the shape of the contract between the agent and the service: the
+// day is optional, and it is the day of today when the agent names none.
+type ReadPrices struct {
+	// BusinessID is the business whose price list is read.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the recipe the product comes from. It
+	// is zero when the agent names the recipe with its name, or when it
+	// asks for the whole price list.
+	RecipeID int64
+
+	// RecipeName is the name of the recipe the product comes from. It is
+	// empty when the agent names the recipe with its identity, or when it
+	// asks for the whole price list.
+	RecipeName string
+
+	// Name is the name the owner reads of the product. It is empty when
+	// the agent asks for the whole price list.
+	Name string
+
+	// Channel is the channel the price list is read for. It is empty
+	// when the agent asks for the whole price list.
+	Channel string
+
+	// Day is the day the price list is read at. It is the day of today
+	// when the agent names none.
+	Day string
+}
+
+// PricesReader is the inbound port of the tool that reads the price list
+// of a business.
+//
+// The answer carries the price that holds for every product and every
+// channel on the day the list is read at: the last price set on or before
+// that day.
+type PricesReader interface {
+	// Read answers the price list of the business, in the order of the
+	// products and of the channels.
+	//
+	// The identity of the business is required. The product, the channel
+	// and the day are optional: the day is the day of today when the
+	// agent names none, and the product and the channel answer the whole
+	// list when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses a day that
+	// is not a day of the book, a channel it does not know and a product
+	// the business does not hold.
+	Read(ctx context.Context, request ReadPrices) ([]product.Listed, error)
 }

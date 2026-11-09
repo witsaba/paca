@@ -229,6 +229,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_month_summary",
 		"read_movements",
 		"read_parties",
+		"read_prices",
 		"read_real_price",
 		"read_references",
 		"read_rotation",
@@ -245,6 +246,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"record_reference",
 		"record_sale",
 		"record_waste",
+		"set_price",
 		"update_user_contact_data",
 	}
 	got := make([]string, 0, len(tools.Tools))

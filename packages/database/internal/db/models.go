@@ -127,6 +127,16 @@ type Party struct {
 	TaxID          pgtype.Text
 }
 
+type Price struct {
+	ID         int64
+	BusinessID int64
+	ProductID  int64
+	Channel    string
+	Amount     int64
+	Day        pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+}
+
 type PriceReference struct {
 	ID            int64
 	BusinessID    int64
@@ -139,6 +149,16 @@ type PriceReference struct {
 	Utterance     string
 	ConfirmedWith string
 	CreatedAt     pgtype.Timestamptz
+}
+
+type Product struct {
+	ID           int64
+	BusinessID   int64
+	RecipeID     int64
+	Name         string
+	TaxTreatment pgtype.Text
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
 }
 
 type Production struct {

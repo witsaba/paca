@@ -268,6 +268,20 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadInvoices ports.InvoicesReader
+
+	// SetPrice is the use case that sets the price of a product for a
+	// channel: the retail or the wholesale.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	SetPrice ports.PriceRecorder
+
+	// ReadPrices is the use case that reads the price list of the
+	// business.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadPrices ports.PricesReader
 }
 
 // Server is the MCP transport of the service.
@@ -336,6 +350,7 @@ func New(opts Options) *Server {
 	transport.registerRotationTools(opts.ReadRotation)
 	transport.registerPartyTools(opts.OpenParty, opts.ReadParties)
 	transport.registerInvoiceTools(opts.RecordInvoice, opts.ReadInvoices)
+	transport.registerPriceTools(opts.SetPrice, opts.ReadPrices)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

@@ -62,6 +62,10 @@ packages/domain/
                     from, the legal human that represents a store or a
                     farm, the roles of the client and of the provider, and
                     the port of the storage
+  product/          the model of the product of the bakery: the thing it
+                    sells, the channel that buys it — the retail and the
+                    wholesale — the price with the day it was set, and the
+                    port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
   health/           the model of the health of a service: the states, the
@@ -1136,6 +1140,66 @@ never assumes one (`party.WithTaxIdentity`). The book does not know the
 format of a tax identity either: it is kept the way the owner said it, and
 the rule of the tax authority and the advice of the professional of the
 owner are not read here.
+
+## The model of the product and the price list
+
+`product.Product` is the thing the bakery sells: the product, the price
+and the channel that buys it. `product.Price` is the money of the product
+in a channel, with the day it was set.
+
+**The product of the bakery IS the thing it sells.** It carries the recipe
+it comes from — the bakery sells what it bakes — and the name the owner
+reads. The product is never a second copy of the recipe: it carries the
+identity of it and nothing else (`product.New`).
+
+**The product comes into being the first time it is named.**
+`product.TheProduct` answers the product the business already holds and
+opens the one it does not know, and the name is never guessed: a product
+without a name is refused (`ErrInvalidName`), the name of a product is
+taken inside the business (`ErrDuplicateName`), and one recipe backs one
+product inside the business (`ErrDuplicateRecipe`). The name is compared
+the way a person reads it: trimmed and without case.
+
+**The channels are the two of the owner.** `product.Channel` names the
+retail and the wholesale, and the domain reads the two ways the owner says
+them: `ParseChannel` reads `retail` and `minorista`, and `wholesale` and
+`mayorista` too. There is no third channel and no default.
+
+**The channel is ALREADY IN THE PRICE from the first row.** Every price
+carries the channel it was set for, so that the discount of the wholesale
+never has to rebuild the history of the prices. There is no "the price
+without a channel", and a price without a channel is refused
+(`ErrUnknownChannel`).
+
+**The money of a price is a positive number of whole pesos.** The money of
+the book counts the pesos the person has, and a price of zero pesos is not
+a price the owner charges (`ErrInvalidPrice`). The price carries the day it
+was set (`ErrMissingDay`) and names the product it is of
+(`ErrMissingProduct`).
+
+**The price list is a HISTORY.** The rows are kept and nothing is rewritten
+when a price changes: `product.ThePriceOn` answers the price that holds
+for a product and a channel on a day, and it is the LAST one set on or
+before that day. Two prices of the same day are both kept, and the last one
+that was set is the one that holds. `product.ThePriceList` answers the
+whole list: the price that holds for every product and every channel of the
+business.
+
+**The price of a product is a fact of the BUSINESS.** It never becomes a
+column of the inventory, of the recipe or of the stock: it lives in the
+table of the prices, with a row of its own.
+
+**The tax treatment of a product is an ATTRIBUTE OF THE PRODUCT, and it is
+OPTIONAL.** An empty one means the owner has not decided it
+(`product.WithTaxTreatment`), and the book never derives it from the price
+and never assumes a rate. The treatment is the fact the owner states, and
+nothing more: the rule of the tax authority and the advice of the
+professional of the owner are not read here.
+
+**The price list belongs to a business of its own.** `product.OwnedBy`
+states the rule: the price list belongs to a business of kind `business`,
+and the Personal Business of a person holds the money of that person and
+not the price list of the bakery (`ErrWrongBusiness`).
 
 ## The transaction of the storage
 

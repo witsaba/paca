@@ -1081,7 +1081,7 @@ its session starts.
 |---|---|---|---|---|
 | T23 | S4 | The party and its tools | inline | `this commit` |
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `this commit` |
-| T25 | S27 | The price list, the channel, and their tools | inline | `pending` |
+| T25 | S27 | The price list, the channel, and their tools | inline | `this commit` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
@@ -1368,3 +1368,12 @@ Two things the increment taught, carried here for the ones to come:
 - **The rate in hundredths of a percent is what "never assumed" means in practice.** A rate of 19.5% has no home in a whole percent, and a rate that is rounded away is a rate that was assumed.
 
 Open for the owner: the NIT is deliberately format-free — the book trims it and keeps it, and the rule of the tax authority is not read here (that is the point of S8); and the difference between the total of an invoice and the money the owner paid is **not a movement**: it stays visible in the invoice, and it is a question for the professional of the taxes.
+
+**L40** (2026-11-09): T25 landed: **the price list and the channel**. The product is the thing the bakery sells: it carries the recipe it comes from and the name the owner reads, and it is opened the first time the owner names it — there is no tool that opens it, because the price is the way a product comes into being. The channel is the retail and the wholesale (read also as "minorista" and "mayorista"), and **the channel is in the price from the first row**: there is no price without a channel and no default channel, so the discount of the wholesale never has to rebuild the history. The price is whole pesos and it is positive, and the price list is a **history**: the rows are kept, nothing is rewritten when a price changes, and the price that holds on a day is the last one set on or before that day. The price of a product is a fact of the business and it **never becomes a column of the inventory**, of the recipe or of the stock. The tax treatment of a product is an optional attribute of the product: empty means the owner has not decided it, and the book never derives it from the price and never assumes a rate. The tools are `set_price` and `read_prices`, and the transport carries forty-three tools.
+
+Two things the increment taught, carried here for the ones to come:
+
+- **A rule that is not pinned is a wish.** The constructor of the product accepted a name of only spaces, and the rule existed in the code with no test that bit it. The second pass over the increment added that test and strengthened another one, and the RED evidence of the increment was produced by breaking the code on purpose: six mutations, each one watched by the test that pins that rule fail.
+- **The count of the tools is a promise with teeth.** Every place that counts the tools moved from forty-one to forty-three, and the count is proved by the tests and never written in a comment.
+
+Open for the owner: a price of zero pesos is refused — a product that is given away for nothing is not a price yet; say the word if the book has to carry it. And the tax treatment of the product stays empty until the owner says it.

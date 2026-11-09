@@ -1079,7 +1079,7 @@ its session starts.
 
 | Task | Specs | What it delivers | Route | Commit |
 |---|---|---|---|---|
-| T23 | S4 | The party and its tools | inline | `pending` |
+| T23 | S4 | The party and its tools | inline | `this commit` |
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `pending` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `pending` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `pending` |
@@ -1350,3 +1350,12 @@ Two things the increment taught, carried here for the ones to come:
 - **The rotation and the expiry read the same units and answer different questions.** `read_expiring` answers what expires; `read_rotation` answers what leaves first. The two descriptions say what each one answers, and the answer of the rotation never carries a money.
 
 Open for the owner: the tool `read_rotation` and the tool `read_expiring` read the same units of the book, and the separation between them is the product filter, the place in the order and the absence of the money. A harder separation is a decision of the product and not a defect of the increment.
+
+**L38** (2026-11-09): T23 landed: **the party**. The first model of the business around the bread: the person, the store and the farm, with the roles of the client and the provider — a party may hold both. The legal human that represents a store is required, the legal figure of a farm is carried optionally, and the person refuses it: **the legal human is a fact of the party and never a second person** — never a user, never a party of its own, never a row of the people of PACA. The address and the way of reaching the party are facts of the party, and the phone and the email reuse the rules that the people of PACA already have instead of writing a second cleaning rule. The party belongs to a business of kind business — the Personal Business holds the money of the owner, not the clients of the bakery — and the name of a party is **not unique** inside the business: two clients may share a name and the reading lists them both. The tools are `open_party` and `read_parties`, and the transport carries thirty-nine tools.
+
+Two things the increment taught, carried here for the ones to come:
+
+- **A new package is a new owner, and its catalogue of errors joins the one of the tree.** The ten errors of the party live in `party.Errors()`, and the test that binds every error of the domain to a message for the agent now pins them. The structure test reads that catalogue too, and that is why the party is in it.
+- **A rule the table cannot hold does not have to be invented twice.** The table of the parties holds the kind, the roles, the legal human and the emptiness of the names; the rule that the parties belong to a business of kind business lives in the domain, because a composite foreign key would have forced the adapter to write the kind of the business — and the adapter never decides.
+
+Open for the owner: the reading of the parties does not refuse the Personal Business — it answers with an empty list, because the rule binds the write and a business of kind personal can own no party. Say the word if the rule has to bind the read as well.

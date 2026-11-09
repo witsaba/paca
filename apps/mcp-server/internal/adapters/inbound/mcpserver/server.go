@@ -239,6 +239,20 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadRotation ports.RotationReader
+
+	// OpenParty is the use case that opens a party of the business: the
+	// person, the store or the farm that buys from it or that it buys
+	// from.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	OpenParty ports.PartyOpener
+
+	// ReadParties is the use case that reads the parties of the business.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadParties ports.PartiesReader
 }
 
 // Server is the MCP transport of the service.
@@ -305,6 +319,7 @@ func New(opts Options) *Server {
 	transport.registerSaleTools(opts.RecordSale)
 	transport.registerExitTools(opts.RecordExit)
 	transport.registerRotationTools(opts.ReadRotation)
+	transport.registerPartyTools(opts.OpenParty, opts.ReadParties)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

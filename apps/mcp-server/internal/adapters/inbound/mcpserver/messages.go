@@ -19,6 +19,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -300,4 +301,23 @@ var theMessages = map[error]string{
 	purchase.ErrUnknownPriceBasis: "the way the owner charges is not one of the three the book knows: use " +
 		"'unit' (the price of one piece), 'gram' (the price of one gram) or 'kilogram' (the price of one " +
 		"kilogram)",
+
+	party.ErrNotFound: "there is no party with that identity: read the parties of the business before naming " +
+		"one of them",
+	party.ErrUnknownKind: "the kind of a party is not one of the kinds PACA knows: use 'person', 'store' or " +
+		"'farm'",
+	party.ErrInvalidName: "the name of a party is not empty: give the party the name the owner reads",
+	party.ErrUnknownRole: "the role of a party is not one of the roles PACA knows: use 'client' (the party that " +
+		"buys from the business) or 'provider' (the party the business buys from)",
+	party.ErrNoRole: "the party holds no role: send the role of the client, the role of the provider, or both " +
+		"of them, because a party that is neither is not a party of the book",
+	party.ErrMissingLegalHuman: "the legal human that represents the party is not there: ask for the name of the " +
+		"human that represents the store, and for the legal figure of the farm that has one",
+	party.ErrUnexpectedLegalHuman: "this party of that kind is not represented by a legal human: a person is a " +
+		"person, and the legal human of a store or of a farm is a fact of the party and never a second person",
+	party.ErrWrongBusiness: "the parties belong to a business of its own: the Personal Business of a person holds " +
+		"the money of that person, and not the clients and the providers of the bakery",
+	party.ErrInvalidValue: "the database refused the party: check the kind, the name, the roles and the legal " +
+		"human of it",
+	party.ErrNoStorage: "the service has no storage of the parties: the parties cannot be reached",
 }

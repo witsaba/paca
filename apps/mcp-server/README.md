@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-seven tools: the way PACA onboards a person, the four
+The server exposes thirty-nine tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -118,8 +118,11 @@ of the real price, the tool of the margin, the tool of the production and
 the two tools of the expiry: the correction of the shelf life the owner
 just declared, and the read of what expires, the tool of the waste the
 bakery lost, the tool of the sale the bakery made, the tool of the exit
-of a unit: the consumption of the owner and the donation, and the tool of
-the rotation: the order in which the units leave the book.
+of a unit: the consumption of the owner and the donation, the tool of
+the rotation: the order in which the units leave the book, and the two
+tools of the parties: the person, the store or the farm that buys from the
+bakery or that the bakery buys from, and the reading of the parties the
+business knows.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -160,6 +163,8 @@ the rotation: the order in which the units leave the book.
 | `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
 | `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
 | `read_rotation`           | Reads the rotation of the book: the ORDER in which the units the bakery still holds leave it, and when each one expires. The rotation follows the EARLIEST EXPIRY: the unit that expires first is the first one that leaves, and the units that expire on the same day keep a stable order — the production first, and the position of the unit in it. The answer carries the name of the product, the day each unit was made, the PLACE it takes in that order, the DAY it expires and the DAYS that are left of it. The product is optional: the whole book of the business, or one product of it. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. The answer carries NO money: the valuation of the stock follows the FIFO, and it is another rule. It writes nothing. |
+| `open_party`              | Opens a party of the business: the PERSON, the STORE or the FARM that buys from the bakery, or that the bakery buys from. The business is the business of its own — the one with the clients and the providers of the bakery — and the Personal Business of a person is refused. The kind is required, and the name is required: the name of a party is NOT unique inside the business, and two parties may share it. The roles are required: the CLIENT, the PROVIDER, or both of them, and a party that holds neither is refused. The legal human that represents the party is a FACT OF THE PARTY and never a second person: a store REQUIRES it, a farm CARRIES it only when it has one, and a person REFUSES it. The phone, the email and the address are optional facts of the party, and PACA never invents them. |
+| `read_parties`            | Reads the parties of the business: every person, store and farm it knows, in the order of their identity, with the roles it holds, the way of reaching it, its address and the legal human that represents it. The name of a party is not unique inside the business, and the answer carries the ones that share it. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -461,6 +466,27 @@ owner asks about one product. The answer carries NO money: the FIFO is the
 rule of the valuation of the stock, and the rotation is the rule of the
 output — the two rules are apart, and the model keeps them apart. The tool
 writes nothing.
+
+**The party is the other side of the bread.** The tool `open_party` writes
+the person, the store or the farm that buys from the bakery or that the
+bakery buys from, and the tool `read_parties` answers the parties the
+business knows. The kind of the party is one of the three of the owner, and
+the roles it holds are the CLIENT and the PROVIDER: it may hold both, and
+it may hold neither only when it holds none — the bakery neither sells to
+it nor buys from it, and it is not a party of the book. The party belongs
+to a business of its own: the Personal Business of a person holds the money
+of that person and not the clients and the providers of the bakery, and the
+tool refuses a party of it.
+
+**The legal human that represents a store or a farm is a fact of the party,
+and never a second person.** A store REQUIRES the human that represents
+it, a farm CARRIES it and its legal figure only when it has one — some
+farms have a legal figure and some do not — and a person REFUSES it. The
+human is never a user of PACA, never a party of its own, and never a row of
+the people of PACA: it travels inside the party it belongs to, and nowhere
+else. The name of a party is NOT unique inside the business: the book never
+refuses two parties that share a name, and the reading of the parties holds
+all of them.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

@@ -26,6 +26,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/store"
@@ -485,6 +486,24 @@ func New(
 		clock.System{},
 	)
 
+	// The parties of the bakery: the person, the store and the farm that
+	// buy from it or that it buys from. The party belongs to a business of
+	// its own, and the legal human that represents a store or a farm is a
+	// fact of the party and never a second person. Without a database there
+	// is no party to open nor to read.
+	var parties party.Repository
+
+	if pool != nil {
+		boundParties, err := postgres.NewPartyRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the parties could not be built: %w", err)
+		}
+		parties = boundParties
+	}
+
+	partyService := application.NewPartyService(parties, businesses)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -522,6 +541,8 @@ func New(
 		RecordSale:          saleService,
 		RecordExit:          exitService,
 		ReadRotation:        rotationService,
+		OpenParty:           partyService,
+		ReadParties:         partyService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

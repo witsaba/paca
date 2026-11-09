@@ -57,6 +57,11 @@ packages/domain/
                     owner and the donation - and the port of the
                     storage
   store/            the port of a transaction of the storage: the unit of work
+  party/            the model of the party of the business: the person, the
+                    store and the farm that buy from it or that it buys
+                    from, the legal human that represents a store or a
+                    farm, the roles of the client and of the provider, and
+                    the port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
   health/           the model of the health of a service: the states, the
@@ -1037,6 +1042,45 @@ the days between the day the price was seen and the day of the reading, and
 `Reference.IsOlderThan` says whether it is older than what the owner
 expects. A reference older than she expects is shown with its age, and the
 age is never negative: a reference of the day of the reading is not old.
+
+## The model of the party
+
+`party.Party` is the other side of the bread: the person, the store or the
+farm that buys from the bakery, or that the bakery buys from. The three are
+one model, because the owner buys from a farm and sells to a person, and
+neither of them is a second business.
+
+**The kinds of a party are the three of the owner.** `party.Kind` names the
+person, the store and the farm, and the domain reads them from the name the
+storage holds (`ParseKind`). The kind decides what the party carries.
+
+**The legal human that represents a store or a farm is a FACT OF THE PARTY.**
+It is a name, and the legal figure it has when it has one. It is never a
+second person: it is not a `user`, it is not a party of its own, and it
+never becomes a row of the people of PACA. The rules are the ones of the
+kind: a store **requires** the legal human that represents it
+(`ErrMissingLegalHuman`), a farm **carries** it only when it has one — some
+farms have a legal figure and some do not — and a person **refuses** it
+(`ErrUnexpectedLegalHuman`).
+
+**The roles of the party are the client and the provider.** A party may
+hold both of them, and a party that holds neither is refused
+(`ErrNoRole`): the bakery neither sells to it nor buys from it, and it is
+not a party of the book. A role that is said twice is one role.
+
+**The way of reaching the party and its address are facts of the party.**
+The rules of the phone and of the email are the rules of the person
+(`user.CleanPhone` and `user.CleanEmail`), and the package reuses them: the
+party never writes a second cleaning rule.
+
+**The party belongs to a business of its own.** `party.OwnedBy` states the
+rule: the parties belong to a business of kind `business`, and the Personal
+Business of a person holds the money of that person and not the clients and
+the providers of the bakery (`ErrWrongBusiness`).
+
+**The name of a party is NOT unique inside the business.** The domain never
+refuses two parties that share a name, and the reading of the parties lists
+them all. The table holds the same rule: there is no index of the name.
 
 ## The transaction of the storage
 

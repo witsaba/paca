@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/party"
 	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
@@ -1517,4 +1518,94 @@ type RecordExit struct {
 type ExitRecorder interface {
 	// Record writes the exit of the business and answers it with it.
 	Record(ctx context.Context, request RecordExit) (recipe.Exit, error)
+}
+
+// OpenParty is the party the owner wants in the book of the business: the
+// person, the store or the farm that buys from the bakery or that the
+// bakery buys from.
+//
+// It is the shape of the contract between the agent and the service: the
+// legal human that represents a store or a farm travels as a name and as
+// its legal figure, and it is a fact of the party and never a second
+// person.
+type OpenParty struct {
+	// BusinessID is the business that knows the party and that owns it.
+	//
+	// It is the business of its own: the Personal Business of a person
+	// holds the money of that person, and not the clients and the
+	// providers of the bakery.
+	BusinessID int64
+
+	// Kind is the kind of the party: 'person', 'store' or 'farm'.
+	Kind string
+
+	// Name is the name the owner reads.
+	//
+	// It is not unique inside the business: two parties may share it.
+	Name string
+
+	// Roles are the roles the party holds: 'client', 'provider', or both
+	// of them.
+	Roles []string
+
+	// Phone is the phone number of the party. It is optional.
+	Phone string
+
+	// Email is the email address of the party. It is optional.
+	Email string
+
+	// Address is the address of the party. It is optional.
+	Address string
+
+	// LegalHumanName is the name of the human that represents the party.
+	// It is required for a store, and it is refused for a person.
+	LegalHumanName string
+
+	// LegalFigure is the legal figure the human has. It is optional, and
+	// it is the figure of the farm that has one.
+	LegalFigure string
+}
+
+// PartyOpener is the inbound port of the tool that opens a party.
+//
+// The tool writes the party of the business and answers it with it: the
+// kind, the name, the roles and the facts of the party.
+type PartyOpener interface {
+	// Open writes the party of the business and answers it with it.
+	//
+	// The identity of the business, the kind, the name and the roles are
+	// required. The phone, the email, the address, the name of the legal
+	// human and its legal figure are optional, and the kind of the party
+	// decides what the legal human may be.
+	//
+	// The error is the error of the domain: the domain refuses a party of
+	// the personal business of a person, a party without a name, a party
+	// that holds no role, a store without the legal human that represents
+	// it and a person that carries one.
+	Open(ctx context.Context, request OpenParty) (party.Party, error)
+}
+
+// ReadParties is the business whose parties are read.
+//
+// It is the shape of the contract between the agent and the service: the
+// business is the only thing the agent names.
+type ReadParties struct {
+	// BusinessID is the business whose parties are read.
+	BusinessID int64
+}
+
+// PartiesReader is the inbound port of the tool that reads the parties of a
+// business.
+//
+// The answer carries every party of the business: the name is not unique
+// inside it, and the ones that share it are all of them.
+type PartiesReader interface {
+	// Read answers the parties of the business, in the order of their
+	// identity.
+	//
+	// The identity of the business is required, and the list is empty
+	// when the business knows no party yet.
+	//
+	// The error is the error of the domain.
+	Read(ctx context.Context, request ReadParties) ([]party.Party, error)
 }

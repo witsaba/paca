@@ -96,6 +96,21 @@ type Overhead struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type Party struct {
+	ID             int64
+	BusinessID     int64
+	Kind           string
+	Name           string
+	Roles          []byte
+	Phone          pgtype.Text
+	Email          pgtype.Text
+	Address        pgtype.Text
+	LegalHumanName pgtype.Text
+	LegalFigure    pgtype.Text
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type PriceReference struct {
 	ID            int64
 	BusinessID    int64

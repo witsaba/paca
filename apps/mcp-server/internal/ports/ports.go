@@ -1416,3 +1416,65 @@ type SaleRecorder interface {
 	// Record writes the sale of the business and answers it with it.
 	Record(ctx context.Context, request RecordSale) (recipe.Sale, error)
 }
+
+// RecordExit is the exit the owner confirmed: the consumption of the owner
+// or the donation, the product, the quantity she took with its unit, the
+// day it happened and the word she used to confirm it.
+//
+// It is the shape of the contract between the agent and the service: the
+// kind of the exit, the quantity and the unit are what she said, and PACA
+// never infers any of them. The cost of the exit is derived by the book: it
+// is the cost the exit releases, and it is never typed.
+type RecordExit struct {
+	// BusinessID is the business the exit belongs to.
+	BusinessID business.ID
+
+	// RecipeID is the identity of the product she consumed or gave away.
+	// It is zero when the agent names the product with its name.
+	RecipeID int64
+
+	// RecipeName is the name the owner reads of the product she consumed
+	// or gave away. It is empty when the agent names the product with its
+	// identity.
+	RecipeName string
+
+	// Kind is the kind of the exit: 'consumption' or 'donation'.
+	Kind string
+
+	// Quantity is how many units of the product the exit took.
+	Quantity float64
+
+	// Unit is the unit of that quantity. It is empty when the owner named
+	// none, and the exit counts the units it took then.
+	Unit string
+
+	// Day is the day the exit happened. It is the day of today when the
+	// agent names none.
+	Day string
+
+	// Utterance is the sentence of the owner, verbatim. It is optional.
+	Utterance string
+
+	// ConfirmedWith is the word she used to confirm the exit.
+	ConfirmedWith string
+}
+
+// ExitRecorder is the inbound port of the tool that records the exit.
+//
+// The tool writes the exit of the business and answers it with it: the kind
+// of the exit, the product, the quantity, the unit, the cost it released,
+// the tax treatment it waits for and the units that left the book.
+//
+// The identity of the business, the product, the kind of the exit, the
+// quantity and the word of the owner are required. The unit, the day and
+// the sentence of the owner are optional, and the day is the day of today
+// when the agent names none.
+//
+// The error is the error of the domain: the domain refuses an exit without
+// a product, without a whole number of units, without a kind of the book,
+// without the day it happened and without the word of the owner, and it
+// refuses an exit of units the book does not hold.
+type ExitRecorder interface {
+	// Record writes the exit of the business and answers it with it.
+	Record(ctx context.Context, request RecordExit) (recipe.Exit, error)
+}

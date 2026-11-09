@@ -258,8 +258,8 @@ func TestDefaultBusinessAccounts(t *testing.T) {
 	t.Parallel()
 
 	seed := DefaultBusinessAccounts()
-	if len(seed) != 9 {
-		t.Fatalf("the seed holds %d accounts, want 9", len(seed))
+	if len(seed) != 10 {
+		t.Fatalf("the seed holds %d accounts, want 10", len(seed))
 	}
 
 	names := make(map[string]bool, len(seed))
@@ -278,7 +278,7 @@ func TestDefaultBusinessAccounts(t *testing.T) {
 	}
 
 	for _, want := range []string{"Efectivo", "Banco", "Inventario", "Ventas", "Costo de ventas", //nolint:misspell // "Inventario" is the name the person reads in their book.
-		"Mano de obra", "Gastos indirectos", "Merma", "Capital"} {
+		"Mano de obra", "Gastos indirectos", "Merma", "Donación", "Capital"} { //nolint:misspell // "Donación" is the name the person reads in their book.
 		if !names[want] {
 			t.Errorf("the seed does not hold %q", want)
 		}
@@ -298,6 +298,7 @@ func TestDefaultBusinessAccounts(t *testing.T) {
 		"Mano de obra":      KindExpense,
 		"Gastos indirectos": KindExpense,
 		"Merma":             KindExpense,
+		"Donación":          KindExpense, //nolint:misspell // "Donación" is the name the person reads in their book.
 		"Capital":           KindEquity,
 	} {
 		if kinds[name] != want {
@@ -387,6 +388,7 @@ func TestTheSeedOfTheRoleIsTheAccountTheBookNames(t *testing.T) {
 		RoleLabor:       "Mano de obra",
 		RoleOverhead:    "Gastos indirectos",
 		RoleWaste:       "Merma",
+		RoleDonation:    "Donación", //nolint:misspell // "Donación" is the name the person reads in their book.
 		RoleCapital:     "Capital",
 	} {
 		seed, ok := SeedOfRole(role)

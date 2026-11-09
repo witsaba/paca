@@ -445,6 +445,35 @@ func New(
 		clock.System{},
 	)
 
+	// The exit of the book: what the owner consumed and what the bakery
+	// gave away. The exit moves no money: it releases the cost of the
+	// units that left the book, and the cost leaves the inventory and
+	// lands in the account of the expense of the exit. The tax treatment
+	// of the exit waits for the professional of the taxes of the owner,
+	// and the exit names the question. The exit and the movement of its
+	// cost are written in one transaction. Without a database there is no
+	// exit to write.
+	var exits recipe.ExitRepository
+
+	if pool != nil {
+		boundExits, err := postgres.NewExitRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the exits could not be built: %w", err)
+		}
+		exits = boundExits
+	}
+
+	exitService := application.NewExitService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		exits,
+		work,
+		clock.System{},
+	)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -480,6 +509,7 @@ func New(
 		ReadExpiring:        expiryService,
 		RecordWaste:         wasteService,
 		RecordSale:          saleService,
+		RecordExit:          exitService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

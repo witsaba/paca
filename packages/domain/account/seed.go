@@ -1,6 +1,12 @@
 package account
 
-import "fmt"
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/witsaba/paca/packages/domain/business"
+)
 
 // Role is what an account of the book of a business is for.
 //
@@ -46,6 +52,10 @@ const (
 	// lost.
 	RoleWaste Role = "waste"
 
+	// RoleDonation is the role of the account that holds the social
+	// expense of the business: what it gave away.
+	RoleDonation Role = "donation"
+
 	// RoleCapital is the role of the account that holds what the owner put
 	// into the book of the business.
 	RoleCapital Role = "capital"
@@ -76,8 +86,9 @@ type Seed struct {
 // The accounts are the three layers of the real price of the owner - the
 // cost of the sales, the labor and the overhead - and the money that buys
 // them: the cash, the bank and the inventory. The sales are the income of
-// the book, the capital is what the owner put into it, and the waste is the
-// product that never reached a client.
+// the book, the capital is what the owner put into it, the waste is the
+// product that never reached a client, and the donation is the social
+// expense of the business: what it gave away.
 //
 // A debt is not in the seed, and neither is an account that is not in this
 // list: they are created when they happen.
@@ -93,6 +104,9 @@ func DefaultBusinessAccounts() []Seed {
 		{Kind: KindExpense, Name: "Mano de obra", Role: RoleLabor},
 		{Kind: KindExpense, Name: "Gastos indirectos", Role: RoleOverhead},
 		{Kind: KindExpense, Name: "Merma", Role: RoleWaste},
+		// The name is in Spanish, and the linter of the English words
+		// reads it as a typo: the name is the one the person reads.
+		{Kind: KindExpense, Name: "Donación", Role: RoleDonation}, //nolint:misspell // "Donación" is the name the person reads in their book.
 		{Kind: KindEquity, Name: "Capital", Role: RoleCapital},
 	}
 }
@@ -159,4 +173,69 @@ func OfRole(accounts []Account, role Role) (Account, error) {
 	}
 
 	return Account{}, fmt.Errorf("%w: the book holds no account of the role %q", ErrNotFound, role)
+}
+
+// TheAccountOfTheRole answers the account of the role in the book of a
+// business, and opens it when the book does not carry it.
+//
+// The rule of the domain: the book of a business starts with the accounts
+// of the seed, and a book that was opened before a role of the seed existed
+// catches up with the seed the first time the role is used. The name and
+// the kind of the account come from the seed, so the book never carries a
+// second truth about them.
+//
+// The error is ErrNotFound when the role is not one of the book of a
+// business, and the error of the storage when the storage refuses to write
+// the account.
+func TheAccountOfTheRole(
+	ctx context.Context,
+	repo Repository,
+	own business.ID,
+	role Role,
+) (Account, error) {
+	seed, ok := SeedOfRole(role)
+	if !ok {
+		return Account{}, fmt.Errorf("%w: %q is not a role of the book of a business", ErrNotFound, role)
+	}
+
+	accounts, err := repo.List(ctx, own)
+	if err != nil {
+		return Account{}, err
+	}
+
+	for _, one := range accounts {
+		if one.Name == seed.Name {
+			return one, nil
+		}
+	}
+
+	opened, err := New(own, seed.Kind, seed.Name, "", nil)
+	if err != nil {
+		return Account{}, err
+	}
+
+	created, err := repo.Create(ctx, opened)
+	if err == nil {
+		return created, nil
+	}
+
+	if !errors.Is(err, ErrAlreadyExists) {
+		return Account{}, err
+	}
+
+	// The account was opened by someone else at the same time: the book of
+	// the business carries one account of the role, and the one that is
+	// there is the one the book uses.
+	listed, err := repo.List(ctx, own)
+	if err != nil {
+		return Account{}, err
+	}
+
+	for _, one := range listed {
+		if one.Name == seed.Name {
+			return one, nil
+		}
+	}
+
+	return Account{}, ErrAlreadyExists
 }

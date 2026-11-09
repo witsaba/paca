@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes thirty-five tools: the way PACA onboards a person, the four
+The server exposes thirty-six tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -117,7 +117,8 @@ confirmed, the tool of the overhead of the house, the tool of the report
 of the real price, the tool of the margin, the tool of the production and
 the two tools of the expiry: the correction of the shelf life the owner
 just declared, and the read of what expires, the tool of the waste the
-bakery lost, and the tool of the sale the bakery made.
+bakery lost, the tool of the sale the bakery made, and the tool of the exit
+of a unit: the consumption of the owner and the donation.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -156,6 +157,7 @@ bakery lost, and the tool of the sale the bakery made.
 | `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
 | `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold and the ones that were wasted are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
 | `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
+| `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -425,6 +427,24 @@ the inventory and it lands in the account of the cost of the sales. The
 sale and the two movements of its money are written in one transaction. The
 word she used to confirm it is kept with the record, and her sentence is
 kept verbatim when she said one.
+
+**The exit is a movement, and it moves no money at all.**
+The tool `record_exit` writes the exit of a unit of the book: the KIND of it
+— `consumption` when the owner ate the bread, `donation` when the bakery
+gave it away — the product, the quantity of units, the unit and the day it
+happened. The exit moves NO money: nobody paid for the bread the owner
+consumed or for the bread the bakery gave away. What the exit does is
+RELEASE the cost of the units that left the book: the units of the product
+that EXPIRE FIRST, and the cost is derived, never typed — the money of the
+production they came out of, divided by the units that production made.
+The cost leaves the inventory and it lands in the account of the expense of
+the exit: the cost of the sales for the consumption, and the account of the
+donation for the donation, which is a social expense of the business. The
+TAX TREATMENT is never decided by PACA: it waits for the professional of the
+taxes of the owner, and the answer carries the question that waits. The
+exit and the movement of its cost are written in one transaction. The word
+she used to confirm it is kept with the record, and her sentence is kept
+verbatim when she said one.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

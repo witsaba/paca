@@ -857,9 +857,11 @@ and the adapter).
 - The donation is a social expense of the business.
 - The tool `record_exit` writes the exit of a unit.
 
-**In scope:** `packages/domain/production`, `packages/domain/purchase`,
-`packages/domain/ledger`, `apps/mcp-server/internal/application`,
+**In scope:** `packages/domain/recipe`, `packages/domain/account`,
+`packages/domain/purchase`, `packages/domain/ledger`,
+`apps/mcp-server/internal/application`,
 `apps/mcp-server/internal/adapters/inbound/mcpserver`,
+`apps/mcp-server/internal/ports`, `apps/mcp-server/internal/bootstrap`,
 `packages/database`.
 
 ### T22 — the freshness first, and the tool that reads the rotation
@@ -1070,7 +1072,7 @@ its session starts.
 | T18 | S23 | The expiry of every unit and the tool that reads what expires | inline | `66e7298`, corrected in `45687a0` and `b1e5d30` |
 | T19 | S24, S25 | The waste and the tool that records it | inline | `2661d6f`, corrected in `45687a0` and `b1e5d30` |
 | T20 | S24, S26 | The sale and the tool that records it | inline | `a75f2e4`, corrected in `45687a0` and `b1e5d30` |
-| T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `pending` |
+| T21 | S24 | The consumption of the owner, the donation, and the tool that records them | inline | `this commit` |
 | T22 | S26 | The freshness first and the tool that reads the rotation | inline | `pending` |
 
 ### Movement V — The business around the bread
@@ -1329,3 +1331,13 @@ Three things the review taught, carried here for the ones to come:
 - **A description of a tool is a promise.** What it says and what it does have to be the same thing, and when they differ, the description is the defect.
 
 **The delivery note**: the correction was cut in two commits — `45687a0` (the storage: the units that left the book, and the proofs of the movements) and `b1e5d30` (the domain and the transport) — because the catalogue of the errors of the domain binds them: a commit that declares an error of the domain and does not give it a message for the agent leaves the gate red. The slice of the second is past the four hundred lines of the delivery strategy, and the review that produced it is the reason: eleven increments carry the findings.
+
+**L36** (2026-11-09): T21 landed: **the consumption of the owner and the donation**. The two exits move **no money** — nobody paid for the bread the owner ate or for the bread the bakery gave away — and both release the cost of the units that left the book, written in one transaction with the exit itself. The donation is a social expense of the business and lands in the account of the donation, a new role of the seed of the book; the consumption releases the cost like a sale does and lands in the account of the cost of the sales. The tax treatment of the two is never decided by the book: the movement is recorded, the treatment is carried as *pending the professional of the taxes* and the question it waits for travels with the exit. The tool is `record_exit`, and the transport carries thirty-six tools.
+
+Three things the increment taught, carried here for the ones to come:
+
+- **The four exits write their units in the same table.** `unit_exits` owns the rule "a unit leaves the book once, whichever exit takes it", and its check now holds the four kinds: the waste, the sale, the consumption and the donation.
+- **A book opened before a role existed catches up with the seed.** The role of the donation arrived with this increment, and the books opened before it carried no account of the donation. The domain opens it the first time the role is used, with the name and the kind of the seed, so the book never carries a second truth about them and no business is left unable to donate.
+- **Only the sale refuses the unit that expired.** The bread that expired is still bread for the owner and for the one she gives it to; the sale is the exit that a client pays for, and it is the one that refuses.
+
+Open for the owner (the increment did not decide it): the tax treatment of the consumption and of the donation — the question is named in the book and waits for the professional of the taxes — and whether the consumption of the owner belongs to the account of the cost of the sales or to an account of its own: the increment took the reading of the acceptance ("release the cost like a sale"), and the money of the real price and of the margin reads that account.

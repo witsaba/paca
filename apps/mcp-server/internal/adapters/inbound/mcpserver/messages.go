@@ -254,6 +254,21 @@ var theMessages = map[error]string{
 		"money of the units that left the book, and it is never negative",
 	recipe.ErrMissingSaleConfirmation: "the sale carries no word of the owner: send the word she used to confirm " +
 		"it ('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrUnknownExitKind: "the kind of the exit is not one of the two PACA knows: use 'consumption' when the " +
+		"owner ate the bread, and 'donation' when the bakery gave it away",
+	recipe.ErrInvalidExitQuantity: "the quantity of the exit is not a whole number of units: ask the owner how " +
+		"many units she consumed or gave away, and never guess them",
+	recipe.ErrInvalidExitUnit: "the unit of the exit is not the piece: the exit of the bakery counts the units " +
+		"it took ('unidad'), and PACA never converts a weight into a number of units",
+	recipe.ErrMissingExitDay: "the exit carries no day: ask the owner the day it happened, and never invent one",
+	recipe.ErrMissingExitConfirmation: "the exit carries no word of the owner: send the word she used to confirm " +
+		"it ('sí', 'confirmado'), and keep it with the record",
+	recipe.ErrInvalidExitCost: "the cost of the exit is not a number of pesos: the cost of the exit is the cost " +
+		"of the units that left the book, and it is never negative",
+	recipe.ErrMissingTaxTreatment: "the exit carries no tax treatment: the tax treatment of an exit waits for " +
+		"the professional of the taxes of the owner, and PACA never decides it by herself",
+	recipe.ErrNotEnoughUnitsToExit: "the book holds no unit of that product to exit: read what the bakery still " +
+		"has, and ask the owner how many units she consumed or gave away",
 
 	purchase.ErrMissingIngredient: "the reference names nothing of the catalog: match the name against the catalog " +
 		"of the business first, and send the identity it answered",

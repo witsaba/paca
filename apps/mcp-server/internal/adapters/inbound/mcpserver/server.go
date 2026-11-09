@@ -225,6 +225,13 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	RecordSale ports.SaleRecorder
+
+	// RecordExit is the use case that writes the exit of a unit of the
+	// book: the consumption of the owner or the donation.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordExit ports.ExitRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -289,6 +296,7 @@ func New(opts Options) *Server {
 	transport.registerExpiryTools(opts.CorrectShelfLife, opts.ReadExpiring)
 	transport.registerWasteTools(opts.RecordWaste)
 	transport.registerSaleTools(opts.RecordSale)
+	transport.registerExitTools(opts.RecordExit)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

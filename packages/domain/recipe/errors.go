@@ -256,6 +256,45 @@ var (
 	// ErrMissingSaleConfirmation is the error of a sale without the word
 	// the owner used to confirm it: the word is kept with the record.
 	ErrMissingSaleConfirmation = errors.New("the sale carries the word of the owner")
+
+	// ErrUnknownExitKind is the error of an exit of a kind the book does
+	// not know: the exits of the bakery are the consumption of the owner
+	// and the donation, and no other one is guessed.
+	ErrUnknownExitKind = errors.New("the exit is the consumption of the owner or the donation")
+
+	// ErrInvalidExitQuantity is the error of an exit that carries no
+	// whole number of units: the exits of the bakery count the units they
+	// took, and the book never splits a unit.
+	ErrInvalidExitQuantity = errors.New("the exit carries a whole number of units")
+
+	// ErrInvalidExitUnit is the error of an exit that carries another
+	// unit: the exits of the bakery count the units they took, and the
+	// book never converts a weight into a number of units.
+	ErrInvalidExitUnit = errors.New("the exit of the bakery counts the units it took")
+
+	// ErrMissingExitDay is the error of an exit of no day: an exit of no
+	// time is an exit of nothing.
+	ErrMissingExitDay = errors.New("the exit carries the day it happened")
+
+	// ErrMissingExitConfirmation is the error of an exit without the word
+	// the owner used to confirm it: the word is kept with the record.
+	ErrMissingExitConfirmation = errors.New("the exit carries the word of the owner")
+
+	// ErrInvalidExitCost is the error of an exit whose cost is negative:
+	// the cost of the exit is the cost of the units that left the book,
+	// and the money of the book is never negative.
+	ErrInvalidExitCost = errors.New("the cost of the exit is not negative")
+
+	// ErrMissingTaxTreatment is the error of an exit that carries no tax
+	// treatment: the tax treatment of an exit waits for the professional
+	// of the taxes of the owner, and the exit never hides it behind a
+	// silent default.
+	ErrMissingTaxTreatment = errors.New("the exit carries the tax treatment it waits for")
+
+	// ErrNotEnoughUnitsToExit is the error of an exit of units the book
+	// does not hold: the exit is of what the bakery still has, and the
+	// book never writes an exit of nothing.
+	ErrNotEnoughUnitsToExit = errors.New("the book holds no unit to exit")
 )
 
 // Errors returns the errors of the domain of the recipe.
@@ -316,5 +355,13 @@ func Errors() []error {
 		ErrInvalidSaleMoney,
 		ErrInvalidSaleCost,
 		ErrMissingSaleConfirmation,
+		ErrUnknownExitKind,
+		ErrInvalidExitQuantity,
+		ErrInvalidExitUnit,
+		ErrMissingExitDay,
+		ErrMissingExitConfirmation,
+		ErrInvalidExitCost,
+		ErrMissingTaxTreatment,
+		ErrNotEnoughUnitsToExit,
 	}
 }

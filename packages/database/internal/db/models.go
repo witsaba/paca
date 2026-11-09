@@ -29,6 +29,22 @@ type Business struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Exit struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Kind          string
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Cost          int64
+	TaxTreatment  string
+	TaxQuestion   string
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type Ingredient struct {
 	ID                    int64
 	BusinessID            int64

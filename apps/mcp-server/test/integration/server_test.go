@@ -231,6 +231,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_stock",
 		"record_debt",
 		"record_debt_payment",
+		"record_exit",
 		"record_labor",
 		"record_movement",
 		"record_overhead",

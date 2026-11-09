@@ -21,4 +21,10 @@ const (
 
 	// exitKindSale is the exit of a unit that the bakery sold.
 	exitKindSale = "sale"
+
+	// exitKindConsumption is the exit of a unit that the owner consumed.
+	exitKindConsumption = "consumption"
+
+	// exitKindDonation is the exit of a unit that the bakery gave away.
+	exitKindDonation = "donation"
 )

@@ -11,6 +11,96 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createExit = `-- name: CreateExit :one
+WITH written AS (
+    INSERT INTO exits (
+        business_id, recipe_id, kind, day, quantity, unit, cost,
+        tax_treatment, tax_question, utterance, confirmed_with
+    )
+    VALUES (
+        $1, $2, $3, $4,
+        $5, $6, $7, $8,
+        $9, $10, $11
+    )
+    RETURNING id, business_id, recipe_id, kind, day, quantity, unit, cost, tax_treatment,
+              tax_question, utterance, confirmed_with, created_at
+)
+SELECT written.id, written.business_id, written.recipe_id, written.kind, written.day,
+       written.quantity, written.unit, written.cost, written.tax_treatment, written.tax_question,
+       written.utterance, written.confirmed_with, written.created_at,
+       recipes.name AS recipe_name
+FROM written
+JOIN recipes ON recipes.id = written.recipe_id
+`
+
+type CreateExitParams struct {
+	BusinessID    int64
+	RecipeID      int64
+	Kind          string
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Cost          int64
+	TaxTreatment  string
+	TaxQuestion   string
+	Utterance     string
+	ConfirmedWith string
+}
+
+type CreateExitRow struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Kind          string
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Cost          int64
+	TaxTreatment  string
+	TaxQuestion   string
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+	RecipeName    string
+}
+
+// The exit is a fact of the business: the kind of the exit, the product it
+// took, the quantity it took with its unit, the cost it released, the tax
+// treatment it waits for, the day it happened and the word of the owner.
+func (q *Queries) CreateExit(ctx context.Context, arg CreateExitParams) (CreateExitRow, error) {
+	row := q.db.QueryRow(ctx, createExit,
+		arg.BusinessID,
+		arg.RecipeID,
+		arg.Kind,
+		arg.Day,
+		arg.Quantity,
+		arg.Unit,
+		arg.Cost,
+		arg.TaxTreatment,
+		arg.TaxQuestion,
+		arg.Utterance,
+		arg.ConfirmedWith,
+	)
+	var i CreateExitRow
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.RecipeID,
+		&i.Kind,
+		&i.Day,
+		&i.Quantity,
+		&i.Unit,
+		&i.Cost,
+		&i.TaxTreatment,
+		&i.TaxQuestion,
+		&i.Utterance,
+		&i.ConfirmedWith,
+		&i.CreatedAt,
+		&i.RecipeName,
+	)
+	return i, err
+}
+
 const createUnitExit = `-- name: CreateUnitExit :one
 
 INSERT INTO unit_exits (unit_id, exit_kind, exit_id, production_id, position, grams, expires_on)
@@ -43,13 +133,14 @@ type CreateUnitExitRow struct {
 
 // The queries of the exits of the book.
 //
-// A unit leaves the book once, whichever exit it takes: the waste or the
-// sale. The table of the exits owns that rule, and the query of the units
-// that are still in the book reads it: a unit that left is never offered
-// again, whatever exit took it.
+// A unit leaves the book once, whichever exit it takes: the waste, the
+// sale, the consumption or the donation. The table of the exits owns that
+// rule, and the query of the units that are still in the book reads it: a
+// unit that left is never offered again, whatever exit took it.
 //
 // The exit of a unit carries the kind of the exit and the identity of the
-// row of that exit: the waste or the sale that took it.
+// row of that exit: the waste, the sale, the consumption or the donation
+// that took it.
 func (q *Queries) CreateUnitExit(ctx context.Context, arg CreateUnitExitParams) (CreateUnitExitRow, error) {
 	row := q.db.QueryRow(ctx, createUnitExit,
 		arg.UnitID,

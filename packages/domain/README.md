@@ -53,7 +53,8 @@ packages/domain/
                     with the units it made and the day they expire, the
                     correction of the shelf life, the read of what
                     expires, the waste of the bakery, the sale of the
-                    bakery and the port of the
+                    bakery, the exit of a unit - the consumption of the
+                    owner and the donation - and the port of the
                     storage
   store/            the port of a transaction of the storage: the unit of work
   schema/           the state of the schema of the database: the version, the
@@ -205,7 +206,8 @@ kind carries neither.
 returns the accounts that the Personal Business of a person starts with, and
 `DefaultBusinessAccounts` returns the accounts that a business of the kind
 `business` starts with: the cash, the bank, the inventory, the sales, the
-cost of the sales, the labor, the overhead, the waste and the capital. The
+cost of the sales, the labor, the overhead, the waste, the donation and the
+capital. The
 contract the agent reads is derived from them — the list of the accounts
 and the kinds of an account are read from the domain and never written a
 second time.
@@ -914,6 +916,59 @@ the one the owner names (`recipe.TheReceivingAccount`) — and
 `recipe.Sale.CostMovement` moves the cost of the units that left the book
 from the inventory to the account of the cost of the sales. The money of
 the sale is never lost from the book, and neither is the cost of it.
+
+## The model of the exit
+
+`recipe.Exit` is what left the book without money in it: the consumption of
+the owner and the donation. `recipe.ExitedUnit` is a unit of a production
+that left the book. It lives in the package of the recipe, next to the
+production it is an exit of: the exit is of a product, and the product is
+a recipe.
+
+**The exit is a movement of the book, and it moves no money.** It carries
+the kind of the exit — the consumption of the owner or the donation — the
+product, the quantity, the unit, the day it happened and the word of the
+owner, and it is written with her confirmation, the way the production, the
+waste and the sale are written (`ErrMissingExitConfirmation`). The kind is
+never guessed (`ErrUnknownExitKind`), and `recipe.ParseExitKind` reads the
+name the owner says the way a person reads it.
+
+**The exit counts the units it took.** The quantity is a whole number of
+units (`ErrInvalidExitQuantity`), and the unit is the unit of a piece
+(`ErrInvalidExitUnit`): the book never converts a weight into a number of
+units, and it never splits a unit.
+
+**The units that leave the book are the units that expire first.** The
+rotation of the output follows the earliest expiry, and the valuation of
+the stock by the FIFO is another rule: the model keeps the two apart. An
+exit of units the book does not hold is refused (`ErrNotEnoughUnitsToExit`).
+The sale is the only exit that refuses the unit that expired: the bread
+that expired is still bread for the owner and for the one she gives it to.
+
+**The exit releases the cost of what it took.** The cost of the exit is the
+money of the units that left: the money of the production they came out
+of, divided by the units that production made. The derivation is the one of
+the waste and of the sale, and it is never written a second time. The cost
+is derived, never typed, and it counts whole pesos (`ErrInvalidExitCost`).
+
+**The exit moves no money and releases the cost.**
+`recipe.Exit.CostMovement` moves the cost of the units that left the book
+from the inventory to the account of the expense of the exit, and it is the
+only movement of the exit: nobody paid for the bread the owner consumed or
+for the bread the bakery gave away. The account is the one the domain
+names: `recipe.Exit.TheExpenseRole` answers the cost of the sales for the
+consumption of the owner — the consumption releases the cost like a sale
+does — and the account of the donation for the donation, which is a social
+expense of the business (`account.RoleDonation`). The description of the
+movement is the sentence of the owner, and the words of the book when she
+said none (`recipe.Exit.Description`).
+
+**The tax treatment of the exit waits for the professional of the taxes.**
+The book decides no tax treatment of its own: the exit carries the
+treatment it waits for (`recipe.TaxPendingTheProfessional`) and the question
+that waits with it, and an exit that carries none is refused
+(`ErrMissingTaxTreatment`). There is no rate that the book assumes and no
+default that it hides.
 
 ## The model of the reference price
 

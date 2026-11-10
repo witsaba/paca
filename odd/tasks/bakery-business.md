@@ -1085,7 +1085,7 @@ its session starts.
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
-| T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
+| T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
 
@@ -1458,3 +1458,17 @@ And the MAJOR that was really about the proofs: the RED of the increment was nev
 Three smaller corrections: the text of the error of a negative cost said "not a number of pesos" while the rule is "never negative"; the use case re-stated the rule of the day and manufactured the error of the domain where the domain already refuses it; and the adapter of the delivery wrote the state it was given, so it could reopen a delivered order — it now moves only an open order and refuses the other.
 
 Left open on purpose: the table still cannot prove that a stop is an order of THAT round — the day of the round is not a column of the table of the stops — and the domain holds that rule alone.
+
+**L46** (2026-11-10): T28 — the commitments, the reminders, and their tools — landed in the commit `e5bd8a6`. The gate is green: the domain at 92.6%, the database at 97.0%, the mcp-server at 88.5%, the structure with 703 assertions and 0 failures, and the two container suites.
+
+The commitment is a PROMISE of the bakery: what is due, in the words of the owner, and the day it is due. It is NOT a sale and NOT an order: the order of T26 and T27 already owns the client delivery — the party, the products, the money and the round — and the promise never copies it. The promise carries no money and no party: the "what" is the wording of the owner, and it may name the party in her own words. The identity of a promise is its OWN identity, never its text: two promises that say the same thing on the same day are two promises, and the book never merges them.
+
+The promise that was met is KEPT, with the day it was met. There is no state column anywhere: the day of meeting IS the fact, and a state column would have been a second truth for it. The table cannot prove by constraint that a promise was met once — the conditional write over the open row does it, and the domain holds the rule.
+
+The alarm is the work of the agent: PACA holds the fact, and `read_commitments` is what the agent reads to ring. The calendar of a day answers the promises that are due on it and EVERY open promise of the business — the same rule the round of the orders carries: the promise that was not kept is still owed, no matter the day it fell due on. The soul now names the alarm: "The alarm is yours. PACA holds the fact of what is due and the day it is due [...] you never ring for a promise that was kept, and you never move a promise to another day because it worries you."
+
+Three tools, and the third one is a decision of this increment: the acceptance names `record_commitment` and `read_commitments`, and it also demands that a promise that was met is kept with the day it was met — a fact that must have a writer. The tree owns the precedent: the debt of the person has `record_debt` and `record_debt_payment`, and the draft of a purchase has `draft_purchase`, `confirm_purchase` and `cancel_draft`. So the promise that was kept is written by `meet_commitment`, and the count of the tools goes from 46 to 49.
+
+Two things are open, and they wait for the owner:
+- the catalogue of the domain gains a sentinel the spec did not name, `ErrMissingMetDay`: a meeting with no day would leave the promise looking open for ever, and one sentinel carries one rule and one message;
+- through the transport, a promise with no business answers `ErrBusinessNotFound` and not `ErrMissingBusiness`, because the use case asks the storage for the business instead of re-stating the rule of the domain — the precedent of `record_order`.

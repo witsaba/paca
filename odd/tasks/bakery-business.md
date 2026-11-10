@@ -1087,7 +1087,7 @@ its session starts.
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6`, corrected in `bbb52b0` |
 | T29 | S35 | The learning log and its tools | inline | `6a9bb95`, corrected in `75713c6` |
-| T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
+| T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `d0b8d6c` |
 
 ---
 
@@ -1508,3 +1508,17 @@ The acceptance "the log is never rewritten" now has the strongest proof: the FIN
 The map was corrected in the same breath: the in-scope of T29 named `packages/domain/production`, and that package does not exist — it names `packages/domain/recipe` now, where the production lives.
 
 Two advisories were left open on purpose: the use case reads the whole log to validate an answer and the whole list of the productions to resolve one, and `read_learning` answers the whole log with no bound. They are realistic only over years of entries, and the tree answers whole books elsewhere; no limit, no pagination and no cache were added.
+
+**L50** (2026-11-10): T30 — the capacity of a weekend, and the tool that reads it — landed in the commit `d0b8d6c`. The gate is green: the domain at 92.9%, the database at 97.0%, the mcp-server at 88.7%, the structure with 733 assertions and 0 failures, and the two container suites. The count of the tools goes from 51 to 52.
+
+The capacity is DERIVED and never stored: there is no table, no migration and no new port of the database. It is answered from the recipes the book already holds, and it carries NO money — S9 keeps the payroll out of scope, and the labor of PACA is the labor of the owner alone.
+
+The rule of the derivation: the hours the owner declares are the hours of her OWN HANDS, and the labor of a batch that counts against them is the labor of the hands — the amassing, the shaping and everything she does with her hands. The labor of the OVEN and the labor of the WAITING are not hers: the batch bakes and rests while she does the next thing, and the tree already tells the three kinds apart. The batches are WHOLE — the book never splits a batch — and the units are the units of those batches. A recipe whose hands-on labor is zero is NOT LIMITED by the hours: the answer says so, instead of lying with a zero.
+
+The capacity is NEVER a promise of the calendar: it is what the weekend can carry with those hours, and the stock of the ingredients may carry less. The description of the tool says exactly that, and says that the oven and the waiting are not counted.
+
+Two decisions of this increment, both taken by the orchestrator:
+- the sentinels: the hours of the weekend carry their OWN sentinel (`ErrInvalidCapacityHours` — the hours of the weekend are positive), because the labor already owns `ErrInvalidHours` for another rule; and the rule "the recipe belongs to another business" REUSES the existing `ErrWrongBusiness` of the package, whose message for the agent was reworded so that it serves every tool that reads a recipe and names no single tool.
+- the port of the tool lives in `apps/mcp-server/internal/ports/ports.go` like the other fifty-one: the wiring of the server has one place, and the increment does not break it.
+
+Left open, on purpose: the message of the business that is not there still speaks of the stock that is read, and it is shared by every reader of the book. One sentinel carries one rule, so the polish of that sentence belongs to an increment of its own.

@@ -26,6 +26,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ingredient"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -611,6 +612,25 @@ func New(
 
 	commitmentService := application.NewCommitmentService(commitments, businesses)
 
+	// The learning log of the bakery: the memory of the errors and the wins
+	// of the owner. An entry says what happened, in her words, and what was
+	// learned from it, and it is about the batch she baked or about one run
+	// of it. The log is NEVER REWRITTEN: a correction is a new entry that
+	// answers the old one. It carries no money and it never moves a peso.
+	// Without a database there is no lesson to write nor to read.
+	var learnings learning.Repository
+
+	if pool != nil {
+		boundLearnings, err := postgres.NewLearningRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the learning log could not be built: %w", err)
+		}
+		learnings = boundLearnings
+	}
+
+	learningService := application.NewLearningService(learnings, businesses, recipeReader, productionsRead)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -659,6 +679,8 @@ func New(
 		RecordRoute:         routeService,
 		RecordCommitment:    commitmentService,
 		ReadCommitments:     commitmentService,
+		RecordLearning:      learningService,
+		ReadLearning:        learningService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

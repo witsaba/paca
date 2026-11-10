@@ -74,6 +74,10 @@ packages/domain/
                     of what is due and the day it is due, the day it was
                     met, the calendar of the promises the agent reads to
                     ring, and the port of the storage
+  learning/         the model of the learning log of the bakery: the memory
+                    of the errors and the wins of the owner — what happened
+                    and what was learned, the chain of the answers that is
+                    never rewritten, and the port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
   health/           the model of the health of a service: the states, the
@@ -1478,6 +1482,83 @@ it by that identity.
 **The ALARM is not PACA's.** PACA holds the fact of what is due and the day
 it is due, and the agent is the one that rings: the calendar of the promises
 is what the agent reads to ring.
+
+## The model of the learning log
+
+`learning.Entry` is one entry of the learning log of the bakery: the memory
+of the errors and the wins of the owner (`learning.New`). It says what
+happened, in her words, and what was learned from it, and it is about a DAY
+and about the bread: the batch the business bakes — the recipe — and the run
+of that batch when the entry is about one run of it.
+
+**The entry carries NO money.** The log is not a sale and it is not a
+movement of the book: it never moves a peso, and the model of the learning
+imports the model of the business, the day of the book and the batch with its
+production, and nothing else.
+
+**The entry NAMES the batch and never copies it.** The identity and the name
+of the recipe travel with the entry (`RecipeID`, `RecipeName`), and the
+recipe stays the owner of both of them. The production of the recipe lives in
+the package of the recipe, and the entry of the log never becomes a second
+home for it: it carries the identity of one run of the batch
+(`ProductionID`), and it is empty when the entry is about the batch alone.
+
+**The entry belongs to a business, and it is whole.** The entry says what
+happened (the "what happened" loses the spaces around it and it may not be
+empty, `learning.ErrMissingHappened`) and what was learned
+(`learning.ErrMissingLearned`): the entry that says nothing is not an entry of
+the log. It belongs to a business (`learning.ErrMissingBusiness`), it carries
+the day it is about (`learning.ErrMissingDay`) and it is about a batch
+(`learning.ErrMissingRecipe`).
+
+**The batch and the production are of the business that owns the entry.** The
+batch of the entry is a recipe of the business
+(`learning.ErrRecipeOfAnotherBusiness`), the production is a production of
+the business (`learning.ErrProductionOfAnotherBusiness`), and the production
+is a run of the NAMED batch (`learning.ErrAnotherBatch`): the production
+knows its own recipe, and the book never carries two truths for the same
+fact.
+
+**The log is NEVER REWRITTEN.** Nothing in the domain updates the words of an
+entry and nothing deletes one: a correction is a NEW entry that answers the
+old one (`Entry.Answers`), and the entry that was answered keeps its own
+words for ever.
+
+**The log is a CHAIN, and its rules are held by the log.** `learning.TheLog`
+answers the log of the business, in the order the entries were written, and
+`Log.Answering` holds the three rules of the answer: the entry that is
+answered exists (`learning.ErrEntryNotFound`), it is of the same business
+(`learning.ErrEntryOfAnotherBusiness`), and it was not answered already
+(`learning.ErrAlreadyAnswered`) — the log is a chain and not a tree, and two
+answers of the same entry would leave the owner with two truths. The use case
+reads the log and asks the log for the entry it answers: it decides none of
+the three.
+
+**The current entries are the LAST WORD of their chain.** `Log.Current`
+answers the entries that no other entry answers: the entry that was never
+corrected and the correction that nobody corrected. The corrections of the
+past are in the log, and the last word is what the owner already knows — it
+is what Paca tells her.
+
+**The log belongs to a business of its own.** `learning.OwnedBy` states the
+rule: the log belongs to the business of the bakery, the one that sells the
+bread, and the Personal Business of a person holds the money of that person
+and not the lessons of the bakery (`learning.ErrWrongBusiness`). The business
+of the log that is not there has its own refusal
+(`learning.ErrBusinessNotFound`), and the agent is never told to open the
+personal business of a person for a business it mistyped.
+
+**The identity of an entry is its OWN identity, never its text.** Two entries
+that say the same thing on the same day are two entries: the book never
+refuses them and never merges them, and the answer names the entry it
+corrects by that identity.
+
+**The day of the row is read back through the own constructor of the
+domain.** `learning.NewFromFacts` builds the entry the storage holds, and a
+row that another writer broke is refused by the domain: the adapter says it
+with `learning.ErrInvalidValue`. The batch of another business and the
+production of another batch are the rules of the write, and the table holds
+them with its composite foreign keys.
 
 ## The transaction of the storage
 

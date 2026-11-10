@@ -41,8 +41,8 @@ func TestTheTransportAnswersAnMCPClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 49 {
-		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding, the two of the businesses, the three of the book, the four of the debts, the four of the utterance, the three of the catalog, the one of the recipes, the two of the reference prices, the one of the stock, the one of the cost of a batch, the one of the labor, the one of the overhead, the one of the real price, the one of the margin, the one of the production, the two of the expiry, the one of the waste, the one of the sale, the one of the exit, the one of the rotation, the two of the parties, the two of the invoices, the two of the price list, the two of the orders, the one of the route and the three of the commitments", len(tools.Tools))
+	if len(tools.Tools) != 51 {
+		t.Fatalf("the server exposes %d tools, want the five of the people and of the onboarding, the two of the businesses, the three of the book, the four of the debts, the four of the utterance, the three of the catalog, the one of the recipes, the two of the reference prices, the one of the stock, the one of the cost of a batch, the one of the labor, the one of the overhead, the one of the real price, the one of the margin, the one of the production, the two of the expiry, the one of the waste, the one of the sale, the one of the exit, the one of the rotation, the two of the parties, the two of the invoices, the two of the price list, the two of the orders, the one of the route, the three of the commitments and the two of the log of the lessons", len(tools.Tools))
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/commitment"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -175,8 +176,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 49 {
-		t.Errorf("the server exposes %d tools, want 49", len(tools.Tools))
+	if len(tools.Tools) != 51 {
+		t.Errorf("the server exposes %d tools, want 51", len(tools.Tools))
 	}
 }
 
@@ -441,6 +442,7 @@ func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
 	failures = append(failures, product.Errors()...)
 	failures = append(failures, order.Errors()...)
 	failures = append(failures, commitment.Errors()...)
+	failures = append(failures, learning.Errors()...)
 
 	for _, failure := range failures {
 		t.Run(failure.Error(), func(t *testing.T) {

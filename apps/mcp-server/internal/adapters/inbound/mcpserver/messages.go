@@ -19,6 +19,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -445,4 +446,35 @@ var theMessages = map[error]string{
 		"not there, and PACA never invents one",
 	commitment.ErrInvalidValue: "the database refused the promise: check the business, the what and the day of it",
 	commitment.ErrNoStorage:    "the service has no storage of the commitments: the commitments cannot be reached",
+
+	learning.ErrMissingBusiness: "the entry of the log belongs to no business: send the identity of the business " +
+		"that keeps the memory, and PACA never invents one",
+	learning.ErrMissingDay: "the entry of the log carries no day: ask the owner the day it is about, and never " +
+		"invent one",
+	learning.ErrMissingRecipe: "the entry of the log names no batch: ask the owner which recipe she baked, read " +
+		"the recipes of the business, and send the identity of the one she means",
+	learning.ErrRecipeOfAnotherBusiness: "the batch of the entry belongs to another business: read the recipes of " +
+		"the business that keeps the log, and name one of them",
+	learning.ErrProductionOfAnotherBusiness: "the production of the entry is not a production of that business: " +
+		"read the productions of the business and name one of them, or leave 'production_id' out when the entry " +
+		"is about the batch alone",
+	learning.ErrAnotherBatch: "the production of the entry is a run of another batch: the entry is about one run " +
+		"of the batch it names, so read the productions of that batch and name one of them",
+	learning.ErrMissingHappened: "the entry of the log says nothing happened: ask the owner what happened with " +
+		"the bread, in her words, and send it — an entry that says nothing is not an entry of the log",
+	learning.ErrMissingLearned: "the entry of the log says nothing that was learned: ask the owner what she " +
+		"learned, in her words, and how she will bake it next time, and send it",
+	learning.ErrEntryNotFound: "there is no entry of the log with that identity: read the log of the business and " +
+		"answer one of its entries",
+	learning.ErrEntryOfAnotherBusiness: "the entry the log answers belongs to another business: read the log of " +
+		"the business that writes the answer, and answer one of its entries",
+	learning.ErrAlreadyAnswered: "the entry of the log was answered already: the log is a chain and not a tree, " +
+		"so answer the last entry of its chain, or write an entry that corrects nothing",
+	learning.ErrWrongBusiness: "the log belongs to a business of its own: the Personal Business of a person " +
+		"holds the money of that person, and not the lessons of the bakery",
+	learning.ErrBusinessNotFound: "there is no business with that identity: the business of the log is not " +
+		"there, and PACA never invents one",
+	learning.ErrInvalidValue: "the database refused the entry of the log: check the business, the day, the " +
+		"batch, the production and the words of it",
+	learning.ErrNoStorage: "the service has no storage of the log: the lessons of the bakery cannot be reached",
 }

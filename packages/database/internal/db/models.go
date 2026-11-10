@@ -98,6 +98,18 @@ type Labor struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type Learning struct {
+	ID           int64
+	BusinessID   int64
+	Day          pgtype.Date
+	RecipeID     int64
+	ProductionID pgtype.Int8
+	Happened     string
+	Learned      string
+	AnswersID    pgtype.Int8
+	CreatedAt    pgtype.Timestamptz
+}
+
 type LedgerEntry struct {
 	ID              int64
 	BusinessID      int64

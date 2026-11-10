@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -2087,4 +2088,98 @@ type CommitmentReader interface {
 	// business that is not there, the business that does not hold promises
 	// and the day that is not a day of the book.
 	Read(ctx context.Context, request ReadCommitments) (commitment.Calendar, error)
+}
+
+// RecordLearning is the entry of the log the agent read: the day, the batch
+// it is about, the run of that batch when it is about one, what happened and
+// what was learned, in the words of the owner, and the entry the new one
+// answers.
+//
+// It is the shape of the contract between the agent and the service: the
+// fields the domain refuses travel as the agent sent them, so the domain is
+// the one that answers. The production and the entry it answers are optional:
+// zero means that the entry is about the batch alone, and that it answers no
+// other entry.
+type RecordLearning struct {
+	// BusinessID is the business that owns the memory.
+	BusinessID business.ID
+
+	// Day is the day the entry is about, written the way a person writes
+	// it.
+	Day string
+
+	// RecipeID is the batch the entry is about.
+	RecipeID int64
+
+	// ProductionID is the run of the batch the entry is about. It is zero
+	// when the entry is about the batch alone.
+	ProductionID int64
+
+	// Happened is what happened, in the words of the owner.
+	Happened string
+
+	// Learned is what was learned, in the words of the owner.
+	Learned string
+
+	// AnswersID is the entry the new one answers. It is zero when the new
+	// one answers no other entry.
+	AnswersID int64
+}
+
+// ReadLearnings is the log of a business, read whole.
+//
+// The log is never rewritten, so it is read whole: the entries that were
+// answered are in it, and the ones that are the last word of their chain are
+// the ones the owner already knows.
+type ReadLearnings struct {
+	// BusinessID is the business whose log is read.
+	BusinessID business.ID
+}
+
+// LearningRecorder is the inbound port of the tool that writes the log.
+//
+// The log is the memory of the errors and the wins of the owner: what
+// happened, in her words, and what was learned from it. It carries no money,
+// and it never moves a peso.
+//
+// The log is NEVER REWRITTEN: there is no port that updates an entry and no
+// port that deletes one. A correction is a NEW entry that answers the old
+// one.
+type LearningRecorder interface {
+	// Record writes the entry of the log and answers it with it.
+	//
+	// The identity of the business, the day, the batch, what happened and
+	// what was learned are required, and the fields travel as the agent sent
+	// them: the domain is the one that refuses the entry without a business,
+	// without a day, without a batch, with nothing that happened and with
+	// nothing that was learned.
+	//
+	// The production, when the agent names it, is a run of the NAMED batch,
+	// and the entry it answers, when the agent names it, is an entry of the
+	// same business that was not answered yet.
+	//
+	// The error is the error of the domain: the domain refuses the entry of
+	// no business, of no day, of no batch, about the batch of another
+	// business, about the production of another business, about a production
+	// that is not a run of the named batch, with nothing that happened, with
+	// nothing that was learned, the answer of an entry that is not there, the
+	// answer of an entry of another business and the second answer of an
+	// entry that was answered already.
+	Record(ctx context.Context, request RecordLearning) (learning.Entry, error)
+}
+
+// LearningReader is the inbound port of the tool that reads the log.
+//
+// The answer carries the entries of the business in the order they were
+// written, each one with the entry it answers, and the entries that are the
+// last word of their chain: the ones the owner already knows, and the ones
+// Paca tells her.
+type LearningReader interface {
+	// Read answers the log of the business.
+	//
+	// The identity of the business is required.
+	//
+	// The error is the error of the domain: the domain refuses the business
+	// that is not there and the business that does not keep its lessons.
+	Read(ctx context.Context, request ReadLearnings) (learning.Log, error)
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/witsaba/paca/packages/domain/business"
 	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -418,9 +419,10 @@ func (s *Server) toolError(err error) error {
 // The catalogue of the domain names them all, and the book of a person has
 // its own: the people, the businesses, the accounts and the movements. The
 // catalog of the names, the recipes of the bakery, the parties, the price
-// list and the orders have theirs. The service uses them to tell a missing
-// mapping from a failure it did not expect: the first one is a defect of
-// the service, the second one belongs to the library that failed.
+// list, the orders, the promises and the learning log have theirs. The
+// service uses them to tell a missing mapping from a failure it did not
+// expect: the first one is a defect of the service, the second one belongs
+// to the library that failed.
 func isErrorOfTheDomain(err error) bool {
 	known := user.Errors()
 	known = append(known, business.Errors()...)
@@ -433,6 +435,7 @@ func isErrorOfTheDomain(err error) bool {
 	known = append(known, product.Errors()...)
 	known = append(known, order.Errors()...)
 	known = append(known, commitment.Errors()...)
+	known = append(known, learning.Errors()...)
 
 	for _, one := range known {
 		if errors.Is(err, one) {

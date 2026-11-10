@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes forty-nine tools: the way PACA onboards a person, the four
+The server exposes fifty-one tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -131,7 +131,9 @@ of a day: what is still owed, the tool of the route: the order the
 agent will visit the clients in, and what each visit costs, and the three
 tools of the commitments: the promise of what is due and the day it is due,
 the day the promise was kept, and the calendar of the promises that the
-agent reads to ring.
+agent reads to ring, and the two tools of the learning log: the entry of what
+happened and what was learned, which is never rewritten, and the reading of
+the log with the last word of every chain.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -183,6 +185,8 @@ agent reads to ring.
 | `record_commitment`       | Writes a promise of the bakery: what is due, in the words of the owner, and the day it is due. The promise carries NO money and NO party of its own — the order of the bakery already carries the client delivery, and the promise never copies it — and it is written OPEN: it carries no day of meeting, because nobody said it was met. One call, one row. |
 | `meet_commitment`         | Records that a promise was met: the day it was kept. The promise is named by ITS OWN IDENTITY and never by its text, because two promises that say the same thing on the same day are two promises. The promise that was kept is KEPT: it stays in the book with the day it was kept, and it is not owed any more. A promise is kept once: the second meeting of the same promise is refused, and the book never hides the day it already holds. The day it was met may be before or after the day it is due, and PACA never invents it. |
 | `read_commitments`        | Reads the calendar of the promises of the business: the promises that are DUE on the day, and the ones that are STILL OWED — EVERY open promise of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not met. The day is optional: the calendar of that day answers the promises that are due on it, and the whole book of the promises is read when the agent names none. The ALARM is not PACA's: PACA holds the fact of what is due and the day it is due, and this is what the agent reads to ring. It writes nothing. |
+| `record_learning`         | Writes one entry of the learning log of the bakery: the day, the batch she baked, the run of that batch when the entry is about one, what happened and what was learned, in the words of the owner. The log is the memory of the errors and the wins of the owner, it carries NO money and it never moves a peso. The log is NEVER REWRITTEN: an entry is not updated and it is not deleted, and a correction is a NEW entry that answers the old one with `answers_id` — the entry that was answered keeps its own words for ever. The entry it answers is of the same business and it was not answered yet, because the log is a chain and not a tree. The production is a production of the business and a run of the batch the entry names. One call, one row. |
+| `read_learning`           | Reads the learning log of the business: every entry, in the order it was written, each one carrying the entry it answers, and the entries that are the LAST WORD of their chain (`current`) — the ones no other entry answers, which are what the owner already knows and what Paca tells her. The log is never rewritten, so the corrections of the past are in the answer and they are not hidden. A business that is not there is refused, and the Personal Business of a person is refused: its money is not the lessons of the bakery. It writes nothing. |
 | `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. The answer carries the WAY THE OWNER CHARGES of every price. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of

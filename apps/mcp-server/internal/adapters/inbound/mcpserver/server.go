@@ -319,6 +319,22 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadCommitments ports.CommitmentReader
+
+	// RecordLearning is the use case that writes the learning log of the
+	// bakery: what happened, in the words of the owner, and what was
+	// learned from it.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordLearning ports.LearningRecorder
+
+	// ReadLearning is the use case that reads the learning log of the
+	// bakery: the entries in the order they were written, and the ones that
+	// are the last word of their chain.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadLearning ports.LearningReader
 }
 
 // Server is the MCP transport of the service.
@@ -391,6 +407,7 @@ func New(opts Options) *Server {
 	transport.registerOrderTools(opts.RecordOrder, opts.ReadOrders)
 	transport.registerRouteTools(opts.RecordRoute)
 	transport.registerCommitmentTools(opts.RecordCommitment, opts.ReadCommitments)
+	transport.registerLearningTools(opts.RecordLearning, opts.ReadLearning)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

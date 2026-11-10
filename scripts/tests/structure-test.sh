@@ -1088,6 +1088,60 @@ test_the_agent_carries_the_soul_of_paca() {
 }
 
 # ---------------------------------------------------------------------------
+# The image of the database is one image
+# ---------------------------------------------------------------------------
+
+# The database of PACA is a custom artifact: the official PostgreSQL image
+# pinned by digest, with pgvector compiled inside it. The stack of the
+# database builds it and the container tests of the repository run against it,
+# so the two must name the same bytes: a test that runs a floating tag proves
+# the rules of the tables against a server that the stack does not run.
+#
+# The Dockerfile of the stack declares the image; every other place that names
+# it names THAT one, and the gate refuses the day one of them drifts.
+test_the_image_of_the_database_is_one_image() {
+  local dockerfile="$REPO_ROOT/db/postgres/Dockerfile"
+  local compose="$REPO_ROOT/db/postgres/compose.yaml"
+
+  assert_file_exists "$dockerfile" \
+    "the stack of the database declares the image of the database"
+  assert_file_exists "$compose" \
+    "the stack of the database declares its compose file"
+
+  local image
+  image=$(sed -n 's/^ARG POSTGRES_IMAGE=//p' "$dockerfile" | head -1)
+  if [ -z "$image" ]; then
+    fail "the image of the database is not declared in the Dockerfile of the stack"
+    return
+  fi
+
+  # A digest is what makes the pin a pin: a tag alone can move under the name
+  # of the image, and the bytes of the database would change with it.
+  assert_contains "$image" "@sha256:" \
+    "the image of the database is pinned by digest"
+
+  assert_contains "$(cat "$compose")" "$image" \
+    "the compose file of the database builds the image the Dockerfile declares"
+
+  local test
+  for test in \
+    "$REPO_ROOT/packages/database/test/integration/container_test.go" \
+    "$REPO_ROOT/apps/mcp-server/test/integration/book_test.go" \
+    "$REPO_ROOT/apps/db-admin/test/integration/container_test.go"; do
+    assert_file_exists "$test" \
+      "the container tests of the repository name the image of the database"
+
+    # The image is read from the assignment itself, so a second image in the
+    # file cannot pass the rule by being there.
+    local found
+    found=$(grep -E '=[[:space:]]*"postgres:' "$test" \
+      | grep -o 'postgres:[^"]*' | head -1)
+    assert_equals "$image" "$found" \
+      "the container tests run the image the Dockerfile of the stack declares"
+  done
+}
+
+# ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
 
@@ -1107,6 +1161,7 @@ run_rule "the database admin is the only writer of the schema" test_only_the_dat
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
+run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
 
 report_the_rules
 

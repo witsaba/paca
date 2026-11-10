@@ -412,4 +412,17 @@ var theMessages = map[error]string{
 		"that waits for its round) or 'delivered' (the order the round delivered)",
 	order.ErrInvalidValue: "the database refused the order: check the party, the day and the lines of it",
 	order.ErrNoStorage:    "the service has no storage of the orders: the orders cannot be reached",
+	order.ErrMissingRouteDay: "the route carries no day: read the round of the day you are visiting, and send the day " +
+		"it is of",
+	order.ErrNoStops: "the route carries no stop: read the round of the day you are visiting, and send the stops of it, " +
+		"in the order you will visit the clients in",
+	order.ErrRouteAlreadyWritten: "the route of that day was already written: read the round of that day and use the route " +
+		"that is already there, or write the route of another day",
+	order.ErrStopNotAnOrder: "the stop is not an order of that business: send the identity of an order of the round of " +
+		"that day, the ones that are due on it",
+	order.ErrStopNotOfTheRound: "the stop is not one of the orders of that round: send the orders that are due on the day " +
+		"of the round, and nothing else",
+	order.ErrInvalidCost: "the cost of the stop is not a number of pesos: send the money of the transport to that client, " +
+		"in whole pesos, and never less than nothing",
+	order.ErrAlreadyDelivered: "the order was delivered already: it is not owed any more, and it is not visited again",
 }

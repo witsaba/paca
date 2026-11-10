@@ -562,6 +562,12 @@ func New(
 	// database there is no order to write nor to read.
 	var orders order.Repository
 
+	// The route of the round: the order the agent will visit the clients
+	// in, and what each visit costs. The agent computes it outside, and
+	// it writes it back into the round. Without a database there is no
+	// route to write nor to read.
+	var routes order.RouteRepository
+
 	if pool != nil {
 		boundOrders, err := postgres.NewOrderRepository(pool)
 		if err != nil {
@@ -569,9 +575,21 @@ func New(
 			return nil, fmt.Errorf("the repository of the orders could not be built: %w", err)
 		}
 		orders = boundOrders
+
+		boundRoutes, err := postgres.NewRouteRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the routes could not be built: %w", err)
+		}
+		routes = boundRoutes
 	}
 
-	orderService := application.NewOrderService(orders, parties, products, businesses)
+	orderService := application.NewOrderService(orders, routes, parties, products, businesses)
+
+	// The route of the round: the agent writes it back, and the orders of
+	// its stops are delivered with it. The route and the delivery are one
+	// unit of work: the round was made and it happened, or neither.
+	routeService := application.NewRouteService(routes, orders, businesses, work)
 
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
@@ -618,6 +636,7 @@ func New(
 		ReadPrices:          priceService,
 		RecordOrder:         orderService,
 		ReadOrders:          orderService,
+		RecordRoute:         routeService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

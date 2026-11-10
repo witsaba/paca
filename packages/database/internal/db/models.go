@@ -303,6 +303,23 @@ type RecipeStep struct {
 	LaborKind   string
 }
 
+type Route struct {
+	ID         int64
+	BusinessID int64
+	Day        pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type RouteStop struct {
+	ID         int64
+	RouteID    int64
+	BusinessID int64
+	OrderID    int64
+	Position   int32
+	Cost       int64
+}
+
 type Sale struct {
 	ID            int64
 	BusinessID    int64

@@ -75,6 +75,32 @@ var (
 	// ErrNoStorage is the error of a port of the storage that has no
 	// storage behind it.
 	ErrNoStorage = errors.New("the storage of the orders is not open")
+
+	// ErrMissingRouteDay is the error of a route that carries no day.
+	ErrMissingRouteDay = errors.New("the route carries no day")
+
+	// ErrNoStops is the error of a route that carries no stop.
+	ErrNoStops = errors.New("the route carries no stop")
+
+	// ErrRouteAlreadyWritten is the error of a second route for a day that
+	// was already written.
+	ErrRouteAlreadyWritten = errors.New("the route of that day was already written")
+
+	// ErrStopNotAnOrder is the error of a stop that is not an order of
+	// the business.
+	ErrStopNotAnOrder = errors.New("the stop is not an order of that business")
+
+	// ErrStopNotOfTheRound is the error of a stop that is not one of the
+	// orders of the round of that day.
+	ErrStopNotOfTheRound = errors.New("the stop is not one of the orders of that round")
+
+	// ErrInvalidCost is the error of a stop whose cost is not a number of
+	// pesos.
+	ErrInvalidCost = errors.New("the cost of the stop is not a number of pesos")
+
+	// ErrAlreadyDelivered is the error of an order that was delivered
+	// already.
+	ErrAlreadyDelivered = errors.New("the order was delivered already")
 )
 
 // Errors returns the errors of the domain of the order.
@@ -98,5 +124,12 @@ func Errors() []error {
 		ErrUnknownState,
 		ErrInvalidValue,
 		ErrNoStorage,
+		ErrMissingRouteDay,
+		ErrNoStops,
+		ErrRouteAlreadyWritten,
+		ErrStopNotAnOrder,
+		ErrStopNotOfTheRound,
+		ErrInvalidCost,
+		ErrAlreadyDelivered,
 	}
 }

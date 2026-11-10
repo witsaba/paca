@@ -193,6 +193,67 @@ func (r *OrderRepository) List(ctx context.Context, own business.ID) ([]order.Or
 	return orders, nil
 }
 
+// Deliver writes the delivery of the orders: the state of every order of
+// the list moves to the delivered one.
+//
+// The delivery of an order is written with the ROUTE of the round, and the
+// state that is written is the one the domain decided: the adapter never
+// decides the state of an order by itself.
+//
+// The deliveries are written in one transaction: the set joins the
+// transaction of the caller when the caller opened one, and opens its own
+// when it did not. An order that was delivered and an order that was not is
+// a round that was made and never happened.
+//
+// The error is order.ErrNotFound when the order is not there,
+// order.ErrInvalidValue when the row breaks a rule of the table, and
+// order.ErrNoStorage when the storage is not open.
+func (r *OrderRepository) Deliver(ctx context.Context, delivered []order.Order) error {
+	if r == nil || r.pool == nil {
+		return order.ErrNoStorage
+	}
+
+	if _, ok := transactionIn(ctx); ok {
+		return r.deliver(ctx, r.pool.queriesFor(ctx), delivered)
+	}
+
+	tx, err := r.pool.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("the transaction of the deliveries could not be opened: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := r.deliver(ctx, r.pool.queriesFor(ctx).WithTx(tx), delivered); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("the transaction of the deliveries could not be committed: %w", err)
+	}
+
+	return nil
+}
+
+// deliver writes the delivery of every order of the list.
+func (r *OrderRepository) deliver(ctx context.Context, queries *db.Queries, delivered []order.Order) error {
+	for _, one := range delivered {
+		row, err := queries.DeliverOrder(ctx, db.DeliverOrderParams{
+			State:      one.State.String(),
+			ID:         int64(one.ID),
+			BusinessID: int64(one.BusinessID),
+		})
+		if err != nil {
+			return writeOrderError(err)
+		}
+
+		if row.State != one.State.String() {
+			return fmt.Errorf("%w: the state of the order %d is %q", order.ErrInvalidValue, one.ID, row.State)
+		}
+	}
+
+	return nil
+}
+
 // orderOf builds the order of a row with its lines, and asks the domain
 // whether it is whole.
 //

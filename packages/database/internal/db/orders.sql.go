@@ -98,6 +98,40 @@ func (q *Queries) CreateOrderLine(ctx context.Context, arg CreateOrderLineParams
 	return i, err
 }
 
+const deliverOrder = `-- name: DeliverOrder :one
+UPDATE orders
+SET state = $1, updated_at = now()
+WHERE id = $2 AND business_id = $3
+RETURNING id, business_id, party_id, party_name, due_on, state, created_at, updated_at
+`
+
+type DeliverOrderParams struct {
+	State      string
+	ID         int64
+	BusinessID int64
+}
+
+// The delivery of an order: the state of the order moves to the delivered
+// one, and the order is read back as it is now.
+//
+// The delivery of an order is written with the ROUTE of the round, and the
+// state that is written is the one the domain decided.
+func (q *Queries) DeliverOrder(ctx context.Context, arg DeliverOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, deliverOrder, arg.State, arg.ID, arg.BusinessID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.BusinessID,
+		&i.PartyID,
+		&i.PartyName,
+		&i.DueOn,
+		&i.State,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listOrderLinesByOrder = `-- name: ListOrderLinesByOrder :many
 SELECT id, order_id, business_id, product_id, position, product_name, quantity, unit FROM order_lines WHERE order_id = $1 ORDER BY position
 `

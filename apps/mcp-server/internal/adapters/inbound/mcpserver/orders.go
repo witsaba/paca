@@ -99,6 +99,11 @@ func buildDescriptionReadOrders() string {
 		"that party ('party_name'), the day it is due ('due_on'), the state of the order ('state') and its lines " +
 		"('lines') with the product of each one ('product_id'), the name the owner reads of it ('product_name'), " +
 		"the quantity ('quantity') and the way she charges it ('unit').\n\n" +
+		"The answer also carries whether the round of the day was PLANNED ('planned'): a round without a route is a " +
+		"round that was never planned, and then the answer carries no route at all. The route of the day ('route'), " +
+		"when it is there, carries its identity ('id'), the business that owns it ('business_id'), the day it is of " +
+		"('day'), its stops ('stops') with the order of every one of them ('order_id') and what it costs ('cost'), " +
+		"and the TOTAL of the route ('total'): the money of every stop, which PACA derives from the stops.\n\n" +
 		"The state of an order is one of " + theStatesOfTheOrders() + ".\n\n" +
 		"It writes nothing."
 }
@@ -206,6 +211,14 @@ type readOrdersOutput struct {
 	// order of the business, the ones that are due on the day and the
 	// overdue ones.
 	Owed []orderOutput `json:"owed"`
+
+	// Planned says whether the round of the day carries a route: a round
+	// without a route is a round that was never planned.
+	Planned bool `json:"planned"`
+
+	// Route is the route that was written for the day. It is there when
+	// the round was planned.
+	Route *routeOutput `json:"route,omitempty"`
 }
 
 // registerOrderTools registers the tools of the orders.
@@ -292,6 +305,11 @@ func (s *Server) readOrders(reader ports.OrdersReader) sdk.ToolHandlerFor[readOr
 		answer := readOrdersOutput{Orders: orders, Owed: owed}
 		if !round.Day.Time().IsZero() {
 			answer.Day = round.Day.String()
+		}
+		if round.Planned() {
+			answer.Planned = true
+			route := outputOfRoute(*round.Route)
+			answer.Route = &route
 		}
 
 		return nil, answer, nil

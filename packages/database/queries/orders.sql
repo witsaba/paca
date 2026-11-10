@@ -29,3 +29,15 @@ SELECT * FROM orders WHERE business_id = sqlc.arg(business_id) ORDER BY id;
 --
 -- The lines of the order, in the order the owner said them.
 SELECT * FROM order_lines WHERE order_id = sqlc.arg(order_id) ORDER BY position;
+
+-- name: DeliverOrder :one
+--
+-- The delivery of an order: the state of the order moves to the delivered
+-- one, and the order is read back as it is now.
+--
+-- The delivery of an order is written with the ROUTE of the round, and the
+-- state that is written is the one the domain decided.
+UPDATE orders
+SET state = sqlc.arg(state), updated_at = now()
+WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id)
+RETURNING *;

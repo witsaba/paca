@@ -21,10 +21,12 @@ import (
 // It remembers the orders it holds and the ones it wrote, and it answers
 // what the test tells it to answer.
 type fakeOrders struct {
-	held    []order.Order
-	written []order.Order
-	err     error
-	listed  business.ID
+	held        []order.Order
+	written     []order.Order
+	delivered   []order.Order
+	err         error
+	deliveryErr error
+	listed      business.ID
 }
 
 // Create writes the order and remembers it.
@@ -56,6 +58,21 @@ func (f *fakeOrders) List(_ context.Context, own business.ID) ([]order.Order, er
 	}
 
 	return held, nil
+}
+
+// Deliver writes the delivery of the orders and remembers them.
+func (f *fakeOrders) Deliver(_ context.Context, delivered []order.Order) error {
+	if f.deliveryErr != nil {
+		return f.deliveryErr
+	}
+
+	if f.err != nil {
+		return f.err
+	}
+
+	f.delivered = append(f.delivered, delivered...)
+
+	return nil
 }
 
 // theBakeryOfTheOrders is the business that owns the orders of the tests.
@@ -147,7 +164,7 @@ func TestTheOrderIsRecordedInTheBusinessThatOwnsIt(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{theProductOfTheOrders()}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	written, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -207,7 +224,7 @@ func TestTheOrderOfThePartyTheOwnerNamesIsRecorded(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{theProductOfTheOrders()}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	written, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -239,7 +256,7 @@ func TestTheOrderOfThePartyThatIsNotAClientIsRefused(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{theProductOfTheOrders()}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -273,7 +290,7 @@ func TestTheOrderOfThePartyOfAnotherBusinessIsRefused(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{theProductOfTheOrders()}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -308,7 +325,7 @@ func TestTheOrderOfTheProductOfAnotherBusinessIsRefused(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{other}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -339,7 +356,7 @@ func TestTheOrderWithoutItsDayIsRefused(t *testing.T) {
 	products := &fakeProducts{held: []product.Product{theProductOfTheOrders()}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 77,
@@ -375,7 +392,7 @@ func TestTheOrdersOfThePersonalBusinessAreRefused(t *testing.T) {
 	parties := &fakeParties{}
 	products := &fakeProducts{}
 	businesses := &fakeBusinesses{existing: &personal}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{
 		BusinessID: 78,
@@ -423,7 +440,7 @@ func TestTheRoundOfTheDayIsRead(t *testing.T) {
 	products := &fakeProducts{}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	round, err := service.Read(t.Context(), ports.ReadOrders{
 		BusinessID: 77,
@@ -476,7 +493,7 @@ func TestTheWholeBookOfTheOrdersIsReadWhenTheAgentNamesNoDay(t *testing.T) {
 	products := &fakeProducts{}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, parties, products, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, parties, products, businesses)
 
 	round, err := service.Read(t.Context(), ports.ReadOrders{BusinessID: 77})
 	if err != nil {
@@ -501,7 +518,7 @@ func TestTheReadingOfTheOrdersDoesNotNeedThePartiesNorTheProducts(t *testing.T) 
 	orders := &fakeOrders{}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, nil, nil, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, nil, nil, businesses)
 
 	round, err := service.Read(t.Context(), ports.ReadOrders{BusinessID: 77})
 	if err != nil {
@@ -519,7 +536,7 @@ func TestTheReadingOfTheOrdersDoesNotNeedThePartiesNorTheProducts(t *testing.T) 
 func TestTheOrdersOfABusinessThatIsNotThereSpeakOfTheBusinessOfTheOrder(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewOrderService(&fakeOrders{}, &fakeParties{}, &fakeProducts{}, &fakeBusinesses{})
+	service := application.NewOrderService(&fakeOrders{}, &fakeRoutes{}, &fakeParties{}, &fakeProducts{}, &fakeBusinesses{})
 
 	_, err := service.Read(t.Context(), ports.ReadOrders{BusinessID: 77})
 	if err == nil {
@@ -558,7 +575,7 @@ func TestTheRoundOfTheDayAnswersTheOverdueOrderThatIsStillOwed(t *testing.T) {
 	orders := &fakeOrders{held: []order.Order{overdue, due}}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
-	service := application.NewOrderService(orders, &fakeParties{}, &fakeProducts{}, businesses)
+	service := application.NewOrderService(orders, &fakeRoutes{}, &fakeParties{}, &fakeProducts{}, businesses)
 
 	round, err := service.Read(t.Context(), ports.ReadOrders{
 		BusinessID: 77,
@@ -583,7 +600,7 @@ func TestTheRoundOfTheDayAnswersTheOverdueOrderThatIsStillOwed(t *testing.T) {
 func TestTheOrdersWithoutADatabaseSaySo(t *testing.T) {
 	t.Parallel()
 
-	service := application.NewOrderService(nil, nil, nil, nil)
+	service := application.NewOrderService(nil, nil, nil, nil, nil)
 
 	_, err := service.Record(t.Context(), ports.RecordOrder{BusinessID: 77})
 	if err == nil {

@@ -1935,3 +1935,56 @@ type OrdersReader interface {
 	// and the day that is not a day of the book.
 	Read(ctx context.Context, request ReadOrders) (order.Round, error)
 }
+
+// RecordRoute is the route the agent computed for the round of a day.
+//
+// It is the shape of the contract between the agent and the service: the
+// agent is the one that knows the streets, and it writes back the order it
+// will visit the clients in and what each visit costs.
+type RecordRoute struct {
+	// BusinessID is the business the route belongs to.
+	BusinessID business.ID
+
+	// Day is the day of the round the route is of. It is required: the
+	// route is written back into the round of that day.
+	Day string
+
+	// Stops are the stops of the route, in the order the agent will visit
+	// the clients in.
+	Stops []RouteStop
+}
+
+// RouteStop is one stop of the route the agent read: the order the stop
+// visits and what the stop costs.
+//
+// The port speaks in the words of the agent and in numbers: the use case
+// turns them into the model of the domain, and the domain decides what may
+// enter the book.
+type RouteStop struct {
+	// OrderID is the identity of the order the stop visits.
+	OrderID int64
+
+	// Cost is what the stop costs: the transport to that client, in whole
+	// pesos. It is never negative, and it may be zero: a stop the owner
+	// walks to costs nothing.
+	Cost int64
+}
+
+// RouteRecorder is the inbound port of the tool that records the route.
+//
+// The tool writes the route of the round of a day, and the route delivers
+// the orders of its stops.
+type RouteRecorder interface {
+	// Record writes the route of the round of the day and answers it with
+	// it.
+	//
+	// The identity of the business, the day of the round and the stops of
+	// the route are required.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// business that does not hold orders, the route without a day, the
+	// route without a stop, the stop that is not an order of the round,
+	// the cost that is not a number of pesos and the second route of a day
+	// that was already written.
+	Record(ctx context.Context, request RecordRoute) (order.Route, error)
+}

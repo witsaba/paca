@@ -1297,6 +1297,12 @@ increment that writes the route writes the delivery with it. The state of
 the book is the two of them (`order.AllStates`), and the row never decides
 which of them an order carries (`order.NewFromFacts`).
 
+**The DELIVERY of an order is the domain's transition, and it happens
+once.** `order.Order.Delivered` moves an open order to the delivered one,
+and it refuses an order that was delivered already
+(`order.ErrAlreadyDelivered`). The agent never writes the state of an order
+by itself: the route that visits the client delivers the order.
+
 **The unit of a line is THE WAY THE OWNER CHARGES.** The book knows three
 ways of charging, and it is the model of the tree: `purchase.PriceBasis` —
 the piece (`unit`), the gram (`gram`) and the kilogram (`kilogram`). The
@@ -1328,6 +1334,48 @@ that are due on the day and the ones that fell due on an earlier day and
 were not delivered (`order.Round.Owed`). The order that was delivered is
 not owed, and the order that was not delivered is, no matter the day it
 fell due on.
+
+## The model of the route
+
+`order.Route` is the route of the round of a day: the stops in the order
+the agent will visit the clients in, and what each stop costs. The agent
+is the only component of PACA that has access to the outside, and it
+computes the route there; the book only holds the fact of it.
+
+**The stop carries the order it visits and the MONEY of the visit.** The
+cost is the transport to that client, in whole pesos: it is never negative,
+and it may be zero, because a stop the owner walks to costs nothing
+(`order.ErrInvalidCost`). The money of the book is the money of the book
+(`ledger.Amount`).
+
+**The TOTAL of the route is derived, and it is never typed.** The route
+carries no total of its own: `order.Route.Total` adds the money of every
+stop, and the agent never writes it.
+
+**The route of a business and a day is written ONCE.** A second route for
+the same day is refused (`order.ErrRouteAlreadyWritten`), and the routes
+already written are the ones the domain is asked about
+(`order.TheRoute`).
+
+**Every stop is an order of that business, and every stop is an order of
+THAT ROUND.** A stop that names an order the business does not hold is
+refused (`order.ErrStopNotAnOrder`), and a stop that names an order of
+another day is refused (`order.ErrStopNotOfTheRound`): the route visits
+the clients of the round of that day and of no other.
+
+**A route without a stop visits nobody, and it is not a route.** The route
+carries at least one stop (`order.ErrNoStops`), and it carries the day of
+the round (`order.ErrMissingRouteDay`).
+
+**Writing the route DELIVERS the orders of its stops.** The route the
+agent writes back is the round it made, and the delivery travels with it
+(`order.Route.TheDelivery`): the orders of the stops move to the delivered
+one, in the same unit of work that writes the route.
+
+**A ROUND WITHOUT A ROUTE IS A ROUND THAT WAS NEVER PLANNED.** The round
+carries the route that was written for it (`order.Round.Route`), and
+`order.Round.Planned` says whether there is one. The reading of the round
+answers the route of the day with it (`order.TheRoundWithRoute`).
 
 **The business of the orders that is not there has its own refusal.**
 `order.ErrBusinessNotFound` names the business of the order, and the agent

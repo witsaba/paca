@@ -296,6 +296,14 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	ReadOrders ports.OrdersReader
+
+	// RecordRoute is the use case that writes the route of the round of a
+	// day: the order the agent will visit the clients in, and what each
+	// visit costs.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	RecordRoute ports.RouteRecorder
 }
 
 // Server is the MCP transport of the service.
@@ -366,6 +374,7 @@ func New(opts Options) *Server {
 	transport.registerInvoiceTools(opts.RecordInvoice, opts.ReadInvoices)
 	transport.registerPriceTools(opts.SetPrice, opts.ReadPrices)
 	transport.registerOrderTools(opts.RecordOrder, opts.ReadOrders)
+	transport.registerRouteTools(opts.RecordRoute)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

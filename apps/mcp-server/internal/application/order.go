@@ -22,11 +22,15 @@ import (
 // every open order of the business, the ones that are due on the day and
 // the ones that fell due on an earlier day.
 //
+// The round also carries the ROUTE that was written for it: a round without
+// a route is a round that was never planned.
+//
 // The use case never decides what an order is: the party, the products, the
 // quantities, the day and the state of the order are the rules of the
 // domain, and the use case only asks the domain.
 type OrderService struct {
 	orders     order.Repository
+	routes     order.RouteRepository
 	parties    party.Repository
 	products   product.Repository
 	businesses business.Repository
@@ -37,15 +41,18 @@ type OrderService struct {
 // The repositories are the ports of the storage: the use case does not know
 // whether the rows live in PostgreSQL or somewhere else. The parties and
 // the products are needed too: the order names the client that ordered and
-// the products of the price list of the business.
+// the products of the price list of the business. The routes are needed as
+// well: the round of a day carries the route that was written for it.
 func NewOrderService(
 	orders order.Repository,
+	routes order.RouteRepository,
 	parties party.Repository,
 	products product.Repository,
 	businesses business.Repository,
 ) *OrderService {
 	return &OrderService{
 		orders:     orders,
+		routes:     routes,
 		parties:    parties,
 		products:   products,
 		businesses: businesses,
@@ -110,15 +117,15 @@ func (s *OrderService) Record(ctx context.Context, request ports.RecordOrder) (o
 //
 // The rules are the ones of the domain: the use case reads the business
 // whose orders are asked for, asks the domain whether a business of that
-// kind holds orders, reads the day of the round and hands the orders of the
-// business to the domain, and the domain answers the round and what is
-// still owed.
+// kind holds orders, reads the day of the round, hands the orders of the
+// business and the routes it wrote to the domain, and the domain answers the
+// round, what is still owed and the route of the day.
 //
-// The reading guards what it uses: the business and the orders of the
-// business. It never asks the parties nor the products: the reading names
-// no party and no product of its own.
+// The reading guards what it uses: the business, the orders of the business
+// and the routes of the business. It never asks the parties nor the
+// products: the reading names no party and no product of its own.
 func (s *OrderService) Read(ctx context.Context, request ports.ReadOrders) (order.Round, error) {
-	if s == nil || s.orders == nil || s.businesses == nil {
+	if s == nil || s.orders == nil || s.routes == nil || s.businesses == nil {
 		return order.Round{}, ports.ErrNoDatabase
 	}
 
@@ -142,7 +149,12 @@ func (s *OrderService) Read(ctx context.Context, request ports.ReadOrders) (orde
 		return order.Round{}, err
 	}
 
-	return order.TheRound(day, held), nil
+	written, err := s.routes.List(ctx, owner.ID)
+	if err != nil {
+		return order.Round{}, err
+	}
+
+	return order.TheRoundWithRoute(order.TheRound(day, held), written, owner.ID), nil
 }
 
 // theBusiness answers the business whose orders are read.

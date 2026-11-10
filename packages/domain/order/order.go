@@ -479,6 +479,26 @@ func (o Order) IsOpen() bool {
 	return o.State == StateOpen
 }
 
+// Delivered answers the order delivered by the route of the round.
+//
+// The rule of the domain: the delivery of an order is written with the
+// ROUTE of the round. The route is what the agent computes when it comes
+// back from the round, and the transition belongs to the domain: the agent
+// never writes the state of an order by itself.
+//
+// The error is ErrAlreadyDelivered when the order was delivered already:
+// an order is delivered once.
+func (o Order) Delivered() (Order, error) {
+	if o.State != StateOpen {
+		return Order{}, fmt.Errorf("%w: the order %d is %q", ErrAlreadyDelivered, o.ID, o.State)
+	}
+
+	delivered := o
+	delivered.State = StateDelivered
+
+	return delivered, nil
+}
+
 // OwnedBy states whether a business of that kind may hold orders.
 //
 // The rule of the domain: the orders belong to the business of the bakery,
@@ -512,6 +532,19 @@ type Round struct {
 	// Owed are the orders that are still owed: every open order of the
 	// business, the ones that are due on the day and the overdue ones.
 	Owed []Order
+
+	// Route is the route that was written for the round. It is nil when
+	// the round was never planned: a round without a route is a round
+	// that was never planned.
+	Route *Route
+}
+
+// Planned reports whether the round was planned.
+//
+// The rule of the domain: a round without a route is a round that was
+// never planned.
+func (r Round) Planned() bool {
+	return r.Route != nil
 }
 
 // TheRound answers the round of a day: the orders it carries.
@@ -543,4 +576,22 @@ func TheRound(day ledger.Date, orders []Order) Round {
 	}
 
 	return Round{Day: day, Orders: carried, Owed: owed}
+}
+
+// TheRoundWithRoute answers the round of a day and the route that was
+// written for it.
+//
+// The routes are the routes the business holds, and the rule of the domain:
+// a round without a route is a round that was never planned. The round
+// carries the route of its day when there is one, and it carries none when
+// there is not.
+func TheRoundWithRoute(round Round, routes []Route, own business.ID) Round {
+	route, found := TheRouteOfTheDay(routes, own, round.Day)
+	if !found {
+		return round
+	}
+
+	round.Route = &route
+
+	return round
 }

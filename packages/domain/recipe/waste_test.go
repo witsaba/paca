@@ -1,0 +1,544 @@
+package recipe_test
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/witsaba/paca/packages/domain/account"
+	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/recipe"
+)
+
+// The day of the production of the test.
+func theDayOfTheWaste() ledger.Date {
+	return ledger.NewDate(time.Date(2026, time.March, 14, 0, 0, 0, 0, time.UTC))
+}
+
+// The production of the test: ten units of bread, worth ten thousand pesos.
+func theProductionOfTheWaste() recipe.Production {
+	units := make([]recipe.ProductionUnit, 0, 10)
+
+	for position := 1; position <= 10; position++ {
+		units = append(units, recipe.ProductionUnit{
+			Position:  position,
+			Grams:     90,
+			ExpiresOn: ledger.NewDate(time.Date(2026, time.March, 17, 0, 0, 0, 0, time.UTC)),
+		})
+	}
+
+	return recipe.Production{
+		ID:         recipe.ProductionID(3),
+		BusinessID: business.ID(77),
+		RecipeID:   recipe.ID(9),
+		RecipeName: "Pan de molde",
+		Day:        theDayOfTheWaste(),
+		GramsIn:    900,
+		Money:      10000,
+		Units:      units,
+	}
+}
+
+// The units of the production of the test that are still in the book.
+func theUnitsOfTheWaste() []recipe.ExpiringUnit {
+	units := make([]recipe.ExpiringUnit, 0, 10)
+
+	for position := 1; position <= 10; position++ {
+		units = append(units, recipe.ExpiringUnit{
+			ProductionUnit: recipe.ProductionUnit{
+				ID:           recipe.UnitID(int64(position)),
+				ProductionID: recipe.ProductionID(3),
+				Position:     position,
+				Grams:        90,
+				ExpiresOn:    ledger.NewDate(time.Date(2026, time.March, 17, 0, 0, 0, 0, time.UTC)),
+			},
+			RecipeID:   recipe.ID(9),
+			RecipeName: "Pan de molde",
+			ProducedOn: theDayOfTheWaste(),
+		})
+	}
+
+	return units
+}
+
+// The units of the production of the test in the order the rotation takes
+// them.
+//
+// The unit that expires first carries the HIGHEST identity of the book, so
+// the order of the identities and the order of the expiry disagree: only
+// the expiry decides the order in which the units leave the book.
+func theUnitsOfTheWasteInTheOrderOfTheExpiry() []recipe.ExpiringUnit {
+	units := theUnitsOfTheWaste()
+
+	for index := range units {
+		one := units[index]
+		one.ExpiresOn = ledger.NewDate(
+			time.Date(2026, time.March, 15+(10-index), 0, 0, 0, 0, time.UTC))
+		units[index] = one
+	}
+
+	return units
+}
+
+// The definition of the waste of the test: three units that were burnt.
+func theDefinitionOfTheWaste() recipe.WasteDefinition {
+	return recipe.WasteDefinition{
+		RecipeID:      recipe.ID(9),
+		RecipeName:    "Pan de molde",
+		Quantity:      3,
+		Reason:        recipe.WasteBurnt,
+		Day:           ledger.NewDate(time.Date(2026, time.March, 14, 0, 0, 0, 0, time.UTC)),
+		Utterance:     "se me quemaron tres panes",
+		ConfirmedWith: "sí",
+	}
+}
+
+// TestTheWasteCarriesTheProductTheQuantityTheUnitAndTheReason proves the
+// rule of the domain: the waste is a movement that carries the product, the
+// quantity, the unit and the reason.
+func TestTheWasteCarriesTheProductTheQuantityTheUnitAndTheReason(t *testing.T) {
+	t.Parallel()
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		theDefinitionOfTheWaste(),
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	if waste.RecipeID != recipe.ID(9) {
+		t.Errorf("the product of the waste is %d, want %d", waste.RecipeID, recipe.ID(9))
+	}
+
+	if waste.RecipeName != "Pan de molde" {
+		t.Errorf("the name of the product is %q, want %q", waste.RecipeName, "Pan de molde")
+	}
+
+	if waste.Quantity != 3 {
+		t.Errorf("the quantity of the waste is %v, want 3", waste.Quantity)
+	}
+
+	if waste.Unit != "unidad" {
+		t.Errorf("the unit of the waste is %q, want %q", waste.Unit, "unidad")
+	}
+
+	if waste.Reason != recipe.WasteBurnt {
+		t.Errorf("the reason of the waste is %q, want %q", waste.Reason, recipe.WasteBurnt)
+	}
+
+	if waste.Day.String() != "2026-03-14" {
+		t.Errorf("the day of the waste is %q, want %q", waste.Day.String(), "2026-03-14")
+	}
+
+	if waste.ConfirmedWith != "sí" {
+		t.Errorf("the word of the owner is %q, want %q", waste.ConfirmedWith, "sí")
+	}
+}
+
+// TestTheWasteReleasesTheCostOfWhatItWasWorth proves the rule of the
+// domain: the money of the waste is the money of the units that left, and
+// it is derived, never typed.
+func TestTheWasteReleasesTheCostOfWhatItWasWorth(t *testing.T) {
+	t.Parallel()
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		theDefinitionOfTheWaste(),
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	// The production cost ten thousand pesos for ten units: a unit is
+	// worth a thousand pesos, and three units are worth three thousand.
+	if waste.Money != 3000 {
+		t.Errorf("the money of the waste is %d, want %d", waste.Money, 3000)
+	}
+
+	if len(waste.Units) != 3 {
+		t.Fatalf("the waste took %d units, want 3", len(waste.Units))
+	}
+}
+
+// TestTheWasteTakesTheUnitsThatExpireFirst proves the rule of the
+// rotation: the units that leave the book are the units of the product
+// that are still in it, IN THE ORDER THEY EXPIRE.
+//
+// The unit that expires first carries the highest identity of the book, so
+// the order of the identities and the order of the expiry disagree, and
+// the test says the whole ordered set of the identities that left.
+func TestTheWasteTakesTheUnitsThatExpireFirst(t *testing.T) {
+	t.Parallel()
+
+	units := theUnitsOfTheWasteInTheOrderOfTheExpiry()
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		units,
+		theDefinitionOfTheWaste(),
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	// The three units that expire first are the three last identities of
+	// the book: the tenth, the ninth and the eighth.
+	want := []recipe.UnitID{10, 9, 8}
+
+	if len(waste.Units) != len(want) {
+		t.Fatalf("the waste took %d units, want %d", len(waste.Units), len(want))
+	}
+
+	for index, one := range waste.Units {
+		if one.UnitID != want[index] {
+			t.Errorf("the unit %d that left the book is the unit %d, want the unit %d",
+				index+1, one.UnitID, want[index])
+		}
+	}
+}
+
+// TestTheWasteIsRefusedWithoutAWholeNumberOfUnits proves the rule of the
+// domain: the waste of the bakery counts the units it lost, and the book
+// never splits a unit.
+func TestTheWasteIsRefusedWithoutAWholeNumberOfUnits(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Quantity = 2.5
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrInvalidWasteQuantity) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidWasteQuantity)
+	}
+}
+
+// TestTheWasteIsRefusedWithAWeight proves the rule of the domain: the waste
+// counts the units it lost, and the book never converts a weight into a
+// number of units.
+func TestTheWasteIsRefusedWithAWeight(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Unit = "kg"
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrInvalidWasteUnit) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidWasteUnit)
+	}
+}
+
+// TestTheWasteIsRefusedWithoutAReason proves the rule of the domain: the
+// reason is what a later analysis reads, and it is never guessed.
+func TestTheWasteIsRefusedWithoutAReason(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Reason = ""
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrUnknownWasteReason) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrUnknownWasteReason)
+	}
+}
+
+// TestTheWasteIsRefusedWithoutTheWordOfTheOwner proves the rule of the
+// domain: the waste is written with the confirmation of the owner.
+func TestTheWasteIsRefusedWithoutTheWordOfTheOwner(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.ConfirmedWith = ""
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrMissingWasteConfirmation) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingWasteConfirmation)
+	}
+}
+
+// TestTheWasteIsRefusedWithoutTheDayItHappened proves the rule of the
+// domain: the waste of no day is a waste of no time.
+func TestTheWasteIsRefusedWithoutTheDayItHappened(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Day = ledger.Date{}
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrMissingWasteDay) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingWasteDay)
+	}
+}
+
+// TestTheWasteIsRefusedWithoutAProduct proves the rule of the domain: the
+// waste names the product it lost.
+func TestTheWasteIsRefusedWithoutAProduct(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.RecipeID = 0
+	definition.RecipeName = ""
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrMissingRecipe) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingRecipe)
+	}
+}
+
+// TestTheWasteIsRefusedWhenTheNameCarriesMoreThanOneProduct proves the rule
+// of the domain: the book never guesses which product the owner lost.
+func TestTheWasteIsRefusedWhenTheNameCarriesMoreThanOneProduct(t *testing.T) {
+	t.Parallel()
+
+	other := theProductionOfTheWaste()
+	other.ID = recipe.ProductionID(4)
+	other.RecipeID = recipe.ID(10)
+
+	definition := theDefinitionOfTheWaste()
+	definition.RecipeID = 0
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste(), other},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrAmbiguousRecipe) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrAmbiguousRecipe)
+	}
+}
+
+// TestTheWasteIsRefusedWhenTheBookHoldsNoUnitOfTheProduct proves the rule
+// of the domain: the waste of what the book does not hold is refused.
+func TestTheWasteIsRefusedWhenTheBookHoldsNoUnitOfTheProduct(t *testing.T) {
+	t.Parallel()
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		[]recipe.ExpiringUnit{},
+		theDefinitionOfTheWaste(),
+	)
+	if !errors.Is(err, recipe.ErrNotEnoughUnits) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrNotEnoughUnits)
+	}
+}
+
+// TestTheWasteIsRefusedWhenTheBookHoldsFewerUnitsThanSheLost proves the
+// rule of the domain: the book never writes a waste of units it does not
+// hold.
+func TestTheWasteIsRefusedWhenTheBookHoldsFewerUnitsThanSheLost(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Quantity = 12
+
+	_, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if !errors.Is(err, recipe.ErrNotEnoughUnits) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrNotEnoughUnits)
+	}
+}
+
+// TestTheRoundedMoneyOfTheUnitsLeavesTheRemainderInTheInventory proves
+// the rule of the domain: the money of a unit is the money of the
+// production divided by the units it made, rounded to the nearest peso,
+// and the remainder of the division stays in the inventory.
+func TestTheRoundedMoneyOfTheUnitsLeavesTheRemainderInTheInventory(t *testing.T) {
+	t.Parallel()
+
+	// Nine thousand nine hundred and ninety-nine pesos over ten units
+	// are nine hundred and ninety-nine pesos and nine tenths of a peso:
+	// the money of the book counts whole pesos, and the answer is
+	// rounded to the nearest peso. The ten units release ten thousand
+	// pesos, and the peso that the rounding added stays in the
+	// inventory.
+	production := theProductionOfTheWaste()
+	production.Money = 9999
+
+	definition := theDefinitionOfTheWaste()
+	definition.Quantity = 10
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{production},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	if waste.Money != 10000 {
+		t.Errorf("the money of the waste is %d, want 10000", waste.Money)
+	}
+	if waste.Money-production.Money != 1 {
+		t.Errorf("the money released and the money of the production differ by %d pesos, want 1: the remainder stays in the inventory",
+			waste.Money-production.Money)
+	}
+
+	// Ten thousand and one pesos over ten units are a thousand pesos and
+	// a tenth of a peso: the ten units release ten thousand pesos, and
+	// the peso that is left of the production stays in the inventory.
+	production.Money = 10001
+
+	waste, err = recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{production},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	if waste.Money != 10000 {
+		t.Errorf("the money of the waste is %d, want 10000", waste.Money)
+	}
+	if production.Money-waste.Money != 1 {
+		t.Errorf("the inventory kept %d pesos, want 1: the remainder stays in the inventory",
+			production.Money-waste.Money)
+	}
+}
+
+// TestTheWasteMovesTheMoneyToTheAccountOfTheWaste proves the rule of the
+// domain: the money of the waste is never lost from the book, it lands in
+// the account of the waste and it leaves the inventory.
+func TestTheWasteMovesTheMoneyToTheAccountOfTheWaste(t *testing.T) {
+	t.Parallel()
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		theDefinitionOfTheWaste(),
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	movement, err := waste.Movement(account.ID(5), account.ID(3))
+	if err != nil {
+		t.Fatalf("the movement of the waste was refused: %v", err)
+	}
+
+	if movement.DebitAccountID != account.ID(5) {
+		t.Errorf("the money lands in the account %d, want the waste", movement.DebitAccountID)
+	}
+
+	if movement.CreditAccountID != account.ID(3) {
+		t.Errorf("the money comes from the account %d, want the inventory", movement.CreditAccountID)
+	}
+
+	if movement.Amount != 3000 {
+		t.Errorf("the movement carries %d pesos, want %d", movement.Amount, 3000)
+	}
+
+	if movement.OccurredOn.String() != "2026-03-14" {
+		t.Errorf("the movement happens on %q, want %q", movement.OccurredOn.String(), "2026-03-14")
+	}
+
+	if movement.Description != "se me quemaron tres panes" {
+		t.Errorf("the movement says %q, want the sentence of the owner", movement.Description)
+	}
+}
+
+// TestTheWasteOfTheBookCarriesTheWordsOfTheBook proves the rule of the
+// domain: the movement of the waste says what it was when the owner said
+// no sentence.
+func TestTheWasteOfTheBookCarriesTheWordsOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	definition := theDefinitionOfTheWaste()
+	definition.Utterance = ""
+
+	waste, err := recipe.WasteOf(
+		business.ID(77),
+		[]recipe.Production{theProductionOfTheWaste()},
+		theUnitsOfTheWaste(),
+		definition,
+	)
+	if err != nil {
+		t.Fatalf("the waste was refused: %v", err)
+	}
+
+	movement, err := waste.Movement(account.ID(5), account.ID(3))
+	if err != nil {
+		t.Fatalf("the movement of the waste was refused: %v", err)
+	}
+
+	if movement.Description != "Merma: 3 unidades de Pan de molde (burnt)" {
+		t.Errorf("the movement says %q, want the words of the book", movement.Description)
+	}
+}
+
+// TestTheReasonsOfTheWasteAreTheFourOfTheBook proves the rule of the
+// domain: the reason of the waste is one of the four reasons of the book,
+// and it is read the way a person reads it.
+func TestTheReasonsOfTheWasteAreTheFourOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	reasons := recipe.AllWasteReasons()
+	if len(reasons) != 4 {
+		t.Fatalf("the book knows %d reasons, want 4", len(reasons))
+	}
+
+	for _, one := range reasons {
+		if !one.Valid() {
+			t.Errorf("the reason %q is not one of the four of the book", one)
+		}
+	}
+
+	parsed, err := recipe.ParseWasteReason("quemado")
+	if err != nil {
+		t.Fatalf("the reason of the owner was refused: %v", err)
+	}
+
+	if parsed != recipe.WasteBurnt {
+		t.Errorf("the reason of the owner is %q, want %q", parsed, recipe.WasteBurnt)
+	}
+
+	if _, err := recipe.ParseWasteReason("roto"); err == nil {
+		t.Error("a reason the book does not know was accepted")
+	}
+}

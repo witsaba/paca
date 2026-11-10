@@ -29,6 +29,87 @@ type Business struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Commitment struct {
+	ID         int64
+	BusinessID int64
+	What       string
+	DueOn      pgtype.Date
+	MetOn      pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type Exit struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Kind          string
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Cost          int64
+	TaxTreatment  string
+	TaxQuestion   string
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type Ingredient struct {
+	ID                    int64
+	BusinessID            int64
+	Name                  string
+	Aliases               []byte
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
+	Unit                  string
+	PackageGrams          float64
+	Allergens             []byte
+	CertificationName     string
+	CertificationEvidence string
+	Conversion            float64
+}
+
+type Invoice struct {
+	ID         int64
+	BusinessID int64
+	ProviderID int64
+	PurchaseID int64
+	Number     string
+	Day        pgtype.Date
+	Base       int64
+	Rate       int64
+	Tax        int64
+	Total      int64
+	Reference  pgtype.Text
+	CreatedAt  pgtype.Timestamptz
+}
+
+type Labor struct {
+	ID            int64
+	BusinessID    int64
+	Day           pgtype.Date
+	HandsOnHours  float64
+	OvenHours     float64
+	WaitingHours  float64
+	HourValue     int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type Learning struct {
+	ID           int64
+	BusinessID   int64
+	Day          pgtype.Date
+	RecipeID     int64
+	ProductionID pgtype.Int8
+	Happened     string
+	Learned      string
+	AnswersID    pgtype.Int8
+	CreatedAt    pgtype.Timestamptz
+}
+
 type LedgerEntry struct {
 	ID              int64
 	BusinessID      int64
@@ -40,6 +121,267 @@ type LedgerEntry struct {
 	CreatedAt       pgtype.Timestamptz
 }
 
+type Order struct {
+	ID         int64
+	BusinessID int64
+	PartyID    int64
+	PartyName  string
+	DueOn      pgtype.Date
+	State      string
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type OrderLine struct {
+	ID          int64
+	OrderID     int64
+	BusinessID  int64
+	ProductID   int64
+	Position    int32
+	ProductName string
+	Quantity    float64
+	Unit        string
+}
+
+type Overhead struct {
+	ID            int64
+	BusinessID    int64
+	Day           pgtype.Date
+	Electricity   int64
+	OvenHours     float64
+	Allocation    float64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type Party struct {
+	ID             int64
+	BusinessID     int64
+	Kind           string
+	Name           string
+	Roles          []byte
+	Phone          pgtype.Text
+	Email          pgtype.Text
+	Address        pgtype.Text
+	LegalHumanName pgtype.Text
+	LegalFigure    pgtype.Text
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	TaxID          pgtype.Text
+}
+
+type Price struct {
+	ID         int64
+	BusinessID int64
+	ProductID  int64
+	Channel    string
+	Amount     int64
+	Day        pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	Basis      string
+}
+
+type PriceReference struct {
+	ID            int64
+	BusinessID    int64
+	IngredientID  int64
+	Price         int64
+	Unit          string
+	Market        pgtype.Text
+	Source        string
+	SeenOn        pgtype.Date
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type Product struct {
+	ID           int64
+	BusinessID   int64
+	RecipeID     int64
+	Name         string
+	TaxTreatment pgtype.Text
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
+type Production struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	GramsIn       float64
+	Money         int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type ProductionLayer struct {
+	ID           int64
+	ProductionID int64
+	Position     int32
+	LayerID      int64
+	PurchaseID   int64
+	Quantity     float64
+	Unit         string
+	Grams        float64
+	Money        int64
+}
+
+type ProductionUnit struct {
+	ID           int64
+	ProductionID int64
+	Position     int32
+	Grams        float64
+	ExpiresOn    pgtype.Date
+}
+
+type Purchase struct {
+	ID            int64
+	BusinessID    int64
+	DraftID       int64
+	Day           pgtype.Date
+	Market        pgtype.Text
+	Invoice       pgtype.Text
+	Utterance     string
+	ConfirmedWith string
+	Total         int64
+	CreatedAt     pgtype.Timestamptz
+	InvoiceID     pgtype.Int8
+}
+
+type PurchaseDraft struct {
+	ID         int64
+	BusinessID int64
+	State      string
+	Revision   int32
+	Utterance  string
+	Lines      []byte
+	Missing    []byte
+	Ambiguous  []byte
+	Inferred   []byte
+	Day        pgtype.Date
+	Market     pgtype.Text
+	Invoice    pgtype.Text
+	ProposedOn pgtype.Date
+	ExpiresOn  pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type PurchaseLine struct {
+	ID           int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Quantity     float64
+	Unit         string
+	Total        int64
+	UnitPrice    int64
+	IngredientID pgtype.Int8
+}
+
+type Recipe struct {
+	ID            int64
+	BusinessID    int64
+	Name          string
+	YieldUnits    int32
+	YieldGrams    float64
+	ShelfLifeDays int32
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type RecipeIngredient struct {
+	ID           int64
+	RecipeID     int64
+	Position     int32
+	IngredientID int64
+	Grams        float64
+}
+
+type RecipeShelfLifeCorrection struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	ShelfLifeDays int32
+	Day           pgtype.Date
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type RecipeStep struct {
+	ID          int64
+	RecipeID    int64
+	Position    int32
+	Instruction string
+	Cue         string
+	Minutes     int32
+	Temperature float64
+	LaborKind   string
+}
+
+type Route struct {
+	ID         int64
+	BusinessID int64
+	Day        pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type RouteStop struct {
+	ID         int64
+	RouteID    int64
+	BusinessID int64
+	OrderID    int64
+	Position   int32
+	Cost       int64
+}
+
+type Sale struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Money         int64
+	Cost          int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
+}
+
+type StockLayer struct {
+	ID           int64
+	BusinessID   int64
+	IngredientID int64
+	PurchaseID   int64
+	Position     int32
+	Name         string
+	Day          pgtype.Date
+	Quantity     float64
+	Unit         string
+	Remaining    float64
+	Cost         int64
+	CreatedAt    pgtype.Timestamptz
+}
+
+type UnitExit struct {
+	UnitID       int64
+	ExitKind     string
+	ExitID       int64
+	ProductionID int64
+	Position     int32
+	Grams        float64
+	ExpiresOn    pgtype.Date
+	CreatedAt    pgtype.Timestamptz
+}
+
 type User struct {
 	ID                 int64
 	FullName           pgtype.Text
@@ -49,4 +391,18 @@ type User struct {
 	Email              pgtype.Text
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+}
+
+type Waste struct {
+	ID            int64
+	BusinessID    int64
+	RecipeID      int64
+	Day           pgtype.Date
+	Quantity      float64
+	Unit          string
+	Reason        string
+	Money         int64
+	Utterance     string
+	ConfirmedWith string
+	CreatedAt     pgtype.Timestamptz
 }

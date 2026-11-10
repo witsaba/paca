@@ -189,6 +189,35 @@ func waitForTheDatabase(ctx context.Context, pool *postgres.Pool) error {
 	}
 }
 
+// waitForTheDatabaseOfTheTest asks the database whether it answers, and it
+// asks again while the server is still starting up.
+//
+// The server of the container opens the port of PostgreSQL before it
+// accepts the connections, and the first question of a test that brings its
+// own container can arrive in that window: the database answers with the
+// code 57P03, the server is starting up. The test waits for the answer
+// instead of failing on it.
+func waitForTheDatabaseOfTheTest(ctx context.Context, db *sql.DB) error {
+	deadline := time.Now().Add(2 * time.Minute)
+
+	for {
+		err := db.PingContext(ctx)
+		if err == nil {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
 // startPostgres starts the PostgreSQL the tests run against.
 //
 // The container is the same database the stack of the monorepository runs,

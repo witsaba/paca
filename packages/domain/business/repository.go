@@ -38,4 +38,14 @@ type Repository interface {
 	// The error is ErrNotFound when the person holds no personal business,
 	// and ErrNoStorage when the storage is not open.
 	FindPersonalByOwner(ctx context.Context, owner user.ID) (Business, error)
+
+	// ListByOwner returns the businesses of a person, in the order of
+	// their identity.
+	//
+	// The rule of the domain: a person may own more than one business, and
+	// the personal one is one of them. The list is empty when the person
+	// holds no business at all.
+	//
+	// The error is ErrNoStorage when the storage is not open.
+	ListByOwner(ctx context.Context, owner user.ID) ([]Business, error)
 }

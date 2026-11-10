@@ -2,6 +2,7 @@ package mcpserver_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,7 +16,14 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/order"
+	"github.com/witsaba/paca/packages/domain/party"
+	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/user"
 )
 
@@ -168,8 +176,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 12 {
-		t.Errorf("the server exposes %d tools, want 12", len(tools.Tools))
+	if len(tools.Tools) != 52 {
+		t.Errorf("the server exposes %d tools, want 52", len(tools.Tools))
 	}
 }
 
@@ -228,6 +236,40 @@ func descriptionOf(t *testing.T, tools []*sdk.Tool, name string) string {
 
 	t.Fatalf("the server exposes no tool named %q", name)
 	return ""
+}
+
+// theRequiredFieldsOfTheTool answers the names of the fields the schema of
+// the tool marks as required.
+//
+// The schema of a tool is the shape of the call, and the SDK of the
+// protocol validates it before the handler runs: a field that is required
+// there refuses the call before the domain can answer it.
+func theRequiredFieldsOfTheTool(t *testing.T, tools []*sdk.Tool, name string) []string {
+	t.Helper()
+
+	for _, tool := range tools {
+		if tool.Name != name {
+			continue
+		}
+
+		raw, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			t.Fatalf("the schema of the tool %q could not be read: %v", name, err)
+		}
+
+		var schema struct {
+			Required []string `json:"required"`
+		}
+
+		if err := json.Unmarshal(raw, &schema); err != nil {
+			t.Fatalf("the schema of the tool %q could not be read: %v", name, err)
+		}
+
+		return schema.Required
+	}
+
+	t.Fatalf("the server exposes no tool named %q", name)
+	return nil
 }
 
 // textOf returns the text of the answer of a tool.
@@ -394,6 +436,13 @@ func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
 	failures = append(failures, business.Errors()...)
 	failures = append(failures, account.Errors()...)
 	failures = append(failures, ledger.Errors()...)
+	failures = append(failures, purchase.Errors()...)
+	failures = append(failures, recipe.Errors()...)
+	failures = append(failures, party.Errors()...)
+	failures = append(failures, product.Errors()...)
+	failures = append(failures, order.Errors()...)
+	failures = append(failures, commitment.Errors()...)
+	failures = append(failures, learning.Errors()...)
 
 	for _, failure := range failures {
 		t.Run(failure.Error(), func(t *testing.T) {

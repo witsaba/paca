@@ -76,10 +76,14 @@ type fakeBusinesses struct {
 	existing *business.Business
 	created  []business.Business
 	err      error
+	found    business.ID
 }
 
-// Find answers the business of the identity.
+// Find answers the business of the identity, and remembers which one it was
+// asked for.
 func (f *fakeBusinesses) Find(_ context.Context, id business.ID) (business.Business, error) {
+	f.found = id
+
 	if f.existing == nil {
 		return business.Business{}, business.ErrNotFound
 	}

@@ -254,6 +254,70 @@ func TestDefaultPersonalAccounts(t *testing.T) {
 	}
 }
 
+func TestDefaultBusinessAccounts(t *testing.T) {
+	t.Parallel()
+
+	seed := DefaultBusinessAccounts()
+	if len(seed) != 10 {
+		t.Fatalf("the seed holds %d accounts, want 10", len(seed))
+	}
+
+	names := make(map[string]bool, len(seed))
+	for _, one := range seed {
+		if one.Name == "" {
+			t.Error("the seed holds an account without a name")
+		}
+		if names[one.Name] {
+			t.Errorf("the seed holds %q twice", one.Name)
+		}
+		names[one.Name] = true
+
+		if !one.Kind.Valid() {
+			t.Errorf("the account %q holds the unknown kind %q", one.Name, one.Kind)
+		}
+	}
+
+	for _, want := range []string{"Efectivo", "Banco", "Inventario", "Ventas", "Costo de ventas", //nolint:misspell // "Inventario" is the name the person reads in their book.
+		"Mano de obra", "Gastos indirectos", "Merma", "Donación", "Capital"} { //nolint:misspell // "Donación" is the name the person reads in their book.
+		if !names[want] {
+			t.Errorf("the seed does not hold %q", want)
+		}
+	}
+
+	kinds := make(map[string]Kind, len(seed))
+	for _, one := range seed {
+		kinds[one.Name] = one.Kind
+	}
+
+	for name, want := range map[string]Kind{
+		"Efectivo":          KindAsset,
+		"Banco":             KindAsset,
+		"Inventario":        KindAsset, //nolint:misspell // "Inventario" is the name the person reads in their book.
+		"Ventas":            KindIncome,
+		"Costo de ventas":   KindExpense,
+		"Mano de obra":      KindExpense,
+		"Gastos indirectos": KindExpense,
+		"Merma":             KindExpense,
+		"Donación":          KindExpense, //nolint:misspell // "Donación" is the name the person reads in their book.
+		"Capital":           KindEquity,
+	} {
+		if kinds[name] != want {
+			t.Errorf("the account %q is of the kind %q, want %q", name, kinds[name], want)
+		}
+	}
+}
+
+func TestDefaultBusinessAccountsReturnsACopy(t *testing.T) {
+	t.Parallel()
+
+	seed := DefaultBusinessAccounts()
+	seed[0].Name = "changed"
+
+	if DefaultBusinessAccounts()[0].Name != "Efectivo" {
+		t.Error("the seed changed under the caller")
+	}
+}
+
 func TestDefaultPersonalAccountsReturnsACopy(t *testing.T) {
 	t.Parallel()
 
@@ -306,5 +370,74 @@ func TestKindNormalSign(t *testing.T) {
 
 	if Kind("savings").NormalSign() != 0 {
 		t.Error("an unknown kind carries a sign")
+	}
+}
+
+// TestTheSeedOfTheRoleIsTheAccountTheBookNames proves that the role of an
+// account of the book of a business is declared by the seed: the seed owns
+// the names, and the role is the way of asking for one of them.
+func TestTheSeedOfTheRoleIsTheAccountTheBookNames(t *testing.T) {
+	t.Parallel()
+
+	for role, want := range map[Role]string{
+		RoleCash:        "Efectivo",
+		RoleBank:        "Banco",
+		RoleInventory:   "Inventario", //nolint:misspell // "Inventario" is the name the person reads in their book.
+		RoleSales:       "Ventas",
+		RoleCostOfSales: "Costo de ventas",
+		RoleLabor:       "Mano de obra",
+		RoleOverhead:    "Gastos indirectos",
+		RoleWaste:       "Merma",
+		RoleDonation:    "Donación", //nolint:misspell // "Donación" is the name the person reads in their book.
+		RoleCapital:     "Capital",
+	} {
+		seed, ok := SeedOfRole(role)
+		if !ok {
+			t.Errorf("the book holds no account of the role %q", role)
+			continue
+		}
+		if seed.Name != want {
+			t.Errorf("the account of the role %q is %q, want %q", role, seed.Name, want)
+		}
+	}
+}
+
+// TestTheAccountOfTheRoleIsTheAccountOfTheBook proves that the account of
+// a role is found among the accounts of the book.
+func TestTheAccountOfTheRoleIsTheAccountOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	seed := DefaultBusinessAccounts()
+	accounts := make([]Account, 0, len(seed))
+
+	for index, one := range seed {
+		created, err := New(business.ID(77), one.Kind, one.Name, "", nil)
+		if err != nil {
+			t.Fatalf("the account was refused: %v", err)
+		}
+		created.ID = ID(index + 1)
+		accounts = append(accounts, created)
+	}
+
+	found, err := OfRole(accounts, RoleInventory)
+	if err != nil {
+		t.Fatalf("the account of the inventory was refused: %v", err)
+	}
+	if found.Name != "Inventario" { //nolint:misspell // "Inventario" is the name the person reads in their book.
+		t.Errorf("the account of the inventory is %q, want %q", found.Name, "Inventario") //nolint:misspell // "Inventario" is the name the person reads in their book.
+	}
+}
+
+// TestTheAccountOfTheRoleThatIsNotThereIsRefused proves that a book
+// without the account of a role says so: the account is not there.
+func TestTheAccountOfTheRoleThatIsNotThereIsRefused(t *testing.T) {
+	t.Parallel()
+
+	if _, err := OfRole(nil, RoleInventory); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the error is %v, want %v", err, ErrNotFound)
+	}
+
+	if _, err := OfRole(nil, Role("nothing")); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the error is %v, want %v", err, ErrNotFound)
 	}
 }

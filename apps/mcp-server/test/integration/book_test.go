@@ -252,6 +252,190 @@ func TestTheWholeStoryOfTheMoneyOfAPerson(t *testing.T) {
 	}
 }
 
+// TestTheWholeStoryOfTheCapacityOfTheWeekend proves the slice of the capacity
+// end to end: the owner buys the flour, she writes the recipe of the bread,
+// and the tool answers what the hours of her weekend carry of it.
+//
+// The proof is not the list of the tools: a tool that lists is a tool that the
+// server can answer with the service of the capacity wired to nothing, and the
+// owner would read that her book has no database for the rest of its days.
+// The test calls the tool, and every number it asserts is a number the agent
+// reads in the answer.
+func TestTheWholeStoryOfTheCapacityOfTheWeekend(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	shared, err := network.New(ctx)
+	if err != nil {
+		t.Fatalf("the network of the test did not start: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := shared.Remove(context.Background()); err != nil {
+			t.Logf("the network of the test did not go away: %v", err)
+		}
+	})
+
+	database := startTheDatabaseOfTheStory(t, ctx, shared)
+	defer func() {
+		if err := database.Terminate(context.Background()); err != nil {
+			t.Logf("the database container did not terminate: %v", err)
+		}
+	}()
+
+	applyTheSchemaOfTheStory(t, ctx, database)
+	address := startTheServerOfTheStory(t, ctx, shared)
+
+	client := sdk.NewClient(&sdk.Implementation{Name: "paca-mcp-server-test", Version: "0.1.0"}, nil)
+	session, err := client.Connect(ctx, &sdk.StreamableClientTransport{Endpoint: address + "/mcp"}, nil)
+	if err != nil {
+		t.Fatalf("the client could not connect to the server: %v", err)
+	}
+	defer session.Close()
+
+	// The person arrives, and Paca opens the bakery: a business of its own,
+	// with the book of accounts of a business.
+	callTheTool(t, ctx, session, "complete_onboarding", map[string]any{
+		"document_id": "1010101012",
+		"full_name":   "Ana Rivera",
+	}, nil)
+
+	var bakery struct {
+		Business struct {
+			ID   string `json:"id"`
+			Kind string `json:"kind"`
+		} `json:"business"`
+		Accounts []struct {
+			ID   string `json:"id"`
+			Kind string `json:"kind"`
+			Name string `json:"name"`
+		} `json:"accounts"`
+	}
+	callTheTool(t, ctx, session, "open_business", map[string]any{
+		"owner_id": "1010101012",
+		"name":     "Panadería del barrio",
+	}, &bakery)
+
+	if bakery.Business.Kind != "business" {
+		t.Fatalf("the bakery is a business of the kind %q, want %q", bakery.Business.Kind, "business")
+	}
+
+	businessID := theNumberOfTheStory(t, bakery.Business.ID)
+
+	cash := int64(0)
+	for _, one := range bakery.Accounts {
+		if one.Name == "Efectivo" {
+			cash = theNumberOfTheStory(t, one.ID)
+		}
+	}
+	if cash == 0 {
+		t.Fatal("the book of the bakery holds no cash to pay the flour with")
+	}
+
+	// The flour comes into the house: the draft the agent proposes, and
+	// the confirmation of the owner. The name the catalog did not know
+	// becomes the ingredient the recipe names.
+	var draft struct {
+		Draft struct {
+			ID       int64 `json:"id"`
+			Revision int   `json:"revision"`
+		} `json:"draft"`
+	}
+	callTheTool(t, ctx, session, "draft_purchase", map[string]any{
+		"business_id": businessID,
+		"utterance":   "Compré un kilo de harina por 5000 pesos.",
+		"lines": []map[string]any{
+			{"name": "Harina", "quantity": 1, "unit": "kg", "total_paid": 5000},
+		},
+	}, &draft)
+
+	callTheTool(t, ctx, session, "confirm_purchase", map[string]any{
+		"business_id":     businessID,
+		"draft_id":        draft.Draft.ID,
+		"revision":        draft.Draft.Revision,
+		"confirmed_with":  "sí",
+		"from_account_id": cash,
+	}, nil)
+
+	var catalog struct {
+		Ingredients []struct {
+			ID int64 `json:"id"`
+		} `json:"ingredients"`
+	}
+	callTheTool(t, ctx, session, "read_ingredients", map[string]any{
+		"business_id": businessID,
+	}, &catalog)
+
+	if len(catalog.Ingredients) != 1 {
+		t.Fatalf("the catalog holds %d ingredients, want the one the purchase wrote", len(catalog.Ingredients))
+	}
+
+	flour := catalog.Ingredients[0].ID
+
+	// The recipe the owner confirmed: twenty minutes of her hands to
+	// amass and fifteen to shape, forty minutes of the oven, two hours of
+	// the waiting, and twelve units of what it makes.
+	var baked struct {
+		ID int64 `json:"id"`
+	}
+	callTheTool(t, ctx, session, "record_recipe", map[string]any{
+		"business_id": businessID,
+		"name":        "Pan de molde",
+		"ingredients": []map[string]any{
+			{"ingredient_id": flour, "grams": 500},
+		},
+		"steps": []map[string]any{
+			{"instruction": "Amasar.", "minutes": 20, "labor_kind": "hands_on"},
+			{"instruction": "Formar.", "minutes": 15, "labor_kind": "hands_on"},
+			{"instruction": "Hornear.", "minutes": 40, "labor_kind": "oven"},
+			{"instruction": "Reposar.", "minutes": 120, "labor_kind": "waiting"},
+		},
+		"yield_units":     12,
+		"yield_grams":     90,
+		"shelf_life_days": 3,
+		"confirmed_with":  "sí",
+	}, &baked)
+
+	// The capacity of the weekend: the two hours of her hands carry three
+	// batches of the bread, because the batch needs the thirty-five
+	// minutes of her hands and not the forty of the oven nor the two hours
+	// of the waiting.
+	var capacity struct {
+		Hours   float64 `json:"hours"`
+		Recipes []struct {
+			RecipeID int64 `json:"recipe_id"`
+			Minutes  int   `json:"minutes"`
+			Batches  int   `json:"batches"`
+			Units    int   `json:"units"`
+			Limited  bool  `json:"limited"`
+		} `json:"recipes"`
+	}
+	callTheTool(t, ctx, session, "read_capacity", map[string]any{
+		"business_id": businessID,
+		"hours":       2,
+	}, &capacity)
+
+	if capacity.Hours != 2 {
+		t.Errorf("the capacity carries %v hours, want the 2 the owner declared", capacity.Hours)
+	}
+	if len(capacity.Recipes) != 1 {
+		t.Fatalf("the capacity carries %d recipes, want the one the book holds", len(capacity.Recipes))
+	}
+
+	one := capacity.Recipes[0]
+	if one.RecipeID != baked.ID {
+		t.Errorf("the capacity is of the recipe %d, want %d", one.RecipeID, baked.ID)
+	}
+	if one.Minutes != 35 {
+		t.Errorf("the minutes of the batch are %d, want the 35 of the two steps of the hands", one.Minutes)
+	}
+	if one.Batches != 3 || one.Units != 36 {
+		t.Errorf("the capacity carries %d batches and %d units, want 3 and 36", one.Batches, one.Units)
+	}
+	if !one.Limited {
+		t.Error("the recipe of the hands of the owner is not limited by the hours")
+	}
+}
+
 // startTheDatabaseOfTheStory starts the PostgreSQL of the story and answers
 // the container that holds it.
 func startTheDatabaseOfTheStory(t *testing.T, ctx context.Context, shared *testcontainers.DockerNetwork) testcontainers.Container {

@@ -434,6 +434,51 @@ func accountOfDebt(businessID business.ID, name, counterparty string, dueDate *t
 	return built
 }
 
+// theAccountsOfTheBook writes the accounts of the book of a business that
+// the movements of its money need, and answers them by their role.
+//
+// The names of the accounts are the ones the domain declares for the book
+// of a business, and the role is what says which account is which: the
+// money of a movement moves between the accounts of the roles, never
+// between the names the owner reads.
+func theAccountsOfTheBook(
+	t *testing.T,
+	ctx context.Context,
+	bakery business.Business,
+	roles ...account.Role,
+) map[account.Role]account.Account {
+	t.Helper()
+
+	wanted := make(map[account.Role]bool, len(roles))
+
+	for _, one := range roles {
+		wanted[one] = true
+	}
+
+	accounts := make(map[account.Role]account.Account, len(roles))
+
+	for _, one := range account.DefaultBusinessAccounts() {
+		if !wanted[one.Role] {
+			continue
+		}
+
+		created, err := accountsRepository(t).Create(ctx, accountOf(bakery.ID, one.Kind, one.Name))
+		if err != nil {
+			t.Fatalf("the account %q could not be created: %v", one.Name, err)
+		}
+
+		accounts[one.Role] = created
+	}
+
+	for _, one := range roles {
+		if _, ok := accounts[one]; !ok {
+			t.Fatalf("the book of the business holds no account of the role %q", one)
+		}
+	}
+
+	return accounts
+}
+
 // createBusiness opens the personal business of a person.
 func createBusiness(t *testing.T, owner int64) business.Business {
 	t.Helper()

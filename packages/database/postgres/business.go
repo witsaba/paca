@@ -118,6 +118,36 @@ func (r *BusinessRepository) FindPersonalByOwner(ctx context.Context, owner user
 	return businessFromRow(row)
 }
 
+// ListByOwner returns the businesses of a person, in the order of their
+// identity.
+//
+// The rule of the domain: a person may own more than one business, and the
+// personal one is one of them. The list is empty when the person holds no
+// business at all.
+//
+// The error is business.ErrNoStorage when the storage is not open.
+func (r *BusinessRepository) ListByOwner(ctx context.Context, owner user.ID) ([]business.Business, error) {
+	if r == nil || r.pool == nil {
+		return nil, business.ErrNoStorage
+	}
+
+	rows, err := r.pool.queriesFor(ctx).ListBusinessesByOwner(ctx, int64(owner))
+	if err != nil {
+		return nil, writeBusinessError(err)
+	}
+
+	owned := make([]business.Business, 0, len(rows))
+	for _, row := range rows {
+		mapped, err := businessFromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		owned = append(owned, mapped)
+	}
+
+	return owned, nil
+}
+
 // businessFromRow maps a row of the businesses table onto the model of the
 // domain.
 //

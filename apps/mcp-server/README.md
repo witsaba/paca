@@ -100,10 +100,41 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes twelve tools: the way PACA onboards a person, the four
-moments of the journey of a person inside PACA, the three tools of the book
-of their money, and the four tools of their debts and of the closing of
-their month.
+The server exposes fifty-two tools: the way PACA onboards a person, the four
+moments of the journey of a person inside PACA, the two tools of the
+businesses of a person, the three tools of the book of their money, the
+four tools of their debts and of the closing of their month, the four tools
+of the utterance — the purchase the owner just said, the purchase she
+confirmed, and the two that drop and read back the pending drafts — the
+three tools of the catalog: the name she said matched against the names
+the business buys, the catalog read with what is known of every ingredient,
+and the completion of an ingredient with what the owner declared about it,
+the tool of the recipes: the guide she just confirmed, the two tools of
+the reference prices: the price of the market that PACA researched, and
+the reading of the ones the business holds, and the tool of the stock: what
+the business holds and what it cost, the tool of the capacity of a weekend:
+what the hours of her own hands carry of the recipes of the bakery, the tool
+of the labour she just confirmed, the tool of the overhead of the house, the
+tool of the report of the real price, the tool of the margin, the tool of the
+production and the two tools of the expiry: the correction of the shelf life
+the owner just declared, and the read of what expires, the tool of the waste
+the bakery lost, the tool of the sale the bakery made, the tool of the exit
+of a unit: the consumption of the owner and the donation, the tool of
+the rotation: the order in which the units leave the book, and the two
+tools of the parties: the person, the store or the farm that buys from the
+bakery or that the bakery buys from, and the reading of the parties the
+business knows, and the two tools of the invoices: the invoice that came
+with the purchase, and the reading of the invoices the business holds, and
+the two tools of the price list: the price of a product in a channel, and
+the reading of the price list of the business, and the two tools of the
+orders: the order the bakery owes to a client, and the reading of the round
+of a day: what is still owed, the tool of the route: the order the
+agent will visit the clients in, and what each visit costs, and the three
+tools of the commitments: the promise of what is due and the day it is due,
+the day the promise was kept, and the calendar of the promises that the
+agent reads to ring, and the two tools of the learning log: the entry of what
+happened and what was learned, which is never rewritten, and the reading of
+the log with the last word of every chain.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -112,6 +143,8 @@ their month.
 | `list_users`              | Reads the people PACA knows, as many of them as the agent asks. |
 | `change_user_status`      | Moves a user to another status, and says why when it needs it.  |
 | `update_user_contact_data`| Writes the name, the phone and the email of a user.              |
+| `open_business`           | Opens a business of a person, with the book of accounts it starts with. One call, one transaction. |
+| `read_businesses`         | Reads the businesses of a person: the Personal Business and the others they own. |
 | `record_movement`         | Writes a movement of money in the book: it goes from one account to another one. |
 | `read_movements`          | Reads the movements of a period: the libro diario.              |
 | `read_balances`           | Reads the balance of every account and the money of the business: the libro mayor. |
@@ -119,6 +152,44 @@ their month.
 | `list_debts`              | Reads the debts the book still holds: what the person owes, to whom, and the day it falls due. |
 | `record_debt_payment`     | Writes the payment of a debt, and refuses a payment that passes what the debt still holds. |
 | `read_month_summary`      | Closes a month: the income, the expenses, the net, and the debts that were open at the end of it. |
+| `draft_purchase`           | Proposes the purchase the owner just said and keeps it as a draft of the business, with what it understood, what it still needs, what it was not sure about and what it filled. |
+| `confirm_purchase`         | Writes the purchase of the draft the owner confirmed and moves the money of the payment from the account that pays to the inventory. One call, one transaction. |
+| `cancel_draft`             | Drops the draft the owner does not want: it moves to the state `cancelled` and it never waits again. It writes nothing in the book. |
+| `read_drafts`              | Reads the pending drafts of a business, each one with what it still needs, what it was not sure about and what PACA filled, so that a lost conversation can be recovered. It writes nothing. |
+| `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
+| `read_ingredients`        | Reads the catalog of the names the business buys: every ingredient with its unit, the weight of a package, its allergens, its certification with its evidence and its conversion, and what each one is still missing. It writes nothing. |
+| `complete_ingredient`     | Writes what the owner just declared about an ingredient of the catalog: the unit it is bought in, the weight of a package, the allergens, the certification with the evidence that proves it, the names she uses for it and the conversion of its raw grams into its prepared ones. |
+| `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
+| `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
+| `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
+| `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. The money of a layer that is partly consumed is the money of what is left of it. It writes nothing. |
+| `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one, and the rates are the rates of the DIRECT cost, without the labour and without the overhead. It writes nothing. |
+| `read_capacity`           | Reads the capacity of a weekend: what the hours the OWNER has carry of the recipes of the bakery, in whole batches and in units. The hours are the hours of her OWN HANDS and PACA never invents them — the weekend that carries no hours is refused. The capacity counts the labour of the HANDS alone: the oven and the waiting are not counted, because the batch bakes and rests while she does the next thing. The hours are read as the WHOLE MINUTES the owner declared, so the batch that fits them exactly is never dropped. The batches are WHOLE — the book never splits a batch and it never rounds one up — and the units are the units of those batches, the batches times the yield of the recipe. The hours are NOT shared between the recipes: every entry of the answer is what those hours carry OF THAT ONE RECIPE alone. A recipe whose labour of the hands is zero is NOT LIMITED by the hours, and it says so instead of lying with a zero. The capacity is NEVER a promise of the calendar: it is what the weekend can carry with those hours, and the stock of the ingredients may carry less. It writes nothing. |
+| `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. At least one of the three kinds of the hours carries hours, and the other two are optional. The money of the labour is never inferred, and a labour whose value of the hour PACA filled by itself is refused, and the payroll of the employees is out of scope for now. |
+| `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and an overhead whose electricity PACA filled by itself is refused. The overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
+| `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
+| `read_margin`             | Reads the margin of a product: what the owner charges above the DIRECT cost of a batch, and what the MARKET said about the same ingredients. Every reference of the market is shown with the place it was read in, the day it was seen and its age, and the ones older than the owner expects are marked as old. A reference is never the price of the ingredient, and it never moves the money of the book. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. It writes nothing. |
+| `record_production`       | Writes the production of the bakery the owner just confirmed: the recipe she made, the day she made it, the grams that went in, the money of the layers the production consumed and the units that came out, each one with the day it expires. The grams and the units are DERIVED by the book: the grams come from the layers of the stock in the order of FIFO — the oldest layer leaves first — and the units are the yield of the recipe. A production the stock cannot cover is refused. One call, one transaction: the production and the layers it consumed are written whole or not at all. |
+| `correct_shelf_life`      | Writes the correction of the shelf life the owner just confirmed: the recipe she corrected, the number of days what it makes keeps, the day she corrected it and her word. The shelf life of a recipe is an APPROXIMATION until she corrects it, and the correction is KEPT: the last one she declared is the shelf life that counts. The correction moves the units that were ALREADY made: every unit of that recipe expires again, the day it was made plus the days she corrected. The days are never invented by PACA. One call, one transaction: the correction and the days it moves are written whole or not at all. |
+| `record_waste`            | Writes the waste of the bakery the owner just confirmed: the product she lost, the quantity of units, the unit, the reason — burnt, spoiled, dropped or returned — and the day it happened. The units that leave the book are the units of the product that EXPIRE FIRST, and the money of the waste is the money of those units: the cost it releases. The waste moves NO money IN — nobody paid for the bread the bakery lost — and what it does is RELEASE the cost of the units that left the book. The money is never lost from the book — it leaves the inventory and it lands in the account of the waste. The reason is what a later analysis reads, and it is never invented by PACA. One call, one transaction: the waste and the movement of its money are written whole or not at all. |
+| `read_expiring`           | Reads what expires, and when: every unit of the business with the day it expires, the days that are left of it and whether it is ALREADY expired. The units are ordered by the day they expire — the one that expires first is the first one. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. A unit is expired on the day it expires and on every day after it, and a unit that expired is NEVER sold. It writes nothing. |
+| `record_sale`             | Writes the sale of the bakery the owner just confirmed: the product she sold, the quantity of units, the unit, the MONEY the client paid and the day it happened. The money is what the client paid and it is never inferred by PACA: the price list of the products is a later work. The units that leave the book are the units of the product that EXPIRE FIRST, and the sale of a unit that EXPIRED is refused: the expired unit has to be written as a waste. The sale moves the money IN — it lands in the cash of the business, or in the account the owner names — and it RELEASES the cost of the units it sells: the cost leaves the inventory and it lands in the account of the cost of the sales. One call, one transaction: the sale and the two movements of its money are written whole or not at all. |
+| `record_exit`             | Writes the exit of a unit of the book the owner just confirmed: the KIND of the exit — `consumption` (the owner ate the bread) or `donation` (the bakery gave it away) — the product, the quantity of units, the unit and the day it happened. The exit moves NO money IN: nobody paid for the bread the owner consumed or for the bread the bakery gave away. What it does is RELEASE the cost of the units that left the book — the units of the product that EXPIRE FIRST — and the cost leaves the inventory and lands in the account of the expense of the exit: the cost of the sales for the consumption, and the account of the donation for the donation, which is a social expense of the business. The TAX TREATMENT is never decided by PACA: it waits for the professional of the taxes of the owner, and the answer carries the question that waits. One call, one transaction: the exit and the movement of its cost are written whole or not at all. |
+| `read_rotation`           | Reads the rotation of the book: the ORDER in which the units the bakery still holds leave it, and when each one expires. The rotation follows the EARLIEST EXPIRY: the unit that expires first is the first one that leaves, and the units that expire on the same day keep a stable order — the production first, and the position of the unit in it. The answer carries the name of the product, the day each unit was made, the PLACE it takes in that order, the DAY it expires and the DAYS that are left of it. The product is optional: the whole book of the business, or one product of it. The units that already left the book are not offered any more: the ones that were sold, wasted, consumed or given away are gone. The answer carries NO money: the valuation of the stock follows the FIFO, and it is another rule. It writes nothing. |
+| `open_party`              | Opens a party of the business: the PERSON, the STORE or the FARM that buys from the bakery, or that the bakery buys from. The business is the business of its own — the one with the clients and the providers of the bakery — and the Personal Business of a person is refused. The kind is required, and the name is required: the name of a party is NOT unique inside the business, and two parties may share it. The roles are required: the CLIENT, the PROVIDER, or both of them, and a party that holds neither is refused. The legal human that represents the party is a FACT OF THE PARTY and never a second person: a store REQUIRES it, a farm CARRIES it only when it has one, and a person REFUSES it. The phone, the email and the address are optional facts of the party, and PACA never invents them. |
+| `read_parties`            | Reads the parties of the business: every person, store and farm it knows, in the order of their identity, with the roles it holds, the way of reaching it, its address and the legal human that represents it. The name of a party is not unique inside the business, and the answer carries the ones that share it. It writes nothing. |
+| `record_invoice`          | Writes the invoice that came with a purchase: the provider that issued it, the number it carries, the day it was issued, the base the tax applies to, the RATE the invoice states, the tax that travels with it and the total of the invoice. The tax is NEVER assumed: there is no default of nineteen percent and no default of zero, and the tax is derived from the rate and the base the invoice states, rounded to the nearest whole peso with a half peso going up. An invoice that does not add up is refused, a rate with more than two decimals is refused, and so is a provider that does not hold the role of the provider. A purchase carries ONE invoice, and the invoice is attached only to the purchase it names. The invoice moves NO money: the purchase already moved the money of the payment. The reference of the document the owner shows is optional, and PACA never assumes an electronic invoice. One call, one transaction: the invoice and the purchase that points at it are written whole or not at all. |
+| `read_invoices`           | Reads the invoices of the business: every invoice it holds, in the order of their identity, with the provider that issued it, the purchase it came from, its number, its day, its base, the rate the invoice states, the tax that travels with it and its total. The tax of an invoice is never assumed: it is the one the invoice states. It writes nothing. |
+| `set_price`               | Sets the price of a product of the bakery for a CHANNEL: the retail or the wholesale. The product is named either by the RECIPE it comes from — the bakery sells what it bakes — or by the NAME the owner reads, and it is OPENED the first time it is named: that is the only way a product comes into being, and PACA never guesses its name. The channel is required and there is NO default channel: the channel is already in the price from the first row, so that the discount of the wholesale never has to rebuild the history of the prices. For now the two channels carry the same price. The amount is a positive number of whole pesos, and it is never inferred. The BASIS is required too: it is THE WAY THE OWNER CHARGES — the unit, the gram or the kilogram — because three thousand pesos is not a price until the book knows what it is the price of, and there is no default basis. The tax treatment is OPTIONAL: it is a fact of the product that the owner states, and PACA never derives it from the price. The price is a FACT and it is never rewritten: every price is kept with the day it was set. One call, one transaction: the product and the price are written whole or not at all. |
+| `record_order`            | Writes an order of the bakery: the client that ordered, the products with the quantities of them and the WAY THE OWNER CHARGES them, and the day it is due. The party is named either by its IDENTITY or by the NAME the owner reads, and it is a CLIENT: the bakery does not owe bread to a provider. The way she charges is one of the three of the book — the piece (`unit`), the gram (`gram`) or the kilogram (`kilogram`) — and a unit the book does not know is refused. The quantity travels with the way she charges: by the PIECE it is a whole number of pieces (the book never splits a piece), and by the weight it is any positive amount of weight (the book never converts a weight into a number of pieces). The day it is due is required and PACA never invents one. The order is written OPEN: an order that was not delivered stays open, and the delivery of an order is written with the ROUTE of the round. One call, one transaction: the order and its lines are written whole or not at all. |
+| `read_orders`             | Reads the round of a day: the orders that are DUE on it, and the ones that are STILL OWED — EVERY open order of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not delivered. The day is optional: the round of that day answers the orders that are due on it, and the whole book of the orders is read when the agent names none — and the answer carries the day of the round only when the agent names a day. The answer also carries the ROUTE of the day when the round was planned, and says that the round was NEVER PLANNED when it carries no route. It writes nothing. |
+| `record_route`            | Writes the ROUTE of the round of a day: the order the agent will visit the clients in, and what each visit costs. The agent is the one that knows the streets, and PACA never computes the route. Every stop names an order the business still OWES — EVERY open order of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not delivered — and the money of the transport to that client, in WHOLE PESOS: the cost is REQUIRED and it is never less than nothing, and zero is legal because a stop the owner walks to costs nothing. An order is visited ONCE: a route that names the same order in two stops is refused, because the total of the route is derived from the stops. Writing the route DELIVERS the orders of its stops: the route is written back into the round, and the delivery of the orders is written with it. The route of a business and a day is written ONCE. One call, one transaction: the route, its stops and the delivery of the orders of the stops are written whole or not at all. |
+| `record_commitment`       | Writes a promise of the bakery: what is due, in the words of the owner, and the day it is due. The promise carries NO money and NO party of its own — the order of the bakery already carries the client delivery, and the promise never copies it — and it is written OPEN: it carries no day of meeting, because nobody said it was met. One call, one row. |
+| `meet_commitment`         | Records that a promise was met: the day it was kept. The promise is named by ITS OWN IDENTITY and never by its text, because two promises that say the same thing on the same day are two promises. The promise that was kept is KEPT: it stays in the book with the day it was kept, and it is not owed any more. A promise is kept once: the second meeting of the same promise is refused, and the book never hides the day it already holds. The day it was met may be before or after the day it is due, and PACA never invents it. |
+| `read_commitments`        | Reads the calendar of the promises of the business: the promises that are DUE on the day, and the ones that are STILL OWED — EVERY open promise of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not met. The day is optional: the calendar of that day answers the promises that are due on it, and the whole book of the promises is read when the agent names none. The ALARM is not PACA's: PACA holds the fact of what is due and the day it is due, and this is what the agent reads to ring. It writes nothing. |
+| `record_learning`         | Writes one entry of the learning log of the bakery: the day, the batch she baked, the run of that batch when the entry is about one, what happened and what was learned, in the words of the owner. The log is the memory of the errors and the wins of the owner, it carries NO money and it never moves a peso. The log is NEVER REWRITTEN: an entry is not updated and it is not deleted, and a correction is a NEW entry that answers the old one with `answers_id` — the entry that was answered keeps its own words for ever. The entry it answers is of the same business and it was not answered yet, because the log is a chain and not a tree. The production is a production of the business and a run of the batch the entry names. One call, one row. |
+| `read_learning`           | Reads the learning log of the business: every entry, in the order it was written, each one carrying the entry it answers, and the entries that are the LAST WORD of their chain (`current`) — the ones no other entry answers, which are what the owner already knows and what Paca tells her. The log is never rewritten, so the corrections of the past are in the answer and they are not hidden. A business that is not there is refused, and the Personal Business of a person is refused: its money is not the lessons of the bakery. It writes nothing. |
+| `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. The answer carries the WAY THE OWNER CHARGES of every price. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
 the onboarding registers the person and opens their book in one call, and a
@@ -143,6 +214,19 @@ tool answers with what PACA knows about the person, and the description of
 `list_users` tells the agent to ask for the people it needs and to ask again
 when the answer carries more people than it asked for.
 
+**The business of a person has a book of its own.** The tool that opens a
+business writes the business and the accounts of its book in one
+transaction: a book that starts with half of its accounts lies about what
+the owner has. The name of the business is required, the currency is
+optional and it means the peso when the agent names none, and the kind of
+the business is always `business` — the Personal Business of a person is
+opened by the onboarding. The name of a business is taken inside the
+businesses of its owner, and PACA refuses the duplicate. The description of
+`open_business` names the accounts the book starts with and the kinds of a
+business, and the description of `read_businesses` says that the tool
+changes nothing: both lists are read from the domain and never written a
+second time.
+
 **The money goes from one account to another one.** The tool of the movement
 takes the account the money comes from and the account it lands in, the
 way the person says it: a salary lands in the cash and comes from the
@@ -150,13 +234,364 @@ salary. The amount is positive and it is never a fraction, the day is the
 day the money moved — the day of today when the agent names none — and the
 description is what the person reads in their book.
 
+**The utterance is a draft, and a draft waits for the yes.** The tool
+`draft_purchase` takes the business and the sentence of the owner verbatim,
+with the lines the agent read from it: the name as she said it, the
+quantity, the unit and the money. It writes a draft and nothing else — the
+book of the business does not move until the owner says yes — and it answers
+with the three parts of the answer of Paca: what it understood, what it did
+not understand and what it still needs. The money is never inferred: a
+price the agent filled is refused, and a line the owner did not price is
+what the draft still needs. The quantity and its unit travel together: the
+unit of a line is the unit the owner named, and the unit of the ingredient
+of the catalog when she named none, and a line that ends without a unit is
+refused. The unit is stored the way the BOOK knows it: Paca reads the way
+she says it ("kilos", "gramos") and saves "kg", "g", "paquete", "unidad". And when the owner named both the money that was paid and the
+price of the unit, the two must agree. The day is one of the three things
+Paca may fill by herself, so a draft that names no day is the day of today
+and the answer says so. A draft expires in seven days if the owner says
+nothing.
+
+**The confirmation writes the purchase and moves the money.** The tool
+`confirm_purchase` takes the business, the draft, the revision the owner
+saw and the word she used to confirm it. The account that pays is optional:
+the money comes from the cash of the business, and from the account the
+owner names when she paid with another one. The purchase, its lines and the
+movement of the money are written together or not at all: a book that holds
+a purchase and no movement of its money lies about what the owner bought.
+The confirmation is refused when the draft expired, when the draft changed
+under the eyes of the owner, and when the draft still needs the money of one
+of its lines: the money is never inferred. A refused confirmation leaves
+nothing behind — the draft stays as it was and no purchase is written. The
+answer carries the purchase that was written and the three parts of the
+answer of Paca: what it recorded, what it did not understand and what it
+still needs. The answer names the names the catalog of the business did not
+know: a name the catalog does not know is not an error, it is recorded as
+the owner said it, and the agent tells her that the name is new.
+
+**The pending drafts can be dropped and read back.** The tool `cancel_draft`
+takes the business and the draft, and it drops the draft the owner does not
+want: the draft moves to the state `cancelled` and it never waits again. A
+draft that is confirmed already and a draft that is cancelled already are
+refused — they do not wait any more — and so is a draft that expired: the
+price of a market does not wait. The tool `read_drafts` takes the business
+and answers with the drafts that still wait for the yes of the owner, each
+one with what it still needs, what it was not sure about and what PACA
+filled by herself: a lost conversation is recovered from the book of the
+business and not from the memory of the model. The day is optional and it
+means the day of today when it is empty: the day decides which drafts are
+still pending, because the expiry is computed when the draft is read. Both
+tools change nothing in the book.
+
+**The catalog of the names begins empty.** The tool `match_items` takes the
+business and the name as the owner said it, and it answers with the status
+of that name: `exact` when one ingredient answers it, `ambiguous` when
+several answer it — with the options, so the owner chooses with one word —
+and `unknown` when none of them does. A name the catalog does not know is
+not an error: the answer says that it is new, and the confirmation of the
+purchase records it as she said it. The tool writes nothing: the catalog
+grows with the confirmation of a purchase, never with a read.
+
+**The catalog is read, and the ingredient is completed.** The tool
+`read_ingredients` reads the catalog of a business and answers with what is
+known of every ingredient — the unit it is bought in, the weight of a
+package, the allergens it carries, the certification it has and the
+conversion of its raw grams into its prepared ones, with the weight of its
+unit in grams — and with what each one is still missing, so the agent asks
+the owner for exactly what she has not said yet. The tool `complete_ingredient` writes what the owner declared
+about one of them: the unit, the weight of a package, the allergens, the
+certification with the document that proves it, the names she uses for it
+and the conversion. A claim carries its evidence: PACA refuses an
+"organic" without the document that proves it, and the two fats are two
+ingredients with their own certification. The units of the book are the
+gram, the kilogram, the package and the piece, and the weight of a package
+is never assumed.
+
+**The recipe is a guide, and it is written with the yes of the owner.** The
+tool `record_recipe` takes the business, the name the owner reads, the
+ingredients of the catalog with their grams, the steps in the order she
+said them, the yield, the shelf life of what the recipe makes and the word
+she used to confirm it. A recipe is not a list of ingredients: it is a
+guide to learn and to teach, and the steps are part of it — with their
+times, their temperatures and their cues, when she named them. The grams of
+an ingredient are never inferred, and the yield is a declared constant of
+the recipe, never measured per bake. The ingredient of a recipe is the
+ingredient of the catalog: PACA refuses an ingredient the catalog of the
+business does not hold, and the answer tells the agent to match the name
+first. The recipe, its ingredients and its steps are written together or not
+at all: a recipe without its ingredients and its steps is not a guide, and a
+refused recipe leaves nothing behind.
+
+**A reference is never the price of the ingredient.** The price the owner
+pays exists only in the market of her town and only in her mouth on the
+day: it comes from her own purchases. The tool `record_reference` writes
+what the research of PACA found — the ingredient, the price, the unit of
+that price, the market where it was seen, the place it was read and the day
+it was read — with the confirmation of the owner, the way the purchase is
+written. The answer carries the kind of what it is (`reference`), so that
+nothing may read it as the price of the ingredient. The source is never
+empty: a price without a source is a price nobody can check, and PACA
+refuses it. The tool `read_references` reads the references of the
+business — of one ingredient, or of every one of them — with their source
+and their day, and it writes nothing.
+
+**The stock is the sum of the layers that are still open.** The purchase is
+the fact of what the business bought, and the layer is derived from it: the
+ingredient, the quantity with its unit, the money it cost, the day it was
+bought and the purchase it comes from. The tool `read_stock` reads what the
+business holds — the quantity of every ingredient, the layers that are
+still open and the money the stock cost — and it writes nothing. The
+business is required, and the tool refuses the business that is not there.
+The valuation is FIFO: the oldest layer is the first one that leaves, and the
+answer carries the layers in that order. The order of the output by expiry
+is a different rule, and it does not live here. The quantity and its unit
+travel together: the layers bought in different units are held apart, and
+the book never adds a gram to a kilogram. The layer carries the unit the
+book knows (`g`, `kg`, `paquete`, `unidad`), and so does the purchase it
+comes from: the way the owner said it is read by the domain and never
+stored. The money of a layer that is partly consumed is the money of what is
+left of it: the money the layer bought, pro rata the quantity that is left,
+and the layers of a holding sum to the money of the holding.
+
+**The capacity is what the hours of the weekend carry.** The tool
+`read_capacity` answers what the owner can make with the hours she has: the
+hours she declares, and the capacity of every recipe of the business, in
+whole batches and in units. The hours are the hours of her OWN HANDS — the
+time she has to amass, to shape and to bake — and PACA never invents them:
+the weekend that carries no hours is refused, because zero hours are not a
+weekend. The capacity counts the labour of her HANDS alone: the oven and the
+waiting are not counted, because the batch bakes and rests while she does the
+next thing, and the minutes the answer carries are the minutes of her hands.
+The hours are read as the WHOLE MINUTES she declared, and the batches are the
+whole division of them, so the batch that fits the hours exactly is never
+dropped. The batches are WHOLE — the book never splits a batch and it never
+rounds one up — so ten hours against a batch of three hours of hands carry
+three batches and not three and a third, and the units are the units of those
+batches: the batches times the yield of the recipe. The hours are NOT shared
+between the recipes: every entry of the answer is what those hours carry of
+that one recipe, and two recipes of an hour of her hands each answer one
+batch each out of a weekend of one hour. A recipe whose labour of the hands
+is zero is NOT LIMITED by the hours, and the answer says so instead of lying
+with a zero.
+The capacity is NEVER a promise of the calendar: it is what the weekend can
+carry with those hours, and the stock of the ingredients may carry less than
+the book says it can. The tool writes nothing, and the capacity carries NO
+money: the payroll of the employees is out of scope for now, and the labour
+that counts is the labour of the owner alone.
+
+**The report of the real price shows the three layers apart.** The tool
+`read_real_price` reads the report of what a product really costs: the
+direct cost of the ingredients, the labour of the hours of the recipe and
+the overhead of the hours of the oven — each one with its money and its
+rates per unit, per gram and per kilogram — and their sum, shown apart, so
+that no layer of the cost hides inside another one. The price the owner
+charges travels beside them, with the way she charges it (`unit`, `gram` or
+`kilogram`), and the book never moves it: the money of what she sells is
+never inferred, and a report of a price nobody declared says that it is not
+known. The two monies travel apart: the money of the layers is the money of
+the whole batch, and the money of the price of the owner is the money in her
+basis — the price of one unit, of one gram or of one kilogram. The tool
+writes nothing, and the labour and the overhead move no money of the ledger
+yet: their accounts exist in the seed of the book, and the movement belongs
+to a later increment.
+
+**The margin compares the price of the owner with the cost and with the
+market.** The tool `read_margin` reads what a product earns: the profit
+above the DIRECT cost of the batch — per unit, per gram and per kilogram,
+and the percent it is of the direct cost — and, beside it, what the MARKET
+said about the same ingredients: what the owner paid for them, what the
+market says they cost, and the difference between the two. The reference is
+a reference: it never becomes the price of the ingredient, and it never
+moves the money of the book — the direct cost comes from the layers of the
+stock. Every reference is shown with the place it was read in, the day it
+was seen and its age, and the newest one of every ingredient is the one
+that compares, because the market of today is the last one that was seen.
+When the owner expects the references to be fresh, the agent sends
+`max_age_days`, and the ones older than that are marked as old, with their
+age. The expectation of the age is a number of days: a negative one is
+refused, and a refused read reads nothing. The money of the price of the
+owner is the money in her basis, and the money of the layers is the money of
+the whole batch. The tool writes nothing.
+
+**The production is derived, never typed.** The tool `record_production`
+writes what the bakery made on a day: the recipe she made, the day she
+made it, the grams that went in, the money of the layers the production
+consumed and the units that came out, each one with the day it expires.
+The grams and the units are never asked to the owner: the grams come from
+the layers of the stock in the order of FIFO — the oldest layer is the
+first one that leaves — and the units are the yield of the recipe, each
+one with the day of the production plus the shelf life of the recipe. The
+quantity that is left of each layer is the quantity it held minus what the
+production took from it, and the unit travels with it: the book never
+subtracts a gram from a kilogram. A production the stock cannot cover is
+refused, and the answer says that the purchase of the missing ingredient
+comes first. The production and the layers it consumed are written in one
+transaction: a production whose layers did not leave the stock leaves
+nothing behind. The recipe is named by her name or by its identity, and a
+name that more than one recipe carries is refused: the book never guesses
+which recipe she made. The word she used to confirm it is kept with the
+record, and her sentence is kept verbatim when she said one.
+
+**The expiry is corrected, and it is read.** The shelf life of a recipe is
+an approximation until the owner corrects it, and the tool
+`correct_shelf_life` writes that correction with her word: the number of
+days is what she said, and PACA never invents it. The correction is KEPT:
+every correction she declared is written down, and the last one is the
+shelf life that counts — so the units that come out of the oven from now
+on expire the day of the production plus the days she corrected, and the
+units she already made expire again. The correction and the days it moves
+are written in one transaction, and a unit that changed under the
+correction is refused: the book is never left half-corrected. The tool
+`read_expiring` answers what expires, and when: every unit of the business
+with the day it expires, the days that are left of it and whether it is
+already expired, the unit that expires first first. The units that already
+left the book are not offered any more: the ones that were sold, wasted,
+consumed or given away are gone, and the answer carries the units the bakery
+still holds. A unit is expired on the day it expires and on every day after it,
+and a unit that expired is never sold. The two tools write nothing in the book of the money: the
+expiry moves the day a unit expires, and never a peso.
+
+**The waste is a movement, and it is written with the word of the owner.**
+The tool `record_waste` writes what the bakery lost: the product she lost,
+the quantity of units, the unit, the reason — burnt, spoiled, dropped or
+returned — and the day it happened. The reason is what a later analysis
+reads, and it is never invented: PACA asks her why she lost them. The waste
+counts the UNITS it lost: the book never converts a weight into a number of
+units, and it never splits a unit. The units that leave the book are the
+units of the product that EXPIRE FIRST — the rotation of the output, a rule
+apart from the FIFO of the valuation — and the money of the waste is the
+money of those units: the cost it releases, the money of the production
+they came out of divided by the units that production made. The waste moves
+NO money IN — nobody paid for the bread the bakery lost — and what it does
+is RELEASE the cost of the units that left the book. The money is
+never lost from the book: it leaves the inventory and it lands in the
+account of the waste, and the waste and the movement of its money are
+written in one transaction. The word she used to confirm it is kept with
+the record, and her sentence is kept verbatim when she said one.
+
+**The sale is a movement, and it moves the money in and the cost out.**
+The tool `record_sale` writes what the bakery sold: the product she sold,
+the quantity of units, the unit, the money the client paid and the day it
+happened. The money is what the client paid, and it is never inferred: PACA
+asks her what the client paid. The sale counts the UNITS it sold: the book
+never converts a weight into a number of units, and it never splits a unit.
+The units that leave the book are the units of the product that EXPIRE
+FIRST — the rotation of the output, a rule apart from the FIFO of the
+valuation — and a unit that EXPIRED is never sold: the sale is refused, and
+the expired unit has to be written as a waste. The cost of the sale is
+derived, never typed: the money of the production the units came out of,
+divided by the units that production made. The money of the sale lands in
+the account that receives it — the cash of the business, or the one the
+owner names — and it comes from the account of the sales; the cost leaves
+the inventory and it lands in the account of the cost of the sales. The
+sale and the two movements of its money are written in one transaction. The
+word she used to confirm it is kept with the record, and her sentence is
+kept verbatim when she said one.
+
+**The exit is a movement, and it moves no money IN.**
+The tool `record_exit` writes the exit of a unit of the book: the KIND of it
+— `consumption` when the owner ate the bread, `donation` when the bakery
+gave it away — the product, the quantity of units, the unit and the day it
+happened. The exit moves NO money IN: nobody paid for the bread the owner
+consumed or for the bread the bakery gave away. What the exit does is
+RELEASE the cost of the units that left the book: the units of the product
+that EXPIRE FIRST, and the cost is derived, never typed — the money of the
+production they came out of, divided by the units that production made.
+The cost leaves the inventory and it lands in the account of the expense of
+the exit: the cost of the sales for the consumption, and the account of the
+donation for the donation, which is a social expense of the business. The
+TAX TREATMENT is never decided by PACA: it waits for the professional of the
+taxes of the owner, and the answer carries the question that waits. The
+exit and the movement of its cost are written in one transaction. The word
+she used to confirm it is kept with the record, and her sentence is kept
+verbatim when she said one.
+
+**The rotation is the order in which the units leave the book.**
+The tool `read_rotation` answers that order: the units the bakery still
+holds, the one that expires first first, with the place it takes in that
+order, the day each one expires and the days that are left of it. The rotation follows the EARLIEST EXPIRY, and
+the units that expire on the same day keep a stable order: the production
+first, and the position of the unit in it. The answer holds only the units
+that are still in the book: the ones that were sold, wasted, consumed or
+given away are gone. The rotation may be asked for the whole book of the
+business or for one product of it, and the agent names the product when the
+owner asks about one product. The answer carries NO money: the FIFO is the
+rule of the valuation of the stock, and the rotation is the rule of the
+output — the two rules are apart, and the model keeps them apart. The tool
+writes nothing.
+
+**The party is the other side of the bread.** The tool `open_party` writes
+the person, the store or the farm that buys from the bakery or that the
+bakery buys from, and the tool `read_parties` answers the parties the
+business knows. The kind of the party is one of the three of the owner, and
+the roles it holds are the CLIENT and the PROVIDER: it holds the role of the
+client, the role of the provider, or both of them, and the domain refuses
+the party that holds none of them — the bakery neither sells to it nor buys
+from it, and it is not a party of the book. The party belongs to a business
+of its own: the Personal Business of a person holds the money of that person
+and not the clients and the providers of the bakery, and the tool refuses a
+party of it. A business that is not there is refused too: the tool never
+opens a party in a business that does not exist, and the reading of the
+parties of a business that is not there is refused instead of answering an
+empty list — a bakery without clients and a business that does not exist are
+two different answers.
+
+**The legal human that represents a store or a farm is a fact of the party,
+and never a second person.** A store REQUIRES the human that represents
+it, a farm CARRIES it and its legal figure only when it has one — some
+farms have a legal figure and some do not — and a person REFUSES it. The
+human is never a user of PACA, never a party of its own, and never a row of
+the people of PACA: it travels inside the party it belongs to, and nowhere
+else. The name of a party is NOT unique inside the business: the book never
+refuses two parties that share a name, and the reading of the parties holds
+all of them.
+
+**The invoice is a fact that comes with the purchase, and it moves no
+money.** The tool `record_invoice` writes the invoice against the purchase
+it came from, and the purchase points at it. The purchase already moved
+the money of the payment when the owner bought, and the invoice arrives
+later: the book never moves money twice for the same purchase. The tax of
+an invoice is NEVER ASSUMED: it comes from the invoice, which states the
+rate it was issued with and the base that rate applies to. The tax is
+derived from the two of them and rounded to the nearest whole peso, with a
+half peso going up, and an invoice that does not add up is refused. A rate
+with MORE THAN TWO DECIMALS is refused too: PACA never rounds a rate away,
+and a rate that is rounded away is a rate nobody charged. The money of an
+invoice enters the book in WHOLE PESOS, the book never rounds it, and the
+rounding of the centavos of an invoice is an OPEN QUESTION for the owner
+and for the professional of the taxes. The
+provider of an invoice is a PARTY that holds the role of the provider, the
+number of the invoice is unique inside the business, a purchase carries ONE
+invoice — the one that came with it — and the invoice is attached only
+to the purchase it NAMES. The electronic
+invoice is never assumed either: there is no integration with the tax
+authority, and the reference of the document the owner shows is a plain
+fact of the invoice.
+
+**The commitment is a promise of the business, and the alarm is the
+agent's.** The tools `record_commitment`, `meet_commitment` and
+`read_commitments` write and read the promises of the bakery: what is due,
+in the words of the owner, and the day it is due. The promise carries NO
+money and NO party: the order already owns the client delivery, and the
+promise never copies it. The promise that was met stays in the book with the
+day it was met, a promise is kept once, and the book never hides the day it
+was kept. The identity of a promise is its OWN identity and never its text:
+two promises that say the same thing on the same day are two promises, and
+the book never merges them. The ALARM is not PACA's — PACA holds the fact,
+and the agent is the one that rings — and the promise belongs to a business
+of its own: the Personal Business of a person holds the money of that person,
+and not the promises of the bakery.
+
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an
 address, a document that is already registered, an email that belongs to
 somebody else, a move the map does not allow, an observation that does
 not fit the status, a name that is missing, a business that is already
-there, an account whose name is taken inside its business: each one says
-what happened and what to do about it.
+there, an account whose name is taken inside its business, a recipe without
+a name or without a yield, an ingredient of a recipe without its grams and
+a step without its instruction, a reference without its source, without its
+day or without the ingredient of the catalog: each one says what happened
+and what to do about it.
 
 The rules themselves live in the [domain](../../packages/domain): the cleaning of
 the phone, the check of the email, the map of the states and the rule of the

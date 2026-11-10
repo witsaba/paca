@@ -52,6 +52,17 @@ var kinds = []Kind{
 	KindBusiness,
 }
 
+// AllKinds returns the kinds of a business.
+//
+// The caller receives a copy: the order and the content of the list never
+// change under it. The contract that the agent reads is derived from this
+// list, and it never restates it.
+func AllKinds() []Kind {
+	all := make([]Kind, len(kinds))
+	copy(all, kinds)
+	return all
+}
+
 // Valid reports whether the kind is one of the kinds of a business.
 func (k Kind) Valid() bool {
 	for _, candidate := range kinds {

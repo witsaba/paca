@@ -90,3 +90,35 @@ func (q *Queries) GetPersonalBusinessByOwner(ctx context.Context, ownerID int64)
 	)
 	return i, err
 }
+
+const listBusinessesByOwner = `-- name: ListBusinessesByOwner :many
+SELECT id, owner_id, kind, name, currency, created_at, updated_at FROM businesses WHERE owner_id = $1 ORDER BY id
+`
+
+func (q *Queries) ListBusinessesByOwner(ctx context.Context, ownerID int64) ([]Business, error) {
+	rows, err := q.db.Query(ctx, listBusinessesByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Business{}
+	for rows.Next() {
+		var i Business
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Kind,
+			&i.Name,
+			&i.Currency,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

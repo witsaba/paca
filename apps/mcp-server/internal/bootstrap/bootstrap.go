@@ -23,8 +23,16 @@ import (
 	"github.com/witsaba/paca/packages/database/postgres"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/health"
+	"github.com/witsaba/paca/packages/domain/ingredient"
+	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
+	"github.com/witsaba/paca/packages/domain/order"
+	"github.com/witsaba/paca/packages/domain/party"
+	"github.com/witsaba/paca/packages/domain/product"
+	"github.com/witsaba/paca/packages/domain/purchase"
+	"github.com/witsaba/paca/packages/domain/recipe"
 	"github.com/witsaba/paca/packages/domain/store"
 	"github.com/witsaba/paca/packages/domain/user"
 	"github.com/witsaba/paca/packages/health/endpoint"
@@ -147,6 +155,11 @@ func New(
 
 	onboardingService := application.NewOnboardingService(repository, businesses, accounts, work)
 
+	// The businesses of a person: the second business of that person, with
+	// the book of accounts it starts with, and the list of the businesses
+	// they own. Without a database there is no business to open.
+	businessService := application.NewBusinessService(businesses, accounts, work)
+
 	// The book of a person: the movements that fill it and the balance that
 	// comes out of it. Without a database there is no book.
 	var book ledger.Repository
@@ -167,6 +180,464 @@ func New(
 	debtService := application.NewDebtService(accounts, book, work, clock.System{})
 	summaryService := application.NewSummaryService(accounts, book, clock.System{})
 
+	// The utterance of the owner: the purchase she said, kept as a draft of
+	// the business while she decides, and the purchase she confirmed. The
+	// confirmation writes the purchase and the money of the payment in one
+	// transaction, and it grows the catalog of the names the business
+	// buys. Without a database there is no draft and no purchase.
+	var drafts purchase.Repository
+	var purchases purchase.Recorder
+	var purchaseReader purchase.Finder
+	var ingredients ingredient.Repository
+	var layers purchase.LayerRepository
+	if pool != nil {
+		boundDrafts, err := postgres.NewPurchaseRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the drafts could not be built: %w", err)
+		}
+		drafts = boundDrafts
+
+		boundPurchases, err := postgres.NewPurchaseRecorder(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the recorder of the purchases could not be built: %w", err)
+		}
+		purchases = boundPurchases
+		purchaseReader = boundPurchases
+
+		boundIngredients, err := postgres.NewIngredientRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the ingredients could not be built: %w", err)
+		}
+		ingredients = boundIngredients
+
+		boundLayers, err := postgres.NewStockRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the layers could not be built: %w", err)
+		}
+		layers = boundLayers
+	}
+
+	purchaseService := application.NewPurchaseService(drafts, ingredients, clock.System{})
+	confirmationService := application.NewConfirmationService(drafts, purchases, accounts, book, ingredients, layers, work, clock.System{})
+
+	// The catalog of the names the business buys: the name the owner reads
+	// and the names she uses for it. The tool of the catalog matches the
+	// name she said against it, it reads it back with what is known of
+	// every ingredient, and it writes what she declares about one of them.
+	ingredientService := application.NewIngredientService(ingredients)
+
+	// The recipe of the bakery: the guide the owner confirmed, with its
+	// ingredients of the catalog, its steps and its yield. The recipe is
+	// written in the book of the business, and without a database there is
+	// no recipe to write nor to read.
+	var recipes recipe.Repository
+	var recipeReader recipe.Reader
+	if pool != nil {
+		boundRecipes, err := postgres.NewRecipeRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the recipes could not be built: %w", err)
+		}
+		recipes = boundRecipes
+		recipeReader = boundRecipes
+	}
+
+	recipeService := application.NewRecipeService(recipes, ingredients)
+
+	// The reference prices: what the market was seen at, where it was read
+	// and the day it was read. A reference is never the price of the
+	// ingredient: the price the owner pays comes from her own purchases.
+	// Without a database there is no reference to write nor to read.
+	var references purchase.ReferenceRepository
+	if pool != nil {
+		boundReferences, err := postgres.NewReferenceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the reference prices could not be built: %w", err)
+		}
+		references = boundReferences
+	}
+
+	referenceService := application.NewReferenceService(references, ingredients, clock.System{})
+
+	// The stock of the bakery: what the business holds and what it cost.
+	// The purchase is the fact and the layer is derived from it, and the
+	// valuation is FIFO: the oldest layer is the first one that leaves.
+	// Without a database there is no stock to read.
+	stockService := application.NewStockService(layers, ingredients)
+
+	// The labor of the owner: the hours she worked, in the three kinds of
+	// the labor, and the value of the hour she declared. The labor of a
+	// batch is derived from the hours of the steps of the recipe, and it
+	// is valued with the value of the hour. Without a database there is
+	// no labor to write nor to read.
+	var labors recipe.LaborRepository
+	var laborReader recipe.LaborReader
+	if pool != nil {
+		boundLabors, err := postgres.NewLaborRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the labor could not be built: %w", err)
+		}
+		labors = boundLabors
+		laborReader = boundLabors
+	}
+
+	laborService := application.NewLaborService(labors, clock.System{})
+
+	// The overhead of the house: the electricity the owner paid, the hours
+	// the oven ran and the allocation she declared. The overhead of a
+	// batch is derived from the hours of the oven of the steps of the
+	// recipe, and it is valued with the rate of the house. Without a
+	// database there is no overhead to write nor to read.
+	var overheads recipe.OverheadRepository
+	var overheadReader recipe.OverheadReader
+	if pool != nil {
+		boundOverheads, err := postgres.NewOverheadRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the overhead could not be built: %w", err)
+		}
+		overheads = boundOverheads
+		overheadReader = boundOverheads
+	}
+
+	overheadService := application.NewOverheadService(overheads, clock.System{})
+
+	// The cost of a batch: what the recipe of the bakery costs right now.
+	// The cost is derived from the layers that the recipe consumes, and
+	// the valuation is FIFO: the oldest layer is the first one that
+	// leaves. Without a database there is no recipe to read and no layer
+	// to value.
+	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader, overheadReader)
+
+	// The capacity of a weekend: what the hours the owner declares carry of
+	// the recipes of the bakery. The capacity is derived on the spot from
+	// the recipes the book already holds, and it touches no storage of its
+	// own: it counts the hands of the owner, and the oven and the waiting
+	// are not hers. Without a database there is no recipe to read.
+	capacityService := application.NewCapacityService(recipeReader)
+
+	// The report of the real price: the three layers of the cost of a
+	// batch apart - the direct cost, the labor and the overhead - and the
+	// price of the owner beside them. The price of the owner is what she
+	// declared: it is never inferred. Without a database there is no
+	// recipe to read and no layer to value.
+	realPriceService := application.NewRealPriceService(recipeReader, layers, ingredients, laborReader, overheadReader)
+
+	// The margin of a product: what the owner charges above the direct
+	// cost of the batch, and what the market said about the same
+	// ingredients. The reference of the market is read beside the cost,
+	// never instead of it: a reference never moves the money of the book.
+	// Without a database there is no recipe to read, no layer to value
+	// and no reference to compare.
+	marginService := application.NewMarginService(batchCostService, references, ingredients, clock.System{})
+
+	// The production of the bakery: what came out of the oven on one day.
+	// The production consumes the layers of the stock in the order of the
+	// FIFO and makes the units of the yield of the recipe, each one with
+	// the day it expires. The production and the layers it consumes are
+	// written in one transaction. Without a database there is no
+	// production to write.
+	var productions recipe.ProductionRepository
+	var productionsRead recipe.ProductionReader
+	if pool != nil {
+		boundProductions, err := postgres.NewProductionRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the productions could not be built: %w", err)
+		}
+		productions = boundProductions
+		productionsRead = boundProductions
+	}
+
+	// The corrections of the shelf life: the shelf life of a recipe is
+	// approximate until the owner corrects it, and the last correction
+	// she declared is the one that counts. Without a database there is no
+	// correction to keep and no unit to move.
+	var corrections recipe.ShelfLifeRepository
+	var shelfLives recipe.ShelfLifeReader
+	var units recipe.UnitRepository
+	var unitsInTheBook recipe.UnitInTheBookReader
+
+	if pool != nil {
+		boundCorrections, err := postgres.NewShelfLifeRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the corrections of the shelf life could not be built: %w", err)
+		}
+		corrections = boundCorrections
+		shelfLives = boundCorrections
+
+		boundUnits, err := postgres.NewUnitRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the units could not be built: %w", err)
+		}
+		units = boundUnits
+		unitsInTheBook = boundUnits
+	}
+
+	productionService := application.NewProductionService(
+		recipeReader,
+		shelfLives,
+		layers,
+		ingredients,
+		productions,
+		work,
+		clock.System{},
+	)
+
+	// The expiry of what the bakery makes: the correction the owner
+	// declared of the shelf life, and the units of the business with the
+	// day each one expires. The correction and the days it moves are
+	// written in one transaction. Without a database there is no unit to
+	// read and no correction to keep.
+	expiryService := application.NewExpiryService(
+		recipeReader,
+		corrections,
+		units,
+		work,
+		clock.System{},
+	)
+
+	// The waste of the bakery: what she lost, the reason, and the money of
+	// what it was worth. The waste takes the units of the product that
+	// expire first, and the money of the waste leaves the inventory and
+	// lands in the account of the waste: it is never lost from the book.
+	// The waste and the movement of its money are written in one
+	// transaction. Without a database there is no waste to write.
+	var wastes recipe.WasteRepository
+
+	if pool != nil {
+		boundWastes, err := postgres.NewWasteRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the wastes could not be built: %w", err)
+		}
+		wastes = boundWastes
+	}
+
+	wasteService := application.NewWasteService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		wastes,
+		work,
+		clock.System{},
+	)
+
+	// The sale of the bakery: what she sold, the money the client paid,
+	// and the cost the sale released. The sale takes the units of the
+	// product that expire first, and it refuses the sale of a unit that
+	// expired. The money of the sale and the cost it releases are written
+	// with the sale, in one transaction. Without a database there is no
+	// sale to write.
+	var sales recipe.SaleRepository
+
+	if pool != nil {
+		boundSales, err := postgres.NewSaleRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the sales could not be built: %w", err)
+		}
+		sales = boundSales
+	}
+
+	saleService := application.NewSaleService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		sales,
+		work,
+		clock.System{},
+	)
+
+	// The exit of the book: what the owner consumed and what the bakery
+	// gave away. The exit moves no money IN: nobody paid for the bread
+	// the owner consumed or for the bread the bakery gave away. What it
+	// does is release the cost of the units that left the book, and the
+	// cost leaves the inventory and lands in the account of the expense of
+	// the exit. The tax treatment
+	// of the exit waits for the professional of the taxes of the owner,
+	// and the exit names the question. The exit and the movement of its
+	// cost are written in one transaction. Without a database there is no
+	// exit to write.
+	var exits recipe.ExitRepository
+
+	if pool != nil {
+		boundExits, err := postgres.NewExitRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the exits could not be built: %w", err)
+		}
+		exits = boundExits
+	}
+
+	exitService := application.NewExitService(
+		productionsRead,
+		unitsInTheBook,
+		accounts,
+		book,
+		exits,
+		work,
+		clock.System{},
+	)
+
+	// The rotation of the book: the order in which the units that are
+	// still in it leave it. The rotation follows the earliest expiry, and
+	// the valuation of the stock follows the FIFO: the two rules are
+	// apart, and the answer of the rotation carries no money. Without a
+	// database there is no book to read.
+	rotationService := application.NewRotationService(
+		unitsInTheBook,
+		recipeReader,
+		clock.System{},
+	)
+
+	// The parties of the bakery: the person, the store and the farm that
+	// buy from it or that it buys from. The party belongs to a business of
+	// its own, and the legal human that represents a store or a farm is a
+	// fact of the party and never a second person. Without a database there
+	// is no party to open nor to read.
+	var parties party.Repository
+
+	if pool != nil {
+		boundParties, err := postgres.NewPartyRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the parties could not be built: %w", err)
+		}
+		parties = boundParties
+	}
+
+	partyService := application.NewPartyService(parties, businesses)
+
+	// The invoices of the bakery: the fact that comes with the purchase.
+	// The invoice names the provider that issued it, and it is written
+	// against the purchase it came from: the purchase points at it. The
+	// tax of an invoice is never assumed, and it comes from the invoice.
+	// Without a database there is no invoice to write nor to read.
+	var invoices purchase.InvoiceRepository
+
+	if pool != nil {
+		boundInvoices, err := postgres.NewInvoiceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the invoices could not be built: %w", err)
+		}
+		invoices = boundInvoices
+	}
+
+	invoiceService := application.NewInvoiceService(parties, purchaseReader, invoices, work, clock.System{})
+
+	// The price list of the bakery: the price of the products in the two
+	// channels, the retail and the wholesale. The price is a fact of the
+	// business, it carries the channel it was set for, and the list is a
+	// history: nothing is rewritten when a price changes. The product is
+	// opened the first time it is named. Without a database there is no
+	// price to set nor to read.
+	var products product.Repository
+	var prices product.PriceRepository
+
+	if pool != nil {
+		boundProducts, err := postgres.NewProductRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the products could not be built: %w", err)
+		}
+		products = boundProducts
+
+		boundPrices, err := postgres.NewPriceRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the price list could not be built: %w", err)
+		}
+		prices = boundPrices
+	}
+
+	priceService := application.NewPriceService(products, prices, recipeReader, businesses, work, clock.System{})
+
+	// The orders of the bakery: what it owes to a client, and the day it
+	// is due. The round of the day answers what is still owed: the orders
+	// that were not delivered. The order is written open, and the delivery
+	// of an order is written with the route of the round. Without a
+	// database there is no order to write nor to read.
+	var orders order.Repository
+
+	// The route of the round: the order the agent will visit the clients
+	// in, and what each visit costs. The agent computes it outside, and
+	// it writes it back into the round. Without a database there is no
+	// route to write nor to read.
+	var routes order.RouteRepository
+
+	if pool != nil {
+		boundOrders, err := postgres.NewOrderRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the orders could not be built: %w", err)
+		}
+		orders = boundOrders
+
+		boundRoutes, err := postgres.NewRouteRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the routes could not be built: %w", err)
+		}
+		routes = boundRoutes
+	}
+
+	orderService := application.NewOrderService(orders, routes, parties, products, businesses)
+
+	// The route of the round: the agent writes it back, and the orders of
+	// its stops are delivered with it. The route and the delivery are one
+	// unit of work: the round was made and it happened, or neither.
+	routeService := application.NewRouteService(routes, orders, businesses, work)
+
+	// The promises of the bakery: what is due and the day it is due, and
+	// the day a promise was met. The commitment carries no money and no
+	// party: the order already owns the client delivery, and the promise
+	// never copies it. The ALARM is the work of the agent, and the
+	// calendar of the promises is what the agent reads to ring. Without a
+	// database there is no promise to write nor to read.
+	var commitments commitment.Repository
+
+	if pool != nil {
+		boundCommitments, err := postgres.NewCommitmentRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the commitments could not be built: %w", err)
+		}
+		commitments = boundCommitments
+	}
+
+	commitmentService := application.NewCommitmentService(commitments, businesses)
+
+	// The learning log of the bakery: the memory of the errors and the wins
+	// of the owner. An entry says what happened, in her words, and what was
+	// learned from it, and it is about the batch she baked or about one run
+	// of it. The log is NEVER REWRITTEN: a correction is a new entry that
+	// answers the old one. It carries no money and it never moves a peso.
+	// Without a database there is no lesson to write nor to read.
+	var learnings learning.Repository
+
+	if pool != nil {
+		boundLearnings, err := postgres.NewLearningRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the learning log could not be built: %w", err)
+		}
+		learnings = boundLearnings
+	}
+
+	learningService := application.NewLearningService(learnings, businesses, recipeReader, productionsRead)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -176,9 +647,48 @@ func New(
 		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,
 		Onboarding:          onboardingService,
+		OpenBusiness:        businessService,
+		ReadBusinesses:      businessService,
 		Book:                bookService,
 		Debts:               debtService,
 		Summary:             summaryService,
+		DraftPurchase:       purchaseService,
+		ConfirmPurchase:     confirmationService,
+		CancelDraft:         purchaseService,
+		ReadDrafts:          purchaseService,
+		MatchItems:          ingredientService,
+		ReadIngredients:     ingredientService,
+		CompleteIngredient:  ingredientService,
+		RecordRecipe:        recipeService,
+		RecordReference:     referenceService,
+		ReadReferences:      referenceService,
+		ReadStock:           stockService,
+		ReadBatchCost:       batchCostService,
+		ReadCapacity:        capacityService,
+		RecordLabor:         laborService,
+		RecordOverhead:      overheadService,
+		ReadRealPrice:       realPriceService,
+		ReadMargin:          marginService,
+		RecordProduction:    productionService,
+		CorrectShelfLife:    expiryService,
+		ReadExpiring:        expiryService,
+		RecordWaste:         wasteService,
+		RecordSale:          saleService,
+		RecordExit:          exitService,
+		ReadRotation:        rotationService,
+		OpenParty:           partyService,
+		ReadParties:         partyService,
+		RecordInvoice:       invoiceService,
+		ReadInvoices:        invoiceService,
+		SetPrice:            priceService,
+		ReadPrices:          priceService,
+		RecordOrder:         orderService,
+		ReadOrders:          orderService,
+		RecordRoute:         routeService,
+		RecordCommitment:    commitmentService,
+		ReadCommitments:     commitmentService,
+		RecordLearning:      learningService,
+		ReadLearning:        learningService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

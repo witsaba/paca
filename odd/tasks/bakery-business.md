@@ -997,7 +997,7 @@ and the adapter).
 - The log is never rewritten: a new entry answers an old one.
 - The tools `record_learning` and `read_learning`.
 
-**In scope:** `packages/domain/learning`, `packages/domain/production`,
+**In scope:** `packages/domain/learning`, `packages/domain/recipe`,
 `apps/mcp-server/internal/application`,
 `apps/mcp-server/internal/adapters/inbound/mcpserver`,
 `packages/database`.
@@ -1086,7 +1086,7 @@ its session starts.
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6`, corrected in `bbb52b0` |
-| T29 | S35 | The learning log and its tools | inline | `6a9bb95` |
+| T29 | S35 | The learning log and its tools | inline | `6a9bb95`, corrected in `75713c6` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
 
 ---
@@ -1494,3 +1494,17 @@ The log is NEVER rewritten. A correction is a NEW entry that answers an old one,
 The answer of `read_learning` carries the whole log and, with it, the entries that are the LAST WORD of their chain — the entry no other entry answers. That is what the owner already knows, and it is what Paca tells her. The concept of the last word is an addition of the orchestrator (the acceptance of the increment speaks only of the chain), and its definition was corrected during the implementation: the first draft of the handoff said "an entry is current when it answers no other entry AND no other entry answers it", which no chain can satisfy — the rule is "no other entry answers it", the head of the chain and the newest word.
 
 Two corrections to the scope of the increment, both of the document: the in-scope named `packages/domain/production`, and that package DOES NOT EXIST — the production lives in `packages/domain/recipe`, which is where the entry names it. And the count of the tools goes from 49 to 51.
+
+**L49** (2026-11-10): T29 was reviewed by an independent verifier against the acceptance of the increment, against S35 and against the contract of the architecture, and every accepted finding was corrected. The correction is the commit `75713c6`. The review found NO blocker.
+
+The MAJOR was a rule that the table held and NO test proved: the production of an entry must be a run of the NAMED batch — the migration has the foreign key `learnings_production_of_its_batch_fkey` and the adapter translates it into `learning.ErrAnotherBatch` — and dropping that foreign key, or deleting that translation, left the WHOLE container suite green. The rule was right and unproven, and a proof that cannot fail is a decoration. The container test of that rule now exists and fails when the key or the translation is broken.
+
+The first MINOR: a day that is not a day of the book was told apart from no day at all by the code alone — swallowing the error of the parse left the suite of the use case green. The test of the use case now proves that `2026-02-30`, `14/03/2026` and `the day of the market` are refused as days of the book, and that nothing is written.
+
+The second MINOR: the rule "the identity of an entry is its own, never its text" was written in the README of the domain and proved by nothing. The container test now writes two entries that say the same thing on the same day and proves that they are two entries, and that both are the last word of their chain.
+
+The acceptance "the log is never rewritten" now has the strongest proof: the FINGERPRINT of every column of every row of the log (a sha256) is unchanged after a written entry, a written correction and two REFUSED writes. The mutant that rewrites the answered entry in place before the refusal lands is caught by that fingerprint and by nothing else.
+
+The map was corrected in the same breath: the in-scope of T29 named `packages/domain/production`, and that package does not exist — it names `packages/domain/recipe` now, where the production lives.
+
+Two advisories were left open on purpose: the use case reads the whole log to validate an answer and the whole list of the productions to resolve one, and `read_learning` answers the whole log with no bound. They are realistic only over years of entries, and the tree answers whole books elsewhere; no limit, no pagination and no cache were added.

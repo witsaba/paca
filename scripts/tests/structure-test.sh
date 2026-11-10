@@ -1120,8 +1120,32 @@ test_the_image_of_the_database_is_one_image() {
   assert_contains "$image" "@sha256:" \
     "the image of the database is pinned by digest"
 
-  assert_contains "$(cat "$compose")" "$image" \
-    "the compose file of the database builds the image the Dockerfile declares"
+  # The declarations of the artifact live in the Dockerfile of the stack: the
+  # compose builds with them, and the keeper of the freeze moves them there.
+  # A second copy is a second thing to forget.
+  local compose_content
+  compose_content=$(cat "$compose")
+  assert_not_contains "$compose_content" "POSTGRES_IMAGE:" \
+    "the compose file of the database declares no image of its own"
+  assert_not_contains "$compose_content" "PGVECTOR_VERSION:" \
+    "the compose file of the database declares no version of pgvector of its own"
+
+  # The version of the extension is declared once too.
+  local extension
+  extension=$(sed -n 's/^ARG PGVECTOR_VERSION=//p' "$dockerfile" | head -1)
+  if [ -z "$extension" ]; then
+    fail "the version of pgvector is not declared in the Dockerfile of the stack"
+    return
+  fi
+
+  # The name of the image carries the versions it was built from: the day the
+  # base or the extension moves, the name says so.
+  local base_version
+  base_version=$(printf '%s' "${image#postgres:}" | cut -d@ -f1 | cut -d- -f1)
+  assert_contains "$compose_content" "$base_version" \
+    "the name of the image of the database carries the version of the base"
+  assert_contains "$compose_content" "pgvector${extension}" \
+    "the name of the image of the database carries the version of pgvector"
 
   local test
   for test in \
@@ -1139,6 +1163,30 @@ test_the_image_of_the_database_is_one_image() {
     assert_equals "$image" "$found" \
       "the container tests run the image the Dockerfile of the stack declares"
   done
+}
+
+# ---------------------------------------------------------------------------
+# The freeze of the images has a keeper
+# ---------------------------------------------------------------------------
+
+# The stacks of PACA are built from images pinned by digest, and a pin nobody
+# moves is a promise that rots: the security patches of the base reach the
+# repository only when someone remembers to move the pin. Dependabot is that
+# someone: it opens the pull request that moves the pin.
+test_the_freeze_of_the_images_has_a_keeper() {
+  local dependabot="$REPO_ROOT/.github/dependabot.yml"
+
+  assert_file_exists "$dependabot" "the freeze of the images has a keeper"
+
+  local content
+  content=$(cat "$dependabot")
+
+  assert_contains "$content" 'package-ecosystem: "docker"' \
+    "the keeper of the freeze moves the images of the stacks"
+  assert_contains "$content" 'package-ecosystem: "github-actions"' \
+    "the keeper of the freeze moves the actions of the continuous integration"
+  assert_contains "$content" 'directory: "/"' \
+    "the keeper of the freeze reaches every stack of the monorepository"
 }
 
 # ---------------------------------------------------------------------------
@@ -1162,6 +1210,7 @@ run_rule "the services do not carry the same code" test_the_services_do_not_carr
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
 run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
+run_rule "the freeze of the images has a keeper" test_the_freeze_of_the_images_has_a_keeper
 
 report_the_rules
 

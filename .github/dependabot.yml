@@ -1,0 +1,36 @@
+# The keeper of the freeze.
+#
+# The stacks of PACA are built from images that are pinned by digest, and a
+# pin nobody moves is a promise that rots: the security patches of the base
+# reach the repository only when someone remembers to move the pin.
+# Dependabot is that someone: it opens the pull request that moves the pin,
+# and the review of a human decides.
+#
+# The declarations of the artifact of the database live in the Dockerfile of
+# the stack (db/postgres/Dockerfile): the base PostgreSQL by digest and the
+# version of pgvector. The rule of the structure of the repository refuses
+# the day one of them drifts from the others.
+version: 2
+
+updates:
+  # The images of every stack of the monorepository: the base of the
+  # application images, the PostgreSQL of the database and the images of the
+  # agent, the memory and the traces. The tag of a base image moves when its
+  # maintainers rebuild it with patched packages, and the digest moves with
+  # it: that pull request is how a patch reaches PACA.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"
+
+  # The actions of the workflows of the continuous integration.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"

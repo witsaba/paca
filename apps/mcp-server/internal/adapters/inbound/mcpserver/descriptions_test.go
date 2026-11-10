@@ -162,6 +162,7 @@ func TestTheTransportExposesTheToolsOfThePeopleAndOfTheBook(t *testing.T) {
 		mcpserver.ToolReadReferences,
 		mcpserver.ToolReadStock,
 		mcpserver.ToolReadBatchCost,
+		mcpserver.ToolReadCapacity,
 		mcpserver.ToolRecordLabor,
 		mcpserver.ToolRecordOverhead,
 		mcpserver.ToolReadRealPrice,

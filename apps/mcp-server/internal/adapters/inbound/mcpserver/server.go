@@ -159,6 +159,13 @@ type Options struct {
 	// and every call answers that the database is not there.
 	ReadBatchCost ports.BatchCostReader
 
+	// ReadCapacity is the use case that reads the capacity of a weekend:
+	// what the hours the owner has carry of the recipes of the business.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadCapacity ports.CapacityReader
+
 	// RecordLabor is the use case that writes the labor the owner worked
 	// and the value of the hour she declared.
 	//
@@ -391,6 +398,7 @@ func New(opts Options) *Server {
 	transport.registerReferenceTools(opts.RecordReference, opts.ReadReferences)
 	transport.registerStockTools(opts.ReadStock)
 	transport.registerBatchCostTools(opts.ReadBatchCost)
+	transport.registerCapacityTools(opts.ReadCapacity)
 	transport.registerLaborTools(opts.RecordLabor)
 	transport.registerOverheadTools(opts.RecordOverhead)
 	transport.registerRealPriceTools(opts.ReadRealPrice)

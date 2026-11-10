@@ -796,6 +796,43 @@ type BatchCostReader interface {
 	Read(ctx context.Context, request ReadBatchCost) ([]recipe.Cost, error)
 }
 
+// ReadCapacity is the business whose capacity is read, and the hours the
+// owner declared for her weekend.
+//
+// It is the shape of the contract between the agent and the service: the
+// hours are the hours of her own hands, declared by her, and PACA never
+// invents them.
+type ReadCapacity struct {
+	// BusinessID is the business whose capacity is read.
+	BusinessID business.ID
+
+	// Hours is the number of hours the owner declared: the hours of her
+	// own hands for the weekend. It is zero when she declared none, and
+	// the domain refuses it.
+	Hours float64
+}
+
+// CapacityReader is the inbound port of the tool that reads the capacity of
+// a weekend.
+//
+// The capacity is what the hours of the owner carry of the recipes of the
+// business, and it is derived from the labor of the hands of the recipes and
+// from the hours she declared: it is never typed, and it is never a promise
+// of the calendar.
+type CapacityReader interface {
+	// Read answers the hours the owner declared and the capacity of every
+	// recipe of the business.
+	//
+	// The identity of the business is required, and the hours are
+	// required: the capacity is derived from them, and PACA never invents
+	// them.
+	//
+	// The error is the error of the domain: the domain refuses hours that
+	// are not positive, a recipe of another business and a business that
+	// is not there.
+	Read(ctx context.Context, request ReadCapacity) (recipe.Capacity, error)
+}
+
 // ReadRealPrice is the recipe whose real price is read, the business it
 // belongs to and the price the owner charges.
 //

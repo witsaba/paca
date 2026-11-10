@@ -72,14 +72,19 @@ var (
 	ErrNoStorage = errors.New("the storage of the recipes is not open")
 
 	// ErrWrongBusiness is the error of a recipe of another business: the
-	// recipe belongs to the business that owns it, and the cost of a batch
-	// is read for one business.
+	// recipe belongs to the business that owns it, and every tool that
+	// reads a recipe reads it for one business.
 	ErrWrongBusiness = errors.New("the recipe belongs to another business")
 
 	// ErrInvalidHours is the error of hours of the labor that are not a
 	// number of hours: a negative number of hours is a number nobody
 	// worked.
 	ErrInvalidHours = errors.New("the hours of the labor are not negative")
+
+	// ErrInvalidCapacityHours is the error of hours of the capacity that
+	// are not a number of hours: the owner declares the hours of her
+	// weekend, and zero hours are not a weekend.
+	ErrInvalidCapacityHours = errors.New("the hours of the weekend are positive")
 
 	// ErrMissingHours is the error of a labor without hours: the hours of
 	// the owner are the fact, and a labor without them is nothing.
@@ -318,6 +323,7 @@ func Errors() []error {
 		ErrNoStorage,
 		ErrWrongBusiness,
 		ErrInvalidHours,
+		ErrInvalidCapacityHours,
 		ErrMissingHours,
 		ErrMissingHourValue,
 		ErrInferredHourValue,

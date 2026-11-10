@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes fifty-one tools: the way PACA onboards a person, the four
+The server exposes fifty-two tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -112,8 +112,9 @@ and the completion of an ingredient with what the owner declared about it,
 the tool of the recipes: the guide she just confirmed, the two tools of
 the reference prices: the price of the market that PACA researched, and
 the reading of the ones the business holds, and the tool of the stock: what
-the business holds and what it cost, the tool of the labour she just
-confirmed, the tool of the overhead of the house, the tool of the report
+the business holds and what it cost, the tool of the capacity of a weekend:
+what the hours of her own hands carry of the recipes of the bakery, the tool
+of the labour she just confirmed, the tool of the overhead of the house, the tool of the report
 of the real price, the tool of the margin, the tool of the production and
 the two tools of the expiry: the correction of the shelf life the owner
 just declared, and the read of what expires, the tool of the waste the
@@ -163,6 +164,7 @@ the log with the last word of every chain.
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
 | `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. The money of a layer that is partly consumed is the money of what is left of it. It writes nothing. |
 | `read_batch_cost`         | Reads the cost of a batch of a recipe: what the ingredients it needs cost today, taken from the layers of the stock in the order of FIFO, with the money per unit, per gram and per kilogram. The DIRECT cost, the LABOUR and the OVERHEAD of the batch travel apart: no layer hides inside another one, and the rates are the rates of the DIRECT cost, without the labour and without the overhead. It writes nothing. |
+| `read_capacity`           | Reads the capacity of a weekend: what the hours the OWNER has carry of the recipes of the bakery, in whole batches and in units. The hours are the hours of her OWN HANDS and PACA never invents them — the weekend that carries no hours is refused. The capacity counts the labour of the HANDS alone: the oven and the waiting are not counted, because the batch bakes and rests while she does the next thing. The batches are WHOLE — the book never splits a batch — and the units are the units of those batches, the batches times the yield of the recipe. A recipe whose labour of the hands is zero is NOT LIMITED by the hours, and it says so instead of lying with a zero. The capacity is NEVER a promise of the calendar: it is what the weekend can carry with those hours, and the stock of the ingredients may carry less. It writes nothing. |
 | `record_labor`            | Writes the labour the owner just confirmed: the hours she worked — the hours of her hands, the hours of the oven and the hours of the waiting — and the value of the hour she declared. At least one of the three kinds of the hours carries hours, and the other two are optional. The money of the labour is never inferred, and a labour whose value of the hour PACA filled by itself is refused, and the payroll of the employees is out of scope for now. |
 | `record_overhead`         | Writes the overhead of the house the owner just confirmed: the electricity she paid, the hours the oven ran and the share of that electricity that belongs to the oven. The money of the overhead is the electricity times the allocation, it is never inferred, and an overhead whose electricity PACA filled by itself is refused. The overhead of a batch is derived from the hours of the oven of the steps of the recipe. |
 | `read_real_price`         | Reads the report of the real price of a product: the DIRECT cost, the LABOUR and the OVERHEAD of a batch, each one with its money and its rates per unit, per gram and per kilogram, their sum shown apart, and the price the owner charges beside them. The money of the layers is the money of the whole batch, and the money of the price of the owner is the money in her basis. The price of the owner is hers and it is never inferred: when she declared none, the answer says that it is not known. It writes nothing. |
@@ -350,6 +352,26 @@ comes from: the way the owner said it is read by the domain and never
 stored. The money of a layer that is partly consumed is the money of what is
 left of it: the money the layer bought, pro rata the quantity that is left,
 and the layers of a holding sum to the money of the holding.
+
+**The capacity is what the hours of the weekend carry.** The tool
+`read_capacity` answers what the owner can make with the hours she has: the
+hours she declares, and the capacity of every recipe of the business, in
+whole batches and in units. The hours are the hours of her OWN HANDS — the
+time she has to amass, to shape and to bake — and PACA never invents them:
+the weekend that carries no hours is refused, because zero hours are not a
+weekend. The capacity counts the labour of her HANDS alone: the oven and the
+waiting are not counted, because the batch bakes and rests while she does the
+next thing, and the minutes the answer carries are the minutes of her hands.
+The batches are WHOLE — the book never splits a batch — so ten hours against
+a batch of three hours of hands carry three batches and not three and a
+third, and the units are the units of those batches: the batches times the
+yield of the recipe. A recipe whose labour of the hands is zero is NOT
+LIMITED by the hours, and the answer says so instead of lying with a zero.
+The capacity is NEVER a promise of the calendar: it is what the weekend can
+carry with those hours, and the stock of the ingredients may carry less than
+the book says it can. The tool writes nothing, and the capacity carries NO
+money: the payroll of the employees is out of scope for now, and the labour
+that counts is the labour of the owner alone.
 
 **The report of the real price shows the three layers apart.** The tool
 `read_real_price` reads the report of what a product really costs: the

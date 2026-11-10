@@ -315,6 +315,13 @@ func New(
 	// to value.
 	batchCostService := application.NewBatchCostService(recipeReader, layers, ingredients, laborReader, overheadReader)
 
+	// The capacity of a weekend: what the hours the owner declares carry of
+	// the recipes of the bakery. The capacity is derived on the spot from
+	// the recipes the book already holds, and it touches no storage of its
+	// own: it counts the hands of the owner, and the oven and the waiting
+	// are not hers. Without a database there is no recipe to read.
+	capacityService := application.NewCapacityService(recipeReader)
+
 	// The report of the real price: the three layers of the cost of a
 	// batch apart - the direct cost, the labor and the overhead - and the
 	// price of the owner beside them. The price of the owner is what she
@@ -657,6 +664,7 @@ func New(
 		ReadReferences:      referenceService,
 		ReadStock:           stockService,
 		ReadBatchCost:       batchCostService,
+		ReadCapacity:        capacityService,
 		RecordLabor:         laborService,
 		RecordOverhead:      overheadService,
 		ReadRealPrice:       realPriceService,

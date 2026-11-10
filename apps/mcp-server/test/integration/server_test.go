@@ -222,6 +222,7 @@ func TestTheServerSpeaksTheMCPProtocol(t *testing.T) {
 		"read_balances",
 		"read_batch_cost",
 		"read_businesses",
+		"read_capacity",
 		"read_commitments",
 		"read_drafts",
 		"read_expiring",

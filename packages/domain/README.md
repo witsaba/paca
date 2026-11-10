@@ -699,6 +699,54 @@ does not know the value of the hour says so instead of guessing it.
 scope for now, and the model of the labour of an employee does not exist
 yet: `recipe.Labor` names no employee, because it has none.
 
+## The capacity of a weekend
+
+`recipe.Capacity` is the answer the owner reads when she asks what she can
+make with the hours she has: the hours she declares, and the capacity of
+every recipe of the business, in whole batches and in units
+(`recipe.TheCapacity`). It lives in the package of the recipe, next to the
+labour it is derived from, and it is never typed: the capacity is derived
+from the labour of the recipes and from the hours the owner declares.
+
+**The hours are the hours of the owner, and they are positive.** They are
+the hours of her own hands for the weekend, declared by her, and
+`recipe.TheCapacity` refuses the hours that are not positive
+(`recipe.ErrInvalidCapacityHours`): zero hours are not a weekend, and PACA
+never invents them.
+
+**The capacity counts the labour of the hands.** The minutes of a batch that
+travel with the answer are the minutes of the steps of the hands alone: the
+oven and the waiting are NOT counted, because the batch bakes and rests while
+she does the next thing. The step the owner did not qualify is a step of her
+hands, the way it is in the labour of the batch, and a step of a kind the
+book does not know is refused (`recipe.ErrUnknownLaborKind`).
+
+**The batches are whole.** The book never splits a batch, so the hours carry
+the whole number of batches they carry — ten hours against a batch of three
+hours of hands carry three batches, and not three and a third — and the units
+are those batches times the yield of the recipe
+(`recipe.MinutesPerHour` is the conversion of the hours into the minutes of
+the steps, and the package owns it).
+
+**A recipe the hours do not bound says so.** `CapacityOfARecipe.Limited` is
+false when the recipe carries no labour of the hands: the hours do not limit
+it, and the answer carries no batch and no unit instead of lying with a
+zero.
+
+**The recipe of the capacity is a recipe of the business.** Every recipe of
+the answer belongs to the business that asks for it, and the recipe of
+another business is refused (`recipe.ErrWrongBusiness`), the way the cost of
+a batch refuses it.
+
+**The capacity is never a promise of the calendar.** It is what the weekend
+can carry with those hours, and the stock of the ingredients may carry less:
+the capacity says nothing about what the market buys or about what the oven
+holds.
+
+**The capacity carries no money.** It is hours, batches and units: the
+payroll of the employees is out of scope for now (S9), and the labour that
+counts is the labour of the owner alone.
+
 ## The overhead of the house
 
 `recipe.Overhead` is the overhead of the house of the bakery, as the owner

@@ -167,6 +167,40 @@ jobs:
       - name: Run the smoke test of the database
         run: make db-smoke
 
+      # The scan of the artifact: the image the job built is scanned, and the
+      # findings that are not accepted fail the job. The accepted findings
+      # are written in db/postgres/trivy-baseline.json, with the package
+      # they belong to and the version that fixes them. Trivy's ignore file
+      # is line-based, so the report is the source of truth and the ignore
+      # file is derived from it here.
+      - name: Read the image of the database
+        id: image
+        run: |
+          image=$(sed -n 's/^[[:space:]]*image:[[:space:]]*//p' db/postgres/compose.yaml | head -n 1)
+          echo "name=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Derive the accepted findings of the scan
+        run: |
+          jq -r '
+            "vulnerabilities:",
+            (.findings[] |
+              "  - id: \(.id)\n    purls:\n      - \(.purl)")
+          ' db/postgres/trivy-baseline.json > .trivyignore.yaml
+
+      - name: Scan the image of the database
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          scanners: vuln
+          trivyignores: .trivyignore.yaml
+          exit-code: '1'
+
+      - name: Remove the derived ignore file
+        if: always()
+        run: rm -f .trivyignore.yaml
+
       - name: Stop the database
         if: always()
         run: make db-down
@@ -309,3 +343,9 @@ jobs:
       # them against a matrix of changes.
       - name: Run the tests of the filters of the continuous integration
         run: make ci-filters-test
+
+      # The keeper of the extension is a script of the repository, and its
+      # decision is a pure function of the versions it receives: the test
+      # proves it without a network.
+      - name: Run the tests of the keeper of the extension
+        run: ./scripts/tests/pgvector-release-test.sh

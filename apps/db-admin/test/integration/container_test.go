@@ -43,10 +43,12 @@ const (
 
 // The settings of the database the tests run against.
 const (
-	// defaultPostgresImage is the PostgreSQL the tests run against. It is
-	// the version the stack of the monorepository runs. The schema of the
-	// core needs no extension, so the plain image is enough.
-	defaultPostgresImage = "postgres:18.6-bookworm"
+	// defaultPostgresImage is the PostgreSQL the tests run against. It is the
+	// image the stack of the database builds on, pinned by digest, so the
+	// tests prove the rules of the tables against the bytes the stack runs.
+	// The schema of the core needs no extension, so the plain image is
+	// enough.
+	defaultPostgresImage = "postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc"
 
 	// postgresPort is the port PostgreSQL listens on inside the container.
 	postgresPort = "5432/tcp"

@@ -14,7 +14,7 @@ commands and how to add another database.
 |------------|----------|-----------------------------------------------------------------------|
 | PostgreSQL | 18.6     | Latest stable minor release (18.5 was skipped after a post-wrap regression; PostgreSQL 19 is still beta). |
 | pgvector   | 0.8.7    | Latest pgvector release (2026-10-01), compiled from source in the image. |
-| Base image | `postgres:18.6-bookworm` | Pinned by digest in `Dockerfile` and `compose.yaml`. |
+| Base image | `postgres:18.6-bookworm` | Pinned by digest in `Dockerfile`, the only place that declares it. |
 
 ## What you get
 
@@ -28,6 +28,54 @@ commands and how to add another database.
 - **Ready to use**: the image, the cluster, the database, the role, the
   extensions and the timezone defaults are created on first start.
 - **Data checksums** on the cluster (`--data-checksums`).
+
+## The keepers of the image
+
+The image of this database is a custom artifact: the official PostgreSQL
+image pinned by digest, with pgvector compiled inside it. A pin is a promise,
+and a promise nobody moves is a promise that rots. Three keepers move it.
+
+- **The pins of the images move by themselves.** Dependabot opens the pull
+  request that moves the digest of the base image when the maintainers of the
+  official image rebuild it with patched packages, and the pull request that
+  moves the versions of the actions of the continuous integration. That pull
+  request is how a security patch of the base reaches PACA.
+- **The version of pgvector is watched.** It is not an image, so dependabot
+  cannot move it. A check runs on a schedule, compares the pinned version
+  with the latest release and opens an issue when the pinned one is behind.
+- **The artifact is scanned.** The job "The database" of the continuous
+  integration scans the image it built and fails on the findings of severity
+  CRITICAL and HIGH that have a fix and that are not accepted. The accepted
+  findings are written in `trivy-baseline.json`, in this folder: the debt of
+  the artifact is visible, and a new one is refused. The file carries the
+  findings and their detail — the package, the version that fixes them and
+  the day they were published — and not the inventory of the image, so it
+  only changes when the findings change.
+
+  To refresh it, scan the image with the policy of the job and keep the
+  findings of the report:
+
+  ```sh
+  image=$(docker compose -f db/postgres/compose.yaml config --images | head -n 1)
+  trivy image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed \
+    --format json "$image" > /tmp/report.json
+  jq --arg scanned "$(date -u +%F)" '{
+        scanned: $scanned,
+        policy: "the findings of severity CRITICAL and HIGH that have a fix",
+        findings: [.Results[]?.Vulnerabilities[]? | {
+          id: .VulnerabilityID, severity: .Severity, package: .PkgName,
+          purl: .PkgIdentifier.PURL, fixed: .FixedVersion, title: .Title,
+          published: .PublishedDate
+        }]
+      }' /tmp/report.json > db/postgres/trivy-baseline.json
+  ```
+
+The image is declared **once**, in the `Dockerfile` of this folder: the base
+PostgreSQL by digest and the version of pgvector. The compose file builds
+with those declarations. The rule of the structure of the repository refuses
+the day a second copy appears, and the container tests of the repository run
+the image this Dockerfile declares, so the proofs of the migrations and the
+stack agree on the bytes.
 
 ## Layout
 
@@ -201,8 +249,8 @@ make -C db/postgres psql SQL="select gen_random_uuid(), vector_dims('[1,2,3]'::v
 
 ## Upgrading
 
-1. Bump `POSTGRES_IMAGE` (tag **and** digest) in `Dockerfile` and `compose.yaml`,
-   and `PGVECTOR_VERSION` + `PGVECTOR_SHA256` in `Dockerfile`.
+1. Bump `POSTGRES_IMAGE` (tag **and** digest) and `PGVECTOR_VERSION` +
+   `PGVECTOR_SHA256` in `Dockerfile`. It is the only place that declares them.
 2. `make -C db/postgres build && make -C db/postgres up`.
 3. For a major version change, dump with the old image and restore with the new
    one (`pg_dumpall` / `psql`), because the data directory format changes.

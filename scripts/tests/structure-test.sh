@@ -1104,6 +1104,133 @@ test_the_agent_carries_the_soul_of_paca() {
 }
 
 # ---------------------------------------------------------------------------
+# The image of the database is one image
+# ---------------------------------------------------------------------------
+
+# The database of PACA is a custom artifact: the official PostgreSQL image
+# pinned by digest, with pgvector compiled inside it. The stack of the
+# database builds it and the container tests of the repository run against it,
+# so the two must name the same bytes: a test that runs a floating tag proves
+# the rules of the tables against a server that the stack does not run.
+#
+# The Dockerfile of the stack declares the image; every other place that names
+# it names THAT one, and the gate refuses the day one of them drifts.
+test_the_image_of_the_database_is_one_image() {
+  local dockerfile="$REPO_ROOT/db/postgres/Dockerfile"
+  local compose="$REPO_ROOT/db/postgres/compose.yaml"
+
+  assert_file_exists "$dockerfile" \
+    "the stack of the database declares the image of the database"
+  assert_file_exists "$compose" \
+    "the stack of the database declares its compose file"
+
+  local image
+  image=$(sed -n 's/^ARG POSTGRES_IMAGE=//p' "$dockerfile" | head -1)
+  if [ -z "$image" ]; then
+    fail "the image of the database is not declared in the Dockerfile of the stack"
+    return
+  fi
+
+  # A digest is what makes the pin a pin: a tag alone can move under the name
+  # of the image, and the bytes of the database would change with it.
+  assert_contains "$image" "@sha256:" \
+    "the image of the database is pinned by digest"
+
+  # The declarations of the artifact live in the Dockerfile of the stack: the
+  # compose builds with them, and the keeper of the freeze moves them there.
+  # A second copy is a second thing to forget.
+  local compose_content
+  compose_content=$(cat "$compose")
+  assert_not_contains "$compose_content" "POSTGRES_IMAGE:" \
+    "the compose file of the database declares no image of its own"
+  assert_not_contains "$compose_content" "PGVECTOR_VERSION:" \
+    "the compose file of the database declares no version of pgvector of its own"
+
+  # The version of the extension is declared once too.
+  local extension
+  extension=$(sed -n 's/^ARG PGVECTOR_VERSION=//p' "$dockerfile" | head -1)
+  if [ -z "$extension" ]; then
+    fail "the version of pgvector is not declared in the Dockerfile of the stack"
+    return
+  fi
+
+  # The name of the image carries the versions it was built from: the day the
+  # base or the extension moves, the name says so.
+  local base_version
+  base_version=$(printf '%s' "${image#postgres:}" | cut -d@ -f1 | cut -d- -f1)
+  assert_contains "$compose_content" "$base_version" \
+    "the name of the image of the database carries the version of the base"
+  assert_contains "$compose_content" "pgvector${extension}" \
+    "the name of the image of the database carries the version of pgvector"
+
+  # The scan of the artifact reads the image of the compose file, so the
+  # scan and the stack cannot disagree about which image is scanned.
+  local ci="$REPO_ROOT/.github/workflows/ci.yml"
+  assert_file_exists "$ci" "the continuous integration of the repository exists"
+  assert_contains "$(cat "$ci")" "db/postgres/compose.yaml" \
+    "the scan of the artifact reads the image of the compose file of the stack"
+
+  local test
+  for test in \
+    "$REPO_ROOT/packages/database/test/integration/container_test.go" \
+    "$REPO_ROOT/apps/mcp-server/test/integration/book_test.go" \
+    "$REPO_ROOT/apps/db-admin/test/integration/container_test.go"; do
+    assert_file_exists "$test" \
+      "the container tests of the repository name the image of the database"
+
+    # The image is read from the assignment itself, so a second image in the
+    # file cannot pass the rule by being there.
+    local found
+    found=$(grep -E '=[[:space:]]*"postgres:' "$test" \
+      | grep -o 'postgres:[^"]*' | head -1)
+    assert_equals "$image" "$found" \
+      "the container tests run the image the Dockerfile of the stack declares"
+  done
+}
+
+# ---------------------------------------------------------------------------
+# The artifact has its keepers
+# ---------------------------------------------------------------------------
+
+# The stacks of PACA are built from images pinned by digest, and a pin nobody
+# moves is a promise that rots: the security patches of the base reach the
+# repository only when someone remembers to move the pin. Dependabot is that
+# someone: it opens the pull request that moves the pin.
+test_the_artifact_has_its_keepers() {
+  local dependabot="$REPO_ROOT/.github/dependabot.yml"
+
+  assert_file_exists "$dependabot" "the freeze of the images has a keeper"
+
+  local content
+  content=$(cat "$dependabot")
+
+  assert_contains "$content" 'package-ecosystem: "docker"' \
+    "the keeper of the freeze moves the images of the stacks"
+  assert_contains "$content" 'package-ecosystem: "github-actions"' \
+    "the keeper of the freeze moves the actions of the continuous integration"
+  assert_contains "$content" 'directory: "/"' \
+    "the keeper of the freeze reaches every stack of the monorepository"
+
+  # The version of the extension is not an image, so dependabot cannot move
+  # it: a check of the repository says so when the pin is behind.
+  local keeper="$REPO_ROOT/scripts/ci/pgvector-release.sh"
+  local keeper_test="$REPO_ROOT/scripts/tests/pgvector-release-test.sh"
+  local keeper_workflow="$REPO_ROOT/.github/workflows/pgvector-release.yml"
+
+  assert_file_exists "$keeper" "the keeper of the extension decides"
+  assert_file_exists "$keeper_test" "the decision of the keeper of the extension is proved"
+  assert_file_exists "$keeper_workflow" "the keeper of the extension runs on a schedule"
+
+  # The scan of the artifact: the job that owns the image scans it, and the
+  # findings it accepts are written in the repository.
+  local baseline="$REPO_ROOT/db/postgres/trivy-baseline.json"
+  assert_file_exists "$baseline" \
+    "the accepted findings of the scan of the artifact are written in the repository"
+  assert_contains "$(cat "$REPO_ROOT/.github/workflows/ci.yml")" "trivy" \
+    "the continuous integration scans the artifact"
+}
+
+# ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
 
@@ -1123,6 +1250,8 @@ run_rule "the database admin is the only writer of the schema" test_only_the_dat
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
+run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
+run_rule "the artifact has its keepers" test_the_artifact_has_its_keepers
 
 report_the_rules
 

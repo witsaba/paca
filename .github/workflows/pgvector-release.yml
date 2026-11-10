@@ -1,0 +1,75 @@
+# PACA — the keeper of the extension.
+#
+# Dependabot moves the pins of the images, but it cannot move the version of
+# pgvector, because that version is not an image. This workflow is the
+# keeper: it runs on a schedule, asks the GitHub API for the latest release
+# of pgvector, and opens an issue when the version pinned in the Dockerfile
+# of the database is behind.
+#
+# The decision is a script of the repository, scripts/ci/pgvector-release.sh,
+# and its tests prove it without a network. The workflow only reads the pin
+# and the latest release and acts on the decision.
+name: The keeper of the extension
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC: the release cadence of pgvector is slower
+    # than a week, and a weekly check is enough to notice a new one.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+# The workflow reads the repository and the latest release, and it writes
+# the issue that tracks the pin.
+permissions:
+  contents: read
+  issues: write
+
+# A new run makes the older one unnecessary.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  pgvector:
+    name: The pinned pgvector
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Decide whether the pinned version is behind
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pinned=$(sed -n 's/^ARG PGVECTOR_VERSION=//p' db/postgres/Dockerfile | head -n 1)
+          # pgvector publishes tags, not GitHub releases: the latest release
+          # is the latest tag. The releases endpoint is asked first, so the
+          # day the project publishes a release the workflow follows it.
+          latest=$(gh api repos/pgvector/pgvector/releases/latest --jq .tag_name 2>/dev/null) ||
+            latest=$(gh api repos/pgvector/pgvector/tags --jq '.[0].name')
+          decision=$(scripts/ci/pgvector-release.sh "$pinned" "$latest")
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=${latest#v}" >> "$GITHUB_OUTPUT"
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+
+      # The title is stable, so the next run finds the issue it opened and
+      # does not open another one. The versions live in the body, where a
+      # new run can update them without opening a second issue.
+      - name: Open an issue when the pinned version is behind
+        if: steps.decide.outputs.decision == 'behind'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PINNED: ${{ steps.decide.outputs.pinned }}
+          LATEST: ${{ steps.decide.outputs.latest }}
+        run: |
+          title="The pinned pgvector is behind the latest release"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "the issue #$existing already tracks the pinned version"
+            exit 0
+          fi
+          gh issue create \
+            --title "$title" \
+            --body "The database pins pgvector ${PINNED}, and the latest release is ${LATEST}. The pin lives in db/postgres/Dockerfile (ARG PGVECTOR_VERSION), and the checksum of the tarball lives next to it (ARG PGVECTOR_SHA256). Moving the pin needs the checksum of the new tarball, so the decision belongs to a human. This issue is opened once: the next run of the keeper finds it open and does not open another one."

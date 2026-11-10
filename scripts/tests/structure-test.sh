@@ -1147,6 +1147,13 @@ test_the_image_of_the_database_is_one_image() {
   assert_contains "$compose_content" "pgvector${extension}" \
     "the name of the image of the database carries the version of pgvector"
 
+  # The scan of the artifact reads the image of the compose file, so the
+  # scan and the stack cannot disagree about which image is scanned.
+  local ci="$REPO_ROOT/.github/workflows/ci.yml"
+  assert_file_exists "$ci" "the continuous integration of the repository exists"
+  assert_contains "$(cat "$ci")" "db/postgres/compose.yaml" \
+    "the scan of the artifact reads the image of the compose file of the stack"
+
   local test
   for test in \
     "$REPO_ROOT/packages/database/test/integration/container_test.go" \
@@ -1166,14 +1173,14 @@ test_the_image_of_the_database_is_one_image() {
 }
 
 # ---------------------------------------------------------------------------
-# The freeze of the images has a keeper
+# The artifact has its keepers
 # ---------------------------------------------------------------------------
 
 # The stacks of PACA are built from images pinned by digest, and a pin nobody
 # moves is a promise that rots: the security patches of the base reach the
 # repository only when someone remembers to move the pin. Dependabot is that
 # someone: it opens the pull request that moves the pin.
-test_the_freeze_of_the_images_has_a_keeper() {
+test_the_artifact_has_its_keepers() {
   local dependabot="$REPO_ROOT/.github/dependabot.yml"
 
   assert_file_exists "$dependabot" "the freeze of the images has a keeper"
@@ -1187,6 +1194,24 @@ test_the_freeze_of_the_images_has_a_keeper() {
     "the keeper of the freeze moves the actions of the continuous integration"
   assert_contains "$content" 'directory: "/"' \
     "the keeper of the freeze reaches every stack of the monorepository"
+
+  # The version of the extension is not an image, so dependabot cannot move
+  # it: a check of the repository says so when the pin is behind.
+  local keeper="$REPO_ROOT/scripts/ci/pgvector-release.sh"
+  local keeper_test="$REPO_ROOT/scripts/tests/pgvector-release-test.sh"
+  local keeper_workflow="$REPO_ROOT/.github/workflows/pgvector-release.yml"
+
+  assert_file_exists "$keeper" "the keeper of the extension decides"
+  assert_file_exists "$keeper_test" "the decision of the keeper of the extension is proved"
+  assert_file_exists "$keeper_workflow" "the keeper of the extension runs on a schedule"
+
+  # The scan of the artifact: the job that owns the image scans it, and the
+  # findings it accepts are written in the repository.
+  local baseline="$REPO_ROOT/db/postgres/trivy-baseline.json"
+  assert_file_exists "$baseline" \
+    "the accepted findings of the scan of the artifact are written in the repository"
+  assert_contains "$(cat "$REPO_ROOT/.github/workflows/ci.yml")" "trivy" \
+    "the continuous integration scans the artifact"
 }
 
 # ---------------------------------------------------------------------------
@@ -1210,7 +1235,7 @@ run_rule "the services do not carry the same code" test_the_services_do_not_carr
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
 run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
-run_rule "the freeze of the images has a keeper" test_the_freeze_of_the_images_has_a_keeper
+run_rule "the artifact has its keepers" test_the_artifact_has_its_keepers
 
 report_the_rules
 

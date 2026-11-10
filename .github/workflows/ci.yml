@@ -343,3 +343,9 @@ jobs:
       # them against a matrix of changes.
       - name: Run the tests of the filters of the continuous integration
         run: make ci-filters-test
+
+      # The keeper of the extension is a script of the repository, and its
+      # decision is a pure function of the versions it receives: the test
+      # proves it without a network.
+      - name: Run the tests of the keeper of the extension
+        run: ./scripts/tests/pgvector-release-test.sh

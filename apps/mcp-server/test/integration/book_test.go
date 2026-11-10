@@ -36,9 +36,11 @@ import (
 
 // The settings of the database the story runs against.
 const (
-	// defaultStoryPostgresImage is the PostgreSQL the story runs against. It is
-	// the version the stack of the monorepository runs.
-	defaultStoryPostgresImage = "postgres:18.6-bookworm"
+	// defaultStoryPostgresImage is the PostgreSQL the story runs against. It
+	// is the image the stack of the database builds on, pinned by digest, so
+	// the tests prove the rules of the tables against the bytes the stack
+	// runs.
+	defaultStoryPostgresImage = "postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc"
 
 	// storyPostgresPort is the port PostgreSQL listens on inside the
 	// container.

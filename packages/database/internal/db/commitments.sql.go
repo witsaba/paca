@@ -90,8 +90,9 @@ func (q *Queries) ListCommitmentsByBusiness(ctx context.Context, businessID int6
 
 const meetCommitment = `-- name: MeetCommitment :one
 UPDATE commitments
-SET met_on = $1, updated_at = now()
+SET met_on = $1::date, updated_at = now()
 WHERE id = $2 AND business_id = $3 AND met_on IS NULL
+  AND $1::date IS NOT NULL
 RETURNING id, business_id, what, due_on, met_on, created_at, updated_at
 `
 
@@ -107,6 +108,11 @@ type MeetCommitmentParams struct {
 // The meeting moves a promise that is OPEN, and only one: the day of meeting
 // is written where no day of meeting is held, so a promise that was already
 // met is never met again and the day the book holds is never hidden.
+//
+// The meeting also carries its day: a meeting with no day matches no row,
+// because the promise that was kept stays in the book WITH the day it was
+// kept. The rule is the one of the domain (`commitment.ErrMissingMetDay`),
+// and the table holds it as its defense in depth.
 func (q *Queries) MeetCommitment(ctx context.Context, arg MeetCommitmentParams) (Commitment, error) {
 	row := q.db.QueryRow(ctx, meetCommitment, arg.MetOn, arg.ID, arg.BusinessID)
 	var i Commitment
@@ -132,8 +138,9 @@ type TheMeetingOfTheCommitmentParams struct {
 }
 
 // The day the promise was met, as the book holds it now. It is read when the
-// meeting did not find the promise it may meet, so the adapter can tell a
-// promise that is not there from a promise that was met already.
+// meeting did not find the promise it may meet, so the adapter can tell the
+// promise that is not there from the promise that was met already and from
+// the open promise the meeting carried no day for.
 func (q *Queries) TheMeetingOfTheCommitment(ctx context.Context, arg TheMeetingOfTheCommitmentParams) (pgtype.Date, error) {
 	row := q.db.QueryRow(ctx, theMeetingOfTheCommitment, arg.ID, arg.BusinessID)
 	var met_on pgtype.Date

@@ -253,6 +253,36 @@ func TestThePromiseOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	}
 }
 
+// TestThePromiseOfNoBusinessAtAllNamesTheBusinessThatIsNotThere pins the
+// choice of the refusal that a promise with no business of its own answers.
+//
+// The tool may be called with no business at all: the use case asks the
+// storage for the business, and the storage says there is none. The refusal
+// that reaches the agent is the refusal of the business
+// (`commitment.ErrBusinessNotFound`) and never the refusal of the model
+// (`commitment.ErrMissingBusiness`), which is what the domain answers to the
+// callers that use the domain directly.
+//
+// Nothing is written: a promise of no business is not a promise.
+func TestThePromiseOfNoBusinessAtAllNamesTheBusinessThatIsNotThere(t *testing.T) {
+	t.Parallel()
+
+	commitments := &fakeCommitments{}
+	service := theCommitmentService(commitments, nil)
+
+	_, err := service.Record(t.Context(), ports.RecordCommitment{
+		BusinessID: 0,
+		What:       "El pedido de la tienda",
+		DueOn:      "2026-03-14",
+	})
+	if !errors.Is(err, commitment.ErrBusinessNotFound) {
+		t.Fatalf("the error is %v, want %v", err, commitment.ErrBusinessNotFound)
+	}
+	if len(commitments.written) != 0 {
+		t.Errorf("the storage holds %d promises, want none", len(commitments.written))
+	}
+}
+
 // TestThePromiseWithoutAStorageIsRefused proves that the use case with no
 // database behind it says so, and writes nothing.
 func TestThePromiseWithoutAStorageIsRefused(t *testing.T) {

@@ -1465,7 +1465,10 @@ money of that person and not the promises of the bakery
 (`commitment.ErrWrongBusiness`). The business of the promises that is not
 there has its own refusal (`commitment.ErrBusinessNotFound`), and the agent
 is never told to open the personal business of a person for a business it
-mistyped.
+mistyped. The refusal of a business that is not there reaches the agent as
+the refusal of the business and not as `commitment.ErrMissingBusiness`: the
+promise with no business at all is the refusal of the model, and it is kept
+for the callers that use the domain directly.
 
 **The identity of a promise is its OWN identity, never its text.** Two
 promises that say the same thing on the same day are two promises: the book

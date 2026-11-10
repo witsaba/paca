@@ -376,6 +376,57 @@ func TestTheTableRefusesThePromiseThatSaysNothing(t *testing.T) {
 	}
 }
 
+// TestTheMeetingOfAPromiseWithNoDayIsRefusedByTheTable proves the rule of
+// the table that the meeting holds as its defense in depth: a promise that
+// was kept stays in the book WITH the day it was kept, so a meeting that
+// carries no day matches no row and writes none.
+//
+// The caller here bypasses the domain and the use case, which refuse the
+// meeting first: the table is what refuses it, and the adapter answers the
+// refusal of the rule and never "already met" nor "not found".
+//
+// The promise is read back open and untouched: a meeting that wrote nothing
+// bumps neither the day of meeting nor the moment the row was written.
+func TestTheMeetingWithNoDayIsRefusedByTheTable(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := commitmentsRepository(t)
+	bakery := theBakeryOfTheCommitments(t, ctx)
+
+	written, err := repo.Create(ctx, thePromiseOfTheTest(t, bakery.ID, "El pan del domingo", "2026-03-14"))
+	if err != nil {
+		t.Fatalf("the promise could not be written: %v", err)
+	}
+
+	noDay := commitment.Commitment{ID: written.ID, BusinessID: written.BusinessID, What: written.What, DueOn: written.DueOn}
+
+	// The answer of the adapter is the refusal of the rule and no other
+	// one: not "already met" and not "not found".
+	kept, err := repo.Meet(ctx, noDay)
+	if !errors.Is(err, commitment.ErrMissingMetDay) {
+		t.Fatalf("the meeting with no day answered %v and the promise %+v, want %v",
+			err, kept, commitment.ErrMissingMetDay)
+	}
+	if errors.Is(err, commitment.ErrAlreadyMet) || errors.Is(err, commitment.ErrNotFound) {
+		t.Errorf("the meeting with no day answered %v: it is neither a promise that is not there nor one that was met", err)
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the promises could not be read: %v", err)
+	}
+
+	read := thePromiseOf(t, held, written.ID)
+	if !read.IsOpen() {
+		t.Error("the promise was met with no day, and the book says it was kept")
+	}
+	if !read.UpdatedAt.Equal(written.UpdatedAt) {
+		t.Errorf("the moment the row was written is %s and was %s: the meeting with no day wrote a row",
+			read.UpdatedAt, written.UpdatedAt)
+	}
+}
+
 // TestTheMeetingOfAPromiseThatIsNotThereIsRefused proves the rule of the
 // table: the promise that is not there is not met, and the adapter tells it
 // apart from the promise that was met already.

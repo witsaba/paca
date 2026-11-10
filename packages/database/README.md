@@ -1758,6 +1758,14 @@ row and the adapter answers the error of the domain
 overwrite the day of meeting with a raw `UPDATE`, and the domain refuses that
 row when it is read back.
 
+**The meeting carries its day.** The promise that was kept stays in the book
+WITH the day it was kept, so the write of the meeting also asks for the day:
+`WHERE ... AND $1::date IS NOT NULL`. A meeting with no day matches no row,
+and the adapter answers the rule of the domain
+(`commitment.ErrMissingMetDay`). The domain refuses it first, and the table
+holds it as its defense in depth: a caller that goes around the domain and
+the use case is never told that a promise was kept when nothing was kept.
+
 ### The repository of the commitments
 
 The adapter writes the promises through the port of the domain
@@ -1776,10 +1784,16 @@ the book never writes one at the creation.
 **The MEETING is written over an open promise, and of no other one.** The
 query `MeetCommitment` writes the day of meeting where no day of meeting is
 held, so a promise that was met already is never met again and the day the
-book holds is never hidden. The adapter reads the row back only when the
-write found no promise to meet, so it can tell the promise that is not there
-(`commitment.ErrNotFound`) from the promise that was met already
-(`commitment.ErrAlreadyMet`).
+book holds is never hidden. The same write asks for the day of the meeting
+(`AND $1::date IS NOT NULL`), so a meeting that carries no day matches no row
+either.
+
+The adapter reads the row back only when the write matched no promise, and
+the day the row carries answers the three outcomes the port states: the
+promise is not there (`commitment.ErrNotFound`), the promise was met already
+(`commitment.ErrAlreadyMet`, with the day the book holds), or the promise is
+open and the meeting carried no day (`commitment.ErrMissingMetDay`). The
+adapter answers those three errors of the domain and invents no fourth one.
 
 **The row never decides what a promise is.** The model is built by the
 domain, through its own constructors: a row that breaks a rule of it is

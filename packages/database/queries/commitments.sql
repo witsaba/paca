@@ -33,14 +33,21 @@ SELECT * FROM commitments WHERE business_id = sqlc.arg(business_id) ORDER BY id;
 -- The meeting moves a promise that is OPEN, and only one: the day of meeting
 -- is written where no day of meeting is held, so a promise that was already
 -- met is never met again and the day the book holds is never hidden.
+--
+-- The meeting also carries its day: a meeting with no day matches no row,
+-- because the promise that was kept stays in the book WITH the day it was
+-- kept. The rule is the one of the domain (`commitment.ErrMissingMetDay`),
+-- and the table holds it as its defense in depth.
 UPDATE commitments
-SET met_on = sqlc.arg(met_on), updated_at = now()
+SET met_on = sqlc.arg(met_on)::date, updated_at = now()
 WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id) AND met_on IS NULL
+  AND sqlc.arg(met_on)::date IS NOT NULL
 RETURNING *;
 
 -- name: TheMeetingOfTheCommitment :one
 --
 -- The day the promise was met, as the book holds it now. It is read when the
--- meeting did not find the promise it may meet, so the adapter can tell a
--- promise that is not there from a promise that was met already.
+-- meeting did not find the promise it may meet, so the adapter can tell the
+-- promise that is not there from the promise that was met already and from
+-- the open promise the meeting carried no day for.
 SELECT met_on FROM commitments WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id);

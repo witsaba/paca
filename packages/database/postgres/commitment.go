@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 	"github.com/witsaba/paca/packages/domain/business"
@@ -87,10 +88,16 @@ func (r *CommitmentRepository) Create(ctx context.Context, written commitment.Co
 // is written where no day of meeting is held, so a caller that bypasses the
 // domain never meets a promise twice and never hides the day the book holds.
 //
-// The error is commitment.ErrAlreadyMet when the promise carries a day of
-// meeting already, commitment.ErrNotFound when the promise is not there,
-// commitment.ErrInvalidValue when the row breaks a rule of the table, and
-// commitment.ErrNoStorage when the storage is not open.
+// The meeting also carries its day: the table writes the day of meeting
+// where the call brought one, so a caller that bypasses the domain never
+// keeps a promise with no day the promise was kept on.
+//
+// The error is commitment.ErrNotFound when the promise is not there,
+// commitment.ErrAlreadyMet when the promise carries a day of meeting
+// already, commitment.ErrMissingMetDay when the promise is open and the
+// meeting carried no day, commitment.ErrInvalidValue when the row breaks a
+// rule of the table, and commitment.ErrNoStorage when the storage is not
+// open.
 func (r *CommitmentRepository) Meet(ctx context.Context, met commitment.Commitment) (commitment.Commitment, error) {
 	if r == nil || r.pool == nil {
 		return commitment.Commitment{}, commitment.ErrNoStorage
@@ -99,7 +106,7 @@ func (r *CommitmentRepository) Meet(ctx context.Context, met commitment.Commitme
 	queries := r.pool.queriesFor(ctx)
 
 	row, err := queries.MeetCommitment(ctx, db.MeetCommitmentParams{
-		MetOn:      dateOf(met.MetOn),
+		MetOn:      theDayOfTheMeeting(met.MetOn),
 		ID:         int64(met.ID),
 		BusinessID: int64(met.BusinessID),
 	})
@@ -167,14 +174,31 @@ func commitmentOf(row db.Commitment) (commitment.Commitment, error) {
 	return built, nil
 }
 
+// theDayOfTheMeeting returns the day the meeting carries, as the column of
+// the table holds it: the day of the book, or NULL when the meeting carries
+// none.
+//
+// The table refuses a meeting with no day (`AND sqlc.arg(met_on)::date IS
+// NOT NULL`), so the refusal of the rule travels from the table to the
+// caller and the adapter never invents it.
+func theDayOfTheMeeting(day ledger.Date) pgtype.Date {
+	if day.Time().IsZero() {
+		return pgtype.Date{}
+	}
+
+	return dateOf(day)
+}
+
 // theMeetingError translates the refusal of the table into the errors of the
 // port of the commitments.
 //
-// The meeting of a promise is written once: the promise that is not open any
-// more is refused with the error of the domain, and the adapter never hides
-// the day the book holds. The row is read back only when the meeting found no
-// promise to meet, so the adapter can tell the promise that is not there from
-// the promise that was met already.
+// The meeting of a promise is written once, and it carries its day: the
+// promise that is not open any more is refused with the error of the domain,
+// the adapter never hides the day the book holds, and the meeting with no day
+// is the refusal of the rule and not a success. The row is read back only
+// when the meeting matched no promise, and the day it carries tells the three
+// outcomes apart: the promise is not there, the promise was met already, or
+// the promise is open and the meeting carried no day.
 func theMeetingError(ctx context.Context, queries *db.Queries, met commitment.Commitment, err error) error {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return writeCommitmentError(err)
@@ -192,7 +216,7 @@ func theMeetingError(ctx context.Context, queries *db.Queries, met commitment.Co
 		return fmt.Errorf("%w: the commitment %d was met on %s", commitment.ErrAlreadyMet, met.ID, held.Time.Format("2006-01-02"))
 	}
 
-	return fmt.Errorf("%w: the commitment %d was not met by this call", commitment.ErrInvalidValue, met.ID)
+	return fmt.Errorf("%w: the commitment %d is open and the meeting carries no day", commitment.ErrMissingMetDay, met.ID)
 }
 
 // writeCommitmentError translates the truth of the database into the errors

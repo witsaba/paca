@@ -1007,6 +1007,14 @@ test_the_agent_carries_the_soul_of_paca() {
       "the soul of Paca states the principle of $principle"
   done
 
+  # The alarm of the commitments is the work of the agent and not a fact of
+  # PACA (S29): the soul says so, because a soul that keeps the fact and
+  # never names who rings is a fact nobody rings for.
+  assert_contains "$content" "## The alarm is yours" \
+    "the soul of Paca names the alarm of the commitments"
+  assert_contains "$content" "The alarm is not PACA" \
+    "the soul of Paca says the alarm is the work of the agent"
+
   # The runtime truncates the identity of the agent above twenty thousand
   # characters, and a truncated identity is a broken one. The check is in
   # bytes, which is the stricter of the two counts.

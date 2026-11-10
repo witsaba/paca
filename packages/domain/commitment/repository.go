@@ -29,12 +29,16 @@ type Repository interface {
 	// Meet writes the day the promise was met and returns the promise that
 	// was kept.
 	//
-	// The rule of the domain: a promise is kept once. The day of meeting is
-	// written over an OPEN promise and of no other one, so a caller that
-	// bypasses the domain never hides the day the book already holds.
+	// The rules of the domain: a promise is kept once, and it is kept WITH
+	// the day it was kept. The day of meeting is written over an OPEN promise
+	// and of no other one, so a caller that bypasses the domain never hides
+	// the day the book already holds, and it is written only where the
+	// meeting carries a day, so a caller that bypasses the domain never
+	// keeps a promise on no day at all.
 	//
-	// The error is ErrAlreadyMet when the promise carries a day of meeting
-	// already, ErrNotFound when the promise is not there, ErrInvalidValue
+	// The error is ErrNotFound when the promise is not there, ErrAlreadyMet
+	// when the promise carries a day of meeting already, ErrMissingMetDay
+	// when the promise is open and the meeting carries no day, ErrInvalidValue
 	// when the row breaks a rule of the table, and ErrNoStorage when the
 	// storage is not open.
 	Meet(ctx context.Context, met Commitment) (Commitment, error)

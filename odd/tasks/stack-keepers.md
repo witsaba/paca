@@ -210,3 +210,24 @@ container tests of the database against the pinned image (green on every run
 that had the daemon to itself), the workflows and the compose file (they
 parse), and the scan of the artifact in both directions (exit 1 without the
 accepted findings, exit 0 with them).
+
+**L24** — The review of the feature could not run, and the reason is outside
+the repository. The assessment of the candidate returned the risk "high"
+(the escalation of the item 5 landed) and asked for an independent verifier;
+the native review opened the lineage `review-ae79303eb80f6c92` (tier high,
+four lenses: risk, resilience, readability, reliability) and the relay of the
+reviewers failed with "no model is configured for review-risk (routing
+source: frozen session profile)". The four reviewer agents have no model in
+the routing of the host, and that routing is frozen for this session: it is
+the configuration of the shell, outside the repository. The independent
+verifier died twice on the quota of its provider.
+
+**L25** — The evidence that stands in the place of the two missing checks:
+the gate of the repository is green (505 assertions, 0 failures; 14 shell
+scripts clean; 26 assertions of the keeper), the tripwire was broken on
+purpose and failed as it must, the image built the old way and the image
+built the new way carry the same server, the same extension, the same
+cluster flags and the same init scripts, the scan of the artifact fails
+without the accepted findings and passes with them, the container tests of
+the repository pull the pinned image and are green, and the action of the
+scan exists with the six inputs the job uses.

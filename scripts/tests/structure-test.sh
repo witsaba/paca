@@ -1015,6 +1015,22 @@ test_the_agent_carries_the_soul_of_paca() {
   assert_contains "$content" "The alarm is not PACA" \
     "the soul of Paca says the alarm is the work of the agent"
 
+  # The length of the answer is the constraint the owner asked for after
+  # reading the conversation of the agent on Telegram (2026-11-10): the answer
+  # of Paca is as short as the question, and the method of the seven
+  # principles must not overrun it. The rule is pinned here, because a rule
+  # that only the file states is a wish.
+  assert_contains "$content" "## The length of your answer" \
+    "the soul of Paca states the length of its answer"
+  assert_contains "$content" "The answer is as short as the question" \
+    "the soul of Paca says the answer is as short as the question"
+  assert_contains "$content" "This section beats every other rule of this file" \
+    "the soul of Paca says the length of the answer wins over the rest"
+  assert_contains "$content" "Fifty words, three sentences" \
+    "the soul of Paca bounds the answer of a fact"
+  assert_contains "$content" "An offer that was not taken is not offered again" \
+    "the soul of Paca does not offer again what the person did not take"
+
   # The runtime truncates the identity of the agent above twenty thousand
   # characters, and a truncated identity is a broken one. The check is in
   # bytes, which is the stricter of the two counts.

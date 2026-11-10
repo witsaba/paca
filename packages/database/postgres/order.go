@@ -200,14 +200,20 @@ func (r *OrderRepository) List(ctx context.Context, own business.ID) ([]order.Or
 // state that is written is the one the domain decided: the adapter never
 // decides the state of an order by itself.
 //
+// The delivery moves an order that is OPEN, and only one. An order that is
+// not open is never reopened: the delivery of an order is written once, and
+// a caller that bypasses the domain cannot move a delivered order back to
+// the open one through this port.
+//
 // The deliveries are written in one transaction: the set joins the
 // transaction of the caller when the caller opened one, and opens its own
 // when it did not. An order that was delivered and an order that was not is
 // a round that was made and never happened.
 //
-// The error is order.ErrNotFound when the order is not there,
-// order.ErrInvalidValue when the row breaks a rule of the table, and
-// order.ErrNoStorage when the storage is not open.
+// The error is order.ErrAlreadyDelivered when the order is not open any
+// more, order.ErrNotFound when the order is not there, order.ErrInvalidValue
+// when the row breaks a rule of the table, and order.ErrNoStorage when the
+// storage is not open.
 func (r *OrderRepository) Deliver(ctx context.Context, delivered []order.Order) error {
 	if r == nil || r.pool == nil {
 		return order.ErrNoStorage
@@ -235,15 +241,19 @@ func (r *OrderRepository) Deliver(ctx context.Context, delivered []order.Order) 
 }
 
 // deliver writes the delivery of every order of the list.
+//
+// The delivery moves an order that is open: the state the row carries before
+// the write is the one the domain owes, and the table is asked for it.
 func (r *OrderRepository) deliver(ctx context.Context, queries *db.Queries, delivered []order.Order) error {
 	for _, one := range delivered {
 		row, err := queries.DeliverOrder(ctx, db.DeliverOrderParams{
-			State:      one.State.String(),
-			ID:         int64(one.ID),
-			BusinessID: int64(one.BusinessID),
+			State:       one.State.String(),
+			ID:          int64(one.ID),
+			BusinessID:  int64(one.BusinessID),
+			StateBefore: order.StateOpen.String(),
 		})
 		if err != nil {
-			return writeOrderError(err)
+			return theDeliveryError(ctx, queries, one, err)
 		}
 
 		if row.State != one.State.String() {
@@ -252,6 +262,34 @@ func (r *OrderRepository) deliver(ctx context.Context, queries *db.Queries, deli
 	}
 
 	return nil
+}
+
+// theDeliveryError translates the refusal of the table into the errors of the
+// port of the orders.
+//
+// The delivery of an order is written once: the order that is not open any
+// more is refused with the error of the domain, and the adapter never reopens
+// it. The row is read back only when the delivery found no order to deliver,
+// so the adapter can tell the order that is not there from the order that is
+// not open.
+func theDeliveryError(ctx context.Context, queries *db.Queries, one order.Order, err error) error {
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return writeOrderError(err)
+	}
+
+	state, err := queries.TheStateOfTheOrder(ctx, db.TheStateOfTheOrderParams{
+		ID:         int64(one.ID),
+		BusinessID: int64(one.BusinessID),
+	})
+	if err != nil {
+		return writeOrderError(err)
+	}
+
+	if order.State(state) != order.StateOpen {
+		return fmt.Errorf("%w: the order %d is %q", order.ErrAlreadyDelivered, one.ID, state)
+	}
+
+	return fmt.Errorf("%w: the order %d was not delivered by this call", order.ErrInvalidValue, one.ID)
 }
 
 // orderOf builds the order of a row with its lines, and asks the domain

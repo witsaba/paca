@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
@@ -71,8 +70,9 @@ func NewRouteService(
 //
 // The error is the error of the domain: the domain refuses the business
 // that does not hold orders, the route without a day, the route without a
-// stop, the stop that is not an order of the round, the cost that is not a
-// number of pesos and the second route of a day that was already written.
+// stop, the stop that is not an order the business owes, the same order in
+// two stops, the cost that is less than nothing and the second route of a
+// day that was already written.
 func (s *RouteService) Record(ctx context.Context, request ports.RecordRoute) (order.Route, error) {
 	if s == nil || s.routes == nil || s.orders == nil || s.businesses == nil || s.work == nil {
 		return order.Route{}, ports.ErrNoDatabase
@@ -87,7 +87,7 @@ func (s *RouteService) Record(ctx context.Context, request ports.RecordRoute) (o
 		return order.Route{}, err
 	}
 
-	day, err := s.theDay(request.Day)
+	day, err := theDayOfTheRoute(request.Day)
 	if err != nil {
 		return order.Route{}, err
 	}
@@ -143,17 +143,18 @@ func (s *RouteService) Record(ctx context.Context, request ports.RecordRoute) (o
 	return recorded, nil
 }
 
-// theDay answers the day of the round the route is of.
+// theDayOfTheRoute reads the day the round of the route is of.
 //
 // The rule of the domain: the route carries the day of the round, and the
-// book never invents one.
+// book never invents one. The use case does not hold the rule and it does
+// not manufacture its refusal: a day the agent names none of travels as the
+// empty day, and the domain refuses it in its own words.
 //
-// The error is ledger.ErrInvalidDate when the day is not a day of the book,
-// and order.ErrMissingRouteDay when the agent names no day.
-func (s *RouteService) theDay(day string) (ledger.Date, error) {
+// The error is ledger.ErrInvalidDate when the day is not a day of the book.
+func theDayOfTheRoute(day string) (ledger.Date, error) {
 	trimmed := strings.TrimSpace(day)
 	if trimmed == "" {
-		return ledger.Date{}, fmt.Errorf("%w: the route carries no day", order.ErrMissingRouteDay)
+		return ledger.Date{}, nil
 	}
 
 	return ledger.ParseDate(trimmed)

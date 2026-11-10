@@ -1601,8 +1601,16 @@ stops by the domain (`order.Route.Total`), and the storage never holds it.
 
 ### `route_stops`
 
-The stops of a route: the orders of the round of that day, in the order
-the agent will visit the clients in, and what each visit costs.
+The stops of a route: the orders the business still owes, in the order the
+agent will visit the clients in, and what each visit costs.
+
+The table can prove that a stop is an order of the business that owns the
+route, and it cannot prove that the order is due on the day of the route
+or that it is still open: those two rules are held by the domain
+(`order.TheRoute`), and they say so here. A writer that bypassed the
+domain could stop on an order of another day, and the delivery of the
+orders — which moves only the open ones — is what refuses the reopened
+order.
 
 | Column                | Type         | Rules                                                        |
 |-----------------------|--------------|--------------------------------------------------------------|
@@ -1631,6 +1639,13 @@ the columns they point at.
 index `route_stops_one_position_per_route` refuses a second stop in the
 same place.
 
+**The route visits every order ONCE.** The unique index
+`route_stops_one_stop_per_order` refuses the second stop of the same order
+in the same route, because the total of the route is derived from the stops
+and would count the visit twice. The domain refuses it first
+(`order.ErrDuplicateStop`), and the index arrived with the migration
+`00033_route_stops_one_order_each.sql`.
+
 ### The repository of the orders
 
 The adapter writes the orders through the port of the domain
@@ -1648,6 +1663,13 @@ that is written is the one the domain decided: the adapter never decides
 the state of an order by itself. The deliveries are written in one
 transaction, so an order that was delivered and an order that was not is a
 round that was made and never happened.
+
+**The delivery moves an order that is OPEN, and only one.** The query
+`DeliverOrder` writes the delivered state over the open one and of no other
+state, so an order that was delivered is never reopened: a caller that
+bypasses the domain is refused (`order.ErrAlreadyDelivered`), and the row
+it tried to reopen is left as it was. The order that is not there is
+`order.ErrNotFound`.
 
 ### The repository of the routes
 

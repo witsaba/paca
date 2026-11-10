@@ -31,6 +31,10 @@ const (
 	// routeStopsOrderConstraint is the name of the foreign key that
 	// refuses a stop of an order of another business.
 	routeStopsOrderConstraint = "route_stops_order_of_its_business_fkey"
+
+	// routeStopsOneOrderEachConstraint is the name of the index that
+	// refuses the second stop of the same order in the same route.
+	routeStopsOneOrderEachConstraint = "route_stops_one_stop_per_order"
 )
 
 // RouteRepository is the adapter of the storage of the routes.
@@ -217,9 +221,10 @@ func routeFromRow(row db.Route, stops []order.Stop) (order.Route, error) {
 // the port of the routes.
 //
 // The constraints of the tables hold the rules of the domain as a defense
-// in depth: the route of a business and a day is written once, the stop of
-// a route is a stop of the business that owns the route, and the stop of an
-// order is a stop of an order of that business.
+// in depth: the route of a business and a day is written once, the route
+// visits every order once, the stop of a route is a stop of the business
+// that owns the route, and the stop of an order is a stop of an order of
+// that business.
 func writeRouteError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return order.ErrNotFound
@@ -232,9 +237,13 @@ func writeRouteError(err error) error {
 
 	switch pgErr.Code {
 	case uniqueViolation:
-		if pgErr.ConstraintName == routesOnePerBusinessAndDayConstraint {
+		switch pgErr.ConstraintName {
+		case routesOnePerBusinessAndDayConstraint:
 			return fmt.Errorf("%w: the constraint %q refused the row",
 				order.ErrRouteAlreadyWritten, pgErr.ConstraintName)
+		case routeStopsOneOrderEachConstraint:
+			return fmt.Errorf("%w: the constraint %q refused the row",
+				order.ErrDuplicateStop, pgErr.ConstraintName)
 		}
 
 		return fmt.Errorf("%w: the constraint %q refused the row", order.ErrInvalidValue, pgErr.ConstraintName)

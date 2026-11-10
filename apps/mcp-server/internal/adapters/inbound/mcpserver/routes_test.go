@@ -241,13 +241,86 @@ func TestTheSchemaOfTheRouteToolRefusesNothingBeforeTheDomain(t *testing.T) {
 
 	required := theRequiredFieldsOfTheTool(t, tools.Tools, mcpserver.ToolRecordRoute)
 
-	for _, field := range []string{"business_id", "day", "stops", "order_id", "cost"} {
+	for _, field := range []string{"business_id", "day", "stops", "order_id"} {
 		for _, one := range required {
 			if one == field {
 				t.Errorf("the schema marks %q as required: the schema must not refuse the call before the "+
 					"domain can answer it", field)
 			}
 		}
+	}
+}
+
+// TestTheSchemaOfTheRouteToolRequiresTheCostOfTheStop proves the rule of
+// the transport: the cost of a stop is the MONEY of the stop, and every
+// money of the transport is required — the schema refuses the stop that
+// carries no cost, before the use case is called.
+//
+// The domain keeps its own rule: the cost is never negative, and zero is
+// legal, because a stop the owner walks to costs nothing.
+func TestTheSchemaOfTheRouteToolRequiresTheCostOfTheStop(t *testing.T) {
+	t.Parallel()
+
+	recorder := &stubRouteRecorder{written: theRouteOfTheTest(t)}
+	session := connectWithTheRoute(t, recorder)
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordRoute,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"day":         "2026-03-14",
+			"stops": []any{
+				map[string]any{"order_id": 10},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool wrote a stop that carries no cost")
+	}
+	if recorder.calls != 0 {
+		t.Errorf("the use case was called %d times, want none: the schema refuses the stop that carries no cost",
+			recorder.calls)
+	}
+}
+
+// TestTheMessageOfTheCostNamesItsRule proves the rule of the transport:
+// the message the agent reads for a cost that is less than nothing NAMES
+// THE RULE — the money of the transport is never negative — instead of
+// saying that the cost is not a number, which is a rule the book does not
+// hold: the cost of a stop is a whole number of pesos, and zero is legal.
+func TestTheMessageOfTheCostNamesItsRule(t *testing.T) {
+	t.Parallel()
+
+	session := connectWithTheRoute(t, &stubRouteRecorder{err: order.ErrInvalidCost})
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name: mcpserver.ToolRecordRoute,
+		Arguments: map[string]any{
+			"business_id": 77,
+			"day":         "2026-03-14",
+			"stops": []any{
+				map[string]any{"order_id": 10, "cost": -1},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("the tool did not answer an error")
+	}
+
+	answer := textOf(t, result)
+	for _, want := range []string{"the cost of the stop is less than nothing", "never negative", "whole pesos"} {
+		if !strings.Contains(answer, want) {
+			t.Errorf("the answer does not name the rule of the cost (%s): %s", want, answer)
+		}
+	}
+	if strings.Contains(answer, "not a number") {
+		t.Errorf("the answer states a rule the book does not hold, that the cost is not a number: %s", answer)
 	}
 }
 
@@ -440,14 +513,24 @@ func TestTheRouteToolCarriesTheErrorOfTheDomain(t *testing.T) {
 			want:    "already written",
 		},
 		{
-			name:    "the stop that is not an order of the round",
-			failure: order.ErrStopNotOfTheRound,
-			want:    "not one of the orders of that round",
+			name:    "the stop that is not an order of the business",
+			failure: order.ErrStopNotAnOrder,
+			want:    "not an order of that business",
 		},
 		{
-			name:    "the cost that is not a number of pesos",
+			name:    "the route that visits the same order twice",
+			failure: order.ErrDuplicateStop,
+			want:    "visits the same order in two stops",
+		},
+		{
+			name:    "the order that was delivered already",
+			failure: order.ErrAlreadyDelivered,
+			want:    "delivered already",
+		},
+		{
+			name:    "the cost that is less than nothing",
 			failure: order.ErrInvalidCost,
-			want:    "not a number of pesos",
+			want:    "less than nothing",
 		},
 	}
 

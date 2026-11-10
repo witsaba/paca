@@ -418,11 +418,11 @@ var theMessages = map[error]string{
 		"in the order you will visit the clients in",
 	order.ErrRouteAlreadyWritten: "the route of that day was already written: read the round of that day and use the route " +
 		"that is already there, or write the route of another day",
-	order.ErrStopNotAnOrder: "the stop is not an order of that business: send the identity of an order of the round of " +
-		"that day, the ones that are due on it",
-	order.ErrStopNotOfTheRound: "the stop is not one of the orders of that round: send the orders that are due on the day " +
-		"of the round, and nothing else",
-	order.ErrInvalidCost: "the cost of the stop is not a number of pesos: send the money of the transport to that client, " +
-		"in whole pesos, and never less than nothing",
+	order.ErrStopNotAnOrder: "the stop is not an order of that business: read the orders of the business, the ones " +
+		"that are still owed, and send the identity of one of them",
+	order.ErrDuplicateStop: "the route visits the same order in two stops: every order is visited once, and the total of " +
+		"the route counts the money of a stop once",
+	order.ErrInvalidCost: "the cost of the stop is less than nothing: the money of the transport to that client is " +
+		"never negative, and it is sent in whole pesos — a stop the owner walks to costs zero",
 	order.ErrAlreadyDelivered: "the order was delivered already: it is not owed any more, and it is not visited again",
 }

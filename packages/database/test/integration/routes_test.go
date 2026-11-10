@@ -348,3 +348,182 @@ func TestTheDeliveryOfTheOrdersOfTheStopsIsWritten(t *testing.T) {
 		t.Errorf("the round owes %d orders, want none: the orders of the stops were delivered", len(round.Owed))
 	}
 }
+
+// TestTheRouteOfTheDayDeliversTheOrderThatIsOwed proves the rule of the
+// round against a real database: the stops of a route are the orders the
+// business still OWES, the ones that are due on the day of the route and the
+// ones that fell due on an earlier day. The order that was not delivered is
+// owed no matter the day it fell due on, and the route of a later day
+// delivers it.
+func TestTheRouteOfTheDayDeliversTheOrderThatIsOwed(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := routesRepository(t)
+	orders := ordersRepository(t)
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+	day := theDayOfTheOrders(t, "2026-03-15")
+
+	overdue, err := orders.Create(ctx, theOrderOfTheTest(t, bakery, client, baked, theDayOfTheOrders(t, "2026-03-13")))
+	if err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+
+	route, err := order.TheRoute(
+		bakery.ID,
+		[]order.Order{overdue},
+		nil,
+		order.RouteDefinition{
+			Day: day,
+			Stops: []order.StopDefinition{
+				{OrderID: overdue.ID, Cost: ledger.Amount(3000)},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("the route of the order that is owed was refused: %v", err)
+	}
+
+	if _, err := repo.Create(ctx, route); err != nil {
+		t.Fatalf("the route could not be written: %v", err)
+	}
+
+	delivered, err := route.TheDelivery([]order.Order{overdue})
+	if err != nil {
+		t.Fatalf("the delivery of the route was refused: %v", err)
+	}
+
+	if err := orders.Deliver(ctx, delivered); err != nil {
+		t.Fatalf("the delivery of the order could not be written: %v", err)
+	}
+
+	held, err := orders.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the orders could not be read: %v", err)
+	}
+
+	if len(held) != 1 {
+		t.Fatalf("the business holds %d orders, want 1", len(held))
+	}
+	if held[0].State != order.StateDelivered {
+		t.Errorf("the order that fell due on an earlier day is %q, want %q", held[0].State, order.StateDelivered)
+	}
+
+	round := order.TheRound(day, held)
+	if len(round.Owed) != 0 {
+		t.Errorf("the round owes %d orders, want none: the overdue order was delivered by the route of the day",
+			len(round.Owed))
+	}
+}
+
+// TestTheAdapterRefusesToReopenADeliveredOrder proves the rule of the port
+// against a real database: the delivery moves an order that is open, and an
+// order that was delivered already is refused. A caller that bypasses the
+// domain cannot move a delivered order back to the open one.
+func TestTheAdapterRefusesToReopenADeliveredOrder(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orders := ordersRepository(t)
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+	day := theDayOfTheOrders(t, "2026-03-14")
+
+	first, err := orders.Create(ctx, theOrderOfTheTest(t, bakery, client, baked, day))
+	if err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+
+	delivered, err := first.Delivered()
+	if err != nil {
+		t.Fatalf("the domain refused the delivery: %v", err)
+	}
+
+	if err := orders.Deliver(ctx, []order.Order{delivered}); err != nil {
+		t.Fatalf("the delivery of the order could not be written: %v", err)
+	}
+
+	// The order the caller hands the adapter is the open one: another
+	// writer wrote the delivery between the reading and the writing.
+	_, err = first.Delivered()
+	if err != nil {
+		t.Fatalf("the order of the test is not open: %v", err)
+	}
+
+	err = orders.Deliver(ctx, []order.Order{first})
+	if err == nil {
+		t.Fatal("the delivered order was moved back to the open one")
+	}
+	if !errors.Is(err, order.ErrAlreadyDelivered) {
+		t.Fatalf("the error is %v, want %v", err, order.ErrAlreadyDelivered)
+	}
+
+	held, err := orders.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the orders could not be read: %v", err)
+	}
+
+	if len(held) != 1 {
+		t.Fatalf("the business holds %d orders, want 1", len(held))
+	}
+	if held[0].State != order.StateDelivered {
+		t.Errorf("the order is %q, want %q: the delivery is written once", held[0].State, order.StateDelivered)
+	}
+}
+
+// TestTheTableRefusesTheSameOrderInTwoStops proves the rule of the table:
+// the route visits every order once, because the total of the route is
+// derived from the stops. The row is written the way another writer would
+// write it, and the unique index `route_stops_one_stop_per_order` refuses the
+// second stop of the same order.
+func TestTheTableRefusesTheSameOrderInTwoStops(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orders := ordersRepository(t)
+	bakery := theBakeryOfTheOrders(t, ctx)
+	client := theClientOfTheOrders(t, ctx, bakery)
+	baked := theProductOfTheOrders(t, ctx, bakery)
+	day := theDayOfTheOrders(t, "2026-03-14")
+
+	first, err := orders.Create(ctx, theOrderOfTheTest(t, bakery, client, baked, day))
+	if err != nil {
+		t.Fatalf("the order could not be written: %v", err)
+	}
+
+	var routeID int64
+	if err := theSuite.db.QueryRowContext(ctx,
+		`INSERT INTO routes (business_id, day) VALUES ($1, $2) RETURNING id`,
+		int64(bakery.ID), day,
+	).Scan(&routeID); err != nil {
+		t.Fatalf("the route could not be written: %v", err)
+	}
+
+	if _, err := theSuite.db.ExecContext(ctx,
+		`INSERT INTO route_stops (route_id, business_id, order_id, position, cost)
+		 VALUES ($1, $2, $3, 1, 3000)`,
+		routeID, int64(bakery.ID), int64(first.ID),
+	); err != nil {
+		t.Fatalf("the first stop of the order could not be written: %v", err)
+	}
+
+	_, err = theSuite.db.ExecContext(ctx,
+		`INSERT INTO route_stops (route_id, business_id, order_id, position, cost)
+		 VALUES ($1, $2, $3, 2, 1500)`,
+		routeID, int64(bakery.ID), int64(first.ID),
+	)
+	if err == nil {
+		t.Fatal("the table accepted a route that visits the same order twice")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != uniqueViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, uniqueViolation)
+	}
+	if pgErr.ConstraintName != "route_stops_one_stop_per_order" {
+		t.Errorf("the constraint of the error is %q, want %q", pgErr.ConstraintName, "route_stops_one_stop_per_order")
+	}
+}

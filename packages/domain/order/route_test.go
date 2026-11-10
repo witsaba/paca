@@ -200,17 +200,64 @@ func TestTheRouteRefusesAStopThatIsNotAnOrderOfThatBusiness(t *testing.T) {
 	}
 }
 
-// TestTheRouteRefusesAStopThatIsNotAnOrderOfThatRound proves the rule of
-// the domain: the stops of a route are the orders of that round, the ones
-// that are due on that day.
-func TestTheRouteRefusesAStopThatIsNotAnOrderOfThatRound(t *testing.T) {
+// TestTheRouteOfTheDayCarriesTheOrderThatIsOwed proves the rule of the
+// domain: the stops of a route are the orders the business still OWES —
+// every open order, the ones that are due on the day of the route and the
+// ones that fell due on an earlier day. An order that was not delivered
+// stays owed, no matter the day it fell due on.
+func TestTheRouteOfTheDayCarriesTheOrderThatIsOwed(t *testing.T) {
+	t.Parallel()
+
+	day := theDayOfTheTest("2026-03-15")
+
+	held := []Order{
+		theOrderDueOnTheDayOfTheTest(t, ID(10), theDayOfTheTest("2026-03-13")),
+		theOrderDueOnTheDayOfTheTest(t, ID(11), theDayOfTheTest("2026-03-20")),
+	}
+
+	built, err := TheRoute(
+		business.ID(77),
+		held,
+		nil,
+		theRouteOfTheTest(day, []StopDefinition{{OrderID: ID(10), Cost: ledger.Amount(1000)}}),
+	)
+	if err != nil {
+		t.Fatalf("the route of the order that is owed was refused: %v", err)
+	}
+
+	if len(built.Stops) != 1 {
+		t.Fatalf("the route carries %d stops, want 1", len(built.Stops))
+	}
+	if built.Stops[0].OrderID != ID(10) {
+		t.Errorf("the stop is the order %d, want 10", built.Stops[0].OrderID)
+	}
+
+	delivered, err := built.TheDelivery(held)
+	if err != nil {
+		t.Fatalf("the delivery of the route was refused: %v", err)
+	}
+	if len(delivered) != 1 {
+		t.Fatalf("the route delivers %d orders, want 1", len(delivered))
+	}
+	if delivered[0].ID != ID(10) {
+		t.Errorf("the route delivers the order %d, want 10", delivered[0].ID)
+	}
+	if delivered[0].State != StateDelivered {
+		t.Errorf("the order %d is %q, want %q", delivered[0].ID, delivered[0].State, StateDelivered)
+	}
+}
+
+// TestTheRouteRefusesAStopOfAnOrderOfAnotherBusiness proves the rule of
+// the domain: the stops of a route are orders of the business the route
+// belongs to, and the order of another business is refused.
+func TestTheRouteRefusesAStopOfAnOrderOfAnotherBusiness(t *testing.T) {
 	t.Parallel()
 
 	day := theDayOfTheTest("2026-03-14")
 
 	held := []Order{
 		theOrderDueOnTheDayOfTheTest(t, ID(10), day),
-		theOrderDueOnTheDayOfTheTest(t, ID(11), theDayOfTheTest("2026-03-15")),
+		theOrderOfAnotherBusinessOfTheTest(t, ID(11), day),
 	}
 
 	_, err := TheRoute(
@@ -220,11 +267,97 @@ func TestTheRouteRefusesAStopThatIsNotAnOrderOfThatRound(t *testing.T) {
 		theRouteOfTheTest(day, []StopDefinition{{OrderID: ID(11), Cost: ledger.Amount(1000)}}),
 	)
 	if err == nil {
-		t.Fatal("the route of an order that is not due on that day was built")
+		t.Fatal("the route of an order of another business was built")
 	}
-	if !errors.Is(err, ErrStopNotOfTheRound) {
-		t.Fatalf("the error is %v, want %v", err, ErrStopNotOfTheRound)
+	if !errors.Is(err, ErrStopNotAnOrder) {
+		t.Fatalf("the error is %v, want %v", err, ErrStopNotAnOrder)
 	}
+}
+
+// TestTheRouteRefusesAStopOfAnOrderThatWasDelivered proves the rule of the
+// domain: the stops of a route are the orders that are still owed, and an
+// order that was delivered already is not owed any more.
+func TestTheRouteRefusesAStopOfAnOrderThatWasDelivered(t *testing.T) {
+	t.Parallel()
+
+	day := theDayOfTheTest("2026-03-14")
+
+	held := []Order{
+		theOrderDueOnTheDayOfTheTest(t, ID(10), day),
+		theDeliveredOrderOfTheTest(t, ID(11), day),
+	}
+
+	_, err := TheRoute(
+		business.ID(77),
+		held,
+		nil,
+		theRouteOfTheTest(day, []StopDefinition{{OrderID: ID(11), Cost: ledger.Amount(1000)}}),
+	)
+	if err == nil {
+		t.Fatal("the route of an order that was delivered already was built")
+	}
+	if !errors.Is(err, ErrAlreadyDelivered) {
+		t.Fatalf("the error is %v, want %v", err, ErrAlreadyDelivered)
+	}
+}
+
+// TestTheRouteRefusesTheSameOrderInTwoStops proves the rule of the domain:
+// the route visits an order once, and the total of the route — which is
+// derived from the stops — never counts the money of an order twice.
+func TestTheRouteRefusesTheSameOrderInTwoStops(t *testing.T) {
+	t.Parallel()
+
+	day := theDayOfTheTest("2026-03-14")
+
+	held := []Order{
+		theOrderDueOnTheDayOfTheTest(t, ID(10), day),
+		theOrderDueOnTheDayOfTheTest(t, ID(11), day),
+	}
+
+	_, err := TheRoute(
+		business.ID(77),
+		held,
+		nil,
+		theRouteOfTheTest(day, []StopDefinition{
+			{OrderID: ID(10), Cost: ledger.Amount(3000)},
+			{OrderID: ID(10), Cost: ledger.Amount(1500)},
+		}),
+	)
+	if err == nil {
+		t.Fatal("the route that visits the same order twice was built")
+	}
+	if !errors.Is(err, ErrDuplicateStop) {
+		t.Fatalf("the error is %v, want %v", err, ErrDuplicateStop)
+	}
+}
+
+// theOrderOfAnotherBusinessOfTheTest is an order of another business: the
+// one the route of the business of the test never visits.
+func theOrderOfAnotherBusinessOfTheTest(t *testing.T, id ID, dueOn ledger.Date) Order {
+	t.Helper()
+
+	client, err := party.New(
+		business.ID(88),
+		party.KindPerson,
+		"Don Eustaquio",
+		[]party.Role{party.RoleClient},
+		"",
+		"eustaquio@example.com",
+		"Calle 6 # 13-31",
+		party.LegalHuman{},
+	)
+	if err != nil {
+		t.Fatalf("the client of the other business was refused: %v", err)
+	}
+	client.ID = party.ID(20)
+
+	built, err := New(business.ID(88), client, dueOn, theLinesOfTheTest(t, business.ID(88)))
+	if err != nil {
+		t.Fatalf("the order of the other business was refused: %v", err)
+	}
+	built.ID = id
+
+	return built
 }
 
 // TestTheRouteOfADayIsWrittenOnce proves the rule of the domain: the route
@@ -431,6 +564,37 @@ func TestTheRoundWithoutARouteIsARoundThatWasNeverPlanned(t *testing.T) {
 	}
 }
 
+// TestTheRoundIsPlannedByTheRouteOfItsBusinessAndItsDay proves the rule of
+// the domain: the round carries the route of ITS day and of ITS business, and
+// the route of another business or of another day is not the route that
+// planned it.
+func TestTheRoundIsPlannedByTheRouteOfItsBusinessAndItsDay(t *testing.T) {
+	t.Parallel()
+
+	day := theDayOfTheTest("2026-03-14")
+	round := TheRound(day, []Order{theOrderDueOnTheDayOfTheTest(t, ID(10), day)})
+
+	theRouteOfTheDay := Route{ID: RouteID(1), BusinessID: business.ID(77), Day: day}
+
+	planned := TheRoundWithRoute(round, []Route{theRouteOfTheDay}, business.ID(77))
+	if !planned.Planned() {
+		t.Fatal("the round is not planned by the route of its business and its day")
+	}
+	if planned.Route == nil || planned.Route.ID != RouteID(1) {
+		t.Errorf("the route of the round is %v, want the route 1", planned.Route)
+	}
+
+	theRouteOfAnotherBusiness := Route{ID: RouteID(2), BusinessID: business.ID(88), Day: day}
+	if TheRoundWithRoute(round, []Route{theRouteOfAnotherBusiness}, business.ID(77)).Planned() {
+		t.Error("the round is planned by the route of another business")
+	}
+
+	theRouteOfAnotherDay := Route{ID: RouteID(3), BusinessID: business.ID(77), Day: theDayOfTheTest("2026-03-15")}
+	if TheRoundWithRoute(round, []Route{theRouteOfAnotherDay}, business.ID(77)).Planned() {
+		t.Error("the round is planned by the route of another day")
+	}
+}
+
 // TestNewRouteFromFactsBuildsTheRouteOfTheStorage proves that the domain
 // builds the route the storage holds, and that the row never decides what a
 // route is.
@@ -504,6 +668,18 @@ func TestNewRouteFromFactsRefusesTheRowThatIsNotWhole(t *testing.T) {
 				Stops:      []Stop{{Cost: ledger.Amount(1000)}},
 			},
 			want: ErrStopNotAnOrder,
+		},
+		{
+			name: "the route that visits the same order twice",
+			facts: RouteFacts{
+				BusinessID: 77,
+				Day:        theDayOfTheTest("2026-03-14"),
+				Stops: []Stop{
+					{OrderID: 10, Cost: ledger.Amount(3000)},
+					{OrderID: 10, Cost: ledger.Amount(1500)},
+				},
+			},
+			want: ErrDuplicateStop,
 		},
 	}
 

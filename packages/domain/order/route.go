@@ -111,12 +111,16 @@ func (r Route) Total() ledger.Amount {
 //   - the route of a business and a day is written once: a second route for
 //     the same day is refused (ErrRouteAlreadyWritten);
 //   - every stop is an order of that business (ErrStopNotAnOrder);
-//   - every stop is an order of that round: the orders that are due on that
-//     day (ErrStopNotOfTheRound);
-//   - every stop is an order that is still owed: the route delivers its
-//     stops, and an order is delivered once (ErrAlreadyDelivered);
+//   - every stop is an order the business still OWES: EVERY open order of
+//     the business — the ones that are due on the day of the round and the
+//     ones that fell due on an earlier day — and a stop of an order that was
+//     delivered already is refused (ErrAlreadyDelivered);
+//   - the route visits every order once: the same order in two stops is
+//     refused (ErrDuplicateStop), because the total of the route is derived
+//     from the stops and counts the money of a stop once per stop;
 //   - the cost of a stop is never negative: the money of the book counts
-//     whole pesos (ErrInvalidCost).
+//     whole pesos, and a stop the owner walks to costs nothing
+//     (ErrInvalidCost).
 func TheRoute(
 	own business.ID,
 	held []Order,
@@ -142,9 +146,8 @@ func TheRoute(
 		}
 	}
 
-	round := TheRound(definition.Day, held)
-
 	built := make([]Stop, 0, len(definition.Stops))
+	visited := make(map[ID]struct{}, len(definition.Stops))
 
 	for _, one := range definition.Stops {
 		found, ok := theOrderOfTheBusiness(held, one.OrderID)
@@ -157,11 +160,6 @@ func TheRoute(
 				ErrStopNotAnOrder, found.ID, found.BusinessID)
 		}
 
-		if !theRoundCarries(round, found.ID) {
-			return Route{}, fmt.Errorf("%w: the order %d is due on %s and the round is of %s",
-				ErrStopNotOfTheRound, found.ID, found.DueOn, definition.Day)
-		}
-
 		if !found.IsOpen() {
 			return Route{}, fmt.Errorf("%w: the order %d is %q", ErrAlreadyDelivered, found.ID, found.State)
 		}
@@ -169,6 +167,12 @@ func TheRoute(
 		if one.Cost < 0 {
 			return Route{}, fmt.Errorf("%w: the stop carries %d pesos", ErrInvalidCost, one.Cost)
 		}
+
+		if _, ok := visited[found.ID]; ok {
+			return Route{}, fmt.Errorf("%w: the order %d is visited twice", ErrDuplicateStop, found.ID)
+		}
+
+		visited[found.ID] = struct{}{}
 
 		built = append(built, Stop(one))
 	}
@@ -242,13 +246,14 @@ type RouteFacts struct {
 // NewRouteFromFacts builds the route the storage holds.
 //
 // The rules of the domain hold here too: the route belongs to a business,
-// carries the day of the round and carries at least one stop, and the cost
-// of every stop is never negative.
+// carries the day of the round, carries at least one stop, visits every
+// order once, and the cost of every stop is never negative.
 //
 // The error is ErrMissingBusiness when the route is of no business,
 // ErrMissingRouteDay when it carries no day, ErrNoStops when it carries no
-// stop, ErrInvalidCost when a stop carries a negative cost, and
-// ErrStopNotAnOrder when a stop names no order.
+// stop, ErrInvalidCost when a stop carries a negative cost,
+// ErrStopNotAnOrder when a stop names no order, and ErrDuplicateStop when
+// the route visits the same order in two stops.
 func NewRouteFromFacts(facts RouteFacts) (Route, error) {
 	if facts.BusinessID <= 0 {
 		return Route{}, fmt.Errorf("%w: the route is of the business %d", ErrMissingBusiness, facts.BusinessID)
@@ -263,6 +268,7 @@ func NewRouteFromFacts(facts RouteFacts) (Route, error) {
 	}
 
 	stops := make([]Stop, 0, len(facts.Stops))
+	visited := make(map[ID]struct{}, len(facts.Stops))
 
 	for _, one := range facts.Stops {
 		if one.OrderID == 0 {
@@ -272,6 +278,12 @@ func NewRouteFromFacts(facts RouteFacts) (Route, error) {
 		if one.Cost < 0 {
 			return Route{}, fmt.Errorf("%w: the stop carries %d pesos", ErrInvalidCost, one.Cost)
 		}
+
+		if _, ok := visited[one.OrderID]; ok {
+			return Route{}, fmt.Errorf("%w: the order %d is visited twice", ErrDuplicateStop, one.OrderID)
+		}
+
+		visited[one.OrderID] = struct{}{}
 
 		stops = append(stops, Stop{OrderID: one.OrderID, Cost: one.Cost})
 	}
@@ -296,18 +308,4 @@ func theOrderOfTheBusiness(orders []Order, id ID) (Order, bool) {
 	}
 
 	return Order{}, false
-}
-
-// theRoundCarries reports whether the round carries the order.
-//
-// The rule of the domain: the stops of a route are the orders of the round,
-// the ones that are due on the day of the round.
-func theRoundCarries(round Round, id ID) bool {
-	for _, one := range round.Orders {
-		if one.ID == id {
-			return true
-		}
-	}
-
-	return false
 }

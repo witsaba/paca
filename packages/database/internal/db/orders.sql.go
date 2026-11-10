@@ -101,14 +101,15 @@ func (q *Queries) CreateOrderLine(ctx context.Context, arg CreateOrderLineParams
 const deliverOrder = `-- name: DeliverOrder :one
 UPDATE orders
 SET state = $1, updated_at = now()
-WHERE id = $2 AND business_id = $3
+WHERE id = $2 AND business_id = $3 AND state = $4
 RETURNING id, business_id, party_id, party_name, due_on, state, created_at, updated_at
 `
 
 type DeliverOrderParams struct {
-	State      string
-	ID         int64
-	BusinessID int64
+	State       string
+	ID          int64
+	BusinessID  int64
+	StateBefore string
 }
 
 // The delivery of an order: the state of the order moves to the delivered
@@ -116,8 +117,19 @@ type DeliverOrderParams struct {
 //
 // The delivery of an order is written with the ROUTE of the round, and the
 // state that is written is the one the domain decided.
+//
+// The delivery moves an order that is OPEN, and only one: the state of the
+// row before the write is the one the domain owes, and an order that is not
+// open is never reopened. The order of the rows whose state is not the one
+// the delivery expects is left as it is, and the adapter tells the caller
+// what the row carries.
 func (q *Queries) DeliverOrder(ctx context.Context, arg DeliverOrderParams) (Order, error) {
-	row := q.db.QueryRow(ctx, deliverOrder, arg.State, arg.ID, arg.BusinessID)
+	row := q.db.QueryRow(ctx, deliverOrder,
+		arg.State,
+		arg.ID,
+		arg.BusinessID,
+		arg.StateBefore,
+	)
 	var i Order
 	err := row.Scan(
 		&i.ID,
@@ -199,4 +211,23 @@ func (q *Queries) ListOrdersByBusiness(ctx context.Context, businessID int64) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const theStateOfTheOrder = `-- name: TheStateOfTheOrder :one
+SELECT state FROM orders WHERE id = $1 AND business_id = $2
+`
+
+type TheStateOfTheOrderParams struct {
+	ID         int64
+	BusinessID int64
+}
+
+// The state the order carries now. It is read when the delivery did not find
+// the order it may deliver, so the adapter can tell an order that is not
+// there from an order that is not open any more.
+func (q *Queries) TheStateOfTheOrder(ctx context.Context, arg TheStateOfTheOrderParams) (string, error) {
+	row := q.db.QueryRow(ctx, theStateOfTheOrder, arg.ID, arg.BusinessID)
+	var state string
+	err := row.Scan(&state)
+	return state, err
 }

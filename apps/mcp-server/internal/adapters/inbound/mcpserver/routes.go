@@ -40,11 +40,15 @@ func buildDescriptionRecordRoute() string {
 		"never invents one.\n\n" +
 		"The stops ('stops') are REQUIRED: at least one stop, and the stops are in the ORDER you will visit the " +
 		"clients in. Every stop carries:\n\n" +
-		"  - the order it visits ('order_id'): the identity of the order of the round of that day, the ones that " +
-		"are due on it. PACA refuses a stop that names an order of another day, and a stop that names an order of " +
-		"another business;\n" +
-		"  - what the visit costs ('cost'): the money of the transport to that client, in WHOLE PESOS. It is never " +
-		"negative, and it may be zero: a stop the owner walks to costs nothing.\n\n" +
+		"  - the order it visits ('order_id'): the identity of an order the business still OWES, which is what you " +
+		"read the whole: EVERY open order of the business, the ones that are due on the day and the ones that fell " +
+		"due on an earlier day and were not delivered. PACA refuses a stop that names an order of another " +
+		"business, and a stop that names an order that was delivered already;\n" +
+		"  - what the visit costs ('cost'): the money of the transport to that client, in WHOLE PESOS. It is " +
+		"REQUIRED — send it in every stop: it is never negative, and it may be zero, because a stop the owner " +
+		"walks to costs nothing.\n\n" +
+		"Every order is visited ONCE: a route that names the same order in two stops is refused, because the total " +
+		"of the route counts the money of a stop once.\n\n" +
 		"The route of a business and a day is written ONCE: a second route for the same day is refused, because " +
 		"the round was already planned.\n\n" +
 		"The answer carries the route that was written: its identity ('id'), the business that owns it " +
@@ -56,10 +60,16 @@ func buildDescriptionRecordRoute() string {
 // recordRouteStopInput is one stop of the route the agent read.
 type recordRouteStopInput struct {
 	// OrderID is the order the stop visits.
-	OrderID int64 `json:"order_id,omitempty" jsonschema:"The identity of the order the stop visits: the orders of the round of that day, the ones that are due on it. Send it always: PACA never guesses the order of a stop, and the domain refuses the stop that names an order of another day."`
+	OrderID int64 `json:"order_id,omitempty" jsonschema:"The identity of the order the stop visits: an order the business still owes — EVERY open order of the business, the one that is due on the day of the round or the one that fell due on an earlier day. Send it always: PACA never guesses the order of a stop, and the domain refuses the stop that names an order of another business or an order that was delivered already."`
 
 	// Cost is what the stop costs.
-	Cost int64 `json:"cost,omitempty" jsonschema:"What the stop costs: the money of the transport to that client, in whole pesos. Send it always: it is never negative, and it may be zero when the owner walks to that client."`
+	//
+	// The money of the stop is required, as every other money of the
+	// transport is: the schema refuses the stop that carries no cost, and
+	// the domain is the one that decides whether the cost may enter the
+	// book — it is never negative, and zero is the stop the owner walks
+	// to.
+	Cost int64 `json:"cost" jsonschema:"What the stop costs: the money of the transport to that client, in whole pesos. It is required and you send it in every stop: it is never negative, and it may be zero when the owner walks to that client."`
 }
 
 // recordRouteInput is the input of the tool that records the route.

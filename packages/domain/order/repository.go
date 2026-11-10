@@ -36,16 +36,18 @@ type Repository interface {
 	// The error is ErrNoStorage when the storage is not open.
 	List(ctx context.Context, own business.ID) ([]Order, error)
 
-	// Deliver writes the delivery of the orders: the state of every order
-	// of the list moves to the delivered one.
+	// Deliver writes the delivery of the orders: the state of every OPEN
+	// order of the list moves to the delivered one, and of no other one.
 	//
 	// The rule of the domain: the delivery of an order is written with
 	// the ROUTE of the round, and the orders that the route delivers are
-	// the ones of its stops.
+	// the ones of its stops. The delivery is written once: an order that
+	// is not open any more is never reopened.
 	//
-	// The error is ErrNotFound when the order is not there,
-	// ErrInvalidValue when the row breaks a rule of the table, and
-	// ErrNoStorage when the storage is not open.
+	// The error is ErrAlreadyDelivered when the order is not open any
+	// more, ErrNotFound when the order is not there, ErrInvalidValue when
+	// the row breaks a rule of the table, and ErrNoStorage when the
+	// storage is not open.
 	Deliver(ctx context.Context, orders []Order) error
 }
 
@@ -64,9 +66,15 @@ type RouteRepository interface {
 	// without its stops visits nobody, and a half-written route is a
 	// route nobody can read.
 	//
+	// The route visits every order once, and the rule travels with the
+	// port: a route that names the same order in two stops is refused
+	// (ErrDuplicateStop), because the total of the route is derived from
+	// the stops.
+	//
 	// The error is ErrRouteAlreadyWritten when the business already wrote
-	// the route of that day, ErrInvalidValue when the row breaks a rule of
-	// the table, and ErrNoStorage when the storage is not open.
+	// the route of that day, ErrDuplicateStop when the route visits the
+	// same order twice, ErrInvalidValue when the row breaks a rule of the
+	// table, and ErrNoStorage when the storage is not open.
 	Create(ctx context.Context, r Route) (Route, error)
 
 	// List returns the routes of the business, in the order of their

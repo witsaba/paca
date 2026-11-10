@@ -241,14 +241,17 @@ func TestTheRouteAndItsDeliveryAreOneUnitOfWork(t *testing.T) {
 	}
 }
 
-// TestTheRouteOfTheStopThatIsNotAnOrderOfTheRoundIsRefused proves that
-// the domain refuses the route of a stop that is not an order of the round
-// of that day, and that nothing is written.
-func TestTheRouteOfTheStopThatIsNotAnOrderOfTheRoundIsRefused(t *testing.T) {
+// TestTheRouteOfTheDayDeliversTheOverdueOrderThatIsOwed proves the rule of
+// the domain through the use case: the stops of the route are the orders the
+// business still OWES, the ones that are due on the day of the round and the
+// ones that fell due on an earlier day. The order that was not delivered is
+// owed no matter the day it fell due on, and the round of a later day
+// delivers it.
+func TestTheRouteOfTheDayDeliversTheOverdueOrderThatIsOwed(t *testing.T) {
 	t.Parallel()
 
 	orders := &fakeOrders{held: []order.Order{
-		theOrderDueOnTheDayOfTheRoutes(t, 10, theDayOfTheRoutes(t, "2026-03-15")),
+		theOrderDueOnTheDayOfTheRoutes(t, 10, theDayOfTheRoutes(t, "2026-03-13")),
 	}}
 	routes := &fakeRoutes{}
 	bakery := theBakeryOfTheOrders()
@@ -256,21 +259,33 @@ func TestTheRouteOfTheStopThatIsNotAnOrderOfTheRoundIsRefused(t *testing.T) {
 	work := &fakeRouteWork{routes: routes, orders: orders}
 	service := application.NewRouteService(routes, orders, businesses, work)
 
-	_, err := service.Record(t.Context(), ports.RecordRoute{
+	written, err := service.Record(t.Context(), ports.RecordRoute{
 		BusinessID: 77,
-		Day:        "2026-03-14",
+		Day:        "2026-03-15",
 		Stops: []ports.RouteStop{
 			{OrderID: 10, Cost: 3000},
 		},
 	})
-	if err == nil {
-		t.Fatal("the route of a stop that is not an order of the round was written")
+	if err != nil {
+		t.Fatalf("the route of the order that is owed was refused: %v", err)
 	}
-	if !errors.Is(err, order.ErrStopNotOfTheRound) {
-		t.Fatalf("the error is %v, want %v", err, order.ErrStopNotOfTheRound)
+	if len(routes.written) != 1 {
+		t.Fatalf("the storage holds %d routes, want 1", len(routes.written))
 	}
-	if len(routes.written) != 0 {
-		t.Errorf("the storage holds %d routes, want none", len(routes.written))
+	if written.Day.String() != "2026-03-15" {
+		t.Errorf("the day of the route is %q, want %q", written.Day.String(), "2026-03-15")
+	}
+	if len(written.Stops) != 1 || written.Stops[0].OrderID != order.ID(10) {
+		t.Fatalf("the route does not visit the overdue order: %v", written.Stops)
+	}
+	if len(orders.delivered) != 1 {
+		t.Fatalf("the storage holds %d deliveries, want 1", len(orders.delivered))
+	}
+	if orders.delivered[0].ID != order.ID(10) {
+		t.Errorf("the delivery is of the order %d, want 10", orders.delivered[0].ID)
+	}
+	if orders.delivered[0].State != order.StateDelivered {
+		t.Errorf("the order %d is %q, want %q", orders.delivered[0].ID, orders.delivered[0].State, order.StateDelivered)
 	}
 }
 
@@ -346,11 +361,20 @@ func TestTheRouteOfTheBusinessThatDoesNotHoldOrdersIsRefused(t *testing.T) {
 }
 
 // TestTheRouteWithoutADayIsRefused proves that the route carries the day of
-// the round, and that the book never invents one.
+// the round, that the book never invents one, and that the rule is the one
+// of the domain: the use case does not hold it and it does not manufacture
+// its refusal.
+//
+// The observable difference is the one the rule has: the use case ASKS THE
+// DOMAIN, so it reads the business, its orders and its routes before the
+// refusal — a use case that decided the rule by itself would refuse the day
+// without ever asking.
 func TestTheRouteWithoutADayIsRefused(t *testing.T) {
 	t.Parallel()
 
-	orders := &fakeOrders{}
+	held := theOrderDueOnTheDayOfTheRoutes(t, 10, theDayOfTheRoutes(t, "2026-03-14"))
+
+	orders := &fakeOrders{held: []order.Order{held}}
 	routes := &fakeRoutes{}
 	bakery := theBakeryOfTheOrders()
 	businesses := &fakeBusinesses{existing: &bakery}
@@ -369,8 +393,33 @@ func TestTheRouteWithoutADayIsRefused(t *testing.T) {
 	if !errors.Is(err, order.ErrMissingRouteDay) {
 		t.Fatalf("the error is %v, want %v", err, order.ErrMissingRouteDay)
 	}
+
+	// The refusal is the one of the domain, with the words of the domain:
+	// the use case asked it with the empty day the agent named none of.
+	_, refusal := order.TheRoute(bakery.ID, []order.Order{held}, nil, order.RouteDefinition{
+		Day:   ledger.Date{},
+		Stops: []order.StopDefinition{{OrderID: 10, Cost: ledger.Amount(3000)}},
+	})
+	if err.Error() != refusal.Error() {
+		t.Errorf("the error is %q, want the one of the domain %q", err.Error(), refusal.Error())
+	}
+
+	// The use case asked the domain, and asking it took the orders of the
+	// business: a use case that decided the rule by itself would have
+	// refused the day without reading them.
+	if orders.listed != bakery.ID {
+		t.Errorf("the orders of the business were not read: a use case that refuses the day by itself never asks " +
+			"the domain, and the rule of the day is the one of the domain")
+	}
+	if routes.listed != bakery.ID {
+		t.Errorf("the routes of the business were not read: the domain is asked with the routes that were written " +
+			"already, and the use case that refuses the day by itself never asks it")
+	}
 	if len(routes.written) != 0 {
 		t.Errorf("the storage holds %d routes, want none", len(routes.written))
+	}
+	if len(orders.delivered) != 0 {
+		t.Errorf("the storage holds %d deliveries, want none", len(orders.delivered))
 	}
 }
 

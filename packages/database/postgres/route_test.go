@@ -121,6 +121,15 @@ func TestTheRefusalsOfTheDatabaseAreTranslatedForTheRoutes(t *testing.T) {
 			message: "refused the row",
 		},
 		{
+			name: "the same order in two stops of the route",
+			err: &pgconn.PgError{
+				Code:           uniqueViolation,
+				ConstraintName: routeStopsOneOrderEachConstraint,
+			},
+			want:    order.ErrDuplicateStop,
+			message: "refused the row",
+		},
+		{
 			name: "the stop of an order of another business",
 			err: &pgconn.PgError{
 				Code:           foreignKeyViolation,

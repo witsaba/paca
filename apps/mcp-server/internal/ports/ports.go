@@ -1983,8 +1983,8 @@ type RouteRecorder interface {
 	//
 	// The error is the error of the domain: the domain refuses the
 	// business that does not hold orders, the route without a day, the
-	// route without a stop, the stop that is not an order of the round,
-	// the cost that is not a number of pesos and the second route of a day
-	// that was already written.
+	// route without a stop, the stop that is not an order the business
+	// owes, the same order in two stops, the cost that is less than
+	// nothing and the second route of a day that was already written.
 	Record(ctx context.Context, request RecordRoute) (order.Route, error)
 }

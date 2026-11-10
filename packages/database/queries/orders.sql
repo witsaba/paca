@@ -37,7 +37,20 @@ SELECT * FROM order_lines WHERE order_id = sqlc.arg(order_id) ORDER BY position;
 --
 -- The delivery of an order is written with the ROUTE of the round, and the
 -- state that is written is the one the domain decided.
+--
+-- The delivery moves an order that is OPEN, and only one: the state of the
+-- row before the write is the one the domain owes, and an order that is not
+-- open is never reopened. The order of the rows whose state is not the one
+-- the delivery expects is left as it is, and the adapter tells the caller
+-- what the row carries.
 UPDATE orders
 SET state = sqlc.arg(state), updated_at = now()
-WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id)
+WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id) AND state = sqlc.arg(state_before)
 RETURNING *;
+
+-- name: TheStateOfTheOrder :one
+--
+-- The state the order carries now. It is read when the delivery did not find
+-- the order it may deliver, so the adapter can tell an order that is not
+-- there from an order that is not open any more.
+SELECT state FROM orders WHERE id = sqlc.arg(id) AND business_id = sqlc.arg(business_id);

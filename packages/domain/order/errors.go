@@ -90,13 +90,14 @@ var (
 	// the business.
 	ErrStopNotAnOrder = errors.New("the stop is not an order of that business")
 
-	// ErrStopNotOfTheRound is the error of a stop that is not one of the
-	// orders of the round of that day.
-	ErrStopNotOfTheRound = errors.New("the stop is not one of the orders of that round")
+	// ErrDuplicateStop is the error of a route that visits the same order
+	// in two stops.
+	ErrDuplicateStop = errors.New("the route visits the same order in two stops")
 
-	// ErrInvalidCost is the error of a stop whose cost is not a number of
-	// pesos.
-	ErrInvalidCost = errors.New("the cost of the stop is not a number of pesos")
+	// ErrInvalidCost is the error of a stop whose cost is less than
+	// nothing: the money of the book counts whole pesos, and no stop costs
+	// less than nothing.
+	ErrInvalidCost = errors.New("the cost of the stop is less than nothing")
 
 	// ErrAlreadyDelivered is the error of an order that was delivered
 	// already.
@@ -128,7 +129,7 @@ func Errors() []error {
 		ErrNoStops,
 		ErrRouteAlreadyWritten,
 		ErrStopNotAnOrder,
-		ErrStopNotOfTheRound,
+		ErrDuplicateStop,
 		ErrInvalidCost,
 		ErrAlreadyDelivered,
 	}

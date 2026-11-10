@@ -1343,9 +1343,9 @@ is the only component of PACA that has access to the outside, and it
 computes the route there; the book only holds the fact of it.
 
 **The stop carries the order it visits and the MONEY of the visit.** The
-cost is the transport to that client, in whole pesos: it is never negative,
-and it may be zero, because a stop the owner walks to costs nothing
-(`order.ErrInvalidCost`). The money of the book is the money of the book
+cost is the transport to that client, in whole pesos: it is never negative
+(`order.ErrInvalidCost`), and it may be zero, because a stop the owner
+walks to costs nothing. The money of the book is the money of the book
 (`ledger.Amount`).
 
 **The TOTAL of the route is derived, and it is never typed.** The route
@@ -1357,11 +1357,20 @@ the same day is refused (`order.ErrRouteAlreadyWritten`), and the routes
 already written are the ones the domain is asked about
 (`order.TheRoute`).
 
-**Every stop is an order of that business, and every stop is an order of
-THAT ROUND.** A stop that names an order the business does not hold is
-refused (`order.ErrStopNotAnOrder`), and a stop that names an order of
-another day is refused (`order.ErrStopNotOfTheRound`): the route visits
-the clients of the round of that day and of no other.
+**Every stop is an order that the business still OWES.** The stops are
+EVERY open order of the business — the ones that are due on the day of the
+route and the ones that fell due on an earlier day and were not delivered —
+and the rule is the one the round already answers (`order.Round.Owed`): the
+order that was not delivered is owed, no matter the day it fell due on. A stop
+that names an order the business does not hold is refused
+(`order.ErrStopNotAnOrder`), and a stop that names an order that was
+delivered already is refused (`order.ErrAlreadyDelivered`). The leftover
+order is delivered by the route of the next day that is still open.
+
+**The route visits every order ONCE.** A route that names the same order in
+two stops is refused (`order.ErrDuplicateStop`): the total of the route is
+derived from the stops, so a route that visits an order twice would count
+the money of that visit twice.
 
 **A route without a stop visits nobody, and it is not a route.** The route
 carries at least one stop (`order.ErrNoStops`), and it carries the day of

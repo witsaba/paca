@@ -1231,6 +1231,31 @@ test_the_artifact_has_its_keepers() {
 }
 
 # ---------------------------------------------------------------------------
+# Every image of the repository has a keeper
+# ---------------------------------------------------------------------------
+
+# The stacks of PACA are built from images pinned by digest, and a pin nobody
+# moves is a promise that rots. Dependabot moves the pins, but it reads one
+# directory at a time: an image in a directory that the keeper does not name
+# is an image that nobody watches.
+test_every_image_of_the_repository_has_a_keeper() {
+  local dependabot="$REPO_ROOT/.github/dependabot.yml"
+
+  assert_file_exists "$dependabot" "the images of the repository have a keeper"
+
+  local content
+  content=$(cat "$dependabot")
+
+  local dockerfile
+  while IFS= read -r dockerfile; do
+    local directory
+    directory=$(dirname "${dockerfile#"$REPO_ROOT/"}")
+    assert_contains "$content" "directory: \"/$directory\"" \
+      "the keeper of the images reaches the image of $directory"
+  done < <(find "$REPO_ROOT" -name Dockerfile -not -path "*/.git/*" | sort)
+}
+
+# ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
 
@@ -1252,6 +1277,7 @@ run_rule "the stack of the agent carries no payload of its own" test_the_stack_o
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
 run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
 run_rule "the artifact has its keepers" test_the_artifact_has_its_keepers
+run_rule "every image of the repository has a keeper" test_every_image_of_the_repository_has_a_keeper
 
 report_the_rules
 

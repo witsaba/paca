@@ -231,3 +231,13 @@ cluster flags and the same init scripts, the scan of the artifact fails
 without the accepted findings and passes with them, the container tests of
 the repository pull the pinned image and are green, and the action of the
 scan exists with the six inputs the job uses.
+
+**L26** — The defect that the first run of the keeper found in itself: the
+`docker` ecosystem of dependabot reads ONE directory at a time, and the entry
+that named the root of the repository found no Dockerfile there (the images
+live in `db/postgres`, `apps/mcp-server`, `apps/db-admin`, `hermes` and
+`engram`) → the run failed with *"No Dockerfiles nor Kubernetes YAML found in
+/"*. The keeper names every directory that holds an image now, and the rule of
+the structure of the repository refuses the day an image of the tree has no
+entry: it was watched to fail with the old configuration (5 failures) and to
+pass with the new one.

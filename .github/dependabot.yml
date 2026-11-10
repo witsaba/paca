@@ -6,6 +6,10 @@
 # Dependabot is that someone: it opens the pull request that moves the pin,
 # and the review of a human decides.
 #
+# Dependabot reads one directory at a time, and an image in a directory the
+# keeper does not name is an image nobody watches. The rule of the structure
+# of the repository refuses the day an image of the tree has no entry here.
+#
 # The declarations of the artifact of the database live in the Dockerfile of
 # the stack (db/postgres/Dockerfile): the base PostgreSQL by digest and the
 # version of pgvector. The rule of the structure of the repository refuses
@@ -13,13 +17,48 @@
 version: 2
 
 updates:
-  # The images of every stack of the monorepository: the base of the
-  # application images, the PostgreSQL of the database and the images of the
-  # agent, the memory and the traces. The tag of a base image moves when its
+  # The image of the database: the official PostgreSQL pinned by digest, with
+  # pgvector compiled inside it. The tag of the base moves when its
   # maintainers rebuild it with patched packages, and the digest moves with
   # it: that pull request is how a patch reaches PACA.
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/db/postgres"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"
+
+  # The image of the server of the tools.
+  - package-ecosystem: "docker"
+    directory: "/apps/mcp-server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"
+
+  # The image of the administrator of the database.
+  - package-ecosystem: "docker"
+    directory: "/apps/db-admin"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"
+
+  # The image of the agent.
+  - package-ecosystem: "docker"
+    directory: "/hermes"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "type:chore"
+
+  # The image of the memory.
+  - package-ecosystem: "docker"
+    directory: "/engram"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

@@ -1086,7 +1086,7 @@ its session starts.
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6`, corrected in `bbb52b0` |
-| T29 | S35 | The learning log and its tools | inline | `pending` |
+| T29 | S35 | The learning log and its tools | inline | `6a9bb95` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
 
 ---
@@ -1484,3 +1484,13 @@ The second MINOR was a port that could tell a lie: a meeting with NO day wrote N
 Two advisories were adjudicated:
 - the choice of the refusal of a business that is not there is now PINNED: through the transport it reaches the agent as `ErrBusinessNotFound`, the precedent of `record_order`, and the domain keeps its own `ErrMissingBusiness` for the callers that use the domain directly. The two refusals are two facts, and the book says so.
 - the review flagged that `commitment.TheCalendar` repeats `order.TheRound` line for line. The orchestrator REJECTED that finding: the two models are different (a promise is not an order) and the two rules are different, and a shared helper would couple the domain of the order with the domain of the commitment — the tree forbids that coupling, and one model has one owner.
+
+**L48** (2026-11-10): T29 — the learning log, and its tools — landed in the commit `6a9bb95`. The gate is green: the domain at 92.8%, the database at 97.0%, the mcp-server at 88.6%, the structure with 733 assertions and 0 failures, and the two container suites.
+
+The log is the MEMORY of the errors and the wins of the owner: what happened and what was learned from it, in her own words. It moves no peso. The entry carries the day, the BATCH it is about (the recipe) and optionally the run of it (the production), what happened and what was learned. The production knows its own recipe, so the domain refuses an entry that names a production of another batch: the book never carries two truths for the same fact.
+
+The log is NEVER rewritten. A correction is a NEW entry that answers an old one, and the old entry keeps its own text. The answer is a chain and not a tree: the entry answered must exist, must be of the same business, and must not have been answered already — two answers of the same entry would leave the owner with two truths. The table holds the same rules as its defense in depth: the answer carries the business with it in a composite key, and a partial unique index proves that an entry is answered once.
+
+The answer of `read_learning` carries the whole log and, with it, the entries that are the LAST WORD of their chain — the entry no other entry answers. That is what the owner already knows, and it is what Paca tells her. The concept of the last word is an addition of the orchestrator (the acceptance of the increment speaks only of the chain), and its definition was corrected during the implementation: the first draft of the handoff said "an entry is current when it answers no other entry AND no other entry answers it", which no chain can satisfy — the rule is "no other entry answers it", the head of the chain and the newest word.
+
+Two corrections to the scope of the increment, both of the document: the in-scope named `packages/domain/production`, and that package DOES NOT EXIST — the production lives in `packages/domain/recipe`, which is where the entry names it. And the count of the tools goes from 49 to 51.

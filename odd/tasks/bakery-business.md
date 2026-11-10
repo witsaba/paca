@@ -1085,7 +1085,7 @@ its session starts.
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
-| T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6` |
+| T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6`, corrected in `bbb52b0` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
 
@@ -1472,3 +1472,15 @@ Three tools, and the third one is a decision of this increment: the acceptance n
 Two things are open, and they wait for the owner:
 - the catalogue of the domain gains a sentinel the spec did not name, `ErrMissingMetDay`: a meeting with no day would leave the promise looking open for ever, and one sentinel carries one rule and one message;
 - through the transport, a promise with no business answers `ErrBusinessNotFound` and not `ErrMissingBusiness`, because the use case asks the storage for the business instead of re-stating the rule of the domain — the precedent of `record_order`.
+
+**L47** (2026-11-10): T28 was reviewed by an independent verifier against the acceptance of the increment, against S2 and S29 and against the contract of the architecture, and every accepted finding was corrected with a test observed failing before the fix and passing after it. The correction is the commit `bbb52b0`. The review found NO blocker.
+
+The MAJOR was a proof that could not fail: the acceptance says the soul names the alarm, the soul carries the section "## The alarm is yours", and NOTHING in the gate held it — deleting the whole section in a scratch copy kept the structure test green ("703 assertion(s), 0 failure(s)"). The structure test now pins the alarm with two assertions, in the style of the promises of the soul it already pinned, and the deletion of the section now fails the gate with two failures. The count of the assertions goes from 703 to 705.
+
+The first MINOR was a dead refusal in the adapter: the meeting of a promise read the row back and answered a third outcome that no caller can reach — the promise that is not there is `ErrNotFound` and the promise that was met already is `ErrAlreadyMet`, so the third branch was debris. The proof was a mutant that left the whole container suite green; the branch is gone and the sentence of the database README that implied it is gone with it.
+
+The second MINOR was a port that could tell a lie: a meeting with NO day wrote NULL and answered success — the port said the promise was kept and nothing was kept. The domain refuses it and the use case refuses it first, so no path of the owner lost the truth, but a caller that goes around them was told a lie. The TABLE now refuses it as its defense in depth, the adapter tells the three cases apart (`ErrNotFound`, `ErrAlreadyMet`, `ErrMissingMetDay`), and the port states the three in its contract. The change is a QUERY, so no migration changed: 00034 stays as it was applied.
+
+Two advisories were adjudicated:
+- the choice of the refusal of a business that is not there is now PINNED: through the transport it reaches the agent as `ErrBusinessNotFound`, the precedent of `record_order`, and the domain keeps its own `ErrMissingBusiness` for the callers that use the domain directly. The two refusals are two facts, and the book says so.
+- the review flagged that `commitment.TheCalendar` repeats `order.TheRound` line for line. The orchestrator REJECTED that finding: the two models are different (a promise is not an order) and the two rules are different, and a shared helper would couple the domain of the order with the domain of the commitment — the tree forbids that coupling, and one model has one owner.

@@ -47,7 +47,28 @@ and a promise nobody moves is a promise that rots. Three keepers move it.
   integration scans the image it built and fails on the findings of severity
   CRITICAL and HIGH that have a fix and that are not accepted. The accepted
   findings are written in `trivy-baseline.json`, in this folder: the debt of
-  the artifact is visible, and a new one is refused.
+  the artifact is visible, and a new one is refused. The file carries the
+  findings and their detail — the package, the version that fixes them and
+  the day they were published — and not the inventory of the image, so it
+  only changes when the findings change.
+
+  To refresh it, scan the image with the policy of the job and keep the
+  findings of the report:
+
+  ```sh
+  image=$(docker compose -f db/postgres/compose.yaml config --images | head -n 1)
+  trivy image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed \
+    --format json "$image" > /tmp/report.json
+  jq --arg scanned "$(date -u +%F)" '{
+        scanned: $scanned,
+        policy: "the findings of severity CRITICAL and HIGH that have a fix",
+        findings: [.Results[]?.Vulnerabilities[]? | {
+          id: .VulnerabilityID, severity: .Severity, package: .PkgName,
+          purl: .PkgIdentifier.PURL, fixed: .FixedVersion, title: .Title,
+          published: .PublishedDate
+        }]
+      }' /tmp/report.json > db/postgres/trivy-baseline.json
+  ```
 
 The image is declared **once**, in the `Dockerfile` of this folder: the base
 PostgreSQL by digest and the version of pgvector. The compose file builds

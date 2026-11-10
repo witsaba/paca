@@ -52,9 +52,10 @@ for.
 
 | Task | What | Specs | Route | Commit |
 |------|------|-------|-------|--------|
-| T1 | The image of the database is one image: the tripwire that refuses the day a place names another | S1, S2, S3, S4, S5 | inline | — |
-| T2 | The keeper of the freeze: dependabot for the base image and the actions | S3, S4, S5 | inline | — |
-| T3 | The scan of the artifact: trivy in the job that owns it | S2, S3, S4, S5 | inline | — |
+| T1 | The image of the database is one image: the tripwire that refuses the day a place names another | S1, S2, S3, S4, S5 | inline | a180609 |
+| T2 | The keeper of the freeze: dependabot for the images and the actions | S3, S4, S5 | inline | 180a5c8 |
+| T2b | The keeper of the extension: the check that the pinned pgvector is not behind | S3, S4, S5 | worker | 02e6273 |
+| T3 | The scan of the artifact: trivy in the job that owns it | S2, S3, S4, S5 | worker | 634a20f |
 | T4 | The documentation of the keepers, in the README of the stack | S1, S5 | inline | — |
 
 ## Log
@@ -125,3 +126,87 @@ touch the structure test, to keep the two merges free of conflicts.
 built, and it fails on the findings that are not accepted. The accepted
 findings are written in the repository, with their age, so the debt is visible
 and a new one is refused.
+
+**L13** — The decision on the declarations of the artifact: the compose file
+of the stack declared the base image and the version of pgvector a second
+time, and the compose won the build over the Dockerfile. The Dockerfile owns
+them now, the compose builds with the declarations of the Dockerfile, and the
+rule of the structure refuses the day a second copy appears. Dependabot moves
+one declaration instead of two.
+
+**L14** — The decision on the scan, in its exact terms: the job of the
+database scans the image it built, with trivy; it fails on the findings of
+severity CRITICAL and HIGH that have a fix and that are not in the accepted
+baseline; the baseline lives in the repository (`db/postgres/trivy-baseline.json`),
+so the debt of the artifact is visible and a new one is refused.
+
+**L15** — The decision on the extension: dependabot moves the pins of the
+images, but it cannot move the version of pgvector, because that version is
+not an image. The keeper of the extension is a check that runs on a schedule
+and says so when the pinned version is behind the latest release. It opens an
+issue, because a version of an extension needs the checksum of its tarball
+and that decision belongs to a human.
+
+**L16** — The finding about the checksum of the extension, left open on
+purpose: the pin of `PGVECTOR_SHA256` is the checksum of the archive that
+GitHub generates from the tag, and GitHub does not promise that an archive
+stays byte for byte the same. The build refuses a tarball that does not
+match, so the failure is loud, but the pin may need to move without a new
+release. It is a known limit of the artifact, not of this feature.
+
+**L17** — The proof that the compose changed nothing of the image: the image
+built with the build arguments the compose used to pass and the image built
+with the declarations of the Dockerfile were compared. The same server
+(PostgreSQL 18.6), the same extension (pgvector 0.8.7), the same cluster
+flags (`--encoding=UTF8 --locale=C.UTF-8 --data-checksums`), the same
+environment, the same labels and the same init scripts, with the same
+checksums. The identifiers of the two images differ because two builds carry
+their own timestamps in the layers, not because the artifact changed.
+
+**L18** — The proof that the container tests accept the pin: the container
+tests of `packages/database` pull the image by digest now, and the suite is
+green against it (`ok ... 2.449s`, twice, plus the whole suite). One run
+failed while three heavy builds shared the same daemon, and the container of
+the suite was terminated in the middle of a test; the same test passes with
+the digest and with the tag before it, and the suite is green on every run
+that has the daemon to itself. It was the contention of the builds, not the
+pin.
+
+**L19** — The delivery of the two delegated units arrived complete, but the
+worker died on the quota of its provider before it reported: the four files
+were in the worktree and the evidence was not. The evidence was gathered
+again by the orchestrator, and the policy of the scan was proved in both
+directions: the scan of the image without the accepted findings exits with
+1 (30 findings: 4 HIGH in the Debian base and 26 in the Go binary the image
+carries), and the scan with the accepted findings derived from the committed
+baseline exits with 0.
+
+**L20** — The decision on the shape of the accepted findings: the report of
+the scan as it comes out of trivy carries the inventory of the image, 247
+kilobytes, and it changes with every rebuild of the base even when no
+finding changes. The committed file carries the findings and their detail
+(the package, the version that fixes them, the day they were published) and
+not the inventory: 10 kilobytes that only move when the findings move. The
+README of the stack tells how to regenerate it.
+
+**L21** — The decision on the ignore file: the accepted findings are the
+source of truth and the ignore file of trivy is derived from them when the
+job runs, so the two cannot drift. The derivation was proved with the very
+command of the job.
+
+**L22** — The delivery and the size of the slices: the feature landed as
+five work units — the document, the tripwire, the keeper of the freeze, the
+scan of the artifact and the keeper of the extension — and the last one
+closes it. The slice of the feature is 966 authored lines, and 276 of them
+are the accepted findings of the scan, which is a report and not code: the
+rest of the feature is 690 lines in five commits, each of them reviewable on
+its own. The units that touch the continuous integration are in commits of
+their own, so the review can take them alone.
+
+**L23** — The verification of the whole feature: the structure of the
+repository (505 assertions, 0 failures), the shell scripts (14 scripts), the
+test of the keeper of the extension (26 assertions, 0 failures), the
+container tests of the database against the pinned image (green on every run
+that had the daemon to itself), the workflows and the compose file (they
+parse), and the scan of the artifact in both directions (exit 1 without the
+accepted findings, exit 0 with them).

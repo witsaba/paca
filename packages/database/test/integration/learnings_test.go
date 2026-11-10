@@ -4,11 +4,16 @@ package integration_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/witsaba/paca/packages/database/postgres"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/learning"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/recipe"
@@ -109,6 +114,82 @@ func theEntryOf(t *testing.T, held []learning.Entry, id learning.ID) learning.En
 	t.Fatalf("the log holds no entry with the identity %d", id)
 
 	return learning.Entry{}
+}
+
+// theSecondBatchOfTheLearnings writes a second recipe of the bakery, so that
+// the tests can name a batch and a production of another one.
+func theSecondBatchOfTheLearnings(
+	t *testing.T,
+	ctx context.Context,
+	bakery business.Business,
+	flour ingredient.ID,
+) recipe.Recipe {
+	t.Helper()
+
+	built, err := recipe.New(bakery.ID, recipe.Definition{
+		Name: "Pan de centeno",
+		Ingredients: []recipe.Ingredient{
+			{IngredientID: flour, Grams: 500},
+		},
+		Steps: []recipe.Step{
+			{Instruction: "Hornear."},
+		},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		Utterance:     "El pan de centeno lleva 500 gramos de harina",
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the second batch was refused: %v", err)
+	}
+
+	written, err := recipesRepository(t).Record(ctx, built)
+	if err != nil {
+		t.Fatalf("the second batch could not be written: %v", err)
+	}
+
+	return written
+}
+
+// theFingerprintOfTheLog answers the bytes of the whole log of a business:
+// every column of every row, in the order the rows were written. A write that
+// was refused leaves the fingerprint as it was, and that is how the tests
+// prove that the log is never rewritten and that a refusal writes nothing.
+func theFingerprintOfTheLog(t *testing.T, ctx context.Context, own business.ID) string {
+	t.Helper()
+
+	rows, err := theSuite.db.QueryContext(ctx, `
+		SELECT id, business_id, day, recipe_id, coalesce(production_id, 0), happened, learned,
+		       coalesce(answers_id, 0), created_at
+		FROM learnings
+		WHERE business_id = $1
+		ORDER BY id`, int64(own))
+	if err != nil {
+		t.Fatalf("the log could not be read: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	sum := sha256.New()
+
+	for rows.Next() {
+		var id, businessID, recipeID, productionID, answersID int64
+		var day, createdAt time.Time
+		var happened, learned string
+
+		if err := rows.Scan(&id, &businessID, &day, &recipeID, &productionID, &happened, &learned,
+			&answersID, &createdAt); err != nil {
+			t.Fatalf("the row of the log could not be read: %v", err)
+		}
+
+		fmt.Fprintf(sum, "%d|%d|%s|%d|%d|%s|%s|%d|%s\n", id, businessID, day.Format("2006-01-02"),
+			recipeID, productionID, happened, learned, answersID, createdAt.UTC().Format(time.RFC3339Nano))
+	}
+
+	if err := rows.Err(); err != nil {
+		t.Fatalf("the log could not be read: %v", err)
+	}
+
+	return hex.EncodeToString(sum.Sum(nil))
 }
 
 // TestTheLearningIsKeptWithItsBatchAndItsWords proves the rules of the table
@@ -333,6 +414,151 @@ func TestTheTableRefusesTheSecondAnswerOfTheSameEntry(t *testing.T) {
 	}
 	if len(held) != 2 {
 		t.Fatalf("the log holds %d entries, want 2: the refused answer is not a row", len(held))
+	}
+}
+
+// TestTheTableRefusesTheProductionOfAnotherBatch proves the rule of the
+// table: the production of the entry is a run of the NAMED batch. The
+// production and the batch are both of the business, so the composite foreign
+// key of the batch is the one that refuses the entry, and the test says which
+// rule of the table refused it.
+//
+// The domain refuses the same entry first (learning.ErrAnotherBatch): the
+// table holds the rule as its defense in depth, and a writer that never asked
+// the domain is the one this test proves.
+func TestTheTableRefusesTheProductionOfAnotherBatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := learningsRepository(t)
+	bakery := theBakeryOfTheLearnings(t, ctx)
+
+	flour, layers := theStockOfTheProductions(t, ctx, bakery)
+	baked := theRecipeOfTheProductions(t, ctx, bakery, flour.ID)
+	second := theSecondBatchOfTheLearnings(t, ctx, bakery, flour.ID)
+
+	run, err := productionsRepository(t).Record(ctx, theProductionOfTheTest(t, bakery, second, layers, flour))
+	if err != nil {
+		t.Fatalf("the production of the second batch could not be written: %v", err)
+	}
+
+	written, err := repo.Create(ctx, theEntryOfACallerThatBypassesTheDomain(t, bakery.ID, baked, &run))
+	if !errors.Is(err, learning.ErrAnotherBatch) {
+		t.Fatalf("the entry naming the batch %d about the production %d of the batch %d answered %v (%+v), want %v",
+			baked.ID, run.ID, run.RecipeID, err, written, learning.ErrAnotherBatch)
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the log could not be read: %v", err)
+	}
+	if len(held) != 0 {
+		t.Fatalf("the refused entry left %d entries behind, want none", len(held))
+	}
+}
+
+// TestTheTwoIdenticalEntriesAreTwoEntries proves the documented rule of the
+// identity: the identity of an entry is its own and never its text. Two
+// entries that say the same thing on the same day are two entries, and the log
+// never refuses them and never merges them.
+func TestTheTwoIdenticalEntriesAreTwoEntries(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := learningsRepository(t)
+	bakery := theBakeryOfTheLearnings(t, ctx)
+	baked, _ := theBookOfTheLearnings(t, ctx, bakery)
+
+	first, err := repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa subió lento", "Leudar más", nil))
+	if err != nil {
+		t.Fatalf("the first entry could not be written: %v", err)
+	}
+
+	second, err := repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa subió lento", "Leudar más", nil))
+	if err != nil {
+		t.Fatalf("the identical entry was refused: %v", err)
+	}
+
+	if first.ID == second.ID {
+		t.Fatalf("the two entries carry the identity %d", first.ID)
+	}
+
+	held, err := repo.List(ctx, bakery.ID)
+	if err != nil {
+		t.Fatalf("the log could not be read: %v", err)
+	}
+
+	current := learning.TheLog(held).Current()
+	if len(held) != 2 || len(current) != 2 {
+		t.Fatalf("the log holds %d entries and %d current, want 2 and 2", len(held), len(current))
+	}
+}
+
+// TestTheRefusedEntriesLeaveTheLogAsItWas proves the acceptance of the
+// increment in its strongest form: the log is never rewritten, and a write
+// that was REFUSED leaves the stored log byte for byte as it was. The
+// fingerprint of the whole log of the business is taken after a written entry
+// and a written correction, and the two refusals that follow it — the second
+// answer of the same entry and the answer of an entry of another business —
+// change nothing.
+func TestTheRefusedEntriesLeaveTheLogAsItWas(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := learningsRepository(t)
+
+	other := theBakeryOfTheLearnings(t, ctx)
+	otherBatch, _ := theBookOfTheLearnings(t, ctx, other)
+
+	foreign, err := repo.Create(ctx, theEntryOfTheTest(t, other, otherBatch, nil,
+		"El horno corrió caliente", "Bajar el horno", nil))
+	if err != nil {
+		t.Fatalf("the entry of the other business could not be written: %v", err)
+	}
+
+	bakery := theBakeryOfTheLearnings(t, ctx)
+	baked, _ := theBookOfTheLearnings(t, ctx, bakery)
+
+	first, err := repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa subió lento", "Leudar una hora más", nil))
+	if err != nil {
+		t.Fatalf("the entry could not be written: %v", err)
+	}
+
+	answered := first.ID
+
+	if _, err := repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa subió lento otra vez", "Leudar dos horas más", &answered)); err != nil {
+		t.Fatalf("the correction could not be written: %v", err)
+	}
+
+	before := theFingerprintOfTheLog(t, ctx, bakery.ID)
+	beforeOther := theFingerprintOfTheLog(t, ctx, other.ID)
+
+	written, err := repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa subió lento una tercera vez", "Leudar tres horas más", &answered))
+	if !errors.Is(err, learning.ErrAlreadyAnswered) {
+		t.Fatalf("the second answer of the same entry answered %v (%+v), want %v",
+			err, written, learning.ErrAlreadyAnswered)
+	}
+
+	foreignAnswer := foreign.ID
+
+	written, err = repo.Create(ctx, theEntryOfTheTest(t, bakery, baked, nil,
+		"La masa quedó dura", "Amasar más", &foreignAnswer))
+	if !errors.Is(err, learning.ErrEntryOfAnotherBusiness) {
+		t.Fatalf("the answer of the entry of another business answered %v (%+v), want %v",
+			err, written, learning.ErrEntryOfAnotherBusiness)
+	}
+
+	if after := theFingerprintOfTheLog(t, ctx, bakery.ID); after != before {
+		t.Fatalf("the refused writes changed the log: %s -> %s", before, after)
+	}
+
+	if after := theFingerprintOfTheLog(t, ctx, other.ID); after != beforeOther {
+		t.Fatalf("the refused writes changed the log of the other business: %s -> %s", beforeOther, after)
 	}
 }
 

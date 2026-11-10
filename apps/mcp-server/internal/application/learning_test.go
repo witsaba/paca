@@ -344,6 +344,35 @@ func TestTheEntryOfNoDayIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheEntryOfAMalformedDayIsRefusedAsADayOfTheBook proves that the use
+// case tells a day that is NOT a day of the book apart from no day at all: a
+// malformed day is refused with ledger.ErrInvalidDate, and not with the
+// refusal of the entry that carries no day.
+//
+// The rule of the day is the rule of the book and the use case holds no copy
+// of it: it reads the day the agent sent, and the parse of a day that is not
+// a day is a refusal the agent can see.
+func TestTheEntryOfAMalformedDayIsRefusedAsADayOfTheBook(t *testing.T) {
+	t.Parallel()
+
+	bakery := theBakeryOfTheLearnings()
+	learnings := &fakeLearnings{}
+	recipes := &fakeRecipes{held: []recipe.Recipe{theBatchOfTheLearnings()}}
+	service := theLearningService(learnings, recipes, &fakeLearningProductions{}, &bakery)
+
+	for _, day := range []string{"2026-02-30", "14/03/2026", "the day of the market"} {
+		_, err := service.Record(t.Context(), ports.RecordLearning{BusinessID: 77, Day: day, RecipeID: 9,
+			Happened: "La masa subió lento", Learned: "Leudar una hora más"})
+		if !errors.Is(err, ledger.ErrInvalidDate) {
+			t.Errorf("the day %q answered %v, want %v", day, err, ledger.ErrInvalidDate)
+		}
+	}
+
+	if len(learnings.written) != 0 {
+		t.Fatalf("the refused entries wrote %d rows, want none", len(learnings.written))
+	}
+}
+
 // TestTheEntryAboutNoBatchIsRefused proves that the domain decides whether
 // the entry names a batch: the use case asks for no recipe when the agent
 // names none, and the domain refuses it.

@@ -1084,7 +1084,7 @@ its session starts.
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `b740703`, corrected in `d97c998` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
-| T27 | S28 | The route of the round and the tool that writes it | inline | `this commit` |
+| T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
@@ -1444,3 +1444,17 @@ Two things the increment left open, and why:
 - **The rule "a stop is an order of THAT round" is held by the domain only.** The table can prove the business (the composite foreign keys) but not the day of the round, so a writer that bypassed the domain could stop on an order of another day. It is stated in the migration.
 
 A note on the proof: the increment was written by an earlier run of the same task that died on the provider's quota, so the RED of its own tests was not observed in that run. The writer that finished it proved the tests bite by mutating the rule of the "written once" and by removing the message of one of the new errors, and watched both fail. The review of this increment is the next step, and it is the one that has to carry the weight.
+
+**L45** (2026-11-09): T27 was reviewed by an independent verifier against the acceptance of this document and against the specs, and every finding was corrected with a test that was observed failing before the fix and passing after it. The correction is the commit `a015c09`.
+
+The BLOCKER was the debt of the bakery: a stop of the route had to be an order **of that round**, and the round carries only the orders due on that day — so an order that fell due on the 14th and was not visited could be delivered neither by the route of the 14th (already written) nor by the route of the 15th (the order is not due on the 15th), and it stayed owed for ever while the README promised the opposite. **A stop of the route is now an order the business OWES**, the open orders of the business, the ones due on the day and the overdue ones — the same rule the correction of T26 gave to the round. The overdue order is delivered by the route of the next day that is still open.
+
+The MAJOR about the money: the cost of a stop was optional in the schema of the tool, so the agent could omit it and the stop was written with a cost of zero pesos, while the description said "send it always". The cost is the money of the stop, and **every money of the transport is required in the schema of its tool**: the cost of a stop is required now, and the domain keeps the rule that a cost is never negative and that zero is legal — the stop the owner walks to costs nothing. The fields the DOMAIN refuses stay optional, because the agent must read the message of the domain.
+
+The MAJOR that was a defect of the money and not a decision: a route that named the same order in two stops was accepted, and the total — which the domain derives — was twice the money of the stop. The domain refuses it now, and the table holds it in the new migration 00033.
+
+And the MAJOR that was really about the proofs: the RED of the increment was never observed (the code was written by a run that died on the provider's quota), and **four of its rules were proven by no test at all** — mutating them left the whole suite green. The stop of an order of another business, the route of another business and the route of another day planning a round, and the refusal of a stop whose order was already delivered. Each of them now has its test, and each test was watched to fail with the rule broken on purpose.
+
+Three smaller corrections: the text of the error of a negative cost said "not a number of pesos" while the rule is "never negative"; the use case re-stated the rule of the day and manufactured the error of the domain where the domain already refuses it; and the adapter of the delivery wrote the state it was given, so it could reopen a delivered order — it now moves only an open order and refuses the other.
+
+Left open on purpose: the table still cannot prove that a stop is an order of THAT round — the day of the round is not a column of the table of the stops — and the domain holds that rule alone.

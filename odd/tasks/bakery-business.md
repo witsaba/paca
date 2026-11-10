@@ -1084,7 +1084,7 @@ its session starts.
 | T24 | S2, S8 | The providers, the invoices and the tax, and their tools | inline | `b740703`, corrected in `d97c998` |
 | T25 | S27 | The price list, the channel, and their tools | inline | `9faedad`, corrected in `d97c998` |
 | T26 | S2, S28 | The orders, the rounds, and their tools | inline | `1373a90`, corrected in `056b07a` |
-| T27 | S28 | The route of the round and the tool that writes it | inline | `pending` |
+| T27 | S28 | The route of the round and the tool that writes it | inline | `this commit` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `pending` |
 | T29 | S35 | The learning log and its tools | inline | `pending` |
 | T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `pending` |
@@ -1431,3 +1431,16 @@ The second finding was the acceptance itself: the round of a day carried the ord
 Three smaller corrections: the answer of `read_orders` carried the day only when a day was named while the description said it always carried it — now the two agree and a test reads the answer without a day to prove it; the reading of the orders refused to answer when the parties and the products were not configured, though it uses neither; and the adapter kept an unreachable branch for a quantity the domain had already refused. And the reading of the orders of a business that does not exist answered with the message of the Personal Business and of the onboarding — the agent was told to onboard a person for a business id it had mistyped. The order has its own refusal now, with its own message that names the business of the order.
 
 Left open on purpose: the delivered state of an order still has no door — the delivery is written with the route of the round, in T27 — and the domain says so where the rule lives.
+
+**L44** (2026-11-09): T27 landed: **the route**. The route is the one fact of the bakery that the agent computes outside and writes back into the book: the stops in the order the agent will visit them, and what each stop costs. The cost of a stop is the money of the stop in whole pesos — the transport to that client — never negative, and it may be zero when the owner walks there; the **total of the route is derived** by the domain and is never typed, never a column and never a field the agent writes. The stops are orders of the same business and orders of that round, and the domain refuses the ones that are not.
+
+The route that the agent writes back is the round it made: writing it delivers the orders of its stops. That is the door that T26 left open — the delivered state of an order had no way to be written — and the route and the delivery are written in one unit of work, so a route whose delivery fails leaves no route in the book. **A round without a route is a round that was never planned**: the reading of the round answers `planned` and carries the route of the day, and a day with no route says it was never planned.
+
+The route of a day is written **once**: a second route for the same business and the same day is refused (`ErrRouteAlreadyWritten`), because the round was already planned. The rule is in the domain, and the unique index of the table holds it as its defense in depth. The tool is `record_route`, and the transport carries forty-six tools.
+
+Two things the increment left open, and why:
+
+- **A route that names the same order in two stops is not refused.** The delivery is idempotent and the book stays consistent, but the route counts two visits. The acceptance does not name the case and the increment did not grow its scope to cover it.
+- **The rule "a stop is an order of THAT round" is held by the domain only.** The table can prove the business (the composite foreign keys) but not the day of the round, so a writer that bypassed the domain could stop on an order of another day. It is stated in the migration.
+
+A note on the proof: the increment was written by an earlier run of the same task that died on the provider's quota, so the RED of its own tests was not observed in that run. The writer that finished it proved the tests bite by mutating the rule of the "written once" and by removing the message of one of the new errors, and watched both fail. The review of this increment is the next step, and it is the one that has to carry the weight.

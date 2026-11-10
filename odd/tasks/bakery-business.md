@@ -1087,7 +1087,7 @@ its session starts.
 | T27 | S28 | The route of the round and the tool that writes it | inline | `f02197c`, corrected in `a015c09` |
 | T28 | S2, S29 | The commitments, the reminders, and their tools | inline | `e5bd8a6`, corrected in `bbb52b0` |
 | T29 | S35 | The learning log and its tools | inline | `6a9bb95`, corrected in `75713c6` |
-| T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `d0b8d6c` |
+| T30 | S9, S22 | The capacity of a weekend and the tool that reads it | inline | `d0b8d6c`, corrected in `b8c1fde` |
 
 ---
 
@@ -1522,3 +1522,23 @@ Two decisions of this increment, both taken by the orchestrator:
 - the port of the tool lives in `apps/mcp-server/internal/ports/ports.go` like the other fifty-one: the wiring of the server has one place, and the increment does not break it.
 
 Left open, on purpose: the message of the business that is not there still speaks of the stock that is read, and it is shared by every reader of the book. One sentinel carries one rule, so the polish of that sentence belongs to an increment of its own.
+
+**L51** (2026-11-10): T30 was reviewed by an independent verifier against the acceptance of the increment, against S9 and S22 and against the contract of the architecture, and every accepted finding was corrected with a test observed failing before the fix and passing after it. The correction is the commit `b8c1fde`. The review found NO blocker, and the arithmetic of the capacity was right in every probe — what was missing were the PROOFS.
+
+The first MAJOR: the minutes of a batch are the SUM of the steps of the hands of the owner, and NO test proved it: changing the sum into the last step left every suite green, and the owner of a bread with two steps of the hands got the minutes of the last one — the capacity overstated the weekend by 2.7 times. The sum is proved now, with the steps of the hands, of the oven and of the waiting in the same recipe.
+
+The second MAJOR: the batches are WHOLE and no test proved that they never round UP: changing the floor into a round left every suite green, and ten hours against a batch of four hours of the hands answered three batches. The floor is proved now, with the halves and the quarters.
+
+The third MAJOR: the wiring of the composition root had no proof that can fail: handing the use case no reader of the recipes left every unit suite green, and the container suite only LISTED the tools. A regression there would have made the tool answer "the service has no database configured" to the owner for ever, and nothing saw it. The container test now CALLS `read_capacity` — it opens the bakery, buys the flour, records the recipe and reads the capacity — and it fails when the wiring breaks.
+
+The first MINOR: the message of the business that is not there told the agent that the capacity reads the STOCK. The capacity reads recipes, and the sentinel it answers is now the one of the recipes, so the message names the business and never the stock.
+
+The second MINOR: the refusal of a step of negative minutes was untested, and removing it left every suite green. The third MINOR: the caveat "the stock of the ingredients may carry LESS" was written but pinned only by the word "stock", so rewording the caveat passed. The fourth MINOR: the reworded message of the recipe of another business was pinned by the name of a tool that the old wording never carried, so reverting the wording passed — and the wording itself read as "name one of the recipes" where the intent is "name the BUSINESS".
+
+The fifth MINOR: the hours the owner declares are a float and the multiplication dropped a batch that fits EXACTLY: 4.1 hours are the 246 minutes of the batch, and the answer said 0 batches. The hours are turned into WHOLE MINUTES once at the boundary and the division is integer arithmetic from there: the only float of the derivation is the one the owner declared.
+
+The sixth MINOR: the answer did not say that the recipes do not share the hours — one hour against two recipes of one hour each answers one batch of each, and the owner could read it as two batches in one hour. The description says it now: every entry is what those hours carry OF THAT ONE RECIPE.
+
+And an advisory that was taken: the hours that are not a number were not refused (the check `hours <= 0` is false for a number that is not a number). The rule of the domain holds it now.
+
+One finding was REJECTED: the review asked for the grams of the capacity in the answer. The acceptance says "the units she can make with them", and the grams of what she made belong to the production (T17) and to the rotation (T22). The capacity answers UNITS, and it carries no money (S9).

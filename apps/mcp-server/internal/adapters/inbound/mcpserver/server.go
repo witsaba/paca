@@ -304,6 +304,21 @@ type Options struct {
 	// It may be nil: a server without a database still exposes the tool,
 	// and every call answers that the database is not there.
 	RecordRoute ports.RouteRecorder
+
+	// RecordCommitment is the use case that writes the promises of the
+	// bakery: what is due and the day it is due, and the day a promise was
+	// met.
+	//
+	// It may be nil: a server without a database still exposes the tools,
+	// and every call answers that the database is not there.
+	RecordCommitment ports.CommitmentRecorder
+
+	// ReadCommitments is the use case that reads the calendar of the
+	// promises of a business: what is due and what is still owed.
+	//
+	// It may be nil: a server without a database still exposes the tool,
+	// and every call answers that the database is not there.
+	ReadCommitments ports.CommitmentReader
 }
 
 // Server is the MCP transport of the service.
@@ -375,6 +390,7 @@ func New(opts Options) *Server {
 	transport.registerPriceTools(opts.SetPrice, opts.ReadPrices)
 	transport.registerOrderTools(opts.RecordOrder, opts.ReadOrders)
 	transport.registerRouteTools(opts.RecordRoute)
+	transport.registerCommitmentTools(opts.RecordCommitment, opts.ReadCommitments)
 
 	handler := sdk.NewStreamableHTTPHandler(
 		func(*http.Request) *sdk.Server { return server },

@@ -29,6 +29,16 @@ type Business struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Commitment struct {
+	ID         int64
+	BusinessID int64
+	What       string
+	DueOn      pgtype.Date
+	MetOn      pgtype.Date
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
 type Exit struct {
 	ID            int64
 	BusinessID    int64

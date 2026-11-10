@@ -17,6 +17,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
@@ -425,4 +426,23 @@ var theMessages = map[error]string{
 	order.ErrInvalidCost: "the cost of the stop is less than nothing: the money of the transport to that client is " +
 		"never negative, and it is sent in whole pesos — a stop the owner walks to costs zero",
 	order.ErrAlreadyDelivered: "the order was delivered already: it is not owed any more, and it is not visited again",
+
+	commitment.ErrNotFound: "there is no commitment with that identity: read the commitments of the business to " +
+		"know the promises it holds, and name one of them",
+	commitment.ErrMissingBusiness: "the commitment belongs to no business: send the identity of the business that " +
+		"owes the promise, and PACA never invents one",
+	commitment.ErrMissingWhat: "the commitment says nothing about what is due: ask the owner what is due, in her " +
+		"words, and send it — a promise that says nothing is not a promise",
+	commitment.ErrMissingDay: "the commitment carries no day: ask the owner the day the promise is due, and never " +
+		"invent one",
+	commitment.ErrMissingMetDay: "the commitment carries no day of meeting: ask the owner the day the promise was " +
+		"kept, and never invent one — the promise that was kept stays in the book with the day it was kept",
+	commitment.ErrAlreadyMet: "the commitment was met already: the promise that was kept stays in the book with " +
+		"the day it was kept, and a promise is kept once",
+	commitment.ErrWrongBusiness: "the commitments belong to a business of its own: the Personal Business of a " +
+		"person holds the money of that person, and not the promises of the bakery",
+	commitment.ErrBusinessNotFound: "there is no business with that identity: the business of the commitments is " +
+		"not there, and PACA never invents one",
+	commitment.ErrInvalidValue: "the database refused the promise: check the business, the what and the day of it",
+	commitment.ErrNoStorage:    "the service has no storage of the commitments: the commitments cannot be reached",
 }

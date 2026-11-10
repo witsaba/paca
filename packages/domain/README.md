@@ -70,6 +70,10 @@ packages/domain/
                     client, the lines with the products and the quantities
                     of them, the state of the order, the round of a day and
                     the port of the storage
+  commitment/       the model of the commitment of the bakery: the promise
+                    of what is due and the day it is due, the day it was
+                    met, the calendar of the promises the agent reads to
+                    ring, and the port of the storage
   schema/           the state of the schema of the database: the version, the
                     migrations and what is pending
   health/           the model of the health of a service: the states, the
@@ -1400,6 +1404,77 @@ person and not the orders of the bakery (`order.ErrWrongBusiness`).
 increment does not state it, and the book never adds a rule nobody wrote:
 whether the order carries the money of the price list of the day it was
 made is a question of the owner, and it waits for her.
+
+## The model of the commitment
+
+`commitment.Commitment` is a PROMISE of the bakery: what is due, in the
+words of the owner, and the day it is due. It is not a sale and it is not an
+order: the order already owns the client delivery — the party, the products,
+the money and the round — and the promise never copies it.
+
+**The promise carries NO money and NO party.** The "what" is the promise in
+the words of the owner, and it may name the party in her own words
+(`commitment.New`). The book never adds a money nobody wrote, and the model
+of the commitment imports the model of the business and the day of the book,
+and nothing else.
+
+**The promise says what is due.** The "what" loses the spaces around it and
+it may not be empty (`commitment.ErrMissingWhat`): a promise that says
+nothing about what is due is not a promise. The promise belongs to a
+business (`commitment.ErrMissingBusiness`) and carries the day it is due
+(`commitment.ErrMissingDay`).
+
+**The promise is written OPEN, and the day of meeting IS its state.** The
+commitment that was not met carries no day of meeting and it is still owed
+(`commitment.Commitment.IsOpen`). There is no state column anywhere in the
+model: the day of meeting is the fact, and a state column would be a second
+truth for it.
+
+**The promise that was met is KEPT, with the day it was met.**
+`commitment.Commitment.Met` moves an open promise to the promise that was
+kept, and it refuses a promise that was met already
+(`commitment.ErrAlreadyMet`): a promise is kept once, and the book never
+hides the day it was kept. A meeting with no day is refused
+(`commitment.ErrMissingMetDay`), because the promise that was kept stays in
+the book WITH the day it was kept.
+
+**The day it was met may be before or after the day it is due.** A promise
+kept early is kept, a promise kept late is late, and the book never hides
+it. The domain does NOT know the day of today, so it never refuses a day of
+meeting for being in the future: the owner is the one that says what
+happened.
+
+**The day of the row is the state of the row.** The storage is read back
+through the own constructor of the domain (`commitment.NewFromFacts`): a row
+with no day of meeting is an open commitment, and a row that carries one is
+a promise that was kept. A row that another writer broke is refused by the
+domain, and the adapter says it with `commitment.ErrInvalidValue`.
+
+**The CALENDAR is the book of the promises read for a day.** It carries the
+promises that are DUE on the day — and every promise of the business when
+the day is not given, because the book of the promises is read whole — and
+the ones that are still OWED: every open promise of the business, no matter
+the day it fell due on (`commitment.TheCalendar`). This is the same rule the
+round of the orders carries: the promise that was not kept is owed, and the
+promise that was kept is not.
+
+**The promise belongs to a business of its own.** `commitment.OwnedBy`
+states the rule: the commitments belong to the business of the bakery, the
+one that sells the bread, and the Personal Business of a person holds the
+money of that person and not the promises of the bakery
+(`commitment.ErrWrongBusiness`). The business of the promises that is not
+there has its own refusal (`commitment.ErrBusinessNotFound`), and the agent
+is never told to open the personal business of a person for a business it
+mistyped.
+
+**The identity of a promise is its OWN identity, never its text.** Two
+promises that say the same thing on the same day are two promises: the book
+never refuses them and never merges them, and the meeting of a promise names
+it by that identity.
+
+**The ALARM is not PACA's.** PACA holds the fact of what is due and the day
+it is due, and the agent is the one that rings: the calendar of the promises
+is what the agent reads to ring.
 
 ## The transaction of the storage
 

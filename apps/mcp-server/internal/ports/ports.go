@@ -12,6 +12,7 @@ import (
 
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
@@ -1987,4 +1988,103 @@ type RouteRecorder interface {
 	// owes, the same order in two stops, the cost that is less than
 	// nothing and the second route of a day that was already written.
 	Record(ctx context.Context, request RecordRoute) (order.Route, error)
+}
+
+// RecordCommitment is the promise the agent read: what is due, in the words
+// of the owner, and the day it is due.
+//
+// It is the shape of the contract between the agent and the service: the
+// promise carries no money and no party of its own, and the fields the
+// domain refuses travel as the agent sent them, so the domain is the one
+// that answers.
+type RecordCommitment struct {
+	// BusinessID is the business that owes the promise.
+	BusinessID business.ID
+
+	// What is what is due, in the words of the owner.
+	What string
+
+	// DueOn is the day the promise is due on, written the way a person
+	// writes it.
+	DueOn string
+}
+
+// MeetCommitment is the promise that was kept and the day it was kept.
+//
+// The commitment is named by its OWN identity, never by its text: two
+// promises that say the same thing on the same day are two promises.
+type MeetCommitment struct {
+	// BusinessID is the business that owes the promise.
+	BusinessID business.ID
+
+	// CommitmentID is the identity of the promise that was kept.
+	CommitmentID int64
+
+	// MetOn is the day the promise was met, written the way a person
+	// writes it.
+	MetOn string
+}
+
+// ReadCommitments is the book of the promises of a business, read for a day.
+//
+// It is the shape of the contract between the agent and the service: the day
+// is optional, and the book of the promises is read whole when the agent
+// names none.
+type ReadCommitments struct {
+	// BusinessID is the business whose promises are read.
+	BusinessID business.ID
+
+	// Day is the day the calendar is read for. It is empty when the agent
+	// asks for the whole book of the promises.
+	Day string
+}
+
+// CommitmentRecorder is the inbound port of the tools that write the
+// promises of the business: the promise itself, and the day it was met.
+type CommitmentRecorder interface {
+	// Record writes the promise of the business and answers it with it.
+	//
+	// The identity of the business, what is due and the day it is due are
+	// required, and the fields travel as the agent sent them: the domain
+	// is the one that refuses the promise without a business, without a
+	// what and without a day.
+	//
+	// The error is the error of the domain: the domain refuses the promise
+	// of no business, the promise that says nothing about what is due, the
+	// promise without a day, the business that is not there and the
+	// business that does not hold promises.
+	Record(ctx context.Context, request RecordCommitment) (commitment.Commitment, error)
+
+	// Meet writes the day the promise was met and answers the promise that
+	// was kept.
+	//
+	// The promise is named by its own identity, and the day it was met is
+	// required. The promise that was met is KEPT, with the day it was met.
+	//
+	// The error is the error of the domain: the domain refuses the promise
+	// that was met already, the promise that carries no day of meeting,
+	// the promise that is not there and the business that does not hold
+	// promises.
+	Meet(ctx context.Context, request MeetCommitment) (commitment.Commitment, error)
+}
+
+// CommitmentReader is the inbound port of the tool that reads the calendar
+// of the promises.
+//
+// The answer carries the promises that are due on the day and the ones that
+// are still owed: every open promise of the business, the ones that are due
+// on the day and the ones that fell due on an earlier day. The alarm is the
+// work of the agent, and this is what the agent reads to ring.
+type CommitmentReader interface {
+	// Read answers the calendar of the day: the promises due on it and the
+	// ones that are still owed.
+	//
+	// The identity of the business is required. The day is optional: the
+	// calendar of the day carries the promises that are due on it, and the
+	// whole book of the promises is read when the agent names none.
+	//
+	// The error is the error of the domain: the domain refuses the
+	// business that is not there, the business that does not hold promises
+	// and the day that is not a day of the book.
+	Read(ctx context.Context, request ReadCommitments) (commitment.Calendar, error)
 }

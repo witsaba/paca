@@ -23,6 +23,7 @@ import (
 	"github.com/witsaba/paca/packages/database/postgres"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/health"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
@@ -591,6 +592,25 @@ func New(
 	// unit of work: the round was made and it happened, or neither.
 	routeService := application.NewRouteService(routes, orders, businesses, work)
 
+	// The promises of the bakery: what is due and the day it is due, and
+	// the day a promise was met. The commitment carries no money and no
+	// party: the order already owns the client delivery, and the promise
+	// never copies it. The ALARM is the work of the agent, and the
+	// calendar of the promises is what the agent reads to ring. Without a
+	// database there is no promise to write nor to read.
+	var commitments commitment.Repository
+
+	if pool != nil {
+		boundCommitments, err := postgres.NewCommitmentRepository(pool)
+		if err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("the repository of the commitments could not be built: %w", err)
+		}
+		commitments = boundCommitments
+	}
+
+	commitmentService := application.NewCommitmentService(commitments, businesses)
+
 	mcpServer := mcpserver.New(mcpserver.Options{
 		ServiceName:         config.ServiceName,
 		ServiceVersion:      serviceVersion,
@@ -637,6 +657,8 @@ func New(
 		RecordOrder:         orderService,
 		ReadOrders:          orderService,
 		RecordRoute:         routeService,
+		RecordCommitment:    commitmentService,
+		ReadCommitments:     commitmentService,
 	})
 
 	router := http.NewRouter(http.RouterConfig{

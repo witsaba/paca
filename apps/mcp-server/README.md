@@ -100,7 +100,7 @@ docker compose up -d --wait
 
 ## The tools
 
-The server exposes forty-six tools: the way PACA onboards a person, the four
+The server exposes forty-nine tools: the way PACA onboards a person, the four
 moments of the journey of a person inside PACA, the two tools of the
 businesses of a person, the three tools of the book of their money, the
 four tools of their debts and of the closing of their month, the four tools
@@ -127,8 +127,11 @@ with the purchase, and the reading of the invoices the business holds, and
 the two tools of the price list: the price of a product in a channel, and
 the reading of the price list of the business, and the two tools of the
 orders: the order the bakery owes to a client, and the reading of the round
-of a day: what is still owed, and the tool of the route: the order the
-agent will visit the clients in, and what each visit costs.
+of a day: what is still owed, the tool of the route: the order the
+agent will visit the clients in, and what each visit costs, and the three
+tools of the commitments: the promise of what is due and the day it is due,
+the day the promise was kept, and the calendar of the promises that the
+agent reads to ring.
 
 | Tool                      | What it does                                                    |
 |---------------------------|-----------------------------------------------------------------|
@@ -177,6 +180,9 @@ agent will visit the clients in, and what each visit costs.
 | `record_order`            | Writes an order of the bakery: the client that ordered, the products with the quantities of them and the WAY THE OWNER CHARGES them, and the day it is due. The party is named either by its IDENTITY or by the NAME the owner reads, and it is a CLIENT: the bakery does not owe bread to a provider. The way she charges is one of the three of the book — the piece (`unit`), the gram (`gram`) or the kilogram (`kilogram`) — and a unit the book does not know is refused. The quantity travels with the way she charges: by the PIECE it is a whole number of pieces (the book never splits a piece), and by the weight it is any positive amount of weight (the book never converts a weight into a number of pieces). The day it is due is required and PACA never invents one. The order is written OPEN: an order that was not delivered stays open, and the delivery of an order is written with the ROUTE of the round. One call, one transaction: the order and its lines are written whole or not at all. |
 | `read_orders`             | Reads the round of a day: the orders that are DUE on it, and the ones that are STILL OWED — EVERY open order of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not delivered. The day is optional: the round of that day answers the orders that are due on it, and the whole book of the orders is read when the agent names none — and the answer carries the day of the round only when the agent names a day. The answer also carries the ROUTE of the day when the round was planned, and says that the round was NEVER PLANNED when it carries no route. It writes nothing. |
 | `record_route`            | Writes the ROUTE of the round of a day: the order the agent will visit the clients in, and what each visit costs. The agent is the one that knows the streets, and PACA never computes the route. Every stop names an order the business still OWES — EVERY open order of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not delivered — and the money of the transport to that client, in WHOLE PESOS: the cost is REQUIRED and it is never less than nothing, and zero is legal because a stop the owner walks to costs nothing. An order is visited ONCE: a route that names the same order in two stops is refused, because the total of the route is derived from the stops. Writing the route DELIVERS the orders of its stops: the route is written back into the round, and the delivery of the orders is written with it. The route of a business and a day is written ONCE. One call, one transaction: the route, its stops and the delivery of the orders of the stops are written whole or not at all. |
+| `record_commitment`       | Writes a promise of the bakery: what is due, in the words of the owner, and the day it is due. The promise carries NO money and NO party of its own — the order of the bakery already carries the client delivery, and the promise never copies it — and it is written OPEN: it carries no day of meeting, because nobody said it was met. One call, one row. |
+| `meet_commitment`         | Records that a promise was met: the day it was kept. The promise is named by ITS OWN IDENTITY and never by its text, because two promises that say the same thing on the same day are two promises. The promise that was kept is KEPT: it stays in the book with the day it was kept, and it is not owed any more. A promise is kept once: the second meeting of the same promise is refused, and the book never hides the day it already holds. The day it was met may be before or after the day it is due, and PACA never invents it. |
+| `read_commitments`        | Reads the calendar of the promises of the business: the promises that are DUE on the day, and the ones that are STILL OWED — EVERY open promise of the business, the ones that are due on the day and the ones that fell due on an earlier day and were not met. The day is optional: the calendar of that day answers the promises that are due on it, and the whole book of the promises is read when the agent names none. The ALARM is not PACA's: PACA holds the fact of what is due and the day it is due, and this is what the agent reads to ring. It writes nothing. |
 | `read_prices`             | Reads the price list of the business: the price that HOLDS for every product and every channel, with the day it was set. The price that holds is the LAST one set on or before the day that is asked for, and the rows that came before it are kept. The product, the channel and the day are optional: the day is the day of today when the agent names none, and a product the business has not priced yet is not in the answer. The answer carries the WAY THE OWNER CHARGES of every price. It writes nothing. |
 
 **There is one tool for the registration and the onboarding.** The tool of
@@ -529,6 +535,20 @@ to the purchase it NAMES. The electronic
 invoice is never assumed either: there is no integration with the tax
 authority, and the reference of the document the owner shows is a plain
 fact of the invoice.
+
+**The commitment is a promise of the business, and the alarm is the
+agent's.** The tools `record_commitment`, `meet_commitment` and
+`read_commitments` write and read the promises of the bakery: what is due,
+in the words of the owner, and the day it is due. The promise carries NO
+money and NO party: the order already owns the client delivery, and the
+promise never copies it. The promise that was met stays in the book with the
+day it was met, a promise is kept once, and the book never hides the day it
+was kept. The identity of a promise is its OWN identity and never its text:
+two promises that say the same thing on the same day are two promises, and
+the book never merges them. The ALARM is not PACA's — PACA holds the fact,
+and the agent is the one that rings — and the promise belongs to a business
+of its own: the Personal Business of a person holds the money of that person,
+and not the promises of the bakery.
 
 **The failures are answered in words the agent can act on.** A document that
 is not a number, a phone without a country code, an address that is not an

@@ -14,6 +14,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ingredient"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
@@ -431,6 +432,7 @@ func isErrorOfTheDomain(err error) bool {
 	known = append(known, party.Errors()...)
 	known = append(known, product.Errors()...)
 	known = append(known, order.Errors()...)
+	known = append(known, commitment.Errors()...)
 
 	for _, one := range known {
 		if errors.Is(err, one) {

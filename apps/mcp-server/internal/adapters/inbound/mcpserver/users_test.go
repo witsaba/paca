@@ -16,6 +16,7 @@ import (
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
 	"github.com/witsaba/paca/packages/domain/account"
 	"github.com/witsaba/paca/packages/domain/business"
+	"github.com/witsaba/paca/packages/domain/commitment"
 	"github.com/witsaba/paca/packages/domain/ledger"
 	"github.com/witsaba/paca/packages/domain/order"
 	"github.com/witsaba/paca/packages/domain/party"
@@ -174,8 +175,8 @@ func TestTheTransportAnswersTheToolsEvenWithoutADatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the client could not list the tools: %v", err)
 	}
-	if len(tools.Tools) != 46 {
-		t.Errorf("the server exposes %d tools, want 46", len(tools.Tools))
+	if len(tools.Tools) != 49 {
+		t.Errorf("the server exposes %d tools, want 49", len(tools.Tools))
 	}
 }
 
@@ -439,6 +440,7 @@ func TestTheToolExplainsEveryErrorOfTheDomainToTheAgent(t *testing.T) {
 	failures = append(failures, party.Errors()...)
 	failures = append(failures, product.Errors()...)
 	failures = append(failures, order.Errors()...)
+	failures = append(failures, commitment.Errors()...)
 
 	for _, failure := range failures {
 		t.Run(failure.Error(), func(t *testing.T) {

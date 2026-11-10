@@ -1,0 +1,276 @@
+{
+  "scanned": "2026-11-10",
+  "policy": "the findings of severity CRITICAL and HIGH that have a fix",
+  "findings": [
+    {
+      "id": "CVE-2026-109518",
+      "severity": "HIGH",
+      "package": "apt",
+      "purl": "pkg:deb/debian/apt@2.6.1?arch=amd64&distro=debian-12.15",
+      "fixed": "2.6.2",
+      "title": "apt: apt: Remote code execution via hard link reuse during package download retries",
+      "published": "2026-11-04T16:17:33.01Z"
+    },
+    {
+      "id": "CVE-2026-109518",
+      "severity": "HIGH",
+      "package": "libapt-pkg6.0",
+      "purl": "pkg:deb/debian/libapt-pkg6.0@2.6.1?arch=amd64&distro=debian-12.15",
+      "fixed": "2.6.2",
+      "title": "apt: apt: Remote code execution via hard link reuse during package download retries",
+      "published": "2026-11-04T16:17:33.01Z"
+    },
+    {
+      "id": "CVE-2026-84782",
+      "severity": "HIGH",
+      "package": "libssl3",
+      "purl": "pkg:deb/debian/libssl3@3.0.22-1~deb12u1?arch=amd64&distro=debian-12.15",
+      "fixed": "3.0.22-1~deb12u2",
+      "title": "openssl: compat-openssl: openssl: Information disclosure via DTLS handshake retransmission",
+      "published": "2026-09-29T16:17:12.5Z"
+    },
+    {
+      "id": "CVE-2026-84782",
+      "severity": "HIGH",
+      "package": "openssl",
+      "purl": "pkg:deb/debian/openssl@3.0.22-1~deb12u1?arch=amd64&distro=debian-12.15",
+      "fixed": "3.0.22-1~deb12u2",
+      "title": "openssl: compat-openssl: openssl: Information disclosure via DTLS handshake retransmission",
+      "published": "2026-09-29T16:17:12.5Z"
+    },
+    {
+      "id": "CVE-2025-68121",
+      "severity": "CRITICAL",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.24.13, 1.25.7, 1.26.0-rc.3",
+      "title": "crypto/tls: crypto/tls: Incorrect certificate validation during TLS session resumption",
+      "published": "2026-02-05T18:16:10.857Z"
+    },
+    {
+      "id": "CVE-2025-61726",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.24.12, 1.25.6",
+      "title": "golang: net/url: Memory exhaustion in query parameter parsing in net/url",
+      "published": "2026-01-28T20:16:09.713Z"
+    },
+    {
+      "id": "CVE-2025-61729",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.24.11, 1.25.5",
+      "title": "crypto/x509: golang: Denial of Service due to excessive resource consumption via crafted certificate",
+      "published": "2025-12-02T19:15:51.447Z"
+    },
+    {
+      "id": "CVE-2026-111943",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.26.10, 1.27.3",
+      "title": "crypto/x509: golang: crypto/x509: Man-in-the-middle attacks via untrusted intermediate certificates",
+      "published": "2026-10-21T01:17:20.797Z"
+    },
+    {
+      "id": "CVE-2026-25679",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.8, 1.26.1",
+      "title": "net/url: Incorrect parsing of IPv6 host literals in net/url",
+      "published": "2026-03-06T22:16:00.72Z"
+    },
+    {
+      "id": "CVE-2026-27145",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.11, 1.26.4",
+      "title": "crypto/x509: golang: golang crypto/x509: Denial of Service via excessive processing of DNS SAN entries",
+      "published": "2026-06-02T23:16:35.57Z"
+    },
+    {
+      "id": "CVE-2026-32280",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.9, 1.26.2",
+      "title": "crypto/x509: crypto/tls: golang: Go: Denial of Service vulnerability in certificate chain building",
+      "published": "2026-04-08T02:16:03.247Z"
+    },
+    {
+      "id": "CVE-2026-32281",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.9, 1.26.2",
+      "title": "crypto/x509: golang: Go crypto/x509: Denial of Service via inefficient certificate chain validation",
+      "published": "2026-04-08T02:16:03.35Z"
+    },
+    {
+      "id": "CVE-2026-32283",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.9, 1.26.2",
+      "title": "crypto/tls: golang: Go crypto/tls: Denial of Service via multiple TLS 1.3 key update messages",
+      "published": "2026-04-08T02:16:03.58Z"
+    },
+    {
+      "id": "CVE-2026-33811",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.10, 1.26.3",
+      "title": "net: golang: Go net package: Denial of Service via long CNAME response in LookupCNAME",
+      "published": "2026-05-07T20:16:42.77Z"
+    },
+    {
+      "id": "CVE-2026-33814",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.10, 1.26.3",
+      "title": "net/http/internal/http2: golang: golang.org/x/net: Go HTTP/2: Denial of Service via malformed SETTINGS_MAX_FRAME_SIZE frame",
+      "published": "2026-05-07T20:16:42.88Z"
+    },
+    {
+      "id": "CVE-2026-33818",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "encoding/asn1: golang: Go encoding/asn1: Denial of Service via excessive recursion in Unmarshal",
+      "published": "2026-08-13T22:17:19.84Z"
+    },
+    {
+      "id": "CVE-2026-39820",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.10, 1.26.3",
+      "title": "net/mail: golang: Go net/mail: Denial of Service via crafted email inputs",
+      "published": "2026-05-07T20:16:43.187Z"
+    },
+    {
+      "id": "CVE-2026-39821",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "golang.org/x/net/idna: golang: net/http: golang.org/x/net/idna: Privilege escalation via incorrect Punycode label processing",
+      "published": "2026-05-22T16:16:20.41Z"
+    },
+    {
+      "id": "CVE-2026-39822",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.12, 1.26.5, 1.27.0-rc.2",
+      "title": "golang: Go os.Root: Symlink following vulnerability allows directory traversal",
+      "published": "2026-07-08T17:17:21.31Z"
+    },
+    {
+      "id": "CVE-2026-39836",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.10, 1.26.3",
+      "title": "net: golang: Go net package: Denial of Service via NUL byte in Dial and LookupPort on Windows",
+      "published": "2026-05-07T20:16:43.593Z"
+    },
+    {
+      "id": "CVE-2026-42499",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.10, 1.26.3",
+      "title": "net/mail: golang: net/mail: Denial of Service via pathological email address parsing",
+      "published": "2026-05-07T20:16:44.54Z"
+    },
+    {
+      "id": "CVE-2026-42504",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.11, 1.26.4",
+      "title": "mime: golang: Golang MIME: Denial of Service via maliciously-crafted MIME header",
+      "published": "2026-06-02T23:16:37.927Z"
+    },
+    {
+      "id": "CVE-2026-56853",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "net/http: golang: Go net/http: Unencrypted HTTP/2 connections vulnerable to Denial of Service",
+      "published": "2026-08-13T22:17:22.093Z"
+    },
+    {
+      "id": "CVE-2026-56858",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "html/template: golang: Go html/template: Cross-Site Scripting via pathological input",
+      "published": "2026-08-13T22:17:22.207Z"
+    },
+    {
+      "id": "CVE-2026-56859",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "encoding/xml: golang: Go: Denial of Service via XML decoding recursion depth issue",
+      "published": "2026-08-13T22:17:22.32Z"
+    },
+    {
+      "id": "CVE-2026-56860",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "net/url: golang: golang net/url: Denial of Service from quadratic complexity in path resolution",
+      "published": "2026-08-13T22:17:22.44Z"
+    },
+    {
+      "id": "CVE-2026-56862",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "title": "crypto/tls: golang: Golang crypto/tls: Denial of Service via indefinite KeyUpdate messages",
+      "published": "2026-08-13T22:17:22.55Z"
+    },
+    {
+      "id": "CVE-2026-78667",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.26.9, 1.27.2",
+      "title": "net/http: golang: golang: Denial of Service via crafted HTTP Range headers",
+      "published": "2026-10-08T23:17:03.88Z"
+    },
+    {
+      "id": "CVE-2026-78669",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.26.9, 1.27.2",
+      "title": "net/http: net/http/internal/http2: golang.org/x/net/http2: net/http: Denial of Service via excessive HTTP/2 SETTINGS frames",
+      "published": "2026-10-08T23:17:04.01Z"
+    },
+    {
+      "id": "CVE-2026-97031",
+      "severity": "HIGH",
+      "package": "stdlib",
+      "purl": "pkg:golang/stdlib@v1.24.6",
+      "fixed": "1.26.9, 1.27.2",
+      "title": "crypto/tls: golang: crypto/tls: Denial of Service via multiple ECH outer extension references",
+      "published": "2026-10-08T23:17:06.037Z"
+    }
+  ]
+}

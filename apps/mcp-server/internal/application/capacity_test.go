@@ -131,7 +131,12 @@ func TestTheCapacityOfABusinessWithoutRecipesIsEmpty(t *testing.T) {
 
 // TestTheCapacityOfABusinessThatIsNotThereIsRefused proves that the capacity
 // belongs to a business: a request that names no business is refused with
-// the refusal of the book of the business, and the recipes are never read.
+// the refusal of the recipes of the business, and the recipes are never
+// read.
+//
+// The refusal is the one of the recipe and not the one of the stock: the
+// capacity reads the recipes of the business, and the message the agent
+// reads for it must not tell it that it is reading the stock.
 func TestTheCapacityOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -140,8 +145,11 @@ func TestTheCapacityOfABusinessThatIsNotThereIsRefused(t *testing.T) {
 	service := application.NewCapacityService(recipes)
 
 	_, err := service.Read(t.Context(), ports.ReadCapacity{BusinessID: business.ID(0), Hours: 10})
-	if !errors.Is(err, purchase.ErrMissingBusiness) {
-		t.Fatalf("the error is %v, want %v", err, purchase.ErrMissingBusiness)
+	if !errors.Is(err, recipe.ErrMissingBusiness) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingBusiness)
+	}
+	if errors.Is(err, purchase.ErrMissingBusiness) {
+		t.Errorf("the capacity answers the refusal of the stock: %v", err)
 	}
 	if recipes.listed != business.ID(0) {
 		t.Errorf("the recipes were read for the business %d, want none", recipes.listed)

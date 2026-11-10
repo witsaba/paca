@@ -2,6 +2,7 @@ package recipe_test
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -60,6 +61,39 @@ func theRecipeOfTheCapacity(
 	built.ID = id
 
 	return built
+}
+
+// TestTheCapacityAddsEveryStepOfTheHands proves the rule of the domain: the
+// minutes of a batch that need the owner are the SUM of the minutes of the
+// steps of her hands, never the minutes of one of them.
+//
+// The bread of the test has two steps of the hands, of twenty and of fifteen
+// minutes: the batch needs thirty-five minutes of her, and two hours of her
+// weekend carry three batches of it, never the eight the last step alone
+// would carry.
+func TestTheCapacityAddsEveryStepOfTheHands(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheCapacity(t, recipe.ID(9), "Pan de molde", 0, 0, 0, 12)
+	baked.Steps = []recipe.Step{
+		{Instruction: "Amasar.", Minutes: 20, Kind: recipe.LaborHandsOn},
+		{Instruction: "Formar.", Minutes: 15, Kind: recipe.LaborHandsOn},
+		{Instruction: "Hornear.", Minutes: 40, Kind: recipe.LaborOven},
+		{Instruction: "Reposar.", Minutes: 120, Kind: recipe.LaborWaiting},
+	}
+
+	capacity, err := recipe.TheCapacity(business.ID(77), 2, []recipe.Recipe{baked})
+	if err != nil {
+		t.Fatalf("the capacity was refused: %v", err)
+	}
+
+	one := capacity.Recipes[0]
+	if one.Minutes != 35 {
+		t.Errorf("the minutes of the batch are %d, want the 35 of the two steps of the hands", one.Minutes)
+	}
+	if one.Batches != 3 || one.Units != 36 {
+		t.Errorf("the capacity carries %d batches and %d units, want 3 and 36", one.Batches, one.Units)
+	}
 }
 
 // TestTheCapacityCountsTheHandsAndNotTheOvenNorTheWaiting proves the rule of
@@ -163,6 +197,62 @@ func TestTheBatchesAreWhole(t *testing.T) {
 	}
 }
 
+// TestTheBatchesNeverRoundUp proves the rule of the domain: a batch is whole
+// and the book never rounds one up, so a fraction of a batch is dropped.
+//
+// Ten hours against four hours of hands are two batches and a half, and the
+// book carries the two: a batch is carried when the hours are whole for it,
+// and never because the fraction came close.
+func TestTheBatchesNeverRoundUp(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheCapacity(t, recipe.ID(9), "Pan de molde", 240, 0, 0, 6)
+
+	for _, test := range []struct {
+		name    string
+		hours   float64
+		batches int
+	}{
+		{name: "ten hours against four hours of hands is two and a half", hours: 10, batches: 2},
+		{name: "eleven hours against four hours of hands is two and three quarters", hours: 11, batches: 2},
+		{name: "four hours against four hours of hands is one", hours: 4, batches: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			capacity, err := recipe.TheCapacity(business.ID(77), test.hours, []recipe.Recipe{baked})
+			if err != nil {
+				t.Fatalf("the capacity was refused: %v", err)
+			}
+
+			if got := capacity.Recipes[0].Batches; got != test.batches {
+				t.Errorf("the batches are %d, want %d: the book never rounds a batch up", got, test.batches)
+			}
+		})
+	}
+}
+
+// TestTheHoursThatAreNotExactInBinary proves the rule of the domain: the
+// hours the owner declares are the whole minutes she declared, and a weekend
+// that fits a batch exactly carries it.
+//
+// Four point one hours are the two hundred and forty-six minutes of the
+// batch of the test: in binary the product is 245.99999999999997 minutes, and
+// the batch that fits exactly is never dropped.
+func TestTheHoursThatAreNotExactInBinary(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheCapacity(t, recipe.ID(9), "Pan grande", 246, 0, 0, 6)
+
+	capacity, err := recipe.TheCapacity(business.ID(77), 4.1, []recipe.Recipe{baked})
+	if err != nil {
+		t.Fatalf("the capacity was refused: %v", err)
+	}
+	if got := capacity.Recipes[0].Batches; got != 1 {
+		t.Errorf("the batches are %d, want 1: 4.1 hours are the 246 minutes of the batch", got)
+	}
+}
+
 // TestTheUnitsAreTheBatchesTimesTheYield proves the rule of the domain: the
 // units of the capacity are the units those batches make, and the yield of
 // the recipe is what makes them.
@@ -220,6 +310,9 @@ func TestTheHoursOfTheWeekendArePositive(t *testing.T) {
 	}{
 		{name: "no hours at all", hours: 0},
 		{name: "less than nothing", hours: -3},
+		// A number that is not a number compares false against zero,
+		// and a weekend of no hours is a weekend of no number.
+		{name: "not a number", hours: math.NaN()},
 	}
 
 	for _, test := range tests {
@@ -273,6 +366,21 @@ func TestTheStepOfAnUnknownKindIsRefused(t *testing.T) {
 	_, err := recipe.TheCapacity(business.ID(77), 10, []recipe.Recipe{baked})
 	if !errors.Is(err, recipe.ErrUnknownLaborKind) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrUnknownLaborKind)
+	}
+}
+
+// TestTheStepOfNegativeMinutesIsRefused proves the rule of the domain: a
+// step whose minutes are not a time is refused by the capacity too, because
+// the capacity reads the steps of the recipe and the recipe forbids them.
+func TestTheStepOfNegativeMinutesIsRefused(t *testing.T) {
+	t.Parallel()
+
+	baked := theRecipeOfTheCapacity(t, recipe.ID(9), "Pan de molde", 0, 0, 0, 12)
+	baked.Steps = []recipe.Step{{Instruction: "Amasar.", Minutes: -30, Kind: recipe.LaborHandsOn}}
+
+	_, err := recipe.TheCapacity(business.ID(77), 10, []recipe.Recipe{baked})
+	if !errors.Is(err, recipe.ErrInvalidMinutes) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrInvalidMinutes)
 	}
 }
 

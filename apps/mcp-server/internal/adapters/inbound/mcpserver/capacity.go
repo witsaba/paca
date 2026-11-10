@@ -44,9 +44,15 @@ func buildDescriptionReadCapacity() string {
 		"The capacity is NEVER a promise of the calendar: it is what the weekend can carry with those hours, and " +
 		"the stock of the ingredients may carry LESS. A weekend of ten hours that the book says carries three " +
 		"batches carries three batches only if the flour, the fat and the starter are in the house.\n\n" +
-		"The BATCHES are WHOLE: the book never splits a batch, so the hours carry the whole number of batches they " +
-		"carry and never a part of one. The UNITS are the units of those batches: the batches times the yield of " +
-		"the recipe, the yield the owner declared when she wrote it.\n\n" +
+		"The hours are WHOLE MINUTES: PACA reads them as the minutes the owner declared, and the whole batches " +
+		"are the whole division of those minutes, so the batch that fits the hours exactly is never dropped.\n\n" +
+		"The BATCHES are WHOLE: the book never splits a batch and it never rounds one up, so the hours carry the " +
+		"whole number of batches they carry and never a part of one. The UNITS are the units of those batches: " +
+		"the batches times the yield of the recipe, the yield the owner declared when she wrote it.\n\n" +
+		"The hours are NOT shared between the recipes: every entry of the answer is what those hours carry OF " +
+		"THAT ONE RECIPE alone, because every recipe needs the hands of the owner for itself. A weekend of one " +
+		"hour with two recipes that need an hour of her hands each answers one batch of each of them, and never " +
+		"two batches out of the same hour.\n\n" +
 		"The business ('business_id') is REQUIRED: it is the business whose capacity is read, the one that sells " +
 		"the bread, and PACA never invents one. A business that is not there is refused, and so is the recipe of " +
 		"another business.\n\n" +

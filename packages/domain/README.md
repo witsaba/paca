@@ -711,8 +711,9 @@ from the labour of the recipes and from the hours the owner declares.
 **The hours are the hours of the owner, and they are positive.** They are
 the hours of her own hands for the weekend, declared by her, and
 `recipe.TheCapacity` refuses the hours that are not positive
-(`recipe.ErrInvalidCapacityHours`): zero hours are not a weekend, and PACA
-never invents them.
+(`recipe.ErrInvalidCapacityHours`): zero hours are not a weekend, a number
+that is not a number is not a number of hours, and PACA never invents
+them.
 
 **The capacity counts the labour of the hands.** The minutes of a batch that
 travel with the answer are the minutes of the steps of the hands alone: the
@@ -721,12 +722,17 @@ she does the next thing. The step the owner did not qualify is a step of her
 hands, the way it is in the labour of the batch, and a step of a kind the
 book does not know is refused (`recipe.ErrUnknownLaborKind`).
 
-**The batches are whole.** The book never splits a batch, so the hours carry
-the whole number of batches they carry — ten hours against a batch of three
-hours of hands carry three batches, and not three and a third — and the units
-are those batches times the yield of the recipe
-(`recipe.MinutesPerHour` is the conversion of the hours into the minutes of
-the steps, and the package owns it).
+**The batches are whole.** The book never splits a batch and it never
+rounds one up, so the hours carry the whole number of batches they carry —
+ten hours against a batch of three hours of hands carry three batches, and
+not three and a third — and the units are those batches times the yield of
+the recipe (`recipe.MinutesPerHour` is the conversion of the hours into the
+minutes of the steps, and the package owns it).
+
+The hours are turned into whole minutes once, and the batches are the whole
+division of them: four point one hours are the two hundred and forty-six
+minutes the owner declared, and a batch of two hundred and forty-six
+minutes of hands fits in them, where a division of floats would drop it.
 
 **A recipe the hours do not bound says so.** `CapacityOfARecipe.Limited` is
 false when the recipe carries no labour of the hands: the hours do not limit
@@ -737,6 +743,12 @@ zero.
 the answer belongs to the business that asks for it, and the recipe of
 another business is refused (`recipe.ErrWrongBusiness`), the way the cost of
 a batch refuses it.
+
+**The hours are not shared between the recipes.** Every recipe of the answer
+carries what those hours carry of that one recipe, because every recipe
+needs the hands of the owner for itself: two recipes of an hour of the hands
+each answer one batch each out of a weekend of one hour, and no hour is
+counted twice.
 
 **The capacity is never a promise of the calendar.** It is what the weekend
 can carry with those hours, and the stock of the ingredients may carry less:

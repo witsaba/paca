@@ -2,9 +2,9 @@ package application
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
-	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -35,7 +35,10 @@ func NewCapacityService(recipes recipe.Reader) *CapacityService {
 // of the business.
 //
 // The business is required: the capacity is read for a business, and a
-// request that names none is a request of nobody.
+// request that names none is a request of nobody. The refusal is the one of
+// the recipes of the business: the capacity reads the recipes, and the
+// message the agent reads for it never tells it that it is reading the
+// stock.
 //
 // The rules are the ones of the domain: the use case reads the recipes of the
 // business and asks the domain for the capacity. The hours that are not
@@ -47,10 +50,12 @@ func (s *CapacityService) Read(ctx context.Context, request ports.ReadCapacity) 
 		return recipe.Capacity{}, ports.ErrNoDatabase
 	}
 
-	own, err := purchase.TheBusinessOfTheStock(request.BusinessID)
-	if err != nil {
-		return recipe.Capacity{}, err
+	if request.BusinessID <= 0 {
+		return recipe.Capacity{}, fmt.Errorf("%w: the capacity is read for the business %d",
+			recipe.ErrMissingBusiness, request.BusinessID)
 	}
+
+	own := request.BusinessID
 
 	baked, err := s.recipes.List(ctx, own)
 	if err != nil {

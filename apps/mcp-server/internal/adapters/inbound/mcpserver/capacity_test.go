@@ -11,9 +11,9 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/adapters/inbound/mcpserver"
+	"github.com/witsaba/paca/apps/mcp-server/internal/application"
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/business"
-	"github.com/witsaba/paca/packages/domain/purchase"
 	"github.com/witsaba/paca/packages/domain/recipe"
 )
 
@@ -217,14 +217,44 @@ func TestTheReadCapacityToolRefusesTheCallWithoutHours(t *testing.T) {
 	}
 }
 
+// theBookOfTheCapacity is the reader of the recipes of the book, in memory.
+//
+// It is the port of the storage with the real use case in front of it, so
+// that the test of the transport drives the whole chain of the tool: the
+// sentinel the agent reads is the one the use case answers, and a use case
+// that answers the sentinel of another book is a message the test sees.
+type theBookOfTheCapacity struct {
+	held []recipe.Recipe
+}
+
+// Find answers the recipe the test holds, by its identity.
+func (b *theBookOfTheCapacity) Find(_ context.Context, id recipe.ID) (recipe.Recipe, error) {
+	for _, one := range b.held {
+		if one.ID == id {
+			return one, nil
+		}
+	}
+
+	return recipe.Recipe{}, recipe.ErrNotFound
+}
+
+// List answers the recipes of the book of the business.
+func (b *theBookOfTheCapacity) List(_ context.Context, _ business.ID) ([]recipe.Recipe, error) {
+	return b.held, nil
+}
+
 // TestTheReadCapacityToolRefusesTheBusinessThatIsNotThere proves that the
-// capacity belongs to a business: the agent reads the refusal of the domain
-// in its own words.
+// capacity belongs to a business: the agent reads the refusal of the use case
+// in its own words, and the words never tell it that it is reading the stock
+// of the ingredients.
+//
+// The tool answers about the RECIPES of the business: the sentinel of the
+// stock of the ingredients is the refusal of another book, and a capacity
+// that answers it teaches the agent a reading it is not doing.
 func TestTheReadCapacityToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	t.Parallel()
 
-	reader := &stubCapacityReader{err: purchase.ErrMissingBusiness}
-	session := connectWithTheCapacity(t, reader)
+	session := connectWithTheCapacity(t, application.NewCapacityService(&theBookOfTheCapacity{}))
 
 	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
 		Name:      mcpserver.ToolReadCapacity,
@@ -238,11 +268,11 @@ func TestTheReadCapacityToolRefusesTheBusinessThatIsNotThere(t *testing.T) {
 	}
 
 	message := textOf(t, result)
-	if message == purchase.ErrMissingBusiness.Error() {
-		t.Errorf("the message is the raw error of the domain: %s", message)
-	}
-	if !strings.Contains(message, "business") {
+	if !strings.Contains(message, "business is required") {
 		t.Errorf("the message does not name the business: %s", message)
+	}
+	if strings.Contains(message, "stock") {
+		t.Errorf("the message of the capacity talks about the stock of the ingredients: %s", message)
 	}
 }
 
@@ -268,11 +298,28 @@ func TestTheReadCapacityToolOfARecipeOfAnotherBusinessSaysTheRule(t *testing.T) 
 	}
 
 	message := textOf(t, result)
-	if !strings.Contains(message, "other business") && !strings.Contains(message, "another business") {
+	if !strings.Contains(message, "another business") {
 		t.Errorf("the message does not name the rule of the recipe of another business: %s", message)
 	}
-	if strings.Contains(message, mcpserver.ToolReadBatchCost) {
-		t.Errorf("the message names one single tool: %s", message)
+	// The way out of the rule names the BUSINESS whose recipe the caller
+	// reads: the business is the record every tool asks for, and a way out
+	// that names one of the recipes is a way out that nobody can walk.
+	if !strings.Contains(message, "the identity of that business") {
+		t.Errorf("the message does not send the identity of the business: %s", message)
+	}
+	if strings.Contains(message, "name one of them") {
+		t.Errorf("the message sends the identity of one of the recipes: %s", message)
+	}
+	for _, one := range []string{
+		mcpserver.ToolReadBatchCost,
+		mcpserver.ToolReadRealPrice,
+		mcpserver.ToolReadCapacity,
+		"the cost of a batch",
+		"the real price",
+	} {
+		if strings.Contains(message, one) {
+			t.Errorf("the message names one single reading of a recipe (%q): %s", one, message)
+		}
 	}
 }
 
@@ -343,10 +390,16 @@ func TestTheDescriptionOfTheCapacityIsAContractWithTheAgent(t *testing.T) {
 		"HANDS",
 		"OVEN",
 		"WAITING",
+		// The caveat of the calendar names the stock of the
+		// ingredients, and it says that the stock may carry LESS.
 		"NEVER a promise of the calendar",
+		"the stock of the ingredients may carry LESS",
+		// Every entry of the answer is what those hours carry of one
+		// recipe, and the hours are not shared between them.
+		"NOT shared between the recipes",
+		"OF THAT ONE RECIPE",
 		"never invents",
 		"whole",
-		"stock",
 		"changes nothing",
 	} {
 		if !strings.Contains(description, want) {

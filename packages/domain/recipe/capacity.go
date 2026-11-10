@@ -59,15 +59,19 @@ type Capacity struct {
 //
 // The rules of the domain hold here:
 //
-//   - the hours the owner declares are positive: she declares the hours of
-//     her weekend, and zero hours are not a weekend;
+//   - the hours the owner declares are positive: zero hours are not a
+//     weekend, and the number that is not a number is not a number of hours;
+//   - the hours are the whole minutes she declared: they are turned into
+//     minutes once, and the batches are the whole division of them, so a
+//     float in the middle never drops the batch that fits exactly;
 //   - every recipe is a recipe of the business that asks for the capacity;
 //   - the labor of a batch that needs the owner is the sum of the minutes of
 //     the steps of her hands, and the oven and the waiting are not counted:
 //     the batch bakes and rests while she does the next thing;
-//   - the batches are whole: the book never splits a batch, so the capacity
-//     carries the whole number of batches the hours carry, and the units are
-//     those batches times the yield of the recipe;
+//   - the batches are whole: the book never splits a batch and it never
+//     rounds one up, so the capacity carries the whole number of batches the
+//     minutes carry, and the units are those batches times the yield of the
+//     recipe;
 //   - a recipe whose hands-on labor is zero is not limited by the hours: its
 //     capacity carries no batch and no unit, and it says that the hours do
 //     not bound it.
@@ -76,9 +80,18 @@ type Capacity struct {
 // ErrWrongBusiness when a recipe belongs to another business, and the error
 // of the recipe when a step of it is not a step of the book.
 func TheCapacity(own business.ID, hours float64, recipes []Recipe) (Capacity, error) {
-	if hours <= 0 {
+	// The check reads "not greater than zero" and it is not a style: a
+	// number that is not a number is never less than zero nor equal to it,
+	// and the weekend of no hours would pass a comparison against zero.
+	if !(hours > 0) {
 		return Capacity{}, fmt.Errorf("%w: the weekend carries %v hours", ErrInvalidCapacityHours, hours)
 	}
+
+	// The hours are turned into whole minutes once, here, and the batches
+	// are the whole division of them: the product of the hours and the
+	// minutes of an hour is not exact in binary, and a float in the middle
+	// of the division drops the batch that fits the weekend exactly.
+	weekend := int(math.Round(hours * MinutesPerHour))
 
 	capacity := Capacity{Hours: hours, Recipes: make([]CapacityOfARecipe, 0, len(recipes))}
 
@@ -102,7 +115,7 @@ func TheCapacity(own business.ID, hours float64, recipes []Recipe) (Capacity, er
 		// The recipe the hours do not bound is not a recipe of no
 		// capacity: the answer says that the hours do not limit it.
 		if minutes > 0 {
-			batches := int(math.Floor(hours * MinutesPerHour / float64(minutes)))
+			batches := weekend / minutes
 
 			carried.Limited = true
 			carried.Batches = batches

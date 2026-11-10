@@ -187,7 +187,7 @@ var theMessages = map[error]string{
 		"yield and the shelf life of it",
 	recipe.ErrNoStorage: "the service has no storage of the recipes: the book of the bakery cannot be reached",
 	recipe.ErrWrongBusiness: "the recipe belongs to another business: every tool that reads a recipe reads it " +
-		"for one business, so read the recipes of the business the person names, and name one of them",
+		"for one business, so read the recipes of the business that owns it, and send the identity of that business",
 	recipe.ErrInvalidCapacityHours: "the hours of the weekend are not the hours the owner can work: ask the " +
 		"owner how many hours of her own hands she has for the weekend, and send a positive number — zero hours " +
 		"are not a weekend, and PACA never invents them",

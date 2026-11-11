@@ -643,6 +643,7 @@ func New(
 		ServiceVersion:      serviceVersion,
 		Instructions:        Instructions,
 		Logger:              logger,
+		TracerProvider:      tracerProvider,
 		MaxRequestBodyBytes: cfg.MaxRequestBytes,
 		TrustedOrigins:      cfg.TrustedOrigins,
 		Users:               usersService,

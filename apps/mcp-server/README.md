@@ -836,7 +836,7 @@ protocol, and that it keeps its transport to itself.
 
 | What                | Version  | Why                                                     |
 |---------------------|----------|---------------------------------------------------------|
-| Go                  | 1.27.3   | The latest security release of the 1.27 line (2026-10-19). The local toolchain of the repository is 1.26.3, which is below the security release 1.26.10. |
+| Go                  | 1.27.4   | The latest security release of the 1.27 line. |
 | MCP Go SDK          | v1.8.0   | The official SDK, with the protocol revision `2026-07-28`. |
 | golangci-lint       | v2.15.0  | Pinned in `tools/go.mod`.                               |
 | govulncheck         | v1.8.0   | Pinned in `tools/go.mod`.                               |

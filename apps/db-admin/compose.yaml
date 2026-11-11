@@ -30,7 +30,7 @@ services:
       context: ../..
       dockerfile: apps/db-admin/Dockerfile
       args:
-        GO_IMAGE: golang:1.27.3-alpine3.23@sha256:754d5200fc3edae76d3b6598a9a3fac7e74981ee6a5413ab955025f185753ef2
+        GO_IMAGE: golang:1.27.4-alpine3.23@sha256:146e3b9c7c1e2ec3d3f5348c8a686151a75e1976e50efac9fc022ebe446a9a82
         RUNTIME_IMAGE: gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
         VERSION: ${PACA_VERSION:-dev}
     image: paca/db-admin:${PACA_VERSION:-dev}

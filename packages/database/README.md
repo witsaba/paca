@@ -2094,4 +2094,4 @@ the applications.
 
 | What             | Version  | Why                                                     |
 |------------------|----------|---------------------------------------------------------|
-| Go               | 1.27.3   | The latest security release of the 1.27 line.            |
+| Go               | 1.27.4   | The latest security release of the 1.27 line.            |

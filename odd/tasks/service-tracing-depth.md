@@ -45,6 +45,7 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 | T4  | S1      | The hygiene of the collector: the spans of the collector itself leave the store, and the redaction covers the keys of the payloads of the tools. | inline | `015c393` |
 | T5  | S1, S2, S3 | The documentation: the model of the spans of each service, the recipe that reads the traces back, and the proof that the slice changed no behaviour. | inline | `772a524` |
 | T6  | S1      | The two noises the cutover proved: the statement of the health check and the spans of the collector itself leave the store. | inline | `b217272`, `71c6c41` |
+| T7  | S1      | The gate of the pull request: the toolchain of the repository moves to the security release that closes the advisory of the Go standard library that made the gate red. | inline | — |
 
 ---
 
@@ -325,3 +326,26 @@ The branch is `feat/service-tracing-depth`, with the worktree at
 `/Users/braejan/workspace/witsaba/repositories/paca-tracing-depth`. The
 push, the pull request and the merge remain the decisions of the person
 who owns the repository.
+
+### L15 — The gate of the pull request was red, and why it was fixed here
+
+The gate of the pull request failed at the `vuln` step with **GO-2026-6859**:
+an advisory of the Go standard library against `net/http@go1.27.3`, fixed in
+`net/http@go1.27.4`. The repository pins `go 1.27.3` in `go.work` and in
+every `go.mod` of the tree, and the images of the build pin the image of
+the same version by digest.
+
+The failure was not of this slice — the same scan fails the same way on
+`main` — but a red gate is a red gate, and the person who owns the
+repository asked for it to be fixed in the same pull request.
+
+The toolchain moved to **1.27.4**, and every pin of the tree with it:
+
+- the `go` directive of `go.work` and of the seven modules of the tree;
+- the image of the build of the two services, with its digest
+  (`golang:1.27.4-alpine3.23@sha256:146e3b9c…`);
+- the tables of the versions of the four READMEs that name it.
+
+The evidence: the scan of the MCP server answers *"Your code is affected by
+0 vulnerabilities"* with the new toolchain, and the gates of the three
+modules that change pass whole.

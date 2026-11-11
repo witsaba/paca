@@ -369,7 +369,7 @@ refuses to start.
 
 | What                | Version  | Why                                                     |
 |---------------------|----------|---------------------------------------------------------|
-| Go                  | 1.27.3   | The latest security release of the 1.27 line (2026-10-19). The toolchain of the repository is 1.27.3. |
+| Go                  | 1.27.4   | The latest security release of the 1.27 line. The toolchain of the repository is 1.27.4. |
 | golangci-lint       | v2.15.0  | Pinned in `tools/go.mod`.                               |
 | govulncheck         | v1.8.0   | Pinned in `tools/go.mod`.                               |
 | testcontainers-go   | v0.44.0  | The container tests.                                    |

@@ -11,7 +11,7 @@
 // The toolchain downloads it automatically when the local Go is older.
 module github.com/witsaba/paca/apps/db-admin
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/jackc/pgx/v5 v5.11.0

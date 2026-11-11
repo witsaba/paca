@@ -308,3 +308,20 @@ The rules that came out of the cutover:
   the health check leaves nothing behind.
 - The collector does not trace itself: its query API writes its spans
   straight to the storage, so the switch of its SDK is what stops them.
+
+### L14 — The acceptance of the slice
+
+The slice was accepted by the person who owns the repository, after the
+cutover of the stack and the reading of the traces back: *"lgtm"*.
+
+The acceptance covers the implementation, the tests and the evidence of the
+slice. Two things stay open on the host and neither of them blocks the
+slice: the native review (lineage `review-63e43867b7af30f5`, waiting for
+the artifacts of the reviewers) and the independent verification (the
+provider of the subagents answered with a quota error, so the agent of the
+verification never ran a probe).
+
+The branch is `feat/service-tracing-depth`, with the worktree at
+`/Users/braejan/workspace/witsaba/repositories/paca-tracing-depth`. The
+push, the pull request and the merge remain the decisions of the person
+who owns the repository.

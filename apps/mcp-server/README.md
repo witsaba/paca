@@ -669,6 +669,37 @@ An invalid value is an error, never a silent fallback: a server that starts
 with a collector it cannot reach, or with a sampler it cannot read, is a
 server that nobody asked for.
 
+### The spans of the tools
+
+The HTTP span of a request is the outer layer of the work of the server.
+Inside it, every call of a tool leaves a span of its own:
+
+```
+POST /mcp                             the span of the request (server)
+└── complete_onboarding               the span of the call (server)
+```
+
+The span of a call is **named after the tool** — `open_business`,
+`read_balances`, `record_commitment` — so the trace says what the service
+did, and not only that it answered a request. It carries three attributes:
+
+| Attribute         | What it is                                                       |
+|-------------------|------------------------------------------------------------------|
+| `mcp.method.name` | The method of the protocol: `tools/call`.                         |
+| `mcp.tool.name`   | The name of the tool the call reached.                            |
+| `error.type`      | The type of the failure, when the call failed.                    |
+
+The span of a call carries **no argument and no result**, and the message of
+an error never reaches it either: the product holds the names, the phones
+and the sums of the people who use it, and the store of the traces is not
+the place for that data. The type of the failure says the same thing
+without the value.
+
+The methods that carry no work leave no span behind: the handshake of the
+transport, the list of the tools and the ping of the client say nothing
+about the work of the service, and a span for each of them would fill the
+traces with the noise of the protocol.
+
 ### The logs and the traces
 
 The logs go to the standard output, as JSON. Every record carries the
@@ -683,6 +714,16 @@ trace to point at.
 ```json
 {"time":"2026-10-27T10:00:00Z","level":"INFO","msg":"request","method":"POST",
  "path":"/mcp","status":200,"duration":1200000,
+ "trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7"}
+```
+
+Every call of a tool writes one more line, with the name of the tool, its
+outcome and its duration. It carries the identifiers of the trace as well,
+so the line and the span of the call are the same event seen twice:
+
+```json
+{"time":"2026-10-27T10:00:00Z","level":"INFO","msg":"the tool call ended",
+ "tool":"open_business","outcome":"ok","error_type":"","duration":4280000,
  "trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7"}
 ```
 
@@ -795,7 +836,7 @@ protocol, and that it keeps its transport to itself.
 
 | What                | Version  | Why                                                     |
 |---------------------|----------|---------------------------------------------------------|
-| Go                  | 1.27.3   | The latest security release of the 1.27 line (2026-10-19). The local toolchain of the repository is 1.26.3, which is below the security release 1.26.10. |
+| Go                  | 1.27.4   | The latest security release of the 1.27 line. |
 | MCP Go SDK          | v1.8.0   | The official SDK, with the protocol revision `2026-07-28`. |
 | golangci-lint       | v2.15.0  | Pinned in `tools/go.mod`.                               |
 | govulncheck         | v1.8.0   | Pinned in `tools/go.mod`.                               |

@@ -17,4 +17,4 @@
 // The toolchain downloads it automatically when the local Go is older.
 module github.com/witsaba/paca/packages/domain
 
-go 1.27.3
+go 1.27.4

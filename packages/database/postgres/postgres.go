@@ -19,6 +19,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 )
@@ -110,6 +111,10 @@ func (c Config) Validate() error {
 type Pool struct {
 	pool *pgxpool.Pool
 
+	// tracer traces the statements the pool runs. It is nil when the
+	// caller asked for no tracing, and the statements leave no span then.
+	tracer trace.Tracer
+
 	// mu guards the view of the handle that the tools of the schema need.
 	mu sync.Mutex
 
@@ -117,12 +122,29 @@ type Pool struct {
 	sql *sql.DB
 }
 
+// Option configures the pool of connections.
+type Option func(*Pool)
+
+// WithTracer makes the pool trace every statement it runs.
+//
+// The tracer is the API of the tracing: the library builds no provider,
+// exports no span and reads no environment variable. The composition root
+// of the service owns that, and it hands the tracer over here.
+//
+// A pool without a tracer traces nothing: the statements leave no span
+// behind, and the behaviour of the library is the same.
+func WithTracer(tracer trace.Tracer) Option {
+	return func(p *Pool) {
+		p.tracer = tracer
+	}
+}
+
 // Open opens the pool of connections.
 //
 // The pool is lazy: it opens no connection until one is needed, and a
 // database that is down does not stop a service from starting. The health
 // check of the service is what asks the database whether it answers.
-func Open(ctx context.Context, cfg Config) (*Pool, error) {
+func Open(ctx context.Context, cfg Config, opts ...Option) (*Pool, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -143,19 +165,32 @@ func Open(ctx context.Context, cfg Config) (*Pool, error) {
 		return nil, fmt.Errorf("the pool of connections could not be opened: %w", err)
 	}
 
-	return &Pool{pool: pool}, nil
+	opened := &Pool{pool: pool}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(opened)
+	}
+
+	return opened, nil
 }
 
 // Ping asks the database whether it answers.
 //
 // The question goes through the generated code, on the same connection and
 // with the same driver as everything else the library does.
+//
+// The question is the health of the service and not work: the container
+// runtime asks it every few seconds, and a span for each question would
+// fill the traces with the noise of the runtime. The statement of the
+// health check is therefore not traced.
 func (p *Pool) Ping(ctx context.Context) error {
 	if p == nil || p.pool == nil {
 		return ErrNoPool
 	}
 
-	queries := db.New(p.pool)
+	queries := db.New(p.healthDoor())
 	if _, err := queries.Ping(ctx); err != nil {
 		return fmt.Errorf("the database did not answer: %w", err)
 	}
@@ -170,7 +205,35 @@ func (p *Pool) Queries() *db.Queries {
 	if p == nil || p.pool == nil {
 		return nil
 	}
-	return db.New(p.pool)
+	return db.New(p.door(nil))
+}
+
+// healthDoor returns the door of the health check: the pool itself, never
+// the decorated one.
+//
+// The health check is the runtime asking whether the service is alive. It
+// is not the work of the service, and a span for every question would fill
+// the traces with the noise of the runtime.
+func (p *Pool) healthDoor() db.DBTX {
+	return p.pool
+}
+
+// door returns the door of the generated queries: the transaction of the
+// context, or the pool when it carries none, decorated with the spans of
+// the tracing.
+//
+// The seam is the one the generator owns, so every query of every
+// repository of the library goes through it.
+func (p *Pool) door(inner db.DBTX) db.DBTX {
+	if inner == nil {
+		inner = p.pool
+	}
+
+	if p.tracer == nil {
+		return inner
+	}
+
+	return &tracedDBTX{inner: inner, tracer: p.tracer}
 }
 
 // SQL returns the handle of the database that the tools of the schema need.

@@ -3,10 +3,10 @@
 # The image of the PACA MCP server.
 #
 # Versions (checked 2026-10-27):
-#   Go 1.27.3     -> the latest security release of the 1.27 line. The 1.26
+#   Go 1.27.4     -> the latest security release of the 1.27 line. The 1.26
 #                    line got the same fix in 1.26.10 (2026-10-19): the
 #                    crypto/x509 mitigation for a certificate authority.
-#                    The toolchain of the repository is 1.27.3, and the
+#                    The toolchain of the repository is 1.27.4, and the
 #                    image builds with the very same version.
 #   distroless    -> static-debian12: the smallest runtime, without a shell
 #                    and without a package manager, so nothing that runs
@@ -18,7 +18,7 @@
 # The build context is the root of the monorepository: the server imports
 # the shared libraries of the repository, and they are modules of their own.
 
-ARG GO_IMAGE=golang:1.27.3-alpine3.23@sha256:754d5200fc3edae76d3b6598a9a3fac7e74981ee6a5413ab955025f185753ef2
+ARG GO_IMAGE=golang:1.27.4-alpine3.23@sha256:146e3b9c7c1e2ec3d3f5348c8a686151a75e1976e50efac9fc022ebe446a9a82
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
 
 # --- Stage 1: build the binary -------------------------------------------

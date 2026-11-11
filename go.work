@@ -8,7 +8,7 @@
 // The Go version is pinned here, and in every go.mod of the tree, so every
 // contributor and every container compiles the same code with the same
 // toolchain.
-go 1.27.3
+go 1.27.4
 
 use (
 	./apps/db-admin

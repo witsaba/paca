@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 )
@@ -23,6 +24,11 @@ type Options struct {
 	Instructions string
 	// Logger is the logger of the transport.
 	Logger *slog.Logger
+	// TracerProvider creates the spans of the calls of the tools.
+	//
+	// It may be nil: a transport without a tracer provider traces nothing,
+	// and the calls of the tools leave no span behind.
+	TracerProvider trace.TracerProvider
 	// MaxRequestBodyBytes is the largest request body the transport accepts.
 	MaxRequestBodyBytes int64
 	// TrustedOrigins are the origins the transport trusts. The rule of the
@@ -381,6 +387,11 @@ func New(opts Options) *Server {
 			Instructions: opts.Instructions,
 		},
 	)
+
+	// The calls of the tools are traced by the middleware of the SDK: the
+	// span of a call is the child of the span of the request that carried
+	// it, and the methods that carry no work leave no span behind.
+	server.AddReceivingMiddleware(tracingMiddleware(tracerOf(opts.TracerProvider), logger))
 
 	transport := &Server{server: server, logger: opts.Logger}
 	if transport.logger == nil {

@@ -137,12 +137,88 @@ The traces arrive over OTLP, so the services need an OTLP exporter pointed
 at `jaeger:4317`. The MCP server of the monorepository sends its HTTP spans
 there; the trace ID of a span is the same one the server logs.
 
+### The services of the monorepository
+
+Only the services of the monorepository are in the store. The collector
+traces its own API — every search of the interface writes a span of its own
+— and a filter drops those spans before they reach the storage:
+
+```yaml
+filter/own:
+  error_mode: ignore
+  traces:
+    span:
+      - 'resource.attributes["service.name"] == "jaeger"'
+```
+
+Without that filter, the store fills with the noise of the reading of the
+traces: two hundred spans of the service `jaeger` in three hours were
+measured on the stack of the monorepository, most of them the polling of the
+interface.
+
+The filter governs the spans that **arrive over OTLP**. The spans of the
+query API itself are written straight to the storage and never travel
+through the pipeline, so no processor can filter them: the switch of the
+SDK of the collector is what stops them.
+
+```yaml
+environment:
+  - OTEL_SDK_DISABLED=true
+```
+
+It turns off the instrumentation of the collector and nothing else: its
+logs stay, and the spans of the services of the monorepository keep
+arriving over OTLP.
+
+The spans of the services are the ones the code creates:
+
+| Service            | Span                    | What it is                                          |
+|--------------------|-------------------------|-----------------------------------------------------|
+| `paca-mcp-server`  | `POST /mcp`             | The request, from the instrumentation of the HTTP transport. |
+| `paca-mcp-server`  | the name of the tool    | The call of a tool: `open_business`, `read_balances`, `record_commitment`. |
+| `paca-mcp-server`  | `pg.query`              | A statement of the database.                          |
+| `paca-db-admin`    | `db-admin.migrate`      | The boot of the writer of the schema.                |
+| `paca-db-admin`    | `schema.migrate`        | The application of the pending migrations.            |
+| `paca-db-admin`    | `schema.lock`           | The wait for the lock of the migrations.              |
+
+### The query API
+
 The query API is the v3 one: Jaeger v2.22 removed the v1 endpoint
 `/api/services`, which answers 404. The endpoints are under `/api/v3`:
 
 ```sh
 curl http://127.0.0.1:16686/api/v3/services
 curl http://127.0.0.1:16686/api/v3/traces/<trace-id>
+```
+
+The parameters of the search are prefixed with `query.`, and the times are
+RFC 3339:
+
+```sh
+now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+from=$(date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)
+
+curl "http://127.0.0.1:16686/api/v3/traces\
+?query.serviceName=paca-mcp-server\
+&query.startTimeMin=${from}\
+&query.startTimeMax=${now}\
+&query.searchDepth=200"
+```
+
+Two things surprise everyone once:
+
+- **The name of the service is required.** A search without one answers
+  `501`: *"this storage backend requires a service name to search"*. The
+  Badger backend of this stack cannot search every service at once.
+- **The answer is `{"result": {"resourceSpans": [...]}}`**, not
+  `{"traces": [...]}`. The v3 API answers the OpenTelemetry shape, and the
+  spans are inside `resourceSpans`.
+
+A single trace is read with the older shape, which answers the trace with
+its spans:
+
+```sh
+curl "http://127.0.0.1:16686/api/v3/traces/<trace-id>?prettyPrint=true"
 ```
 
 ## The logs

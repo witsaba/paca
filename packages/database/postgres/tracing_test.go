@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -186,6 +187,22 @@ func TestTheRowEndsTheSpanOfItsStatement(t *testing.T) {
 	attributes := theAttributesOf(span)
 	if attributes[attributeErrorType] == "" {
 		t.Errorf("the span of the failed row carries no error type: %v", attributes)
+	}
+}
+
+func TestTheHealthCheckLeavesNoSpan(t *testing.T) {
+	t.Parallel()
+
+	exporter := &recordingExporter{}
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+
+	pool := &Pool{pool: &pgxpool.Pool{}, tracer: provider.Tracer("paca/database")}
+
+	if _, ok := pool.healthDoor().(*tracedDBTX); ok {
+		t.Errorf("the door of the health check is decorated with the tracing")
+	}
+	if _, ok := pool.door(pool.pool).(*tracedDBTX); !ok {
+		t.Errorf("the door of the work is not decorated with the tracing")
 	}
 }
 

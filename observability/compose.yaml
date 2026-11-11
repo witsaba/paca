@@ -23,6 +23,19 @@ services:
     # Jaeger v2 is configured by a file, never by environment variables: the
     # collector reads the standard OpenTelemetry Collector configuration.
     command: ["--config", "/etc/jaeger/config.yaml"]
+    # The collector traces its own query API, and those spans are written
+    # straight to the storage: no processor of the pipeline ever sees them,
+    # because they do not travel through it. They are the noise of the
+    # reading of the traces — two hundred spans in three hours, measured on
+    # the stack of the monorepository.
+    #
+    # The switch of the SDK is what stops them: it turns off the
+    # instrumentation of the collector itself. The logs of the collector stay
+    # as they are, and the spans of the services of the monorepository are
+    # untouched — they arrive over OTLP and they travel through the
+    # pipeline.
+    environment:
+      - OTEL_SDK_DISABLED=true
     # The image runs as uid 10001, but the daemon creates a named volume
     # owned by root:root, so the process cannot write the Badger files
     # unless it runs as root. It keeps no capability and cannot gain more.

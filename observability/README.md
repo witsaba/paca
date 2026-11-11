@@ -156,6 +156,20 @@ traces: two hundred spans of the service `jaeger` in three hours were
 measured on the stack of the monorepository, most of them the polling of the
 interface.
 
+The filter governs the spans that **arrive over OTLP**. The spans of the
+query API itself are written straight to the storage and never travel
+through the pipeline, so no processor can filter them: the switch of the
+SDK of the collector is what stops them.
+
+```yaml
+environment:
+  - OTEL_SDK_DISABLED=true
+```
+
+It turns off the instrumentation of the collector and nothing else: its
+logs stay, and the spans of the services of the monorepository keep
+arriving over OTLP.
+
 The spans of the services are the ones the code creates:
 
 | Service            | Span                    | What it is                                          |

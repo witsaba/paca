@@ -44,6 +44,7 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 | T3  | S1, S2  | The trace of the database admin: the boot that applies the schema becomes a trace with the lock, the migrations and the state of the schema in it. | inline | `2e6d292` |
 | T4  | S1      | The hygiene of the collector: the spans of the collector itself leave the store, and the redaction covers the keys of the payloads of the tools. | inline | `015c393` |
 | T5  | S1, S2, S3 | The documentation: the model of the spans of each service, the recipe that reads the traces back, and the proof that the slice changed no behaviour. | inline | `772a524` |
+| T6  | S1      | The two noises the cutover proved: the statement of the health check and the spans of the collector itself leave the store. | inline | — |
 
 ---
 
@@ -253,3 +254,36 @@ exists is the self-verification of the writer, which is not the same thing:
 
 The independent verifier is the missing proof, and the person who owns the
 repository can run it when the quota of the provider is back.
+
+### L12 — What the cutover of the stack proved, and the two noises it found
+
+The cutover was made by the person who owns the stack, and the trace of a
+call of a tool was read back from the collector:
+
+```
+POST /mcp          1.14 ms   the request
+└── list_users     0.94 ms   mcp.method.name=tools/call, mcp.tool.name=list_users
+    └── pg.query   0.80 ms   db.statement=SELECT ... FROM users ORDER BY id LIMIT $1::bigint
+```
+
+The call that failed answered `error.type=tool.error` on the span of the
+tool, and the boot of the database admin left its root trace with the
+migrations, the version and the lock under it.
+
+Two noises were found in the store of the fresh stack:
+
+- **The statement of the health check.** The container runtime asks the
+  health endpoint every few seconds, the endpoint is excluded from the
+  tracing, and the statement of that question became a **root** span of its
+  own: six orphan spans in three minutes, one per question of each
+  service. The health check is the runtime asking whether the service is
+  alive, not work: the statement of it is not traced any more.
+- **The spans of the collector itself.** The filter of the pipeline drops
+  the spans that arrive over OTLP with the name of the collector — proved
+  on the live stack with a probe: the probe of the service `jaeger` was
+  dropped and the probe of another service was stored. The spans of the
+  *query API* are written straight to the storage and never travel through
+  the pipeline, so no processor can filter them: the switch of the SDK of
+  the collector is what stops them, and it costs the logs of the collector
+  nothing (measured in a collector of its own: zero self-spans, the logs
+  unchanged).

@@ -180,12 +180,17 @@ func Open(ctx context.Context, cfg Config, opts ...Option) (*Pool, error) {
 //
 // The question goes through the generated code, on the same connection and
 // with the same driver as everything else the library does.
+//
+// The question is the health of the service and not work: the container
+// runtime asks it every few seconds, and a span for each question would
+// fill the traces with the noise of the runtime. The statement of the
+// health check is therefore not traced.
 func (p *Pool) Ping(ctx context.Context) error {
 	if p == nil || p.pool == nil {
 		return ErrNoPool
 	}
 
-	queries := db.New(p.door(nil))
+	queries := db.New(p.healthDoor())
 	if _, err := queries.Ping(ctx); err != nil {
 		return fmt.Errorf("the database did not answer: %w", err)
 	}
@@ -201,6 +206,16 @@ func (p *Pool) Queries() *db.Queries {
 		return nil
 	}
 	return db.New(p.door(nil))
+}
+
+// healthDoor returns the door of the health check: the pool itself, never
+// the decorated one.
+//
+// The health check is the runtime asking whether the service is alive. It
+// is not the work of the service, and a span for every question would fill
+// the traces with the noise of the runtime.
+func (p *Pool) healthDoor() db.DBTX {
+	return p.pool
 }
 
 // door returns the door of the generated queries: the transaction of the

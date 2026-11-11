@@ -85,8 +85,8 @@ func (p *Pool) queriesFor(ctx context.Context) *db.Queries {
 	}
 
 	if tx, ok := transactionIn(ctx); ok {
-		return db.New(p.pool).WithTx(tx)
+		return db.New(p.door(tx))
 	}
 
-	return db.New(p.pool)
+	return db.New(p.door(nil))
 }

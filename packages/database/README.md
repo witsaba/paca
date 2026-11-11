@@ -1969,6 +1969,38 @@ The generator needs one query to write the code of the connection: the
 the domain. The queries of the people live in `queries/users.sql`, and they
 are one statement per operation.
 
+## The tracing of the statements
+
+The library knows the **API** of the tracing and nothing else: it builds no
+provider, exports no span and reads no environment variable. The
+composition root of the service owns the provider and hands the tracer over
+when it opens the pool:
+
+```go
+pool, err := postgres.Open(ctx, poolCfg, postgres.WithTracer(tracer))
+```
+
+A pool without a tracer traces nothing, and the behaviour of the library is
+the same. The option is additive: no caller of the library breaks.
+
+Every statement leaves a span of its own, named `pg.query`, child of the
+span of the work that ran it:
+
+```
+open_business                    the call of the tool
+└── pg.query                     the statement
+```
+
+The span carries `db.system`, `db.namespace` and `db.statement`. The
+statement is the SQL of the generated code, and the generated code always
+binds the values: the span carries the shape of the query and never a value
+of it. The type of a failure is recorded when a statement fails, and never
+its message: the messages of the database carry the values they refuse.
+
+The seam is the one the generator owns (`DBTX`), so one decorator covers the
+statements of the repositories that exist and the ones that will be written
+tomorrow.
+
 ## The configuration of a service
 
 The library reads no environment variable. A service maps its own environment

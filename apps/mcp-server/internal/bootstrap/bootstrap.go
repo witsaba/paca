@@ -80,7 +80,7 @@ func New(
 	transportChecker := serving.NewChecker()
 	checkers := []ports.Checker{transportChecker}
 
-	pool, err := openDatabase(ctx, cfg, logger)
+	pool, err := openDatabase(ctx, cfg, logger, tracerProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -713,7 +713,7 @@ func New(
 // The database is optional: a service that does not name it starts without
 // one, and its health report says nothing about it. The pool is lazy, so a
 // database that is down does not stop the service from starting.
-func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*postgres.Pool, error) {
+func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger, tracerProvider trace.TracerProvider) (*postgres.Pool, error) {
 	if cfg.Database.URL == "" {
 		return nil, nil
 	}
@@ -723,7 +723,15 @@ func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (
 	poolCfg.MaxConns = cfg.Database.MaxConns
 	poolCfg.ConnectTimeout = cfg.Database.ConnectTimeout
 
-	pool, err := postgres.Open(ctx, poolCfg)
+	// The tracer of the library comes from here: the library knows the API
+	// of the tracing and nothing else, and the composition root owns the
+	// provider.
+	options := make([]postgres.Option, 0, 1)
+	if tracerProvider != nil {
+		options = append(options, postgres.WithTracer(tracerProvider.Tracer("paca/database")))
+	}
+
+	pool, err := postgres.Open(ctx, poolCfg, options...)
 	if err != nil {
 		return nil, fmt.Errorf("the pool of the database could not be opened: %w", err)
 	}

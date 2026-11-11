@@ -190,3 +190,34 @@ docker compose up -d --wait mcp-server db-admin jaeger
 
 After the cutover, a call of a tool is read back with the recipe of the
 documentation of the observability stack.
+
+### L10 — The native review of the slice: started, and blocked on the host
+
+The switch of the review is on, so the assessment of the slice ran, and it
+asked for the review: the tier of the candidate is high, and the reason it
+gives is a *process boundary* in `packages/database/postgres/tracing.go` —
+the word "process" of the comments of the file, read as code that starts
+processes. It is not a defect of the slice.
+
+The lineage of the review is `review-63e43867b7af30f5`, with the lenses
+`review-risk` and `review-reliability`, and it waits for the two artifacts
+of the reviewers. **The capture of those artifacts is blocked on the host:**
+the facade rejects the binding of the collector, both as the complete group
+and as a single slot, with *"collectBindings must be the complete distinct
+current reviewer group in exact provider order"* and *"collectBinding is
+missing or stale for current STATUS"*. The binding the status issues is
+copied exactly and nothing was captured; the lineage stays in the state
+`reviewing` and no verdict was admitted.
+
+Nothing of the review was submitted, and the delivery of the slice does not
+depend on it. The person who owns the repository can finish it with the
+collector itself:
+
+```sh
+gentle-ai review status \
+  --cwd=/Users/braejan/workspace/witsaba/repositories/paca-tracing-depth \
+  --contract=gentle-ai.review-integration/v2 --next-transition=true \
+  --lineage=review-63e43867b7af30f5 \
+  --repository-context=rctx2_8eaddf0ec74fa9d10adb776bc075e461b24b66d2121629000fcd8d3a37f47c1b \
+  --agent=pi --base-ref=01e834ad5025fd069ab19f0fa2bcd0034e59f8a6 --committed-only=true
+```

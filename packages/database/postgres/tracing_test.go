@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/witsaba/paca/packages/database/internal/db"
 )
@@ -20,7 +21,6 @@ type fakeDBTX struct {
 	rowErr   error
 	executed int
 	queried  int
-	scanned  int
 }
 
 // Exec answers the call of the test.
@@ -90,7 +90,7 @@ func theAttributesOf(span sdktrace.ReadOnlySpan) map[string]string {
 	attributes := make(map[string]string)
 
 	for _, attribute := range span.Attributes() {
-		attributes[string(attribute.Key)] = attribute.Value.Emit()
+		attributes[string(attribute.Key)] = attribute.Value.String()
 	}
 
 	return attributes
@@ -200,7 +200,7 @@ func TestAPoolWithoutATracerTracesNothing(t *testing.T) {
 		t.Errorf("the door of a pool without a tracer is decorated: %T", door)
 	}
 
-	withTracer := &Pool{tracer: trace.NewNoopTracerProvider().Tracer("paca/database")}
+	withTracer := &Pool{tracer: noop.NewTracerProvider().Tracer("paca/database")}
 	if _, ok := withTracer.door(inner).(*tracedDBTX); !ok {
 		t.Errorf("the door of a pool with a tracer is not decorated: %T", withTracer.door(inner))
 	}

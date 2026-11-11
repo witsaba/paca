@@ -278,7 +278,7 @@ func theAttributesOf(span sdktrace.ReadOnlySpan) map[string]string {
 	attributes := make(map[string]string)
 
 	for _, attribute := range span.Attributes() {
-		attributes[string(attribute.Key)] = attribute.Value.Emit()
+		attributes[string(attribute.Key)] = attribute.Value.String()
 	}
 
 	return attributes

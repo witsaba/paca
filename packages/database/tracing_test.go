@@ -108,7 +108,7 @@ func TestAFailingLockLeavesTheTypeOfTheFailureInItsSpan(t *testing.T) {
 
 	found := false
 	for _, attribute := range span.Attributes() {
-		if string(attribute.Key) == attributeErrorType && attribute.Value.Emit() != "" {
+		if string(attribute.Key) == attributeErrorType && attribute.Value.String() != "" {
 			found = true
 		}
 	}

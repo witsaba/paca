@@ -2004,7 +2004,10 @@ tomorrow.
 The migrator of the schema traces its work the same way: `schema.migrate`,
 `schema.lock`, `schema.version` and `schema.pending` are the spans of the
 work of the writer of the schema, and the tracer reaches it through the
-same kind of option.
+same kind of option. The migrator never opens a **root** span: it enriches
+a trace that is already open, so the health check of the service — the
+runtime asking whether the service is alive — leaves nothing behind in the
+store.
 
 ## The configuration of a service
 

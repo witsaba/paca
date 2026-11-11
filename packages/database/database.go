@@ -199,10 +199,16 @@ func (m *Migrator) Version(ctx context.Context) (int64, error) {
 
 // start opens the span of a piece of work of the migrator.
 //
-// A migrator without a tracer opens no span: the work of the schema leaves
-// no trace behind, and the behaviour of the library is the same.
+// The migrator never opens a **root** span: it enriches a trace that is
+// already open. The boot of the writer of the schema opens one, and the
+// health check of the service opens none — the runtime asking whether the
+// service is alive is not work, and a span of its own would be an orphan
+// in the store.
+//
+// A migrator without a tracer opens no span at all: the work of the schema
+// leaves no trace behind, and the behaviour of the library is the same.
 func (m *Migrator) start(ctx context.Context, name string) (context.Context, trace.Span) {
-	if m.tracer == nil {
+	if m.tracer == nil || !trace.SpanContextFromContext(ctx).IsValid() {
 		return ctx, trace.SpanFromContext(ctx)
 	}
 

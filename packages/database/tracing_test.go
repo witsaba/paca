@@ -87,6 +87,27 @@ func TestTheWaitForTheLockLeavesASpan(t *testing.T) {
 	}
 }
 
+func TestTheMigratorOpensNoRootSpan(t *testing.T) {
+	t.Parallel()
+
+	exporter := &recordingExporter{}
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+
+	migrator := &Migrator{tracer: provider.Tracer("paca/database")}
+
+	// The health check of the service asks the migrator outside of any
+	// trace: the runtime asking whether the service is alive is not work,
+	// and a span of its own would be an orphan in the store.
+	_, span := migrator.start(t.Context(), spanPending)
+	if span.SpanContext().IsValid() {
+		t.Errorf("the migrator opened a root span: %s", span.SpanContext().SpanID())
+	}
+
+	if len(exporter.spans) != 0 {
+		t.Errorf("the migrator left %d spans, want 0", len(exporter.spans))
+	}
+}
+
 func TestAFailingLockLeavesTheTypeOfTheFailureInItsSpan(t *testing.T) {
 	t.Parallel()
 

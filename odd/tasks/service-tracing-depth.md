@@ -221,3 +221,35 @@ gentle-ai review status \
   --repository-context=rctx2_8eaddf0ec74fa9d10adb776bc075e461b24b66d2121629000fcd8d3a37f47c1b \
   --agent=pi --base-ref=01e834ad5025fd069ab19f0fa2bcd0034e59f8a6 --committed-only=true
 ```
+
+### L11 — The independent verification of the slice could not run
+
+The risk line of the slice names item 3 (the public surface of the shared
+library changes), so the slice needs an **independent** verifier and not
+only the self-verification of the writer.
+
+The verifier was launched and it **never ran a probe**: the provider of the
+subagents answered with a quota error. It is the same error that killed the
+explorer and the two writers of the slice, so it is the quota of the
+provider of the session and not a defect of the brief.
+
+**The proof of the independent verification is therefore missing.** What
+exists is the self-verification of the writer, which is not the same thing:
+
+- The three modules build, vet and test green, and the gates are green
+  except for the advisory of the Go standard library of L7.
+- The layering holds: no OpenTelemetry in the domain, the application, the
+  ports or the generated code of the library; `packages/database` does not
+  depend on `packages/platform`; no production file of the library imports
+  the SDK of the tracing, only its API.
+- The contract did not break: the call sites of `main` — `postgres.Open(ctx,
+  cfg)`, `core.NewMigrator(nil, logger)`, `database.NewMigrator(nil)` — are
+  unchanged and still compile, because the two options are variadic. The
+  only call site that changed is the composition root of the database admin,
+  which hands the tracer over.
+- The privacy promise is mechanical: no span writes an argument, a result
+  or a message; the SQL of the library binds every value and never inlines
+  one.
+
+The independent verifier is the missing proof, and the person who owns the
+repository can run it when the quota of the provider is back.

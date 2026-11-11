@@ -45,7 +45,7 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 | T4  | S1      | The hygiene of the collector: the spans of the collector itself leave the store, and the redaction covers the keys of the payloads of the tools. | inline | `015c393` |
 | T5  | S1, S2, S3 | The documentation: the model of the spans of each service, the recipe that reads the traces back, and the proof that the slice changed no behaviour. | inline | `772a524` |
 | T6  | S1      | The two noises the cutover proved: the statement of the health check and the spans of the collector itself leave the store. | inline | `b217272`, `71c6c41` |
-| T7  | S1      | The gate of the pull request: the toolchain of the repository moves to the security release that closes the advisory of the Go standard library that made the gate red. | inline | — |
+| T7  | S1      | The gate of the pull request: the toolchain of the repository moves to the security release that closes the advisory of the Go standard library that made the gate red. | inline | `76e0c3c` |
 
 ---
 
@@ -348,4 +348,8 @@ The toolchain moved to **1.27.4**, and every pin of the tree with it:
 
 The evidence: the scan of the MCP server answers *"Your code is affected by
 0 vulnerabilities"* with the new toolchain, and the gates of the three
-modules that change pass whole.
+modules that change pass whole. The run of the continuous integration of
+the pull request is **green**: every job succeeded, the quality gate
+included, with the container tests of the shared libraries and of the
+applications running for the first time in this branch — the toolchain
+moved, so every module of the tree is in the diff of the gate.

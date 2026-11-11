@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/inbound/http"
 	"github.com/witsaba/paca/apps/db-admin/internal/adapters/outbound/database"
@@ -63,7 +64,7 @@ func New(
 
 	startedAt := time.Now()
 
-	pool, err := openDatabase(ctx, cfg, logger)
+	pool, err := openDatabase(ctx, cfg, logger, tracerProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,8 @@ func New(
 	// service never writes a migration of its own. It is built here, over
 	// the pool of the library, because this is the only place that knows
 	// every layer.
-	libraryMigrator, err := core.NewMigrator(pool.SQL(), logger)
+	libraryMigrator, err := core.NewMigrator(pool.SQL(), logger,
+		core.WithMigratorTracer(tracerProviderOf(tracerProvider).Tracer("paca/database")))
 	if err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("the migrator of the database library could not be created: %w", err)
@@ -85,7 +87,7 @@ func New(
 		return nil, err
 	}
 
-	state, err := migrateService.Migrate(ctx)
+	state, err := applySchema(ctx, tracerProviderOf(tracerProvider).Tracer("paca/db-admin"), migrateService)
 	if err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("the migrations could not be applied: %w", err)
@@ -125,6 +127,39 @@ func New(
 	}, nil
 }
 
+// spanMigrate is the name of the span of the boot that applies the schema.
+const spanMigrate = "db-admin.migrate"
+
+// applySchema applies the pending migrations of the schema, under a root
+// trace.
+//
+// The boot of the service is not a request: nobody called it, and no
+// request carries it. The trace of the work is therefore a root trace, and
+// it holds the wait for the lock of the migrations, the migrations that ran
+// and the state of the schema.
+//
+// The context of the span goes down with the work, so every span of the
+// migrations nests under it.
+func applySchema(ctx context.Context, tracer trace.Tracer, migrate *application.MigrateService) (schema.State, error) {
+	ctx, span := tracer.Start(ctx, spanMigrate)
+	defer span.End()
+
+	return migrate.Migrate(ctx)
+}
+
+// tracerProviderOf answers the provider of the service, or the one that
+// traces nothing.
+//
+// A service without a provider traces nothing: the boot leaves no span
+// behind, and the behaviour of the service is the same.
+func tracerProviderOf(provider trace.TracerProvider) trace.TracerProvider {
+	if provider == nil {
+		return noop.NewTracerProvider()
+	}
+
+	return provider
+}
+
 // openDatabase opens the pool of connections of the library, and it waits
 // for the database to answer.
 //
@@ -137,11 +172,19 @@ func New(
 // writer waits for it instead of asking once and exiting: a container that
 // exits is restarted by the runtime of Docker, and the health check of the
 // container declares it unhealthy before the restart succeeds.
-func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger) (*postgres.Pool, error) {
+func openDatabase(ctx context.Context, cfg config.Config, logger *slog.Logger, tracerProvider trace.TracerProvider) (*postgres.Pool, error) {
 	poolCfg := postgres.DefaultConfig()
 	poolCfg.URL = cfg.Database.URL
 
-	pool, err := postgres.Open(ctx, poolCfg)
+	// The tracer of the library comes from here: the library knows the API
+	// of the tracing and nothing else, and the composition root owns the
+	// provider.
+	options := make([]postgres.Option, 0, 1)
+	if tracerProvider != nil {
+		options = append(options, postgres.WithTracer(tracerProvider.Tracer("paca/database")))
+	}
+
+	pool, err := postgres.Open(ctx, poolCfg, options...)
 	if err != nil {
 		return nil, fmt.Errorf("the pool of connections could not be opened: %w", err)
 	}

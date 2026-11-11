@@ -2001,6 +2001,11 @@ The seam is the one the generator owns (`DBTX`), so one decorator covers the
 statements of the repositories that exist and the ones that will be written
 tomorrow.
 
+The migrator of the schema traces its work the same way: `schema.migrate`,
+`schema.lock`, `schema.version` and `schema.pending` are the spans of the
+work of the writer of the schema, and the tracer reaches it through the
+same kind of option.
+
 ## The configuration of a service
 
 The library reads no environment variable. A service maps its own environment

@@ -204,6 +204,31 @@ knows how to turn the tracing on and off.
 | `OTEL_SERVICE_NAME`               | `paca-db-admin` | The name the telemetry carries.                   |
 | `OTEL_RESOURCE_ATTRIBUTES`        | *empty*     | The attributes of the deployment, as `key=value` pairs. |
 
+### The trace of the boot
+
+The service does nothing but the database: its only route is the health
+endpoint, which is excluded from the tracing. Its real work — applying the
+schema — happens at boot, before it serves, and it left no trace behind.
+
+The boot now leaves a **root trace**, named `db-admin.migrate`:
+
+```
+db-admin.migrate                 the boot of the service (root)
+├── schema.lock                   the wait for the lock of the migrations
+├── schema.migrate                the application of the pending migrations
+├── schema.version                the version of the schema
+└── schema.pending                the migrations that are still waiting
+```
+
+The boot is not a request: nobody called it and no request carries it, so
+the trace of the work has no parent. The spans of the migrations nest under
+it, and the span of the lock says how long the service waited for the other
+replicas of the writer.
+
+The span of the migrations carries the migrations it applied
+(`schema.applied`), the version of the schema (`schema.version`) and
+whether a migration is still waiting (`schema.pending`).
+
 ### The logs and the traces
 
 The logs go to the standard output, as JSON. Every record carries the

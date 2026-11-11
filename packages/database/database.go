@@ -34,9 +34,12 @@ import (
 	"io/fs"
 	"log/slog"
 	"path"
+	"strings"
 
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/witsaba/paca/packages/domain/schema"
 )
@@ -57,6 +60,10 @@ var ErrNoDatabase = errors.New("the database of the migrator is not open")
 // replicas of itself.
 type Migrator struct {
 	provider *goose.Provider
+
+	// tracer traces the work of the migrator. It is nil when the caller
+	// asked for no tracing, and the work leaves no span then.
+	tracer trace.Tracer
 }
 
 // NewMigrator returns the migrator of the schema.
@@ -64,7 +71,7 @@ type Migrator struct {
 // The migrator takes the lock of the database while it applies a migration,
 // so two migrators that run at the same time take turns instead of writing
 // the same table twice.
-func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
+func NewMigrator(db *sql.DB, logger *slog.Logger, opts ...MigratorOption) (*Migrator, error) {
 	if db == nil {
 		return nil, ErrNoDatabase
 	}
@@ -75,6 +82,18 @@ func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
 	locker, err := lock.NewPostgresSessionLocker()
 	if err != nil {
 		return nil, fmt.Errorf("the lock of the database could not be taken: %w", err)
+	}
+
+	migrator := &Migrator{}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(migrator)
+	}
+
+	if migrator.tracer != nil {
+		locker = &tracedSessionLocker{inner: locker, tracer: migrator.tracer}
 	}
 
 	// The runner looks for the migrations at the root of the files it
@@ -96,7 +115,9 @@ func NewMigrator(db *sql.DB, logger *slog.Logger) (*Migrator, error) {
 		return nil, fmt.Errorf("the migrator could not be created: %w", err)
 	}
 
-	return &Migrator{provider: provider}, nil
+	migrator.provider = provider
+
+	return migrator, nil
 }
 
 // Up applies every migration that has not been applied yet, and returns the
@@ -109,8 +130,12 @@ func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
 		return nil, ErrNoDatabase
 	}
 
+	ctx, span := m.start(ctx, spanMigrate)
+	defer span.End()
+
 	results, err := m.provider.Up(ctx)
 	if err != nil {
+		recordFailure(span, err)
 		return nil, fmt.Errorf("the migrations could not be applied: %w", err)
 	}
 
@@ -126,6 +151,8 @@ func (m *Migrator) Up(ctx context.Context) ([]schema.Migration, error) {
 		})
 	}
 
+	span.SetAttributes(attribute.String(attributeSchemaApplied, theNamesOf(applied)))
+
 	return applied, nil
 }
 
@@ -135,10 +162,16 @@ func (m *Migrator) Pending(ctx context.Context) (bool, error) {
 		return false, ErrNoDatabase
 	}
 
+	ctx, span := m.start(ctx, spanPending)
+	defer span.End()
+
 	pending, err := m.provider.HasPending(ctx)
 	if err != nil {
+		recordFailure(span, err)
 		return false, fmt.Errorf("the pending migrations could not be read: %w", err)
 	}
+
+	span.SetAttributes(attribute.Bool(attributeSchemaPending, pending))
 
 	return pending, nil
 }
@@ -150,12 +183,44 @@ func (m *Migrator) Version(ctx context.Context) (int64, error) {
 		return 0, ErrNoDatabase
 	}
 
+	ctx, span := m.start(ctx, spanVersion)
+	defer span.End()
+
 	version, err := m.provider.GetDBVersion(ctx)
 	if err != nil {
+		recordFailure(span, err)
 		return 0, fmt.Errorf("the version of the schema could not be read: %w", err)
 	}
 
+	span.SetAttributes(attribute.Int64(attributeSchemaVersion, version))
+
 	return version, nil
+}
+
+// start opens the span of a piece of work of the migrator.
+//
+// A migrator without a tracer opens no span: the work of the schema leaves
+// no trace behind, and the behaviour of the library is the same.
+func (m *Migrator) start(ctx context.Context, name string) (context.Context, trace.Span) {
+	if m.tracer == nil {
+		return ctx, trace.SpanFromContext(ctx)
+	}
+
+	return m.tracer.Start(ctx, name)
+}
+
+// theNamesOf answers the names of the migrations, as one text.
+//
+// The name of a migration is the name of its file, and the file carries a
+// number: the name says which migration it was, and the number says in
+// which order.
+func theNamesOf(applied []schema.Migration) string {
+	names := make([]string, 0, len(applied))
+	for _, one := range applied {
+		names = append(names, fmt.Sprintf("%d_%s", one.Version, one.Name))
+	}
+
+	return strings.Join(names, ",")
 }
 
 // migrationName returns the name of the file of a migration, without the

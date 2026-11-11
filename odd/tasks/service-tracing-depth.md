@@ -40,7 +40,7 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 | ID  | Specs   | Task                                                                                                                                                              | Route  | Commit |
 |-----|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|--------|
 | T1  | S1, S2  | The spans of the tool calls: one span per call, named after the tool, child of the HTTP span, carrying the name of the tool and the type of the error, and a line of the log that carries the tool and the trace. | inline | `6524b2b` |
-| T2  | S1, S2  | The spans of the queries: one span per statement of the database library, over the seam the generator owns, with the tracer given to the library and not taken from it. | inline | — |
+| T2  | S1, S2  | The spans of the queries: one span per statement of the database library, over the seam the generator owns, with the tracer given to the library and not taken from it. | inline | `22354f3` |
 | T3  | S1, S2  | The trace of the database admin: the boot that applies the schema becomes a trace with the lock, the migrations and the state of the schema in it. | inline | — |
 | T4  | S1      | The hygiene of the collector: the spans of the collector itself leave the store, and the redaction covers the keys of the payloads of the tools. | inline | — |
 | T5  | S1, S2, S3 | The documentation: the model of the spans of each service, the recipe that reads the traces back, and the proof that the slice changed no behaviour. | inline | — |

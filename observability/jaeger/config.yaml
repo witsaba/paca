@@ -63,11 +63,43 @@ processors:
   # The processor deletes the attributes of the spans. An attribute of the
   # resource, or one under another name, would survive it: the redaction is
   # a rule of this repository, not a promise of the collector.
+  # The spans of the collector itself never reach the store.
+  #
+  # The collector is also the server of the interface, and it traces its own
+  # API: every search of the interface writes a span of its own, and the
+  # store fills with the noise of the reading of the traces. The measured
+  # cost was two hundred spans of the service `jaeger` in three hours, most
+  # of them the polling of the interface.
+  #
+  # The filter is by the name of the service, so the spans of the services of
+  # the monorepository are untouched.
+  filter/own:
+    error_mode: ignore
+    traces:
+      span:
+        - 'resource.attributes["service.name"] == "jaeger"'
+  # The arguments and the results of a tool call may carry personal
+  # financial data: PACA is a finance product. They are deleted here, before
+  # the spans leave the process, so they never reach the storage and never
+  # leave the machine.
+  #
+  # The spans of the tool calls carry no argument and no result today: the
+  # adapter of the transport never puts them in a span. The processor is the
+  # second line of that promise — it eats the payload of a tool even if a
+  # future change puts it in a span.
+  #
+  # The processor deletes the attributes of the spans. An attribute of the
+  # resource, or one under another name, would survive it: the redaction is
+  # a rule of this repository, not a promise of the collector.
   attributes/redact:
     actions:
       - key: gen_ai.tool.call.arguments
         action: delete
       - key: gen_ai.tool.call.result
+        action: delete
+      - key: mcp.tool.arguments
+        action: delete
+      - key: mcp.tool.result
         action: delete
 
 exporters:
@@ -93,6 +125,7 @@ service:
       processors:
         - memory_limiter
         - batch
+        - filter/own
         - attributes/redact
       exporters:
         - jaeger_storage_exporter

@@ -44,7 +44,7 @@ Each task lists the specs it covers, the route it takes, and the commit that hol
 | T3  | S1, S2  | The trace of the database admin: the boot that applies the schema becomes a trace with the lock, the migrations and the state of the schema in it. | inline | `2e6d292` |
 | T4  | S1      | The hygiene of the collector: the spans of the collector itself leave the store, and the redaction covers the keys of the payloads of the tools. | inline | `015c393` |
 | T5  | S1, S2, S3 | The documentation: the model of the spans of each service, the recipe that reads the traces back, and the proof that the slice changed no behaviour. | inline | `772a524` |
-| T6  | S1      | The two noises the cutover proved: the statement of the health check and the spans of the collector itself leave the store. | inline | — |
+| T6  | S1      | The two noises the cutover proved: the statement of the health check and the spans of the collector itself leave the store. | inline | `b217272`, `71c6c41` |
 
 ---
 
@@ -287,3 +287,24 @@ Two noises were found in the store of the fresh stack:
   the collector is what stops them, and it costs the logs of the collector
   nothing (measured in a collector of its own: zero self-spans, the logs
   unchanged).
+
+### L13 — The state of the store after the last cutover
+
+The last cutover left the store with exactly the work of the services and
+nothing else:
+
+```
+paca-mcp-server   3 spans   POST /mcp → list_users → pg.query
+paca-db-admin     5 spans   db-admin.migrate → schema.migrate, schema.version → schema.lock, schema.pending
+jaeger            0 spans
+```
+
+The rules that came out of the cutover:
+
+- The pool does not trace the statement of the **health check**: the
+  runtime asking whether the service is alive is not work.
+- The migrator never opens a **root** span: it enriches a trace that is
+  already open. The boot of the writer of the schema opens the trace, and
+  the health check leaves nothing behind.
+- The collector does not trace itself: its query API writes its spans
+  straight to the storage, so the switch of its SDK is what stops them.

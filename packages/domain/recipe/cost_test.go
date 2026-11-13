@@ -390,6 +390,59 @@ func TestTheCostOfAnIngredientWithoutItsLinkIsUnknown(t *testing.T) {
 	}
 }
 
+// TestTheCostOfAnUnlinkedRecipeIsDerivedWhenTheIngredientIsBought proves
+// the rule of the domain: the recipe lives unlinked and the catalog is
+// asked when the money is needed. A recipe written before the first
+// purchase starts costing the moment the owner buys the ingredient, and
+// nothing has to be linked again.
+func TestTheCostOfAnUnlinkedRecipeIsDerivedWhenTheIngredientIsBought(t *testing.T) {
+	t.Parallel()
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name: "Pan de molde",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Harina panadera", Grams: 500},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	if built.Ingredients[0].IngredientID != 0 {
+		t.Fatalf("the link of the ingredient is %d, want none", built.Ingredients[0].IngredientID)
+	}
+
+	layers := []purchase.Layer{
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+			theDayOfTheCost(), purchase.ID(9)),
+	}
+
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if !cost.Complete {
+		t.Errorf("the cost is not complete: %v", cost.Missing)
+	}
+	if len(cost.Lines) != 1 {
+		t.Fatalf("the cost carries %d lines, want 1", len(cost.Lines))
+	}
+	if cost.Lines[0].Unknown {
+		t.Error("the money of the ingredient was not derived, want the money of the layers of the stock")
+	}
+	if cost.Lines[0].IngredientID != ingredient.ID(10) {
+		t.Errorf("the ingredient of the line is %d, want 10", cost.Lines[0].IngredientID)
+	}
+	if cost.Direct <= 0 {
+		t.Errorf("the direct cost is %d, want the money of the layers of the stock", cost.Direct)
+	}
+}
+
 // TestTheCostOfTwoIngredientsWithoutTheirLinkIsTwoLines proves the rule of
 // the domain: two ingredients without a link are two ingredients, and they
 // are never merged into one.

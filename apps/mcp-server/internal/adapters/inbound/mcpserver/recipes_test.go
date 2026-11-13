@@ -232,7 +232,7 @@ func TestTheRecipeToolWritesAnIngredientTheCatalogDoesNotHold(t *testing.T) {
 	}
 
 	carried := textOf(t, result)
-	for _, want := range []string{"Azúcar", "not_linked"} {
+	for _, want := range []string{"Azúcar"} {
 		if !strings.Contains(carried, want) {
 			t.Errorf("the answer does not carry %q:\n%s", want, carried)
 		}

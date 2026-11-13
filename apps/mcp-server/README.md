@@ -317,13 +317,15 @@ times, their temperatures and their cues, when she named them. The grams of
 an ingredient are never inferred, and the yield is a declared constant of
 the recipe, never measured per bake.
 
-**The catalog of the business never refuses a recipe.** The identity of the
-catalog is a link and not a requirement: the tool sends the name the owner
-says, and the identity the tool `match_items` answered only when the
-business has already bought that ingredient. A recipe whose ingredient was
-never bought is written all the same, and the answer carries the names of
-the ingredients PACA does not know yet, so that the owner is told what the
-cost of the recipe is still missing. The recipe, its ingredients and its
+**The catalog of the business never refuses a recipe, and the recipe lives
+unlinked.** The tool sends the name the owner says, and the identity of the
+catalog only when that name is one of several the catalog answers — it is
+the memory of which one she meant. PACA reads the name of every ingredient
+against the catalog when the money or the stock is needed: a recipe written
+before the first purchase is baked and costed as soon as the owner buys that
+ingredient, and nothing has to be linked again. The tool `read_batch_cost`
+answers what the batch costs right now, and it says what is still missing.
+The recipe, its ingredients and its
 steps are written together or not
 at all: a recipe without its ingredients and its steps is not a guide, and a
 refused recipe leaves nothing behind.

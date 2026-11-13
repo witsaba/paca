@@ -46,9 +46,9 @@ func buildDescriptionRecordRecipe() string {
 		"  - grams is REQUIRED: how many grams of it the recipe needs. The grams are never inferred, and PACA " +
 		"refuses an ingredient without them.\n" +
 		"  - ingredient_id is OPTIONAL: the identity the tool " + ToolMatchItems + " answered for that name, " +
-		"when the business has already bought that ingredient. Leave it out when the catalog does not know the " +
-		"name: PACA writes the recipe with the name, and the cost of that ingredient stays unknown until she buys " +
-		"it.\n\n" +
+		"and only when that name is one of several the catalog answers. It is the memory of which one the owner " +
+		"meant: PACA reads the name of the ingredient against the catalog when the money or the stock is needed, " +
+		"so a recipe written before the first purchase is baked and costed as soon as the owner buys it.\n\n" +
 		"Every step carries what the owner does. At least one step is REQUIRED:\n\n" +
 		"  - instruction is REQUIRED: what the owner does in the step ('Amasar 20 minutos').\n" +
 		"  - cue is OPTIONAL: the sign the owner looks for ('la masa que holds the forma'). Leave it out when " +
@@ -70,8 +70,8 @@ func buildDescriptionRecordRecipe() string {
 		"confirmed_with is REQUIRED: the word she used to confirm it ('sí', 'confirmado'), and it is kept with " +
 		"the record.\n\n" +
 		"The answer carries the recipe that was written: its name, its ingredients with their grams, its steps " +
-		"in order, its yield and its shelf life. It also carries the names of the ingredients the catalog of the " +
-		"business does not hold yet, so that the owner is told what PACA does not know about them."
+		"in order, its yield and its shelf life. The tool " + ToolReadBatchCost + " answers what the batch costs " +
+		"right now, and it says what is still missing: an ingredient the business has not bought yet has no money."
 }
 
 // recordRecipeIngredientInput is one ingredient of the recipe.
@@ -200,11 +200,6 @@ type recordRecipeOutput struct {
 
 	// ConfirmedWith is the word the owner used to confirm the recipe.
 	ConfirmedWith string `json:"confirmed_with"`
-
-	// NotLinked are the names of the ingredients the catalog of the
-	// business does not hold yet: their cost is unknown until the owner
-	// buys them.
-	NotLinked []string `json:"not_linked,omitempty"`
 }
 
 // registerRecipeTools registers the tools of the recipes.
@@ -283,7 +278,6 @@ func requestOfRecipe(input recordRecipeInput) ports.RecordRecipe {
 // grams, its steps in order, its yield and its shelf life.
 func outputOfRecipe(recorded recipe.Recipe) recordRecipeOutput {
 	ingredients := make([]recipeIngredientOutput, 0, len(recorded.Ingredients))
-	notLinked := make([]string, 0)
 
 	for _, one := range recorded.Ingredients {
 		ingredients = append(ingredients, recipeIngredientOutput{
@@ -291,10 +285,6 @@ func outputOfRecipe(recorded recipe.Recipe) recordRecipeOutput {
 			IngredientID: int64(one.IngredientID),
 			Grams:        one.Grams,
 		})
-
-		if one.IngredientID == 0 {
-			notLinked = append(notLinked, one.Name)
-		}
 	}
 
 	steps := make([]recipeStepOutput, 0, len(recorded.Steps))
@@ -319,6 +309,5 @@ func outputOfRecipe(recorded recipe.Recipe) recordRecipeOutput {
 		ShelfLifeDays: recorded.ShelfLifeDays,
 		Utterance:     recorded.Utterance,
 		ConfirmedWith: recorded.ConfirmedWith,
-		NotLinked:     notLinked,
 	}
 }

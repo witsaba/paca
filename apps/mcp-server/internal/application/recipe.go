@@ -17,10 +17,10 @@ import (
 // it in the book of the business.
 //
 // The recipe names the ingredients the way the owner said them: the use
-// case reads the catalog of the business and links the ingredient to the
-// catalog when the catalog holds that name, and it writes the recipe all
-// the same when the catalog does not hold it. A recipe is knowledge and not
-// stock, and it is written before the first purchase.
+// case writes the name she said and keeps the link the agent sent when the
+// catalog of the business holds it. The catalog is never consulted to
+// decide what the recipe names, and it never refuses a recipe: a recipe is
+// knowledge and not stock, and it is written before the first purchase.
 //
 // The use case never decides what a recipe is: it asks the domain to build
 // the ingredients, the steps and the yield, and it writes what the domain
@@ -87,48 +87,38 @@ func (s *RecipeService) catalog(ctx context.Context, own business.ID) (ingredien
 }
 
 // linkOfTheCatalog answers the name of an ingredient of a recipe and the
-// identity of the catalog it carries.
+// link it carries.
 //
 // The rules of the use case:
 //
-//   - the identity the agent sent is the link when the catalog holds it;
-//   - otherwise the name the owner said is matched against the catalog, and
-//     an exact answer is the link;
-//   - a name the catalog does not know, and a name several ingredients
-//     answer, leave the recipe without a link: the recipe is written all
-//     the same, and its cost is unknown until the owner buys that
-//     ingredient.
-//
-// The name of the owner is the name of the recipe, and the name of the
-// catalog is only used when the agent sent no name at all.
+//   - the name the owner said is the name of the ingredient, and it is the
+//     only thing the recipe needs: the catalog is asked when the money or
+//     the stock is needed, and a recipe written before the first purchase
+//     lives unlinked and works all the same;
+//   - the link the agent sent is kept when the catalog of the business
+//     holds it: the link is the memory of what the owner meant when her
+//     wording was not enough, and it never decides the ingredient of the
+//     recipe;
+//   - a link the catalog of the business does not hold is dropped: the
+//     recipe is written with the name alone, and a recipe is never
+//     refused for a link.
 func linkOfTheCatalog(one ports.RecipeIngredient, catalog ingredient.Catalog) (string, ingredient.ID) {
 	name := strings.TrimSpace(one.Name)
 
-	if one.IngredientID != 0 {
-		item, held := catalog.Find(ingredient.ID(one.IngredientID))
-		if held {
-			if name == "" {
-				name = item.Name
-			}
+	if one.IngredientID == 0 {
+		return name, 0
+	}
 
-			return name, item.ID
-		}
+	item, held := catalog.Find(ingredient.ID(one.IngredientID))
+	if !held {
+		return name, 0
 	}
 
 	if name == "" {
-		return "", 0
+		name = item.Name
 	}
 
-	matched, err := catalog.Match(name)
-	if err != nil {
-		return name, 0
-	}
-
-	if matched.Status != ingredient.StatusExact {
-		return name, 0
-	}
-
-	return name, matched.Ingredient.ID
+	return name, item.ID
 }
 
 // definitionOf turns what the agent sent into the definition of the domain.
@@ -137,10 +127,10 @@ func linkOfTheCatalog(one ports.RecipeIngredient, catalog ingredient.Catalog) (s
 // build the ingredients, the steps and the yield, and it never builds them
 // by itself.
 //
-// The ingredients are linked to the catalog of the business when the
-// catalog holds that name, and they are written with the name the owner
-// said when it does not: the recipe is knowledge, and the knowledge is
-// written before the first purchase.
+// The ingredients are the ingredients the owner named: the use case writes
+// the name she said and keeps the link the agent sent, and it never refuses
+// a recipe because the catalog does not hold a name. The catalog is the one
+// owner of the ingredient, and the recipe is the one owner of the knowledge.
 func definitionOf(request ports.RecordRecipe, catalog ingredient.Catalog) (recipe.Definition, error) {
 	ingredients := make([]recipe.Ingredient, 0, len(request.Ingredients))
 	for _, one := range request.Ingredients {

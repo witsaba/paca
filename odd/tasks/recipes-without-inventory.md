@@ -73,10 +73,12 @@ And the rule of the domain package that carries it (`packages/domain/recipe/reci
 > the ingredient and the grams of it, and never a second copy of the flour.
 
 **What the rule becomes.** The ingredient of a recipe carries the **name the owner says** and its
-grams. The catalog identity is a **link** that the use case resolves when the catalog holds that
-name, and it is **not** a requirement. The recipe never carries a second copy of the *data* of
-the catalog — never its unit, never its conversions, never its price — and it never carries a
-second copy of the flour: it carries the name of the flour and the link to it when there is one.
+grams. The catalog identity is a **memory**, not a requirement: it is kept only when the agent had
+to disambiguate a name the catalog answers several times. The catalog is consulted **when the
+money or the stock is needed** — the costing and the production resolve every ingredient of the
+recipe by name, every time — and never when the recipe is written. The recipe never carries a
+second copy of the *data* of the catalog — never its unit, never its conversions, never its price
+— and it never carries a second copy of the flour: it carries the name of the flour.
 
 **The rule that survives.** A recipe that names an ingredient the catalog does not hold is a
 recipe whose **cost is unknown**, and it is never a recipe whose cost is zero. The costing layer
@@ -195,6 +197,46 @@ The first unit is 741 authored changed lines: it is one vertical slice of the ru
 not cut in two because the domain of the recipe and the table of its ingredients are the same
 rule written in two languages — a slice that cut between them would leave a domain that cannot be
 stored.
+
+**L6** (2026-11-13): The correction of the maintainer, and the rule it settled. The maintainer
+answered the first cut of this feature with a question that carried the real intention:
+
+> but that is the idea, the reciept must to live unlinked, i mean, if the ingredients doenst exist, the reciept and the preparation is the same, why must to be linked always?
+
+The first cut stored a link and read the cost **through that link**: a recipe written before the
+first purchase would have stayed without money for ever, and the answer to the maintainer was a
+"relink" tool. That was the wrong shape: it made the link the goal, and the goal of a recipe is to
+be read, to be taught and to be published.
+
+The rule that settled is:
+
+- the recipe carries the **name** the owner says, and it **lives unlinked**;
+- the catalog is consulted **when the money or the stock is needed**, and the resolution is
+  **derived every time** by name: a recipe written before the purchase is costed and baked as soon
+  as the owner buys the ingredient, and **nothing has to be linked again**;
+- the link that the recipe may carry is the memory of which one of several ingredients the catalog
+  answers the owner meant — it decides only when the name does not answer, and it is never a
+  requirement;
+- the money of an ingredient the catalog does not hold is **unknown and never zero**, and the
+  production of a recipe the catalog does not hold stays **refused**.
+
+The consequence that was withdrawn: there is **no "relink the recipe" tool**, and there is no
+second truth about the ingredient of a recipe. The recipe is the owner's document, the catalog is
+the book's, and the domain asks the catalog every time it needs the money or the stock.
+
+**L7** (2026-11-13): The evidence of the correction.
+
+- `packages/domain/recipe/resolve.go` (new): the resolution of the ingredients of a recipe against
+  the catalog — the name decides, the link disambiguates, and two ingredients the recipe names
+  twice are one ingredient of the batch.
+- The tests that pin it: the cost of an unlinked recipe is derived when the ingredient is bought
+  (`TestTheCostOfAnUnlinkedRecipeIsDerivedWhenTheIngredientIsBought`), the production of an
+  unlinked recipe takes the stock
+  (`TestTheProductionOfAnUnlinkedRecipeTakesTheStock`), and the recipe is written unlinked even
+  when the catalog knows the name (`TestTheRecipeLivesUnlinkedEvenWhenTheCatalogKnowsTheName`).
+- The answer of the tool `record_recipe` no longer carries the names of the ingredients without a
+  link: with the rule above, a recipe without a link is the normal recipe, and the tool
+  `read_batch_cost` is the one that says what the money still misses.
 
 **L5** (2026-11-13): The verification of the slice.
 

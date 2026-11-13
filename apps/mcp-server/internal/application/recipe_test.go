@@ -282,10 +282,12 @@ func TestTheIngredientTheCatalogDoesNotHoldIsWritten(t *testing.T) {
 	}
 }
 
-// TestTheIngredientTheCatalogHoldsIsLinked proves that the rule of the use
-// case holds: the catalog keeps the ownership of the ingredient, and the
-// recipe links the name the owner said to it.
-func TestTheIngredientTheCatalogHoldsIsLinked(t *testing.T) {
+// TestTheRecipeLivesUnlinkedEvenWhenTheCatalogKnowsTheName proves that
+// the rule of the use case holds: the recipe is written with the name the
+// owner said, and the catalog is never asked to decide what the recipe
+// names. The recipe lives unlinked, and the catalog is asked when the
+// money or the stock is needed.
+func TestTheRecipeLivesUnlinkedEvenWhenTheCatalogKnowsTheName(t *testing.T) {
 	t.Parallel()
 
 	recipes := &fakeRecipes{}
@@ -303,8 +305,59 @@ func TestTheIngredientTheCatalogHoldsIsLinked(t *testing.T) {
 	if kept.Name != "Harina panadera" {
 		t.Errorf("the name of the ingredient is %q, want %q", kept.Name, "Harina panadera")
 	}
-	if kept.IngredientID != ingredient.ID(10) {
-		t.Errorf("the link of the ingredient is %d, want 10", kept.IngredientID)
+	if kept.IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", kept.IngredientID)
+	}
+}
+
+// TestTheLinkTheAgentSentIsKept proves that the rule of the use case holds:
+// the link the agent sent is the memory of what the owner meant when her
+// wording was not enough, and the catalog of the business keeps it.
+func TestTheLinkTheAgentSentIsKept(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Harina panadera", IngredientID: 10, Grams: 500}
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if written.Ingredients[0].IngredientID != ingredient.ID(10) {
+		t.Errorf("the link of the ingredient is %d, want 10", written.Ingredients[0].IngredientID)
+	}
+}
+
+// TestTheLinkTheCatalogDoesNotHoldIsDropped proves that the rule of the use
+// case holds: a link the catalog of the business does not hold is dropped
+// and the recipe is written with the name alone. A recipe is never refused
+// for a link.
+func TestTheLinkTheCatalogDoesNotHoldIsDropped(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Harina panadera", IngredientID: 999, Grams: 500}
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if len(recipes.written) != 1 {
+		t.Fatalf("the storage holds %d recipes, want 1", len(recipes.written))
+	}
+	if written.Ingredients[0].IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", written.Ingredients[0].IngredientID)
+	}
+	if written.Ingredients[0].Name != "Harina panadera" {
+		t.Errorf("the name of the ingredient is %q, want %q", written.Ingredients[0].Name, "Harina panadera")
 	}
 }
 

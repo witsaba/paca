@@ -609,22 +609,28 @@ is not a step either (`ErrMissingInstruction`).
 
 **The ingredient of a recipe carries the name the owner says.**
 `recipe.Ingredient` carries the name of the ingredient, the grams of it,
-and the identity of the ingredient of the catalog **when the catalog holds
-that name**. The link is a link and not a requirement: a recipe is written
-before the first purchase, and an ingredient without a name is refused
-(`ErrMissingIngredientName`) while an ingredient without a link is written
-all the same.
+and the identity of the ingredient of the catalog **only when the agent
+disambiguated a name the catalog answers several times**. An ingredient
+without a name is refused (`ErrMissingIngredientName`).
+
+**The recipe lives unlinked, and the catalog is asked when it is needed.**
+The link is a memory, never a requirement: `recipe.CostOf` and
+`recipe.ProductionOf` resolve every ingredient of the recipe against the
+catalog of the business **by name**, every time they are asked. A recipe
+written before the first purchase is therefore not a recipe without an
+ingredient: it is a recipe whose ingredient the catalog did not know yet,
+and it is baked and costed as soon as the owner buys it. Nothing has to be
+linked again.
 
 The recipe never carries a second copy of the *data* of the catalog — never
 its unit, never its conversions, never its price — and it never carries a
-second copy of the flour: it carries the name of the flour and the link to
-it when there is one.
+second copy of the flour: it carries the name of the flour.
 
-**An ingredient without a link has an unknown cost, never a cost of zero.**
-The costing layer already knew how to say that: the line of an ingredient
-the catalog does not hold carries `Unknown`, the batch is not `Complete`,
-and the reason is in `Missing`. The production of such a recipe stays
-refused (`ErrUnknownIngredient`): a batch cannot be baked out of an
+**An ingredient the catalog does not hold has an unknown cost, never a cost
+of zero.** The costing layer already knew how to say that: the line of an
+ingredient the catalog does not hold carries `Unknown`, the batch is not
+`Complete`, and the reason is in `Missing`. The production of such a recipe
+stays refused (`ErrUnknownIngredient`): a batch cannot be baked out of an
 ingredient the business does not have.
 
 **The yield is a declared constant.** `recipe.Yield` is the number of units

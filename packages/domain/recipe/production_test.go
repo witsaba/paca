@@ -93,6 +93,51 @@ func theDefinitionOfTheProduction() recipe.ProductionDefinition {
 	}
 }
 
+// TestTheProductionOfAnUnlinkedRecipeTakesTheStock proves the rule of the
+// domain: the recipe lives unlinked, and the catalog is asked when the
+// stock is needed. A recipe written before the first purchase is baked
+// all the same, the moment the owner buys the ingredient.
+func TestTheProductionOfAnUnlinkedRecipeTakesTheStock(t *testing.T) {
+	t.Parallel()
+
+	unlinked, err := recipe.New(business.ID(77), recipe.Definition{
+		Name: "Pan de molde",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Harina panadera", Grams: 500},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	if unlinked.Ingredients[0].IngredientID != 0 {
+		t.Fatalf("the link of the ingredient is %d, want none", unlinked.Ingredients[0].IngredientID)
+	}
+
+	unlinked.ID = recipe.ID(9)
+
+	production, err := recipe.ProductionOf(
+		unlinked,
+		theLayersOfTheProduction(),
+		theCatalogOfTheTest(t),
+		theDefinitionOfTheProduction(),
+	)
+	if err != nil {
+		t.Fatalf("the production was refused: %v", err)
+	}
+
+	if production.GramsIn != 500 {
+		t.Errorf("the grams that went in are %v, want 500", production.GramsIn)
+	}
+	if len(production.Takes) == 0 {
+		t.Error("the production took nothing from the stock, want the layers of the flour")
+	}
+}
+
 // TestTheProductionCarriesTheRecipeTheDayTheGramsAndTheUnits proves the
 // rule of the domain: the production carries the recipe it was made of, the
 // day it was made, the grams that went in and the units that came out.

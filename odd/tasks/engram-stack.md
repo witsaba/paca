@@ -47,7 +47,8 @@ S7. "the is a error with engram due to is in collision the local one with the Pa
   `7437` of the local store. The files are `engram/compose.yaml`,
   `engram/Dockerfile`, `engram/README.md`, `scripts/tests/structure-test.sh`
   and `odd/tasks/engram-stack.md`. Route: inline, with an independent
-  verifier. Evidence: L10. Commit: pending.
+  verifier. Evidence: L10. Commit: `aac0e66` and the record of this
+  document.
 
 ## Log
 
@@ -306,6 +307,19 @@ what the error of the machine really was.
   observed, and the rule of the port is pinned by the gate instead of living
   in a comment.
 - The proof of the stack — the image built and the round trip of the memory
-  — was **not** observed on this machine: the Docker daemon is not running
-  here, so `make -C engram up` and `make -C engram smoke` are pending. They
-  are the gate of T5, and they close it.
+  — was **not** observed on the machine that wrote the slice, because the
+  Docker daemon is not running there. It was observed in the continuous
+  integration of the pull request `#75`, and it is green:
+  - The image of the stack builds from the release `3.7.1`: the archive of
+    the architecture is downloaded, it is checked against the sha256 that is
+    pinned, and the check answers `0.419 /tmp/engram.tar.gz: OK`. A wrong
+    pin would have failed the build.
+  - `make -C engram up` → `Container paca-engram Healthy`.
+  - `make -C engram smoke` → `engram: the memory is kept and given back`.
+    The proof registers a session, keeps a memory, searches it back, asserts
+    the bytes, refuses that the store accepted a destructive write without
+    the token and removes the record afterwards.
+  - The whole run of the continuous integration is green: `The changes`,
+    `The memory`, `The stack` and `The shellcheck` succeeded.
+  With that proof, the slice is closed: the store of PACA speaks the
+  release of the machine and takes no port at all.

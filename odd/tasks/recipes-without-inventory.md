@@ -95,8 +95,9 @@ baked out of an ingredient the business does not have.
 |-----|-----------|-----------------------------------------------------------------------------------|--------|--------|
 | T1  | S1, S2, S5 | The ingredient of the domain carries its name; the link to the catalog is optional | inline | `9ea90d6` |
 | T2  | S1, S3     | The table of the ingredients of a recipe holds the name, and the link may be empty | inline | `9ea90d6` |
-| T3  | S1, S2, S3 | The use case records a recipe whose ingredient the catalog does not hold          | inline | `2bcad05` |
-| T4  | S3        | The tool `record_recipe` takes the name of the ingredient, and the link when it knows it | inline | `2bcad05` |
+| T3  | S1, S2, S3 | The use case records a recipe whose ingredient the catalog does not hold          | inline | `2bcad05`, `c1f84d1` |
+| T4  | S3        | The tool `record_recipe` takes the name of the ingredient, and the link when it knows it | inline | `2bcad05`, `c1f84d1` |
+| T5  | S1, S2, S5 | The recipe lives unlinked: the catalog is asked when the money or the stock is needed | inline | `c1f84d1` |
 
 ### T1 — The name of the ingredient of a recipe
 
@@ -183,7 +184,7 @@ The consequences are deliberate and they are part of the acceptance:
 - The agent is told, in the answer of the tool, which ingredients are not linked to the catalog, so
   that Paca can tell the owner that she has not bought that ingredient yet.
 
-**L4** (2026-11-13): The slice boundary of the delivery. The feature landed in **two work units**
+**L4** (2026-11-13): The slice boundary of the delivery. The feature landed in **three work units**
 on the branch `feat/recipes-without-catalog`:
 
 - `9ea90d6` — *the ingredient of a recipe carries its name and an optional link to the catalog*:
@@ -192,6 +193,10 @@ on the branch `feat/recipes-without-catalog`:
 - `2bcad05` — *the recipe is written without the catalog of the purchases*: the port of the
   use case, the use case, the tool `record_recipe`, the messages of the agent and the tests of
   both.
+- `c1f84d1` — *the recipe lives unlinked and the catalog is asked when the money is needed*: the
+  resolution of the ingredients against the catalog, the costing and the production that ask for
+  it, the use case that never derives a link, and the tests of the rule as the maintainer settled
+  it.
 
 The first unit is 741 authored changed lines: it is one vertical slice of the rule, and it was
 not cut in two because the domain of the recipe and the table of its ingredients are the same

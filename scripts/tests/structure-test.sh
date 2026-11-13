@@ -946,6 +946,62 @@ test_the_stack_of_the_agent_carries_no_payload() {
     "the image of the agent verifies no checksum of the store"
 }
 
+# test_the_store_of_the_memory_takes_no_port asserts the rule of the ports
+# of the store of the memory: it answers on the unix socket of the volume
+# of the stack and on no TCP port at all.
+#
+# Engram refuses to combine the socket transport with an explicit TCP port
+# (`engram: socket transport cannot be combined with an explicit TCP port`,
+# exit 1), so a manifest that declares `ENGRAM_PORT` next to `ENGRAM_SOCKET`
+# does not move the store to another port: it breaks the store. The default
+# of Engram (`7437`) belongs to the local Engram of the machine of the
+# developer, and the store of PACA must never be the instance that owns it.
+#
+# The gate pins the rule: the manifest of the stack declares no port, the
+# stack publishes no port and exposes no port, and the store answers on the
+# socket of the volume. A rule that only a comment states is a wish.
+test_the_store_of_the_memory_takes_no_port() {
+  local engram_compose="$REPO_ROOT/engram/compose.yaml"
+  local engram_manifest="$REPO_ROOT/engram/env.example"
+  local engram_dockerfile="$REPO_ROOT/engram/Dockerfile"
+
+  [ -f "$engram_compose" ] || return 0
+  [ -f "$engram_manifest" ] || return 0
+  [ -f "$engram_dockerfile" ] || return 0
+
+  # The manifest of the stack declares no port: the store of the stack
+  # takes none.
+  local manifest
+  manifest=$(cat "$engram_manifest")
+  assert_not_contains "$manifest" "ENGRAM_PORT" \
+    "the manifest of the memory declares no port"
+
+  # The stack publishes no port to the host and exposes none. The comments
+  # of the compose file name the rule, so they are not part of the code that
+  # is read here.
+  local code
+  code=$(grep -v '^[[:space:]]*#' "$engram_compose")
+  assert_not_contains "$code" "ports:" \
+    "the stack of the memory publishes no port"
+  assert_not_contains "$code" "expose:" \
+    "the stack of the memory exposes no port"
+
+  # The store answers on the socket of the volume of the stack.
+  assert_contains "$code" "ENGRAM_SOCKET:" \
+    "the stack of the memory answers on the socket of its volume"
+
+  # The release of the store is pinned in one place: the stack and the
+  # image of the stack carry the same release, so the payload published and
+  # the store that runs are the same bytes.
+  local version_stack version_image
+  version_stack=$(build_arg_values "$engram_compose" "ENGRAM_VERSION" | sort -u)
+  version_image=$(awk -F= '/^ARG ENGRAM_VERSION=/{print $2}' "$engram_dockerfile")
+  assert_not_equals "" "$version_stack" \
+    "the stack of the memory pins the release of the store"
+  assert_equals "$version_stack" "$version_image" \
+    "the stack of the memory and its image carry the same release of the store"
+}
+
 # manifest_declares_required asserts that the manifest of a stack declares a
 # key as required: the directive "# @required" sits directly above the key.
 #
@@ -1274,6 +1330,7 @@ run_rule "no function of the repository is dead" test_there_is_no_dead_api
 run_rule "the database admin is the only writer of the schema" test_only_the_database_admin_writes_the_schema
 run_rule "the services do not carry the same code" test_the_services_do_not_carry_the_same_code
 run_rule "the stack of the agent carries no payload of its own" test_the_stack_of_the_agent_carries_no_payload
+run_rule "the store of the memory takes no port of its own" test_the_store_of_the_memory_takes_no_port
 run_rule "the agent of PACA carries the soul of Paca" test_the_agent_carries_the_soul_of_paca
 run_rule "the image of the database is one image" test_the_image_of_the_database_is_one_image
 run_rule "the artifact has its keepers" test_the_artifact_has_its_keepers

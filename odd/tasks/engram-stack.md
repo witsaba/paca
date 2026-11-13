@@ -20,6 +20,8 @@ S5. "Unix socket in the named volume (recommended)"
 
 S6. "Stack + full infra wiring + gate proof"
 
+S7. "the is a error with engram due to is in collision the local one with the Paca engram one, opern a new gitworktree and change the paca one in order to do not collision with my local, additional, change the engram paca port for avoid this again."
+
 ## Tasks
 
 - T1 — the stack of the memory: `engram/compose.yaml`, `engram/Dockerfile`,
@@ -37,6 +39,16 @@ S6. "Stack + full infra wiring + gate proof"
   of the token, and the packages of the image are pinned like every other
   dependency of the repository. Route: inline. Evidence: L9. Commit:
   `1ef1eb8`.
+- T5 — the isolation of the store of PACA from the store of the machine:
+  the release of the store moves to `3.7.1`, the same one the machine runs,
+  and the rule of the port is written down and pinned by the gate: the
+  store of the stack takes no TCP port at all, because Engram refuses the
+  socket transport next to an explicit TCP port, so it can never take the
+  `7437` of the local store. The files are `engram/compose.yaml`,
+  `engram/Dockerfile`, `engram/README.md`, `scripts/tests/structure-test.sh`
+  and `odd/tasks/engram-stack.md`. Route: inline, with an independent
+  verifier. Evidence: L10. Commit: `aac0e66` and the record of this
+  document.
 
 ## Log
 
@@ -131,7 +143,8 @@ L8. The evidence of the slice, observed and not asserted.
   archive of the architecture is checked against the sha256 that is pinned
   (`945fb471…` for amd64, `00a2d764…` for arm64) and the build fails when
   the bytes are not the ones that were pinned. The base image is
-  `alpine:3.22` pinned by digest.
+  `alpine:3.22` pinned by digest. (Superseded by L10: the release of the
+  stack is now `3.7.1`.)
 - `docker compose -f engram/compose.yaml up -d --wait engram` → `Container
   paca-engram Healthy`. The socket of the volume is `srw-------` and it
   belongs to the user `10000`: the store runs as that user and the consumer
@@ -215,3 +228,98 @@ L9. The review of the candidate, and the repair it asked for.
     `make all` → `All the steps of the gate passed.` (exit 0), with the
     memory beside the agent, the database and the traces, and the schema of
     the database asserted.
+
+L10. The isolation of the store of PACA from the store of the machine, and
+what the error of the machine really was.
+
+- The request, verbatim, is S7.
+- The error of the machine was **not** a collision of ports, and the slice
+  says so instead of pretending: the memory tools of Pi were refused with
+  `gentle-engram rejected the Engram runtime contract: unreadable or
+  incompatible contract. Expected engram.pi-http-runtime/v1`. The daemon
+  that answered on `127.0.0.1:7437` was the binary of the runtime of the
+  shell (`~/.gentle-shell/runtime/engram-3.5.2/engram serve`, unmanaged by
+  any pidfile), and it served the runtime contract with the digest
+  `4bf32703…`, while the extension installed expects the digest
+  `0af9af17…` and the operation `mem_search_prompts` that `3.5.2` does not
+  have. The daemon was stopped and replaced with the installed CLI
+  (`engram run -d -p 7437`, `3.7.1`), which serves the expected digest and
+  is tracked by a pidfile. The memory of the project answers again.
+- Two stores, two contracts, and the rule that keeps them apart: the store
+  of the machine and the store of the container of PACA are two instances of
+  Engram, and the container one must be the release that the machine one
+  runs, so a tool that speaks the contract of the local store does not fail
+  against the other for a version that drifted. The stack therefore moves to
+  the release `3.7.1`, with the sha256 of the official archive of each
+  architecture (`bc1acef6…` for amd64, `d5023e78…` for arm64), verified
+  against `checksums.txt` of the release.
+- The port of the stack is a rule of its own now, and the rule is stronger
+  than a different number: the store of PACA takes **no TCP port at all**.
+  Engram refuses to combine the socket transport with an explicit TCP port
+  (`ENGRAM_SOCKET` with `ENGRAM_PORT` → `engram: socket transport cannot be
+  combined with an explicit TCP port`, exit 1), and the stack uses the
+  socket of the volume. So the default of Engram (`7437`), which belongs to
+  the local store of the machine, can never be taken by the store of PACA:
+  the collision the request asks for is impossible by construction, not by
+  convention. The manifest of the stack therefore carries no port, and the
+  compose file says why, so the next person does not add one.
+- The evidence of the change, observed and not asserted.
+  - The pins of the release are the published ones: `checksums.txt` of the
+    release `3.7.1` names `bc1acef6…` for `linux_amd64` and `d5023e78…` for
+    `linux_arm64`, and the archives themselves hash to those values.
+  - The compose file of the stack is valid and carries the release:
+    `docker compose -f engram/compose.yaml config` resolves both services
+    with `ENGRAM_VERSION: 3.7.1` and the two checksums, and the service
+    publishes no port. The resolution needs the manifest of the stack
+    installed (`make env-init`), because the compose file reads
+    `engram/.env`.
+  - The transports of the store are exclusive, observed with the official
+    binary of the release: the socket alone serves the socket and binds no
+    TCP port at all; `ENGRAM_PORT` alone binds `127.0.0.1:<port>`; the two
+    together are refused with exit 1. That is what keeps the port of the
+    local store untouched. It was observed on the host with the binary of
+    the release, not inside the container: the image of the stack ships no
+    tool to assert it, so the gate of the repository is what pins the rule.
+  - The daemon of the machine serves the contract that the extension
+    expects: `curl -s http://127.0.0.1:7437/runtime-contract` answers
+    `engram.pi-http-runtime/v1` with the digest `0af9af17…`, and the
+    memory tools of Pi answered again in the session of the repair.
+  - The gates of the repository that do not need Docker are green:
+    `make shellcheck`, `make structure-test` (790 assertions),
+    `make ci-filters-test` (48) and `make env-test` (114), all with zero
+    failures.
+  - The rule of the port is pinned by the gate, and the pin discriminates:
+    the new rule of `scripts/tests/structure-test.sh` fails when the
+    manifest declares `ENGRAM_PORT` and when the compose file publishes a
+    port, and it passes on the tree as it is.
+- The independent verification of the slice, and what it changed. The
+  verifier read the whole diff and found three blockers, all of them real:
+  the manifest declared `ENGRAM_PORT=7438` next to `ENGRAM_SOCKET`, which
+  makes the store exit 1 and breaks the stack; the README documented a port
+  the stack does not have and contradicted itself; and L10 presented the
+  port as observed evidence when it had never been observed. The three were
+  repaired: the manifest carries no port, the README states the rule as it
+  is, and this log claims only what was observed. A second round of the
+  same verifier found no blocker over the repaired diff and left advisories,
+  and the advisories that mattered were taken: the stale release of L8 is
+  marked as superseded, the resolution of the compose file now names the
+  manifest it needs, the exclusivity of the transports says where it was
+  observed, and the rule of the port is pinned by the gate instead of living
+  in a comment.
+- The proof of the stack — the image built and the round trip of the memory
+  — was **not** observed on the machine that wrote the slice, because the
+  Docker daemon is not running there. It was observed in the continuous
+  integration of the pull request `#75`, and it is green:
+  - The image of the stack builds from the release `3.7.1`: the archive of
+    the architecture is downloaded, it is checked against the sha256 that is
+    pinned, and the check answers `0.419 /tmp/engram.tar.gz: OK`. A wrong
+    pin would have failed the build.
+  - `make -C engram up` → `Container paca-engram Healthy`.
+  - `make -C engram smoke` → `engram: the memory is kept and given back`.
+    The proof registers a session, keeps a memory, searches it back, asserts
+    the bytes, refuses that the store accepted a destructive write without
+    the token and removes the record afterwards.
+  - The whole run of the continuous integration is green: `The changes`,
+    `The memory`, `The stack` and `The shellcheck` succeeded.
+  With that proof, the slice is closed: the store of PACA speaks the
+  release of the machine and takes no port at all.

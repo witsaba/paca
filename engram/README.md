@@ -91,13 +91,24 @@ stack is a secret of its own, and the installer generates it.
 
 ## The ports
 
-There are none. The store answers on a unix socket inside the volume of the
+There are none published to the host. The store answers on a unix socket
+inside the volume of the
 stack, `/data/engram.sock`, and on nothing else. The local runtime of Engram
 binds the loopback of its own container and refuses any other address, so
 the socket is the only address that leaves the container. The container that
 mounts the volume of the stack reaches the store through it, as the user
 `10000` — the same user the container of the agent runs as — and the token
 of the stack guards the writes that destroy.
+
+Inside the container the store binds **no TCP port at all**, and that is not
+a convention: Engram refuses to combine the socket transport with an
+explicit TCP port (`ENGRAM_PORT`), so the store answers on the socket of the
+volume and on nothing else. The default of Engram (`7437`) belongs to the
+local Engram of the machine of the developer, and the store of PACA can
+never be the instance that owns it: it takes no port at all. A TCP port for
+this stack would need `ENGRAM_SOCKET` unset and a port that is not `7437`,
+and that is a decision of the architecture, not a value of a manifest — the
+manifest of the stack carries no port.
 
 The HTTP API of the store is a REST API and not an MCP endpoint, and it
 does not become one: the MCP server of the store is `engram mcp`, over the
@@ -137,6 +148,10 @@ engram/
 - The image is built from the official release of Engram, and the checksum
   of the archive is pinned for both architectures of the repository, so the
   same image serves amd64 and arm64.
+- The release of Engram that the stack carries is the one that the machine of
+  the developer runs: the store of the container and the local store of the
+  machine speak the same runtime contract, and a tool that talks to the
+  local one does not fail against the other for a version that drifted.
 - The packages of the base image are pinned by version too: the base image
   is pinned by digest, and the packages are the ones of its release. When
   the release gets a security update, the pin is bumped with it, on

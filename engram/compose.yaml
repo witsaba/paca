@@ -27,9 +27,9 @@ services:
         # The payload is the official release of Engram, pinned by version
         # and verified by the checksum of its architecture: the build fails
         # when the bytes are not the ones that were pinned.
-        ENGRAM_VERSION: "3.6.0"
-        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
-        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+        ENGRAM_VERSION: "3.7.1"
+        ENGRAM_SHA256_AMD64: "bc1acef625f16923b2ba548e0c911996b30d65c7c7cf15e949ecbc58136b127b"
+        ENGRAM_SHA256_ARM64: "d5023e786af7cefe07a5d46f8064851d5f89be73bdb10af4a148358ed0605583"
     image: paca/engram:${PACA_VERSION:-dev}
     container_name: paca-engram
     restart: unless-stopped
@@ -58,6 +58,16 @@ services:
       # The project of the monorepository: the memories of PACA belong to
       # it, and the stack names it once so that nothing has to guess it.
       ENGRAM_PROJECT: paca
+      # The store answers on the socket of the volume and on nothing else,
+      # and that is not a convention: Engram refuses to combine the socket
+      # transport with an explicit TCP port (`ENGRAM_PORT`), so the store of
+      # this stack binds no TCP port at all. The default of Engram (`7437`)
+      # belongs to the local Engram of the machine of the developer, and the
+      # store of PACA must never be the instance that owns it. A TCP port
+      # for this stack would need `ENGRAM_SOCKET` unset and a port that is
+      # not `7437`, and that is a decision of the architecture, not a value
+      # of a manifest: the manifest carries no port, and `ENGRAM_PORT` is
+      # never written into it.
     volumes:
       # The whole state of the store: the database of the memories and the
       # socket of the API. It is a named volume, so the state survives a
@@ -138,9 +148,9 @@ services:
         # The payload is the official release of Engram, pinned by version
         # and verified by the checksum of its architecture: the build fails
         # when the bytes are not the ones that were pinned.
-        ENGRAM_VERSION: "3.6.0"
-        ENGRAM_SHA256_AMD64: "945fb471188826c251160947f8dda9fe148ba0dd095fa3453174fe7ab5c6479e"
-        ENGRAM_SHA256_ARM64: "00a2d7645aa428e56c32c18b8de8bfa90d4c6e0f68c4d47bc82e3d6e3e77879d"
+        ENGRAM_VERSION: "3.7.1"
+        ENGRAM_SHA256_AMD64: "bc1acef625f16923b2ba548e0c911996b30d65c7c7cf15e949ecbc58136b127b"
+        ENGRAM_SHA256_ARM64: "d5023e786af7cefe07a5d46f8064851d5f89be73bdb10af4a148358ed0605583"
     image: paca/engram:${PACA_VERSION:-dev}
     container_name: paca-engram-payload
     # The service runs once and it ends: it is not restarted.

@@ -240,8 +240,8 @@ func ProductionOf(
 	for _, one := range gramsOfTheRecipe(baked) {
 		item, held := catalog.Find(one.IngredientID)
 		if !held {
-			return Production{}, fmt.Errorf("%w: the ingredient %d of the recipe is not one of the catalog of the business",
-				ErrUnknownIngredient, one.IngredientID)
+			return Production{}, fmt.Errorf("%w: the ingredient %q of the recipe is not one of the catalog of the business",
+				ErrUnknownIngredient, one.Name)
 		}
 
 		consumption, err := purchase.Consume(layers, one.IngredientID, one.Grams, item)

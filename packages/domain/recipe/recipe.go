@@ -6,10 +6,21 @@
 // yield of what it makes and the shelf life of it. The numbers of the
 // process live here; the lessons live in the memory of Paca.
 //
-// The ingredient of a recipe is the ingredient of the catalog: the recipe
-// carries the identity of the ingredient and the grams of it, and never a
-// second copy of the flour. The package imports the package of the
-// ingredient, and never the other way round.
+// The ingredient of a recipe carries the name the owner says and the grams
+// of it, and it carries the identity of the catalog only when the catalog
+// holds that name. The recipe never carries a second copy of the data of
+// the catalog - never its unit, never its conversions, never its price -
+// and it never carries a second copy of the flour: it carries the name of
+// the flour and the link to it when there is one.
+//
+// A recipe is knowledge and not stock: it is written before the first
+// purchase, it is read to teach and to publish, and the ingredient it names
+// is not refused because the business has not bought it yet. The link to
+// the catalog is what makes the cost of the batch derivable, and a recipe
+// without it has a cost that is unknown and never a cost of zero.
+//
+// The package imports the package of the ingredient, and never the other
+// way round.
 //
 // The yield is a declared constant: the number of units the recipe makes and
 // the weight of each one. It is never measured per bake.
@@ -91,11 +102,20 @@ func NewYield(units int, grams float64) (Yield, error) {
 
 // Ingredient is an ingredient of a recipe.
 //
-// It carries the identity of the ingredient of the catalog and the grams of
-// it, and nothing else: the recipe never carries a second copy of the
-// flour.
+// It carries the name the owner says, the grams of it, and the identity of
+// the ingredient of the catalog when the catalog holds that name.
+//
+// The identity is a link and not a requirement: it is empty when the
+// catalog does not know the name yet, and the recipe is still a recipe.
+// The recipe never carries a second copy of the data of the catalog: the
+// name and the grams are the knowledge of the recipe, and the unit, the
+// conversions and the price of the ingredient stay in the catalog.
 type Ingredient struct {
-	// IngredientID is the identity of the ingredient of the catalog.
+	// Name is the name the owner says of the ingredient.
+	Name string
+
+	// IngredientID is the identity of the ingredient of the catalog. It is
+	// empty when the catalog does not hold the name of the ingredient.
 	IngredientID ingredient.ID
 
 	// Grams is how many grams of it the recipe needs.
@@ -104,20 +124,26 @@ type Ingredient struct {
 
 // NewIngredient builds an ingredient of a recipe.
 //
-// The rule of the domain: the grams are positive. The identity of the
-// ingredient is not empty: a recipe that names nothing of the catalog has
-// no ingredient of its own.
-func NewIngredient(id ingredient.ID, grams float64) (Ingredient, error) {
-	if id == 0 {
-		return Ingredient{}, fmt.Errorf("%w: the ingredient of a recipe names nothing of the catalog",
-			ErrUnknownIngredient)
+// The rule of the domain: the name is not empty - the recipe names the
+// ingredient the way the owner said it - and the grams are positive.
+//
+// The identity of the catalog is a link: it is empty when the catalog does
+// not hold that name yet, and the recipe is written all the same. The
+// error is ErrMissingIngredientName when the name is empty, and
+// ErrMissingGrams when the grams are not positive.
+func NewIngredient(name string, id ingredient.ID, grams float64) (Ingredient, error) {
+	spoken := strings.TrimSpace(name)
+	if spoken == "" {
+		return Ingredient{}, fmt.Errorf("%w: the ingredient of a recipe carries the name the owner says",
+			ErrMissingIngredientName)
 	}
 
 	if grams <= 0 {
-		return Ingredient{}, fmt.Errorf("%w: the grams of the ingredient %d are %v", ErrMissingGrams, id, grams)
+		return Ingredient{}, fmt.Errorf("%w: the grams of the ingredient %q are %v",
+			ErrMissingGrams, spoken, grams)
 	}
 
-	return Ingredient{IngredientID: id, Grams: grams}, nil
+	return Ingredient{Name: spoken, IngredientID: id, Grams: grams}, nil
 }
 
 // Step is one step of the process of a recipe.
@@ -282,7 +308,7 @@ func (r Recipe) WithShelfLife(days int) Recipe {
 //     the book of the business;
 //   - the word of the confirmation is not empty: it is kept with the record;
 //   - the recipe carries at least one ingredient, and every one of them
-//     carries its grams;
+//     carries its name and its grams;
 //   - the recipe carries at least one step, and every one of them carries
 //     its instruction and its minutes are not negative: a step of negative
 //     minutes is a time nobody spends;
@@ -307,14 +333,16 @@ func New(own business.ID, definition Definition) (Recipe, error) {
 
 	ingredients := make([]Ingredient, 0, len(definition.Ingredients))
 	for _, one := range definition.Ingredients {
-		if one.Grams <= 0 {
-			return Recipe{}, fmt.Errorf("%w: the grams of the ingredient %d are %v",
-				ErrMissingGrams, one.IngredientID, one.Grams)
+		if strings.TrimSpace(one.Name) == "" {
+			return Recipe{}, fmt.Errorf("%w: an ingredient of the recipe carries no name", ErrMissingIngredientName)
 		}
 
-		if one.IngredientID == 0 {
-			return Recipe{}, fmt.Errorf("%w: the recipe names nothing of the catalog", ErrUnknownIngredient)
+		if one.Grams <= 0 {
+			return Recipe{}, fmt.Errorf("%w: the grams of the ingredient %q are %v",
+				ErrMissingGrams, one.Name, one.Grams)
 		}
+
+		one.Name = strings.TrimSpace(one.Name)
 
 		ingredients = append(ingredients, one)
 	}

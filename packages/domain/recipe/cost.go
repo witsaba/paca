@@ -2,6 +2,7 @@ package recipe
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/witsaba/paca/packages/domain/ingredient"
@@ -157,14 +158,20 @@ func CostOf(
 
 		item, held := catalog.Find(one.IngredientID)
 		if !held {
+			// The rule of the domain: the cost of an ingredient the
+			// catalog does not hold is unknown, and never zero. The
+			// money is not invented, and the batch is not complete.
+			line.Name = one.Name
 			line.Unknown = true
-			missing = append(missing, fmt.Sprintf("the ingredient %d is not one of the catalog", one.IngredientID))
+			missing = append(missing, fmt.Sprintf("the ingredient %q is not one of the catalog of the business", one.Name))
 			complete = false
 			lines = append(lines, line)
 
 			continue
 		}
 
+		// The name of the catalog is the name of the line: the money of
+		// the ingredient is the money of the ingredient of the catalog.
 		line.Name = item.Name
 
 		consumption, err := purchase.Consume(layers, one.IngredientID, one.Grams, item)
@@ -217,22 +224,42 @@ func CostOf(
 // of the batch never pays twice for the same gram.
 //
 // The answer keeps the order the owner said the ingredients in.
+//
+// The key that tells two ingredients apart is the identity of the catalog
+// when the recipe carries one, and the name the owner said when it does
+// not: two ingredients without a link are two ingredients, and they are
+// never merged into one.
 func gramsOfTheRecipe(baked Recipe) []Ingredient {
 	grams := make([]Ingredient, 0, len(baked.Ingredients))
-	indexes := make(map[ingredient.ID]int, len(baked.Ingredients))
+	indexes := make(map[string]int, len(baked.Ingredients))
 
 	for _, one := range baked.Ingredients {
-		if index, seen := indexes[one.IngredientID]; seen {
+		key := keyOfTheIngredient(one)
+		if index, seen := indexes[key]; seen {
 			grams[index].Grams += one.Grams
 
 			continue
 		}
 
-		indexes[one.IngredientID] = len(grams)
-		grams = append(grams, Ingredient{IngredientID: one.IngredientID, Grams: one.Grams})
+		indexes[key] = len(grams)
+		grams = append(grams, one)
 	}
 
 	return grams
+}
+
+// keyOfTheIngredient answers the key that tells two ingredients apart.
+//
+// The rule of the domain: an ingredient linked to the catalog is the one of
+// its identity, and an ingredient without a link is the one of the name the
+// owner said - the name is read the way a person reads it, trimmed and
+// without case.
+func keyOfTheIngredient(one Ingredient) string {
+	if one.IngredientID != 0 {
+		return "id:" + strconv.FormatInt(int64(one.IngredientID), 10)
+	}
+
+	return "name:" + strings.ToLower(strings.TrimSpace(one.Name))
 }
 
 // ratesOf answers the money of the batch per unit, per gram and per

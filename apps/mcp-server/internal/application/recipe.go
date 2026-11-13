@@ -50,21 +50,14 @@ func (s *RecipeService) Record(ctx context.Context, request ports.RecordRecipe) 
 		return recipe.Recipe{}, ports.ErrNoDatabase
 	}
 
-	definition, err := definitionOf(request)
-	if err != nil {
-		return recipe.Recipe{}, err
-	}
-
 	catalog, err := s.catalog(ctx, request.BusinessID)
 	if err != nil {
 		return recipe.Recipe{}, err
 	}
 
-	for _, one := range definition.Ingredients {
-		if !catalog.Holds(one.IngredientID) {
-			return recipe.Recipe{}, fmt.Errorf("%w: the ingredient %d is not one of the catalog of the business %d",
-				ingredient.ErrNotFound, one.IngredientID, request.BusinessID)
-		}
+	definition, err := definitionOf(request, catalog)
+	if err != nil {
+		return recipe.Recipe{}, err
 	}
 
 	built, err := recipe.New(request.BusinessID, definition)
@@ -94,10 +87,16 @@ func (s *RecipeService) catalog(ctx context.Context, own business.ID) (ingredien
 // The rules are the ones of the domain: the use case asks the domain to
 // build the ingredients, the steps and the yield, and it never builds them
 // by itself.
-func definitionOf(request ports.RecordRecipe) (recipe.Definition, error) {
+func definitionOf(request ports.RecordRecipe, catalog ingredient.Catalog) (recipe.Definition, error) {
 	ingredients := make([]recipe.Ingredient, 0, len(request.Ingredients))
 	for _, one := range request.Ingredients {
-		built, err := recipe.NewIngredient(ingredient.ID(one.IngredientID), one.Grams)
+		item, held := catalog.Find(ingredient.ID(one.IngredientID))
+		if !held {
+			return recipe.Definition{}, fmt.Errorf("%w: the ingredient %d is not one of the catalog of the business %d",
+				ingredient.ErrNotFound, one.IngredientID, request.BusinessID)
+		}
+
+		built, err := recipe.NewIngredient(item.Name, item.ID, one.Grams)
 		if err != nil {
 			return recipe.Definition{}, err
 		}

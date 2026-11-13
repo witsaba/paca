@@ -17,8 +17,15 @@ VALUES (
 RETURNING *;
 
 -- name: CreateRecipeIngredient :one
-INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, grams)
-VALUES (sqlc.arg(recipe_id), sqlc.arg(position), sqlc.arg(ingredient_id), sqlc.arg(grams))
+--
+-- The name of the ingredient is the name the owner says, and the link to
+-- the catalog is empty when the business has not bought that ingredient
+-- yet.
+INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, name, grams)
+VALUES (
+    sqlc.arg(recipe_id), sqlc.arg(position), sqlc.narg(ingredient_id), sqlc.arg(name),
+    sqlc.arg(grams)
+)
 RETURNING *;
 
 -- name: CreateRecipeStep :one
@@ -46,7 +53,7 @@ ORDER BY id;
 -- name: ListRecipeIngredientsByRecipe :many
 --
 -- The ingredients of the recipe, in the order the owner said them.
-SELECT id, recipe_id, position, ingredient_id, grams
+SELECT id, recipe_id, position, ingredient_id, name, grams
 FROM recipe_ingredients
 WHERE recipe_id = sqlc.arg(recipe_id)
 ORDER BY position;

@@ -607,11 +607,25 @@ teach, and the steps are part of it: a recipe without steps teaches nothing,
 and `recipe.New` refuses it (`ErrNoSteps`). A step without its instruction
 is not a step either (`ErrMissingInstruction`).
 
-**The ingredient of a recipe is the ingredient of the catalog.**
-`recipe.Ingredient` carries the identity of the ingredient and the grams of
-it, and nothing else: the recipe never carries a second copy of the flour.
-An ingredient of the catalog that the business does not hold is refused
-(`ErrUnknownIngredient`).
+**The ingredient of a recipe carries the name the owner says.**
+`recipe.Ingredient` carries the name of the ingredient, the grams of it,
+and the identity of the ingredient of the catalog **when the catalog holds
+that name**. The link is a link and not a requirement: a recipe is written
+before the first purchase, and an ingredient without a name is refused
+(`ErrMissingIngredientName`) while an ingredient without a link is written
+all the same.
+
+The recipe never carries a second copy of the *data* of the catalog — never
+its unit, never its conversions, never its price — and it never carries a
+second copy of the flour: it carries the name of the flour and the link to
+it when there is one.
+
+**An ingredient without a link has an unknown cost, never a cost of zero.**
+The costing layer already knew how to say that: the line of an ingredient
+the catalog does not hold carries `Unknown`, the batch is not `Complete`,
+and the reason is in `Missing`. The production of such a recipe stays
+refused (`ErrUnknownIngredient`): a batch cannot be baked out of an
+ingredient the business does not have.
 
 **The yield is a declared constant.** `recipe.Yield` is the number of units
 the recipe makes and the weight of each one, and it is positive

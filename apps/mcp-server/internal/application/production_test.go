@@ -67,7 +67,7 @@ func (f *fakeProductionWork) Do(ctx context.Context, work func(context.Context) 
 func theRecipeOfTheProduction(t *testing.T) recipe.Recipe {
 	t.Helper()
 
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 500)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}

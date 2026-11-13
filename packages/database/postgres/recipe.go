@@ -127,7 +127,8 @@ func (r *RecipeRepository) write(ctx context.Context, queries *db.Queries, writt
 		line, err := queries.CreateRecipeIngredient(ctx, db.CreateRecipeIngredientParams{
 			RecipeID:     row.ID,
 			Position:     int32(position + 1),
-			IngredientID: int64(one.IngredientID),
+			IngredientID: linkOfTheIngredient(one.IngredientID),
+			Name:         one.Name,
 			Grams:        one.Grams,
 		})
 		if err != nil {
@@ -135,7 +136,8 @@ func (r *RecipeRepository) write(ctx context.Context, queries *db.Queries, writt
 		}
 
 		ingredients = append(ingredients, recipe.Ingredient{
-			IngredientID: ingredient.ID(line.IngredientID),
+			Name:         line.Name,
+			IngredientID: ingredient.ID(line.IngredientID.Int64),
 			Grams:        line.Grams,
 		})
 	}
@@ -289,7 +291,8 @@ func (r *RecipeRepository) recipeOf(ctx context.Context, row rowOfARecipe) (reci
 	ingredients := make([]recipe.Ingredient, 0, len(ingredientRows))
 	for _, one := range ingredientRows {
 		ingredients = append(ingredients, recipe.Ingredient{
-			IngredientID: ingredient.ID(one.IngredientID),
+			Name:         one.Name,
+			IngredientID: ingredient.ID(one.IngredientID.Int64),
 			Grams:        one.Grams,
 		})
 	}
@@ -327,6 +330,21 @@ func (r *RecipeRepository) recipeOf(ctx context.Context, row rowOfARecipe) (reci
 	built.CreatedAt = timestamp(row.CreatedAt)
 
 	return built, nil
+}
+
+// linkOfTheIngredient returns the link to the catalog of an ingredient of a
+// recipe.
+//
+// The rule of the domain: the link is empty when the catalog does not hold
+// the name of the ingredient, and a recipe is written all the same. The
+// empty link is what the table holds as an empty column, and it is what
+// makes the cost of that ingredient unknown.
+func linkOfTheIngredient(id ingredient.ID) pgtype.Int8 {
+	if id == 0 {
+		return pgtype.Int8{}
+	}
+
+	return pgtype.Int8{Int64: int64(id), Valid: true}
 }
 
 // countOf returns the count as the column of the table holds it.

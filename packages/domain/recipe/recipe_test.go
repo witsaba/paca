@@ -12,7 +12,7 @@ import (
 
 // theIngredientOfTheTest is the ingredient of the catalog the recipe names.
 func theIngredientOfTheTest() recipe.Ingredient {
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 500)
 	if err != nil {
 		panic(err)
 	}
@@ -193,12 +193,12 @@ func TestTheRecipeWithoutIngredientsIsRefused(t *testing.T) {
 func TestTheIngredientWithoutItsGramsIsRefused(t *testing.T) {
 	t.Parallel()
 
-	if _, err := recipe.NewIngredient(ingredient.ID(10), 0); !errors.Is(err, recipe.ErrMissingGrams) {
+	if _, err := recipe.NewIngredient("flour", ingredient.ID(10), 0); !errors.Is(err, recipe.ErrMissingGrams) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingGrams)
 	}
 
 	definition := theDefinitionOfTheTest()
-	definition.Ingredients = []recipe.Ingredient{{IngredientID: ingredient.ID(10)}}
+	definition.Ingredients = []recipe.Ingredient{{Name: "flour", IngredientID: ingredient.ID(10)}}
 
 	if _, err := recipe.New(business.ID(77), definition); !errors.Is(err, recipe.ErrMissingGrams) {
 		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingGrams)
@@ -304,11 +304,11 @@ func TestTheStepWithNegativeMinutesIsRefused(t *testing.T) {
 	}
 }
 
-// TestTheRecipeCarriesTheIdentityOfTheIngredientAndNotACopy proves that
-// the rule of the domain holds: the ingredient of a recipe is the
-// ingredient of the catalog, and the recipe never carries a second copy of
-// the flour.
-func TestTheRecipeCarriesTheIdentityOfTheIngredientAndNotACopy(t *testing.T) {
+// TestTheRecipeCarriesTheNameOfTheIngredientAndItsLink proves that the
+// rule of the domain holds: the ingredient of a recipe carries the name the
+// owner says, the link to the catalog when there is one, and the grams. It
+// never carries a second copy of the data of the catalog.
+func TestTheRecipeCarriesTheNameOfTheIngredientAndItsLink(t *testing.T) {
 	t.Parallel()
 
 	fields := reflect.TypeOf(recipe.Ingredient{})
@@ -317,7 +317,7 @@ func TestTheRecipeCarriesTheIdentityOfTheIngredientAndNotACopy(t *testing.T) {
 		names = append(names, fields.Field(index).Name)
 	}
 
-	want := []string{"IngredientID", "Grams"}
+	want := []string{"Name", "IngredientID", "Grams"}
 	if len(names) != len(want) {
 		t.Fatalf("the ingredient of a recipe carries %v, want %v", names, want)
 	}
@@ -328,6 +328,36 @@ func TestTheRecipeCarriesTheIdentityOfTheIngredientAndNotACopy(t *testing.T) {
 	}
 }
 
+// TestTheIngredientWithoutItsNameIsRefused proves that the rule of the
+// domain holds: the name is the knowledge of the recipe, and an ingredient
+// without a name is an ingredient nobody can read.
+func TestTheIngredientWithoutItsNameIsRefused(t *testing.T) {
+	t.Parallel()
+
+	if _, err := recipe.NewIngredient("  ", ingredient.ID(10), 500); !errors.Is(err, recipe.ErrMissingIngredientName) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingIngredientName)
+	}
+}
+
+// TestTheIngredientWithoutItsLinkIsWritten proves that the rule of the
+// domain holds: the link to the catalog is a link and not a requirement, and
+// a recipe is written before the first purchase.
+func TestTheIngredientWithoutItsLinkIsWritten(t *testing.T) {
+	t.Parallel()
+
+	flour, err := recipe.NewIngredient("Harina", 0, 500)
+	if err != nil {
+		t.Fatalf("the ingredient could not be built: %v", err)
+	}
+
+	if flour.IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", flour.IngredientID)
+	}
+	if flour.Name != "Harina" {
+		t.Errorf("the name of the ingredient is %q, want %q", flour.Name, "Harina")
+	}
+}
+
 // TestTheErrorsNameEveryError proves that the catalogue of the errors of the
 // package holds every one of them: an error that no caller maps reaches the
 // user unmapped.
@@ -335,8 +365,8 @@ func TestTheErrorsNameEveryError(t *testing.T) {
 	t.Parallel()
 
 	all := recipe.Errors()
-	if len(all) != 64 {
-		t.Fatalf("the catalogue holds %d errors, want 64", len(all))
+	if len(all) != 65 {
+		t.Fatalf("the catalogue holds %d errors, want 65", len(all))
 	}
 
 	for _, err := range all {

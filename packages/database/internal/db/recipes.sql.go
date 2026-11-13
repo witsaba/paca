@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createRecipe = `-- name: CreateRecipe :one
@@ -64,23 +66,31 @@ func (q *Queries) CreateRecipe(ctx context.Context, arg CreateRecipeParams) (Rec
 }
 
 const createRecipeIngredient = `-- name: CreateRecipeIngredient :one
-INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, grams)
-VALUES ($1, $2, $3, $4)
-RETURNING id, recipe_id, position, ingredient_id, grams
+INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, name, grams)
+VALUES (
+    $1, $2, $3, $4,
+    $5
+)
+RETURNING id, recipe_id, position, ingredient_id, grams, name
 `
 
 type CreateRecipeIngredientParams struct {
 	RecipeID     int64
 	Position     int32
-	IngredientID int64
+	IngredientID pgtype.Int8
+	Name         string
 	Grams        float64
 }
 
+// The name of the ingredient is the name the owner says, and the link to
+// the catalog is empty when the business has not bought that ingredient
+// yet.
 func (q *Queries) CreateRecipeIngredient(ctx context.Context, arg CreateRecipeIngredientParams) (RecipeIngredient, error) {
 	row := q.db.QueryRow(ctx, createRecipeIngredient,
 		arg.RecipeID,
 		arg.Position,
 		arg.IngredientID,
+		arg.Name,
 		arg.Grams,
 	)
 	var i RecipeIngredient
@@ -90,6 +100,7 @@ func (q *Queries) CreateRecipeIngredient(ctx context.Context, arg CreateRecipeIn
 		&i.Position,
 		&i.IngredientID,
 		&i.Grams,
+		&i.Name,
 	)
 	return i, err
 }
@@ -161,27 +172,37 @@ func (q *Queries) GetRecipeByID(ctx context.Context, id int64) (Recipe, error) {
 }
 
 const listRecipeIngredientsByRecipe = `-- name: ListRecipeIngredientsByRecipe :many
-SELECT id, recipe_id, position, ingredient_id, grams
+SELECT id, recipe_id, position, ingredient_id, name, grams
 FROM recipe_ingredients
 WHERE recipe_id = $1
 ORDER BY position
 `
 
+type ListRecipeIngredientsByRecipeRow struct {
+	ID           int64
+	RecipeID     int64
+	Position     int32
+	IngredientID pgtype.Int8
+	Name         string
+	Grams        float64
+}
+
 // The ingredients of the recipe, in the order the owner said them.
-func (q *Queries) ListRecipeIngredientsByRecipe(ctx context.Context, recipeID int64) ([]RecipeIngredient, error) {
+func (q *Queries) ListRecipeIngredientsByRecipe(ctx context.Context, recipeID int64) ([]ListRecipeIngredientsByRecipeRow, error) {
 	rows, err := q.db.Query(ctx, listRecipeIngredientsByRecipe, recipeID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []RecipeIngredient{}
+	items := []ListRecipeIngredientsByRecipeRow{}
 	for rows.Next() {
-		var i RecipeIngredient
+		var i ListRecipeIngredientsByRecipeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.RecipeID,
 			&i.Position,
 			&i.IngredientID,
+			&i.Name,
 			&i.Grams,
 		); err != nil {
 			return nil, err

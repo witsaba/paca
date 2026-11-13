@@ -66,7 +66,7 @@ func theRecipeOfTheTest(bakery business.Business, flour ingredient.Ingredient) r
 	built, err := recipe.New(bakery.ID, recipe.Definition{
 		Name: "Pan de molde",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: flour.ID, Grams: 500},
+			{Name: flour.Name, IngredientID: flour.ID, Grams: 500},
 		},
 		Steps: []recipe.Step{
 			{Instruction: "Mezclar la harina con el agua y amasar.", Cue: "la masa que holds la forma", Minutes: 20, Temperature: 24, Kind: recipe.LaborHandsOn},
@@ -128,9 +128,9 @@ func TestTheRecipeIsKeptWithItsIngredientsAndItsSteps(t *testing.T) {
 }
 
 // TestTheIngredientsOfTheRecipeAreKeptWithTheirGrams proves the rule of
-// the table against a real database: the ingredient of a recipe is the
-// ingredient of the catalog, with the grams of it, and it is never a second
-// copy of the flour.
+// the table against a real database: the ingredient of a recipe carries the
+// name the owner says, the link to the catalog when there is one, and the
+// grams of it.
 func TestTheIngredientsOfTheRecipeAreKeptWithTheirGrams(t *testing.T) {
 	t.Parallel()
 
@@ -145,7 +145,7 @@ func TestTheIngredientsOfTheRecipeAreKeptWithTheirGrams(t *testing.T) {
 	}
 
 	rows, err := theSuite.db.QueryContext(ctx,
-		`SELECT ingredient_id, grams FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY position`, written.ID)
+		`SELECT ingredient_id, name, grams FROM recipe_ingredients WHERE recipe_id = $1 ORDER BY position`, written.ID)
 	if err != nil {
 		t.Fatalf("the ingredients of the recipe could not be read: %v", err)
 	}
@@ -154,14 +154,18 @@ func TestTheIngredientsOfTheRecipeAreKeptWithTheirGrams(t *testing.T) {
 	count := 0
 	for rows.Next() {
 		var ingredientID int64
+		var name string
 		var grams float64
-		if err := rows.Scan(&ingredientID, &grams); err != nil {
+		if err := rows.Scan(&ingredientID, &name, &grams); err != nil {
 			t.Fatalf("the ingredient of the recipe could not be read: %v", err)
 		}
 
 		count++
 		if ingredientID != int64(flour.ID) {
 			t.Errorf("the ingredient is %d, want %d", ingredientID, flour.ID)
+		}
+		if name != "flour" {
+			t.Errorf("the name of the ingredient is %q, want %q", name, "flour")
 		}
 		if grams != 500 {
 			t.Errorf("the grams of the ingredient are %v, want 500", grams)
@@ -307,6 +311,61 @@ func TestTheTableRefusesTheRecipeWithoutAYield(t *testing.T) {
 	}
 }
 
+// TestTheRecipeOfAnIngredientTheBusinessDidNotBuyIsWritten proves the rule
+// of the table against a real database: the recipe is knowledge and not
+// stock, and an ingredient the business has not bought yet is written with
+// the name the owner says and without a link to the catalog.
+func TestTheRecipeOfAnIngredientTheBusinessDidNotBuyIsWritten(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := recipesRepository(t)
+	bakery := theBakeryOfTheRecipes(t, ctx)
+
+	built, err := recipe.New(bakery.ID, recipe.Definition{
+		Name: "Pan de centeno",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Centeno", Grams: 500},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	written, err := repo.Record(ctx, built)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if len(written.Ingredients) != 1 {
+		t.Fatalf("the recipe carries %d ingredients, want 1", len(written.Ingredients))
+	}
+	if written.Ingredients[0].Name != "Centeno" {
+		t.Errorf("the name of the ingredient is %q, want %q", written.Ingredients[0].Name, "Centeno")
+	}
+	if written.Ingredients[0].IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", written.Ingredients[0].IngredientID)
+	}
+
+	found, err := repo.Find(ctx, written.ID)
+	if err != nil {
+		t.Fatalf("the recipe could not be read: %v", err)
+	}
+	if len(found.Ingredients) != 1 {
+		t.Fatalf("the recipe read carries %d ingredients, want 1", len(found.Ingredients))
+	}
+	if found.Ingredients[0].Name != "Centeno" {
+		t.Errorf("the name of the ingredient read is %q, want %q", found.Ingredients[0].Name, "Centeno")
+	}
+	if found.Ingredients[0].IngredientID != 0 {
+		t.Errorf("the link of the ingredient read is %d, want none", found.Ingredients[0].IngredientID)
+	}
+}
+
 // TestTheTableRefusesTheIngredientThatIsNotInTheCatalog proves the rule of
 // the domain against a real database: the ingredient of a recipe is the
 // ingredient of the catalog, and it is never a second copy of the flour.
@@ -324,7 +383,7 @@ func TestTheTableRefusesTheIngredientThatIsNotInTheCatalog(t *testing.T) {
 	}
 
 	_, err = theSuite.db.ExecContext(ctx,
-		`INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, grams) VALUES ($1, 2, $2, 500)`,
+		`INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, name, grams) VALUES ($1, 2, $2, 'Harina', 500)`,
 		written.ID, int64(flour.ID)+1000,
 	)
 	if err == nil {
@@ -358,7 +417,7 @@ func TestTheTableRefusesTwoIngredientsInTheSamePlace(t *testing.T) {
 	}
 
 	_, err = theSuite.db.ExecContext(ctx,
-		`INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, grams) VALUES ($1, 1, $2, 100)`,
+		`INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, name, grams) VALUES ($1, 1, $2, 'Harina', 100)`,
 		written.ID, int64(flour.ID),
 	)
 	if err == nil {

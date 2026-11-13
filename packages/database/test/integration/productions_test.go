@@ -133,7 +133,7 @@ func theRecipeOfTheProductions(
 	built, err := recipe.New(bakery.ID, recipe.Definition{
 		Name: "Pan de molde",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: flour, Grams: 500},
+			{Name: "flour", IngredientID: flour, Grams: 500},
 		},
 		Steps: []recipe.Step{
 			{Instruction: "Hornear."},

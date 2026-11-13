@@ -167,6 +167,8 @@ var theMessages = map[error]string{
 		"confirm the overhead ('sí', 'confirmado'), and it is kept with the record",
 	recipe.ErrNoIngredients: "the recipe carries no ingredient: read the sentence of the owner again and send the " +
 		"ingredients she said, with their grams",
+	recipe.ErrMissingIngredientName: "an ingredient of the recipe carries no name: send the name of it the way " +
+		"the owner says it ('Harina panadera'), because the recipe is written with the name she uses",
 	recipe.ErrMissingGrams: "an ingredient of the recipe carries no grams: ask the owner how many grams of it the " +
 		"recipe needs, and never guess them",
 	recipe.ErrUnknownIngredient: "the ingredient of the recipe is not one of the catalog of the business: match the " +

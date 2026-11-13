@@ -299,8 +299,9 @@ type RecipeIngredient struct {
 	ID           int64
 	RecipeID     int64
 	Position     int32
-	IngredientID int64
+	IngredientID pgtype.Int8
 	Grams        float64
+	Name         string
 }
 
 type RecipeShelfLifeCorrection struct {

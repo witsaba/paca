@@ -78,7 +78,7 @@ func theAnswerOfTheRecipe() recipe.Recipe {
 		ID:            recipe.ID(9),
 		BusinessID:    business.ID(77),
 		Name:          "Pan de molde",
-		Ingredients:   []recipe.Ingredient{{IngredientID: ingredient.ID(10), Grams: 500}},
+		Ingredients:   []recipe.Ingredient{{Name: "flour", IngredientID: ingredient.ID(10), Grams: 500}},
 		Steps:         []recipe.Step{{Instruction: "Hornear.", Minutes: 45, Temperature: 220}},
 		Yield:         recipe.Yield{Units: 10, Grams: 90},
 		ShelfLifeDays: 3,
@@ -93,7 +93,7 @@ func theArgumentsOfTheRecipe() map[string]any {
 		"business_id": 77,
 		"name":        "Pan de molde",
 		"ingredients": []any{
-			map[string]any{"ingredient_id": 10, "grams": 500},
+			map[string]any{"name": "Harina panadera", "ingredient_id": 10, "grams": 500},
 		},
 		"steps": []any{
 			map[string]any{
@@ -147,6 +147,9 @@ func TestTheRecipeToolWritesTheRecipe(t *testing.T) {
 	if recorder.got.Ingredients[0].IngredientID != 10 {
 		t.Errorf("the ingredient is %d, want 10", recorder.got.Ingredients[0].IngredientID)
 	}
+	if recorder.got.Ingredients[0].Name != "Harina panadera" {
+		t.Errorf("the name of the ingredient is %q, want %q", recorder.got.Ingredients[0].Name, "Harina panadera")
+	}
 	if recorder.got.Ingredients[0].Grams != 500 {
 		t.Errorf("the grams of the ingredient are %v, want 500", recorder.got.Ingredients[0].Grams)
 	}
@@ -189,6 +192,53 @@ func TestTheRecipeToolWritesTheRecipe(t *testing.T) {
 	}
 }
 
+// TestTheRecipeToolWritesAnIngredientTheCatalogDoesNotHold proves that the
+// tool carries the name the owner says to the use case, and that a recipe
+// without a link to the catalog is written all the same: a recipe is
+// knowledge and not stock.
+func TestTheRecipeToolWritesAnIngredientTheCatalogDoesNotHold(t *testing.T) {
+	t.Parallel()
+
+	answer := theAnswerOfTheRecipe()
+	answer.Ingredients = []recipe.Ingredient{{Name: "Azúcar", Grams: 500}}
+
+	recorder := &stubRecipeRecorder{recorded: answer}
+	session := connectWithTheRecipes(t, recorder)
+
+	arguments := theArgumentsOfTheRecipe()
+	arguments["ingredients"] = []any{
+		map[string]any{"name": "Azúcar", "grams": 500},
+	}
+
+	result, err := session.CallTool(t.Context(), &sdk.CallToolParams{
+		Name:      mcpserver.ToolRecordRecipe,
+		Arguments: arguments,
+	})
+	if err != nil {
+		t.Fatalf("the tool failed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("the tool answered an error: %s", textOf(t, result))
+	}
+
+	if len(recorder.got.Ingredients) != 1 {
+		t.Fatalf("the recipe carries %d ingredients, want 1", len(recorder.got.Ingredients))
+	}
+	if recorder.got.Ingredients[0].Name != "Azúcar" {
+		t.Errorf("the name of the ingredient is %q, want %q", recorder.got.Ingredients[0].Name, "Azúcar")
+	}
+	if recorder.got.Ingredients[0].IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", recorder.got.Ingredients[0].IngredientID)
+	}
+
+	carried := textOf(t, result)
+	for _, want := range []string{"Azúcar", "not_linked"} {
+		if !strings.Contains(carried, want) {
+			t.Errorf("the answer does not carry %q:\n%s", want, carried)
+		}
+	}
+}
+
 // TestTheDescriptionOfTheRecipeToolSaysWhatItNeeds proves that the
 // description of the tool is a contract with the agent: it says what is
 // required, and it says what the recipe is.
@@ -207,7 +257,8 @@ func TestTheDescriptionOfTheRecipeToolSaysWhatItNeeds(t *testing.T) {
 	for _, want := range []string{
 		"business is REQUIRED",
 		"name is REQUIRED",
-		"ingredient_id is REQUIRED",
+		"name is REQUIRED: the name of the ingredient",
+		"ingredient_id is OPTIONAL",
 		"grams is REQUIRED",
 		"instruction is REQUIRED",
 		"cue is OPTIONAL",

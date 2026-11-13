@@ -155,8 +155,8 @@ var theMessages = map[error]string{
 	ingredient.ErrUnknownConversion: "the piece is one unit of the ingredient, and its weight is never assumed: " +
 		"ask the owner how much the piece weighs",
 
-	recipe.ErrNotFound: "the business or the ingredient of the recipe is not there: check the business, and match " +
-		"the ingredient against the catalog of that business before writing the recipe",
+	recipe.ErrNotFound: "the business or the ingredient of the recipe is not there: check the business, and read " +
+		"the recipe again",
 	recipe.ErrMissingName: "the recipe carries no name: ask the owner for the name she reads ('Pan de molde'), " +
 		"and never invent one",
 	recipe.ErrMissingConfirmation: "the recipe carries no word of the owner: send the word she used to confirm it " +
@@ -171,8 +171,8 @@ var theMessages = map[error]string{
 		"the owner says it ('Harina panadera'), because the recipe is written with the name she uses",
 	recipe.ErrMissingGrams: "an ingredient of the recipe carries no grams: ask the owner how many grams of it the " +
 		"recipe needs, and never guess them",
-	recipe.ErrUnknownIngredient: "the ingredient of the recipe is not one of the catalog of the business: match the " +
-		"name against the catalog first, and send the identity it answered",
+	recipe.ErrUnknownIngredient: "the ingredient of the recipe is not one of the catalog of the business: the " +
+		"recipe is written all the same, but the batch cannot be baked until the owner buys that ingredient",
 	recipe.ErrNoSteps: "the recipe carries no step: a recipe is a guide to learn and to teach, so send the steps " +
 		"the owner said, in that order",
 	recipe.ErrMissingInstruction: "a step of the recipe carries no instruction: ask the owner what she does in " +

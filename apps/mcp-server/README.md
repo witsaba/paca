@@ -159,7 +159,7 @@ the log with the last word of every chain.
 | `match_items`             | Matches the name the owner just said against the catalog of the names the business buys: the ingredient it names, the options it offers, or the news that the catalog does not know it. It writes nothing. |
 | `read_ingredients`        | Reads the catalog of the names the business buys: every ingredient with its unit, the weight of a package, its allergens, its certification with its evidence and its conversion, and what each one is still missing. It writes nothing. |
 | `complete_ingredient`     | Writes what the owner just declared about an ingredient of the catalog: the unit it is bought in, the weight of a package, the allergens, the certification with the evidence that proves it, the names she uses for it and the conversion of its raw grams into its prepared ones. |
-| `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with its ingredients of the catalog and their grams, its steps, its yield and its shelf life. One call, one transaction. |
+| `record_recipe`           | Writes the recipe the owner just confirmed: the guide to learn and to teach, with the ingredients she named and their grams, its steps, its yield and its shelf life. The catalog never refuses a recipe. One call, one transaction. |
 | `record_reference`        | Writes the price of the market that PACA researched as a REFERENCE of the business: the ingredient, the price, its unit, the market, the source and the day it was seen, with the confirmation of the owner. A reference is never the price of the ingredient. |
 | `read_references`         | Reads the reference prices of a business, each one with its source and the day it was seen, for one ingredient or for every one of them. It writes nothing. |
 | `read_stock`              | Reads the stock of a business: what it holds of every ingredient, the layers that are still open — the oldest one first, because the valuation is FIFO — and the money the stock cost. The money of a layer that is partly consumed is the money of what is left of it. It writes nothing. |
@@ -309,16 +309,22 @@ is never assumed.
 
 **The recipe is a guide, and it is written with the yes of the owner.** The
 tool `record_recipe` takes the business, the name the owner reads, the
-ingredients of the catalog with their grams, the steps in the order she
-said them, the yield, the shelf life of what the recipe makes and the word
-she used to confirm it. A recipe is not a list of ingredients: it is a
+ingredients with the name she says for them and their grams, the steps in
+the order she said them, the yield, the shelf life of what the recipe makes
+and the word she used to confirm it. A recipe is not a list of ingredients: it is a
 guide to learn and to teach, and the steps are part of it — with their
 times, their temperatures and their cues, when she named them. The grams of
 an ingredient are never inferred, and the yield is a declared constant of
-the recipe, never measured per bake. The ingredient of a recipe is the
-ingredient of the catalog: PACA refuses an ingredient the catalog of the
-business does not hold, and the answer tells the agent to match the name
-first. The recipe, its ingredients and its steps are written together or not
+the recipe, never measured per bake.
+
+**The catalog of the business never refuses a recipe.** The identity of the
+catalog is a link and not a requirement: the tool sends the name the owner
+says, and the identity the tool `match_items` answered only when the
+business has already bought that ingredient. A recipe whose ingredient was
+never bought is written all the same, and the answer carries the names of
+the ingredients PACA does not know yet, so that the owner is told what the
+cost of the recipe is still missing. The recipe, its ingredients and its
+steps are written together or not
 at all: a recipe without its ingredients and its steps is not a guide, and a
 refused recipe leaves nothing behind.
 

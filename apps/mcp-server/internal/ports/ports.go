@@ -627,14 +627,22 @@ type IngredientCompleter interface {
 	Complete(ctx context.Context, request CompleteIngredient) (ingredient.Ingredient, error)
 }
 
-// RecipeIngredient is an ingredient of a recipe: the identity of the
-// ingredient of the catalog and the grams of it.
+// RecipeIngredient is an ingredient of a recipe: the name the owner says
+// and the grams of it.
+//
+// The identity of the catalog is a link and not a requirement: it is empty
+// when the business has not bought that ingredient yet, and the recipe is
+// written all the same.
 //
 // The port speaks in the words of the agent and in numbers: the use case
 // turns them into the model of the domain, and the domain decides what may
 // enter the book.
 type RecipeIngredient struct {
-	// IngredientID is the identity of the ingredient of the catalog.
+	// Name is the name the owner says of the ingredient.
+	Name string
+
+	// IngredientID is the identity of the ingredient of the catalog. It is
+	// empty when the catalog does not hold that name.
 	IngredientID int64
 
 	// Grams is how many grams of it the recipe needs.
@@ -673,8 +681,9 @@ type RecipeStep struct {
 // the word she used to confirm it.
 //
 // It is the shape of the contract between the agent and the service: the
-// sentence of the owner travels verbatim when she said one, and the
-// identity of every ingredient travels with the grams of it.
+// sentence of the owner travels verbatim when she said one, and the name of
+// every ingredient travels with the grams of it. The identity of the
+// catalog travels when the business has already bought that ingredient.
 type RecordRecipe struct {
 	// BusinessID is the business the recipe belongs to.
 	BusinessID business.ID
@@ -720,8 +729,10 @@ type RecipeRecorder interface {
 	//
 	// The error is the error of the domain: the domain refuses a recipe
 	// without a name, without a yield, with an ingredient without its
-	// grams, with a step without its instruction, and with an ingredient
-	// the catalog of the business does not hold.
+	// name, with an ingredient without its grams, and with a step without
+	// its instruction. The catalog of the business never refuses a
+	// recipe: an ingredient the business has not bought yet is a recipe
+	// whose cost is unknown, and not a recipe that cannot be written.
 	Record(ctx context.Context, request RecordRecipe) (recipe.Recipe, error)
 }
 

@@ -2,7 +2,7 @@ package application
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/witsaba/paca/apps/mcp-server/internal/ports"
 	"github.com/witsaba/paca/packages/domain/business"
@@ -16,9 +16,11 @@ import (
 // confirms it; the domain decides what a recipe is, and the use case writes
 // it in the book of the business.
 //
-// The recipe names the ingredients of the catalog: the use case reads the
-// catalog of the business and refuses an ingredient the catalog does not
-// hold, because the recipe never carries a second copy of the flour.
+// The recipe names the ingredients the way the owner said them: the use
+// case reads the catalog of the business and links the ingredient to the
+// catalog when the catalog holds that name, and it writes the recipe all
+// the same when the catalog does not hold it. A recipe is knowledge and not
+// stock, and it is written before the first purchase.
 //
 // The use case never decides what a recipe is: it asks the domain to build
 // the ingredients, the steps and the yield, and it writes what the domain
@@ -42,9 +44,11 @@ func NewRecipeService(recipes recipe.Repository, ingredients ingredient.Reposito
 // recipe without a yield, an ingredient without its grams and a step without
 // its instruction are refused, and a refused recipe leaves nothing behind.
 //
-// The ingredients of the recipe are the ingredients of the catalog of the
-// business: an ingredient the catalog does not hold is refused, and the
-// answer tells the agent to match the name against the catalog first.
+// The ingredients of the recipe are the ingredients the owner named: the
+// use case links them to the catalog of the business when the catalog holds
+// that name, and it never refuses a recipe because the catalog does not
+// hold a name. The catalog is the one owner of the ingredient, and the
+// recipe is the one owner of the knowledge.
 func (s *RecipeService) Record(ctx context.Context, request ports.RecordRecipe) (recipe.Recipe, error) {
 	if s == nil || s.recipes == nil || s.ingredients == nil {
 		return recipe.Recipe{}, ports.ErrNoDatabase
@@ -82,21 +86,67 @@ func (s *RecipeService) catalog(ctx context.Context, own business.ID) (ingredien
 	return ingredient.NewCatalog(own, items)
 }
 
+// linkOfTheCatalog answers the name of an ingredient of a recipe and the
+// identity of the catalog it carries.
+//
+// The rules of the use case:
+//
+//   - the identity the agent sent is the link when the catalog holds it;
+//   - otherwise the name the owner said is matched against the catalog, and
+//     an exact answer is the link;
+//   - a name the catalog does not know, and a name several ingredients
+//     answer, leave the recipe without a link: the recipe is written all
+//     the same, and its cost is unknown until the owner buys that
+//     ingredient.
+//
+// The name of the owner is the name of the recipe, and the name of the
+// catalog is only used when the agent sent no name at all.
+func linkOfTheCatalog(one ports.RecipeIngredient, catalog ingredient.Catalog) (string, ingredient.ID) {
+	name := strings.TrimSpace(one.Name)
+
+	if one.IngredientID != 0 {
+		item, held := catalog.Find(ingredient.ID(one.IngredientID))
+		if held {
+			if name == "" {
+				name = item.Name
+			}
+
+			return name, item.ID
+		}
+	}
+
+	if name == "" {
+		return "", 0
+	}
+
+	matched, err := catalog.Match(name)
+	if err != nil {
+		return name, 0
+	}
+
+	if matched.Status != ingredient.StatusExact {
+		return name, 0
+	}
+
+	return name, matched.Ingredient.ID
+}
+
 // definitionOf turns what the agent sent into the definition of the domain.
 //
 // The rules are the ones of the domain: the use case asks the domain to
 // build the ingredients, the steps and the yield, and it never builds them
 // by itself.
+//
+// The ingredients are linked to the catalog of the business when the
+// catalog holds that name, and they are written with the name the owner
+// said when it does not: the recipe is knowledge, and the knowledge is
+// written before the first purchase.
 func definitionOf(request ports.RecordRecipe, catalog ingredient.Catalog) (recipe.Definition, error) {
 	ingredients := make([]recipe.Ingredient, 0, len(request.Ingredients))
 	for _, one := range request.Ingredients {
-		item, held := catalog.Find(ingredient.ID(one.IngredientID))
-		if !held {
-			return recipe.Definition{}, fmt.Errorf("%w: the ingredient %d is not one of the catalog of the business %d",
-				ingredient.ErrNotFound, one.IngredientID, request.BusinessID)
-		}
+		name, link := linkOfTheCatalog(one, catalog)
 
-		built, err := recipe.NewIngredient(item.Name, item.ID, one.Grams)
+		built, err := recipe.NewIngredient(name, link, one.Grams)
 		if err != nil {
 			return recipe.Definition{}, err
 		}

@@ -1542,3 +1542,9 @@ The sixth MINOR: the answer did not say that the recipes do not share the hours 
 And an advisory that was taken: the hours that are not a number were not refused (the check `hours <= 0` is false for a number that is not a number). The rule of the domain holds it now.
 
 One finding was REJECTED: the review asked for the grams of the capacity in the answer. The acceptance says "the units she can make with them", and the grams of what she made belong to the production (T17) and to the rotation (T22). The capacity answers UNITS, and it carries no money (S9).
+
+**L52** (2026-11-13): The rule of T8 — "the ingredient of a recipe is the ingredient of the catalog, never a second copy of the flour" — was **relaxed by the maintainer**, and the change lives in its own feature document: `odd/tasks/recipes-without-inventory.md`.
+
+Why: a recipe is a guide to learn and to teach, and the maintainer wants to use it for knowledge, for the ingredients of a product and for the training of new people. A recipe that may only name what the business has already bought is a recipe that cannot be written before the first market visit.
+
+What changed: the ingredient of a recipe carries the **name the owner says** and the identity of the catalog only when the catalog holds that name. The link is a link and not a requirement, and the recipe is never refused for a name the catalog does not know. The rules that survive: the recipe never carries a second copy of the *data* of the catalog (never its unit, never its conversions, never its price), the cost of an ingredient without a link is **unknown and never zero**, and the **production** of such a recipe stays refused, because a batch cannot be baked out of an ingredient the business does not have.

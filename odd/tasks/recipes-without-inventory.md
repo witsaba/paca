@@ -91,10 +91,10 @@ baked out of an ingredient the business does not have.
 
 | ID  | Specs     | Rule                                                                              | Route  | Commit |
 |-----|-----------|-----------------------------------------------------------------------------------|--------|--------|
-| T1  | S1, S2, S5 | The ingredient of the domain carries its name; the link to the catalog is optional | inline | this commit |
-| T2  | S1, S3     | The table of the ingredients of a recipe holds the name, and the link may be empty | inline | this commit |
-| T3  | S1, S2, S3 | The use case records a recipe whose ingredient the catalog does not hold          | inline | this commit |
-| T4  | S3        | The tool `record_recipe` takes the name of the ingredient, and the link when it knows it | inline | this commit |
+| T1  | S1, S2, S5 | The ingredient of the domain carries its name; the link to the catalog is optional | inline | `9ea90d6` |
+| T2  | S1, S3     | The table of the ingredients of a recipe holds the name, and the link may be empty | inline | `9ea90d6` |
+| T3  | S1, S2, S3 | The use case records a recipe whose ingredient the catalog does not hold          | inline | `2bcad05` |
+| T4  | S3        | The tool `record_recipe` takes the name of the ingredient, and the link when it knows it | inline | `2bcad05` |
 
 ### T1 — The name of the ingredient of a recipe
 
@@ -180,3 +180,29 @@ The consequences are deliberate and they are part of the acceptance:
   is the one that keeps the stock honest.
 - The agent is told, in the answer of the tool, which ingredients are not linked to the catalog, so
   that Paca can tell the owner that she has not bought that ingredient yet.
+
+**L4** (2026-11-13): The slice boundary of the delivery. The feature landed in **two work units**
+on the branch `feat/recipes-without-catalog`:
+
+- `9ea90d6` — *the ingredient of a recipe carries its name and an optional link to the catalog*:
+  the domain of the recipe, the storage of the table, the migration `00036`, the generated code
+  and the container tests.
+- `2bcad05` — *the recipe is written without the catalog of the purchases*: the port of the
+  use case, the use case, the tool `record_recipe`, the messages of the agent and the tests of
+  both.
+
+The first unit is 741 authored changed lines: it is one vertical slice of the rule, and it was
+not cut in two because the domain of the recipe and the table of its ingredients are the same
+rule written in two languages — a slice that cut between them would leave a domain that cannot be
+stored.
+
+**L5** (2026-11-13): The verification of the slice.
+
+- The gate of the three modules is green: the format, the analyzers, the linter, the build, the
+  tests, the race detector, the coverage floor and the vulnerability scan of `packages/domain`,
+  `packages/database` and `apps/mcp-server`.
+- The structure test of the repository is green: 792 assertions, 0 failures.
+- The **container tests of the database were not run**: there is no Docker daemon in the
+  environment of the session. The container tests of the recipes were written for the new rule —
+  the round trip of a recipe whose ingredient was never bought, and the foreign key that still
+  refuses a link that is not an ingredient — and they are the proof that CI owes.

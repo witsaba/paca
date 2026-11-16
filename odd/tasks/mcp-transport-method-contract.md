@@ -143,10 +143,27 @@ linter, the build, the tests, the race detector, the coverage floor and the
 vulnerability scan. The coverage of the module is `88.7%`, above the floor of
 `80%`, and the scan found no vulnerability in the code of the service.
 
-The container tests (`make apps-integration`) were not run: they build the
+The container tests (`make apps-integration`) were not run locally: they build the
 image of the service and start it, and the stack of the machine is the
 production one of the maintainer, which this slice does not touch. The gate
 of the service that covers the change is the one that was run.
+
+**The continuous integration of the pull request #81 is green**, and it runs
+what the machine could not: the gate of every module of the monorepository,
+the container tests of the shared libraries and the container tests of the
+applications, the shellcheck of the scripts, the tests of the structure of the
+repository, and the whole stack with the schema written by the service that
+owns it. The jobs of the database, of the memory and of the collector of the
+traces were skipped: the change cannot affect what they prove.
+
+**Paca reviewed the pull request** as a second outside view, with the account
+of the harness of the agent, and published its verdict on the pull request
+itself: the resolution is right, the `405` is the answer the protocol asks
+for a stateless transport, the correction of the README is exact, the test
+pins the contract against the real SDK and not against a mock, and the
+narrowing of the change carries no risk for the stack that runs. It found no
+blocking finding. The one thing it asks is outside this repository: the probe
+of the monitor that opened the two issues must be pointed at `/healthz`.
 
 Both issues are answered with the proof and closed. The answer is the same for
 the two: the `405` is the answer a stateless transport of the protocol gives,

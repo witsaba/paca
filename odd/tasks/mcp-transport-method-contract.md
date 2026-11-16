@@ -66,9 +66,9 @@ The gate of the service is green before the work unit is committed.
 
 | ID   | Task                                                          | Specs   | Route   | Commit |
 |------|---------------------------------------------------------------|---------|---------|--------|
-| T1  | The feature document of the slice                              | S1      | inline  | (the document) |
-| T2  | The method contract of the transport is pinned by a test       | S3      | inline  | (the test) |
-| T3  | The README states the method contract the transport enforces   | S4      | inline  | (the documentation) |
+| T1  | The feature document of the slice                              | S1      | inline  | `1d05630` (the document) |
+| T2  | The method contract of the transport is pinned by a test       | S3      | inline  | `5d175d2` (the test) |
+| T3  | The README states the method contract the transport enforces   | S4      | inline  | `5d175d2` (the documentation) |
 | T4  | The evidence: the gate of the service is green                 | S5      | inline  | — |
 | T5  | The issues 78 and 79 are answered and closed                   | S2      | inline  | — |
 
@@ -135,3 +135,26 @@ alive: a `POST` with an `initialize` message, or a read of `/healthz`.
 test and corrects a line of documentation that named a contract the service
 never implemented. The observable behavior of the service is the one it had
 before the change.
+
+**L4** (2026-11-16): The evidence, and the answer of the two issues.
+
+The gate of the service is **green**: the format check, the analyzers, the
+linter, the build, the tests, the race detector, the coverage floor and the
+vulnerability scan. The coverage of the module is `88.7%`, above the floor of
+`80%`, and the scan found no vulnerability in the code of the service.
+
+The container tests (`make apps-integration`) were not run: they build the
+image of the service and start it, and the stack of the machine is the
+production one of the maintainer, which this slice does not touch. The gate
+of the service that covers the change is the one that was run.
+
+Both issues are answered with the proof and closed. The answer is the same for
+the two: the `405` is the answer a stateless transport of the protocol gives,
+the header `Allow: POST` is there, and the defect was the documentation of
+the service, which is now corrected and pinned by a test.
+
+The test that the issue #79 proposes was read before it was written. It asks
+the router for a `HEAD` with a **fake** transport, and the fake answers `202`
+whatever the method is: it would have been green before the change and after
+it, and it would have proved nothing about the method contract of the real
+transport. The test of this slice asks the transport itself.

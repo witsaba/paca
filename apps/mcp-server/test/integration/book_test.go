@@ -383,7 +383,7 @@ func TestTheWholeStoryOfTheCapacityOfTheWeekend(t *testing.T) {
 		"business_id": businessID,
 		"name":        "Pan de molde",
 		"ingredients": []map[string]any{
-			{"ingredient_id": flour, "grams": 500},
+			{"name": "Harina", "ingredient_id": flour, "grams": 500},
 		},
 		"steps": []map[string]any{
 			{"instruction": "Amasar.", "minutes": 20, "labor_kind": "hands_on"},

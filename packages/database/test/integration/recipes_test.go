@@ -63,10 +63,18 @@ func theFlourOfTheRecipes(t *testing.T, ctx context.Context, bakery business.Bus
 
 // theRecipeOfTheTest builds the recipe the tests of the table write.
 func theRecipeOfTheTest(bakery business.Business, flour ingredient.Ingredient) recipe.Recipe {
+	return theRecipeWithTheIngredient(bakery, recipe.Ingredient{
+		Name: flour.Name, IngredientID: flour.ID, Grams: 500,
+	})
+}
+
+// theRecipeWithTheIngredient builds the recipe the tests of the table write
+// with the ingredient they name.
+func theRecipeWithTheIngredient(bakery business.Business, line recipe.Ingredient) recipe.Recipe {
 	built, err := recipe.New(bakery.ID, recipe.Definition{
 		Name: "Pan de molde",
 		Ingredients: []recipe.Ingredient{
-			{Name: flour.Name, IngredientID: flour.ID, Grams: 500},
+			line,
 		},
 		Steps: []recipe.Step{
 			{Instruction: "Mezclar la harina con el agua y amasar.", Cue: "la masa que holds la forma", Minutes: 20, Temperature: 24, Kind: recipe.LaborHandsOn},
@@ -164,8 +172,8 @@ func TestTheIngredientsOfTheRecipeAreKeptWithTheirGrams(t *testing.T) {
 		if ingredientID != int64(flour.ID) {
 			t.Errorf("the ingredient is %d, want %d", ingredientID, flour.ID)
 		}
-		if name != "flour" {
-			t.Errorf("the name of the ingredient is %q, want %q", name, "flour")
+		if name != flour.Name {
+			t.Errorf("the name of the ingredient is %q, want %q", name, flour.Name)
 		}
 		if grams != 500 {
 			t.Errorf("the grams of the ingredient are %v, want 500", grams)
@@ -367,8 +375,9 @@ func TestTheRecipeOfAnIngredientTheBusinessDidNotBuyIsWritten(t *testing.T) {
 }
 
 // TestTheTableRefusesTheIngredientThatIsNotInTheCatalog proves the rule of
-// the domain against a real database: the ingredient of a recipe is the
-// ingredient of the catalog, and it is never a second copy of the flour.
+// the domain against a real database: the link a recipe may carry points to
+// an ingredient of the catalog, and the table refuses a link that is not
+// there.
 func TestTheTableRefusesTheIngredientThatIsNotInTheCatalog(t *testing.T) {
 	t.Parallel()
 
@@ -397,6 +406,40 @@ func TestTheTableRefusesTheIngredientThatIsNotInTheCatalog(t *testing.T) {
 	if pgErr.ConstraintName != "recipe_ingredients_ingredient_id_fkey" {
 		t.Errorf("the constraint of the error is %q, want %q",
 			pgErr.ConstraintName, "recipe_ingredients_ingredient_id_fkey")
+	}
+}
+
+// TestTheTableRefusesTheIngredientOfTheRecipeWithoutAName proves the rule
+// of the domain against a real database: the name of an ingredient of a
+// recipe is the name the owner says, and it is never empty.
+func TestTheTableRefusesTheIngredientOfTheRecipeWithoutAName(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := recipesRepository(t)
+	bakery := theBakeryOfTheRecipes(t, ctx)
+	flour := theFlourOfTheRecipes(t, ctx, bakery)
+
+	written, err := repo.Record(ctx, theRecipeOfTheTest(bakery, flour))
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	_, err = theSuite.db.ExecContext(ctx,
+		`INSERT INTO recipe_ingredients (recipe_id, position, ingredient_id, name, grams) VALUES ($1, 2, $2, '', 500)`,
+		written.ID, int64(flour.ID),
+	)
+	if err == nil {
+		t.Fatal("the database stored an ingredient without a name, want the row refused")
+	}
+
+	pgErr := postgresError(t, err)
+	if pgErr.Code != checkViolation {
+		t.Errorf("the code of the error is %q, want %q", pgErr.Code, checkViolation)
+	}
+	if pgErr.ConstraintName != "recipe_ingredients_name_not_empty_check" {
+		t.Errorf("the constraint of the error is %q, want %q",
+			pgErr.ConstraintName, "recipe_ingredients_name_not_empty_check")
 	}
 }
 
@@ -445,7 +488,9 @@ func TestTheRecipeThatIsRefusedLeavesNothingBehind(t *testing.T) {
 	repo := recipesRepository(t)
 	bakery := theBakeryOfTheRecipes(t, ctx)
 
-	unknown := theRecipeOfTheTest(bakery, ingredient.Ingredient{ID: ingredient.ID(bakery.ID) + 1000})
+	unknown := theRecipeWithTheIngredient(bakery, recipe.Ingredient{
+		Name: "Harina panadera", IngredientID: ingredient.ID(bakery.ID) + 1000, Grams: 500,
+	})
 
 	_, err := repo.Record(ctx, unknown)
 	if !errors.Is(err, recipe.ErrNotFound) {

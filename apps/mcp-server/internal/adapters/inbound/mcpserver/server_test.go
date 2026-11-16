@@ -46,6 +46,53 @@ func TestTheTransportAnswersAnMCPClient(t *testing.T) {
 	}
 }
 
+// TestTheTransportAnswersOnlyThePostMethod proves the method contract of the
+// transport: it is stateless, so it serves the messages of the protocol with
+// POST, and every other method is answered with 405 and the header that names
+// the method that is allowed, as RFC 9110 §15.5.6 asks.
+//
+// The protocol of MCP lets a server offer a stream of server-initiated
+// messages with GET, and asks a server that does not offer it to answer 405.
+// A stateless server has no server-initiated message to send and no session to
+// end, so it does not offer the stream and refuses DELETE the same way.
+func TestTheTransportAnswersOnlyThePostMethod(t *testing.T) {
+	t.Parallel()
+
+	transport := mcpserver.New(mcpserver.Options{
+		ServiceName:         "paca-mcp-server",
+		ServiceVersion:      "0.1.0",
+		Logger:              slog.New(slog.NewTextHandler(io.Discard, nil)),
+		MaxRequestBodyBytes: 1 << 20,
+	})
+
+	server := httptest.NewServer(transport.Handler())
+	t.Cleanup(server.Close)
+
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
+			request, err := http.NewRequest(method, server.URL+"/mcp", nil)
+			if err != nil {
+				t.Fatalf("the request could not be built: %v", err)
+			}
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatalf("the request failed: %v", err)
+			}
+			defer response.Body.Close()
+
+			if response.StatusCode != http.StatusMethodNotAllowed {
+				t.Fatalf("the status is %d, want %d", response.StatusCode, http.StatusMethodNotAllowed)
+			}
+			if got := response.Header.Get("Allow"); got != http.MethodPost {
+				t.Fatalf("the Allow header is %q, want %q", got, http.MethodPost)
+			}
+		})
+	}
+}
+
 // TestTheTransportServesTheOriginsItTrusts proves that the rule of the
 // Origin is the one the service states: the origins it names are served, and
 // the others are refused.

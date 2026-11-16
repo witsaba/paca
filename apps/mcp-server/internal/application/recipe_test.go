@@ -248,20 +248,133 @@ func TestTheStepWithoutItsInstructionIsRefusedAndNothingIsWritten(t *testing.T) 
 	}
 }
 
-// TestTheIngredientTheCatalogDoesNotHoldIsRefused proves that the rule of
-// the domain holds: the ingredient of a recipe is the ingredient of the
-// catalog, and a recipe never carries a second copy of the flour.
-func TestTheIngredientTheCatalogDoesNotHoldIsRefused(t *testing.T) {
+// TestTheIngredientTheCatalogDoesNotHoldIsWritten proves that the rule of
+// the use case holds: a recipe is knowledge and not stock, and it is
+// written before the first purchase. The ingredient the catalog does not
+// hold is written with the name the owner said, and without a link.
+func TestTheIngredientTheCatalogDoesNotHoldIsWritten(t *testing.T) {
 	t.Parallel()
 
 	recipes := &fakeRecipes{}
 	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
 
 	request := theRecipeOfTheTest()
-	request.Ingredients[0].IngredientID = 999
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Azúcar", Grams: 500}
 
-	if _, err := service.Record(t.Context(), request); !errors.Is(err, ingredient.ErrNotFound) {
-		t.Fatalf("the error is %v, want %v", err, ingredient.ErrNotFound)
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if len(recipes.written) != 1 {
+		t.Fatalf("the storage holds %d recipes, want 1", len(recipes.written))
+	}
+
+	kept := written.Ingredients[0]
+	if kept.Name != "Azúcar" {
+		t.Errorf("the name of the ingredient is %q, want %q", kept.Name, "Azúcar")
+	}
+	if kept.IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", kept.IngredientID)
+	}
+	if kept.Grams != 500 {
+		t.Errorf("the grams of the ingredient are %v, want 500", kept.Grams)
+	}
+}
+
+// TestTheRecipeLivesUnlinkedEvenWhenTheCatalogKnowsTheName proves that
+// the rule of the use case holds: the recipe is written with the name the
+// owner said, and the catalog is never asked to decide what the recipe
+// names. The recipe lives unlinked, and the catalog is asked when the
+// money or the stock is needed.
+func TestTheRecipeLivesUnlinkedEvenWhenTheCatalogKnowsTheName(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Harina panadera", Grams: 500}
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	kept := written.Ingredients[0]
+	if kept.Name != "Harina panadera" {
+		t.Errorf("the name of the ingredient is %q, want %q", kept.Name, "Harina panadera")
+	}
+	if kept.IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", kept.IngredientID)
+	}
+}
+
+// TestTheLinkTheAgentSentIsKept proves that the rule of the use case holds:
+// the link the agent sent is the memory of what the owner meant when her
+// wording was not enough, and the catalog of the business keeps it.
+func TestTheLinkTheAgentSentIsKept(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Harina panadera", IngredientID: 10, Grams: 500}
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if written.Ingredients[0].IngredientID != ingredient.ID(10) {
+		t.Errorf("the link of the ingredient is %d, want 10", written.Ingredients[0].IngredientID)
+	}
+}
+
+// TestTheLinkTheCatalogDoesNotHoldIsDropped proves that the rule of the use
+// case holds: a link the catalog of the business does not hold is dropped
+// and the recipe is written with the name alone. A recipe is never refused
+// for a link.
+func TestTheLinkTheCatalogDoesNotHoldIsDropped(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Name: "Harina panadera", IngredientID: 999, Grams: 500}
+
+	written, err := service.Record(t.Context(), request)
+	if err != nil {
+		t.Fatalf("the recipe could not be written: %v", err)
+	}
+
+	if len(recipes.written) != 1 {
+		t.Fatalf("the storage holds %d recipes, want 1", len(recipes.written))
+	}
+	if written.Ingredients[0].IngredientID != 0 {
+		t.Errorf("the link of the ingredient is %d, want none", written.Ingredients[0].IngredientID)
+	}
+	if written.Ingredients[0].Name != "Harina panadera" {
+		t.Errorf("the name of the ingredient is %q, want %q", written.Ingredients[0].Name, "Harina panadera")
+	}
+}
+
+// TestTheIngredientWithoutItsNameIsRefusedAndNothingIsWritten proves that
+// the rule of the domain holds: the name is the knowledge of the recipe,
+// and a recipe that names nothing teaches nothing.
+func TestTheIngredientWithoutItsNameIsRefusedAndNothingIsWritten(t *testing.T) {
+	t.Parallel()
+
+	recipes := &fakeRecipes{}
+	service := application.NewRecipeService(recipes, theCatalogOfTheTest(t))
+
+	request := theRecipeOfTheTest()
+	request.Ingredients[0] = ports.RecipeIngredient{Grams: 500}
+
+	if _, err := service.Record(t.Context(), request); !errors.Is(err, recipe.ErrMissingIngredientName) {
+		t.Fatalf("the error is %v, want %v", err, recipe.ErrMissingIngredientName)
 	}
 	if len(recipes.written) != 0 {
 		t.Errorf("the storage holds %d recipes, want none", len(recipes.written))

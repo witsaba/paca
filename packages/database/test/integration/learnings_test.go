@@ -129,7 +129,7 @@ func theSecondBatchOfTheLearnings(
 	built, err := recipe.New(bakery.ID, recipe.Definition{
 		Name: "Pan de centeno",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: flour, Grams: 500},
+			{Name: "flour", IngredientID: flour, Grams: 500},
 		},
 		Steps: []recipe.Step{
 			{Instruction: "Hornear."},

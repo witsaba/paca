@@ -71,12 +71,12 @@ func theDayOfTheCost() ledger.Date {
 func theRecipeOfTheCost(t *testing.T) recipe.Recipe {
 	t.Helper()
 
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 500)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}
 
-	salt, err := recipe.NewIngredient(ingredient.ID(11), 10)
+	salt, err := recipe.NewIngredient("salt", ingredient.ID(11), 10)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestTheCostOfABatchIsDerivedFromTheLayers(t *testing.T) {
 func TestTheCostOfABatchTakesTheLayersInTheOrderOfTheFIFO(t *testing.T) {
 	t.Parallel()
 
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 1500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 1500)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}
@@ -294,8 +294,8 @@ func TestTheCostOfAnIngredientTheCatalogDoesNotHoldIsNotDerivable(t *testing.T) 
 	built, err := recipe.New(business.ID(77), recipe.Definition{
 		Name: "Pan de molde",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: ingredient.ID(10), Grams: 500},
-			{IngredientID: ingredient.ID(99), Grams: 10},
+			{Name: "flour", IngredientID: ingredient.ID(10), Grams: 500},
+			{Name: "unknown", IngredientID: ingredient.ID(99), Grams: 10},
 		},
 		Steps:         []recipe.Step{{Instruction: "Amasar."}},
 		Yield:         recipe.Yield{Units: 10, Grams: 90},
@@ -345,6 +345,138 @@ func TestTheRecipesAreFoundByTheNameTheOwnerReads(t *testing.T) {
 	}
 }
 
+// TestTheCostOfAnIngredientWithoutItsLinkIsUnknown proves the rule of the
+// domain: the cost of an ingredient the business has not bought yet is
+// unknown, and never zero. The money of the book is never invented.
+func TestTheCostOfAnIngredientWithoutItsLinkIsUnknown(t *testing.T) {
+	t.Parallel()
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name: "Pan de molde",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Harina", Grams: 500},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if cost.Complete {
+		t.Fatal("the cost is complete, want the news that the ingredient was not bought yet")
+	}
+	if len(cost.Lines) != 1 {
+		t.Fatalf("the cost carries %d lines, want 1", len(cost.Lines))
+	}
+	if !cost.Lines[0].Unknown {
+		t.Error("the money of the ingredient was derived, want the news that it is not derivable")
+	}
+	if cost.Lines[0].Name != "Harina" {
+		t.Errorf("the name of the line is %q, want %q", cost.Lines[0].Name, "Harina")
+	}
+	if cost.Direct != 0 {
+		t.Errorf("the direct cost is %d, want 0: the money of an ingredient that was not bought is never invented", cost.Direct)
+	}
+	if len(cost.Missing) != 1 {
+		t.Fatalf("the cost carries %d missing reasons, want 1", len(cost.Missing))
+	}
+}
+
+// TestTheCostOfAnUnlinkedRecipeIsDerivedWhenTheIngredientIsBought proves
+// the rule of the domain: the recipe lives unlinked and the catalog is
+// asked when the money is needed. A recipe written before the first
+// purchase starts costing the moment the owner buys the ingredient, and
+// nothing has to be linked again.
+func TestTheCostOfAnUnlinkedRecipeIsDerivedWhenTheIngredientIsBought(t *testing.T) {
+	t.Parallel()
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name: "Pan de molde",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Harina panadera", Grams: 500},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	if built.Ingredients[0].IngredientID != 0 {
+		t.Fatalf("the link of the ingredient is %d, want none", built.Ingredients[0].IngredientID)
+	}
+
+	layers := []purchase.Layer{
+		theLayerOfTheTest(ingredient.ID(10), "Harina panadera", 25, "kg", 12000,
+			theDayOfTheCost(), purchase.ID(9)),
+	}
+
+	cost, err := recipe.CostOf(built, layers, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if !cost.Complete {
+		t.Errorf("the cost is not complete: %v", cost.Missing)
+	}
+	if len(cost.Lines) != 1 {
+		t.Fatalf("the cost carries %d lines, want 1", len(cost.Lines))
+	}
+	if cost.Lines[0].Unknown {
+		t.Error("the money of the ingredient was not derived, want the money of the layers of the stock")
+	}
+	if cost.Lines[0].IngredientID != ingredient.ID(10) {
+		t.Errorf("the ingredient of the line is %d, want 10", cost.Lines[0].IngredientID)
+	}
+	if cost.Direct <= 0 {
+		t.Errorf("the direct cost is %d, want the money of the layers of the stock", cost.Direct)
+	}
+}
+
+// TestTheCostOfTwoIngredientsWithoutTheirLinkIsTwoLines proves the rule of
+// the domain: two ingredients without a link are two ingredients, and they
+// are never merged into one.
+func TestTheCostOfTwoIngredientsWithoutTheirLinkIsTwoLines(t *testing.T) {
+	t.Parallel()
+
+	built, err := recipe.New(business.ID(77), recipe.Definition{
+		Name: "Pan de molde",
+		Ingredients: []recipe.Ingredient{
+			{Name: "Harina", Grams: 500},
+			{Name: "Sal", Grams: 10},
+		},
+		Steps:         []recipe.Step{{Instruction: "Amasar."}},
+		Yield:         recipe.Yield{Units: 10, Grams: 90},
+		ShelfLifeDays: 3,
+		ConfirmedWith: "sí",
+	})
+	if err != nil {
+		t.Fatalf("the recipe was refused: %v", err)
+	}
+
+	cost, err := recipe.CostOf(built, nil, theCatalogOfTheTest(t), ledger.Amount(0), recipe.OverheadRate{})
+	if err != nil {
+		t.Fatalf("the cost was refused: %v", err)
+	}
+
+	if len(cost.Lines) != 2 {
+		t.Fatalf("the cost carries %d lines, want 2", len(cost.Lines))
+	}
+	if cost.Lines[0].Grams != 500 || cost.Lines[1].Grams != 10 {
+		t.Errorf("the grams of the lines are %v and %v, want 500 and 10", cost.Lines[0].Grams, cost.Lines[1].Grams)
+	}
+}
+
 // TestTheCostOfAnIngredientTheRecipeNamesTwiceIsTheCostOfTheGrams proves
 // the rule of the domain: an ingredient the recipe names twice is one
 // ingredient of the batch, and the cost of the batch never pays twice for
@@ -355,8 +487,8 @@ func TestTheCostOfAnIngredientTheRecipeNamesTwiceIsTheCostOfTheGrams(t *testing.
 	built, err := recipe.New(business.ID(77), recipe.Definition{
 		Name: "Pan de molde",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: ingredient.ID(10), Grams: 500},
-			{IngredientID: ingredient.ID(10), Grams: 500},
+			{Name: "flour", IngredientID: ingredient.ID(10), Grams: 500},
+			{Name: "flour", IngredientID: ingredient.ID(10), Grams: 500},
 		},
 		Steps:         []recipe.Step{{Instruction: "Amasar."}},
 		Yield:         recipe.Yield{Units: 10, Grams: 90},
@@ -406,7 +538,7 @@ func TestTheCostCarriesTheLaborBesideTheDirectCost(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 500)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}
@@ -466,7 +598,7 @@ func TestTheCostCarriesTheOverheadBesideTheDirectCostAndTheLabor(t *testing.T) {
 			theDayOfTheCost(), purchase.ID(9)),
 	}
 
-	flour, err := recipe.NewIngredient(ingredient.ID(10), 500)
+	flour, err := recipe.NewIngredient("flour", ingredient.ID(10), 500)
 	if err != nil {
 		t.Fatalf("the ingredient of the recipe was refused: %v", err)
 	}

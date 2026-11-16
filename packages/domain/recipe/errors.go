@@ -28,16 +28,24 @@ var (
 	// record, and the record that failed is an overhead.
 	ErrMissingOverheadConfirmation = errors.New("the overhead carries the word of the owner")
 
-	// ErrNoIngredients is the error of a recipe that names nothing of the
-	// catalog.
+	// ErrNoIngredients is the error of a recipe that names no ingredient
+	// at all.
 	ErrNoIngredients = errors.New("the recipe carries at least one ingredient")
+
+	// ErrMissingIngredientName is the error of an ingredient of a recipe
+	// without the name the owner says: the name is the knowledge of the
+	// recipe, and a recipe that names nothing is a recipe that teaches
+	// nothing.
+	ErrMissingIngredientName = errors.New("the ingredient of the recipe carries the name the owner says")
 
 	// ErrMissingGrams is the error of an ingredient of a recipe without its
 	// grams.
 	ErrMissingGrams = errors.New("the ingredient of the recipe carries its grams")
 
 	// ErrUnknownIngredient is the error of an ingredient of a recipe that
-	// names nothing of the catalog of the business.
+	// the catalog of the business does not hold. It is the error of the
+	// production and of the costing, and never of the recording: a recipe
+	// is written before the first purchase.
 	ErrUnknownIngredient = errors.New("the ingredient of the recipe is not one of the catalog")
 
 	// ErrNoSteps is the error of a recipe without steps: a recipe is a
@@ -311,6 +319,7 @@ func Errors() []error {
 		ErrMissingLaborConfirmation,
 		ErrMissingOverheadConfirmation,
 		ErrNoIngredients,
+		ErrMissingIngredientName,
 		ErrMissingGrams,
 		ErrUnknownIngredient,
 		ErrNoSteps,

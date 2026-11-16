@@ -237,14 +237,13 @@ func ProductionOf(
 	grams := 0.0
 	money := ledger.Amount(0)
 
-	for _, one := range gramsOfTheRecipe(baked) {
-		item, held := catalog.Find(one.IngredientID)
-		if !held {
-			return Production{}, fmt.Errorf("%w: the ingredient %d of the recipe is not one of the catalog of the business",
-				ErrUnknownIngredient, one.IngredientID)
+	for _, one := range resolveTheIngredients(baked, catalog) {
+		if !one.Held {
+			return Production{}, fmt.Errorf("%w: the ingredient %q of the recipe is not one of the catalog of the business",
+				ErrUnknownIngredient, one.Name)
 		}
 
-		consumption, err := purchase.Consume(layers, one.IngredientID, one.Grams, item)
+		consumption, err := purchase.Consume(layers, one.ID, one.Grams, one.Item)
 		if err != nil {
 			return Production{}, err
 		}
@@ -259,7 +258,7 @@ func ProductionOf(
 			}
 
 			return Production{}, fmt.Errorf("%w: the stock does not hold %v grams of %s",
-				ErrMissingStock, consumption.Missing, item.Name)
+				ErrMissingStock, consumption.Missing, one.Item.Name)
 		}
 
 		takes = append(takes, consumption.Takes...)

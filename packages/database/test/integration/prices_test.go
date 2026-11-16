@@ -93,7 +93,7 @@ func theOtherRecipeOfThePrices(t *testing.T, ctx context.Context, bakery busines
 	built, err := recipe.New(bakery.ID, recipe.Definition{
 		Name: "Pan de centeno",
 		Ingredients: []recipe.Ingredient{
-			{IngredientID: written.ID, Grams: 500},
+			{Name: written.Name, IngredientID: written.ID, Grams: 500},
 		},
 		Steps: []recipe.Step{
 			{Instruction: "Mezclar el centeno con el agua y amasar.", Minutes: 20, Temperature: 24, Kind: recipe.LaborHandsOn},

@@ -38,13 +38,17 @@ func buildDescriptionRecordRecipe() string {
 		"ingredients with their grams, the steps, the yield and the shelf life of what it makes.\n\n" +
 		"The business is REQUIRED: it is the business the recipe belongs to, and PACA never invents one.\n\n" +
 		"The name is REQUIRED: it is the name the owner reads ('Pan de molde').\n\n" +
-		"Every ingredient carries the identity of the ingredient of the catalog and the grams of it. At least " +
+		"Every ingredient carries the name the owner says and the grams of it. At least " +
 		"one ingredient is REQUIRED:\n\n" +
-		"  - ingredient_id is REQUIRED: send the identity the tool " + ToolMatchItems + " answered for the " +
-		"name. The catalog is the one owner of the ingredient, and PACA refuses an ingredient the catalog of the " +
-		"business does not hold.\n" +
+		"  - name is REQUIRED: the name of the ingredient the way the owner says it ('Harina panadera'). " +
+		"The recipe is a guide to learn and to teach, and it is written before the first purchase: an ingredient " +
+		"the business has not bought yet never refuses the recipe.\n" +
 		"  - grams is REQUIRED: how many grams of it the recipe needs. The grams are never inferred, and PACA " +
-		"refuses an ingredient without them.\n\n" +
+		"refuses an ingredient without them.\n" +
+		"  - ingredient_id is OPTIONAL: the identity the tool " + ToolMatchItems + " answered for that name, " +
+		"and only when that name is one of several the catalog answers. It is the memory of which one the owner " +
+		"meant: PACA reads the name of the ingredient against the catalog when the money or the stock is needed, " +
+		"so a recipe written before the first purchase is baked and costed as soon as the owner buys it.\n\n" +
 		"Every step carries what the owner does. At least one step is REQUIRED:\n\n" +
 		"  - instruction is REQUIRED: what the owner does in the step ('Amasar 20 minutos').\n" +
 		"  - cue is OPTIONAL: the sign the owner looks for ('la masa que holds the forma'). Leave it out when " +
@@ -66,13 +70,17 @@ func buildDescriptionRecordRecipe() string {
 		"confirmed_with is REQUIRED: the word she used to confirm it ('sí', 'confirmado'), and it is kept with " +
 		"the record.\n\n" +
 		"The answer carries the recipe that was written: its name, its ingredients with their grams, its steps " +
-		"in order, its yield and its shelf life."
+		"in order, its yield and its shelf life. The tool " + ToolReadBatchCost + " answers what the batch costs " +
+		"right now, and it says what is still missing: an ingredient the business has not bought yet has no money."
 }
 
 // recordRecipeIngredientInput is one ingredient of the recipe.
 type recordRecipeIngredientInput struct {
+	// Name is the name the owner says of the ingredient.
+	Name string `json:"name" jsonschema:"The name of the ingredient the way the owner says it ('Harina panadera'). It is required: the recipe is written with the name, and the catalog of the business never refuses a recipe."`
+
 	// IngredientID is the identity of the ingredient of the catalog.
-	IngredientID int64 `json:"ingredient_id" jsonschema:"The identity of the ingredient of the catalog the recipe names. It is required: send the identity the tool match_items answered."`
+	IngredientID int64 `json:"ingredient_id,omitempty" jsonschema:"The identity of the ingredient of the catalog, when the business has already bought that ingredient. It is optional: leave it out when the catalog does not know the name."`
 
 	// Grams is how many grams of it the recipe needs.
 	Grams float64 `json:"grams" jsonschema:"How many grams of the ingredient the recipe needs. It is required and it is positive."`
@@ -105,7 +113,7 @@ type recordRecipeInput struct {
 	Name string `json:"name" jsonschema:"The name the owner reads ('Pan de molde'). It is required."`
 
 	// Ingredients are the ingredients of the recipe, with their grams.
-	Ingredients []recordRecipeIngredientInput `json:"ingredients" jsonschema:"The ingredients of the recipe, each one with the identity of the ingredient of the catalog and its grams. At least one ingredient is required."`
+	Ingredients []recordRecipeIngredientInput `json:"ingredients" jsonschema:"The ingredients of the recipe, each one with the name the owner says and its grams. At least one ingredient is required."`
 
 	// Steps are the steps of the process, in the order the owner said them.
 	Steps []recordRecipeStepInput `json:"steps" jsonschema:"The steps of the recipe, in the order the owner said them. At least one step is required."`
@@ -129,8 +137,12 @@ type recordRecipeInput struct {
 // recipeIngredientOutput is what the answer carries about one ingredient of
 // the recipe.
 type recipeIngredientOutput struct {
-	// IngredientID is the identity of the ingredient of the catalog.
-	IngredientID int64 `json:"ingredient_id"`
+	// Name is the name the owner says of the ingredient.
+	Name string `json:"name"`
+
+	// IngredientID is the identity of the ingredient of the catalog. It is
+	// empty when the catalog does not hold that name.
+	IngredientID int64 `json:"ingredient_id,omitempty"`
 
 	// Grams is how many grams of it the recipe needs.
 	Grams float64 `json:"grams"`
@@ -230,6 +242,7 @@ func requestOfRecipe(input recordRecipeInput) ports.RecordRecipe {
 	ingredients := make([]ports.RecipeIngredient, 0, len(input.Ingredients))
 	for _, one := range input.Ingredients {
 		ingredients = append(ingredients, ports.RecipeIngredient{
+			Name:         one.Name,
 			IngredientID: one.IngredientID,
 			Grams:        one.Grams,
 		})
@@ -265,8 +278,10 @@ func requestOfRecipe(input recordRecipeInput) ports.RecordRecipe {
 // grams, its steps in order, its yield and its shelf life.
 func outputOfRecipe(recorded recipe.Recipe) recordRecipeOutput {
 	ingredients := make([]recipeIngredientOutput, 0, len(recorded.Ingredients))
+
 	for _, one := range recorded.Ingredients {
 		ingredients = append(ingredients, recipeIngredientOutput{
+			Name:         one.Name,
 			IngredientID: int64(one.IngredientID),
 			Grams:        one.Grams,
 		})

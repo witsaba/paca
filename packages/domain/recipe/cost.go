@@ -148,26 +148,27 @@ func CostOf(
 		return Cost{}, err
 	}
 
-	for _, one := range gramsOfTheRecipe(baked) {
+	for _, one := range resolveTheIngredients(baked, catalog) {
 		line := CostLine{
-			IngredientID: one.IngredientID,
+			IngredientID: one.ID,
 			Grams:        one.Grams,
 			Layers:       []purchase.Take{},
+			Name:         one.Name,
 		}
 
-		item, held := catalog.Find(one.IngredientID)
-		if !held {
+		if !one.Held {
+			// The rule of the domain: the cost of an ingredient the
+			// catalog does not hold is unknown, and never zero. The
+			// money is not invented, and the batch is not complete.
 			line.Unknown = true
-			missing = append(missing, fmt.Sprintf("the ingredient %d is not one of the catalog", one.IngredientID))
+			missing = append(missing, fmt.Sprintf("the ingredient %q is not one of the catalog of the business", one.Name))
 			complete = false
 			lines = append(lines, line)
 
 			continue
 		}
 
-		line.Name = item.Name
-
-		consumption, err := purchase.Consume(layers, one.IngredientID, one.Grams, item)
+		consumption, err := purchase.Consume(layers, one.ID, one.Grams, one.Item)
 		if err != nil {
 			return Cost{}, err
 		}
@@ -185,7 +186,7 @@ func CostOf(
 
 		if consumption.Missing > 0 {
 			missing = append(missing, fmt.Sprintf("the stock does not hold %v grams of %s",
-				consumption.Missing, item.Name))
+				consumption.Missing, one.Item.Name))
 			complete = false
 		}
 
@@ -208,31 +209,6 @@ func CostOf(
 	cost.PerUnit, cost.PerGram, cost.PerKilogram = ratesOf(direct, baked.Yield)
 
 	return cost, nil
-}
-
-// gramsOfTheRecipe answers the grams every ingredient of the recipe needs.
-//
-// The rule of the domain: an ingredient the recipe names twice is one
-// ingredient of the batch: the grams of the two are added up, and the cost
-// of the batch never pays twice for the same gram.
-//
-// The answer keeps the order the owner said the ingredients in.
-func gramsOfTheRecipe(baked Recipe) []Ingredient {
-	grams := make([]Ingredient, 0, len(baked.Ingredients))
-	indexes := make(map[ingredient.ID]int, len(baked.Ingredients))
-
-	for _, one := range baked.Ingredients {
-		if index, seen := indexes[one.IngredientID]; seen {
-			grams[index].Grams += one.Grams
-
-			continue
-		}
-
-		indexes[one.IngredientID] = len(grams)
-		grams = append(grams, Ingredient{IngredientID: one.IngredientID, Grams: one.Grams})
-	}
-
-	return grams
 }
 
 // ratesOf answers the money of the batch per unit, per gram and per

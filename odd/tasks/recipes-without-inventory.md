@@ -98,6 +98,7 @@ baked out of an ingredient the business does not have.
 | T3  | S1, S2, S3 | The use case records a recipe whose ingredient the catalog does not hold          | inline | `2bcad05`, `c1f84d1` |
 | T4  | S3        | The tool `record_recipe` takes the name of the ingredient, and the link when it knows it | inline | `2bcad05`, `c1f84d1` |
 | T5  | S1, S2, S5 | The recipe lives unlinked: the catalog is asked when the money or the stock is needed | inline | `c1f84d1` |
+| T6  | S1, S2, S5 | The container tests of the database and of the server prove the rule against the real thing | inline | `b116b29` |
 
 ### T1 — The name of the ingredient of a recipe
 
@@ -253,3 +254,49 @@ the book's, and the domain asks the catalog every time it needs the money or the
   environment of the session. The container tests of the recipes were written for the new rule —
   the round trip of a recipe whose ingredient was never bought, and the foreign key that still
   refuses a link that is not an ingredient — and they are the proof that CI owes.
+
+**L8** (2026-11-16): The proof that CI owed was run, and it was **red**. The daemon of Docker
+was up on the machine, and the container tests of the database failed on the first test of the
+recipes: the fixture of the test still built the recipe with an ingredient that carries **no
+name**, and the rule of the domain refuses it — the recipe of the test is written with the name
+the owner says, and the fixture of the old rule had no name to give. Two more fixtures carried
+the old rule: the assertion that the name of the ingredient of the recipe was `flour` while the
+ingredient of the catalog of the test is `Harina panadera`, and the recipe that the table refuses
+was the one whose ingredient had no name either.
+
+The container test of the server carried the same old rule: it recorded the recipe with an
+ingredient that carries only its link, and the tool has required the name of the ingredient since
+the rule changed — the tool refuses the recipe whose ingredient has no name.
+
+What the tests say now:
+
+- the ingredient of the recipe of the test carries the name the owner says and the link to the
+  catalog when there is one, and the table reads the name it wrote;
+- the recipe that the table refuses is the one whose **link** points to an ingredient that is not
+  there — the link is the only thing the table refuses, and the name is the only thing it demands;
+- one test is added: the table refuses an ingredient of a recipe **without a name**
+  (`recipe_ingredients_name_not_empty_check`), the rule of the domain held as a defense in the
+  depth;
+- the container test of the server records the recipe with the name of the ingredient the owner
+  says (`Harina`) and the link the catalog answered.
+
+**The gate of the whole slice is green with the daemon of Docker up**: the gate of every module
+of the monorepository (`make gate`), the container tests of the database (`make -C
+packages/database test-integration`, the coverage of the adapter rises to 71.6% with them) and the
+container tests of the server (`make -C apps/mcp-server test-integration`), and the structure test
+of the repository with its 792 assertions and 0 failures.
+
+**L9** (2026-11-16): The boundary of the delivery. The branch carries **six commits and 1.482
+authored changed lines** since `origin/main`:
+
+- `9ea90d6` — the domain of the recipe and the table of its ingredients (741 lines);
+- `2bcad05` — the use case and the tool;
+- `c1f84d1` — the rule of the maintainer: the recipe lives unlinked;
+- `98aaeab` and `8c9ffc8` — the evidence of the document;
+- `b116b29` — the proof of the container tests, that CI owed.
+
+The branch is the slice: the three work units of the rule are the history of one change of one
+rule, and they are cut where the rule is cut — the domain, the use case and the tool, the
+resolution against the catalog. Splitting them into separate pull requests would put a domain
+without its table, and a tool without its use case, in front of the reviewer of a pull request.
+The pull request of this slice is one, and it carries the six commits.

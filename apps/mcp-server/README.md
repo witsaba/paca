@@ -611,7 +611,18 @@ business and the rule of the debt. The tools only carry them to the agent.
 | Path       | Method            | What it answers                                          |
 |------------|-------------------|----------------------------------------------------------|
 | `/healthz` | `GET`             | The health of the service: 200 while it serves, 503 when it does not. |
-| `/mcp`     | `POST` (`GET`, `DELETE`) | The MCP transport, over the streamable HTTP transport. |
+| `/mcp`     | `POST`            | The MCP transport, over the streamable HTTP transport.   |
+
+The transport of `/mcp` is **stateless**: it serves the messages of the
+protocol with `POST`, and every other method is answered with `405 Method Not
+Allowed` and the header `Allow: POST`, as RFC 9110 §15.5.6 asks.
+
+The protocol of MCP lets a server offer a stream of server-initiated messages
+with `GET`, and asks a server that does not offer it to answer `405`. A
+stateless server has no server-initiated message to send and no session to
+end, so it does not offer the stream, and `DELETE` is refused the same way.
+A probe that wants to know whether the transport is alive sends a `POST` with
+an `initialize` message, or reads `/healthz`.
 
 The health endpoint answers a JSON body:
 
